@@ -14,8 +14,16 @@ import ControlPrompt from './ControlPrompt';
 import { soundService } from '../services/soundService';
 
 
+export interface SyncPreferences {
+  ratingAndSummary: 'igdb' | 'none';
+  cover: 'igdb' | 'steamgrid' | 'none';
+  background: 'igdb' | 'steamgrid' | 'none';
+  logo: 'steamgrid' | 'none';
+}
+
 export interface UserSettings {
   autoPlayVideo: boolean;
+  syncPreferences?: SyncPreferences;
 }
 
 export interface UserProfile {
@@ -30,20 +38,27 @@ interface UserSelectScreenProps {
   onUserSelected: (user: UserProfile) => void;
 }
 
+const DEFAULT_SYNC_PREFERENCES: SyncPreferences = {
+  ratingAndSummary: 'igdb',
+  cover: 'steamgrid',
+  background: 'steamgrid',
+  logo: 'steamgrid'
+};
+
 const DEFAULT_USERS: UserProfile[] = [
   {
     id: '1',
     name: 'Player 1',
     avatar: 'assets/images/userDefault.jpeg',
     color: '#FF3B30',
-    settings: { autoPlayVideo: true }
+    settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES }
   },
   {
     id: '2',
     name: 'Player 2',
     avatar: 'assets/images/userDefault.jpeg',
     color: '#00D4FF',
-    settings: { autoPlayVideo: true }
+    settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES }
   },
 ];
 

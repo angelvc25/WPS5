@@ -105,7 +105,7 @@ export default function ConsoleHome() {
 
   const [isFavoritesVisible, setFavoritesVisible] = useState(false);
   const [isSettingsVisible, setSettingsVisible] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'home'>('profile');
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'home' | 'sync'>('profile');
   const [homeBackground, setHomeBackground] = useState<any>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [isRandomSelectorVisible, setRandomSelectorVisible] = useState(false);
@@ -469,9 +469,12 @@ export default function ConsoleHome() {
             setFocusArea('header_user');
           } else if (e.key === 'ArrowDown') {
             if (settingsFocusArea === 'sidebar') {
-              setSettingsFocusIndex(prev => Math.min(prev + 1, 2));
+              setSettingsFocusIndex(prev => Math.min(prev + 1, 3));
             } else {
-              setSettingsFocusIndex(prev => Math.min(prev + 1, settingsTab === 'profile' ? 2 : 1));
+              let maxIdx = 1;
+              if (settingsTab === 'profile') maxIdx = 2;
+              if (settingsTab === 'sync') maxIdx = 3;
+              setSettingsFocusIndex(prev => Math.min(prev + 1, maxIdx));
             }
           } else if (e.key === 'ArrowUp') {
             setSettingsFocusIndex(prev => Math.max(prev - 1, 0));
@@ -480,12 +483,15 @@ export default function ConsoleHome() {
             setSettingsFocusIndex(0);
           } else if (e.key === 'ArrowLeft' && settingsFocusArea === 'content') {
             setSettingsFocusArea('sidebar');
-            setSettingsFocusIndex(settingsTab === 'profile' ? 0 : 1);
+            if (settingsTab === 'profile') setSettingsFocusIndex(0);
+            else if (settingsTab === 'home') setSettingsFocusIndex(1);
+            else if (settingsTab === 'sync') setSettingsFocusIndex(2);
           } else if (e.key === 'Enter') {
             if (settingsFocusArea === 'sidebar') {
               if (settingsFocusIndex === 0) setSettingsTab('profile');
               else if (settingsFocusIndex === 1) setSettingsTab('home');
-              else if (settingsFocusIndex === 2) {
+              else if (settingsFocusIndex === 2) setSettingsTab('sync');
+              else if (settingsFocusIndex === 3) {
                 setSettingsVisible(false);
                 setUserModalVisible(true);
               }
@@ -493,7 +499,7 @@ export default function ConsoleHome() {
               if (settingsTab === 'profile') {
                 if (settingsFocusIndex === 0) handleSelectAvatar();
                 else if (settingsFocusIndex === 1) settingsNameRef.current?.focus();
-              } else {
+              } else if (settingsTab === 'home') {
                 if (settingsFocusIndex === 0) {
                   updateUser({
                     settings: { ...activeUser?.settings, autoPlayVideo: !(activeUser?.settings?.autoPlayVideo !== false) }
@@ -501,6 +507,17 @@ export default function ConsoleHome() {
                 } else if (settingsFocusIndex === 1) {
                   setSettingsVisible(false);
                   setHomeBgModalVisible(true);
+                }
+              } else if (settingsTab === 'sync') {
+                const currentSync = activeUser?.settings?.syncPreferences || { ratingAndSummary: 'igdb', cover: 'steamgrid', background: 'steamgrid', logo: 'steamgrid' };
+                if (settingsFocusIndex === 0) {
+                  updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, ratingAndSummary: currentSync.ratingAndSummary === 'igdb' ? 'none' : 'igdb' } as any } });
+                } else if (settingsFocusIndex === 1) {
+                  updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, cover: currentSync.cover === 'steamgrid' ? 'igdb' : (currentSync.cover === 'igdb' ? 'none' : 'steamgrid') } as any } });
+                } else if (settingsFocusIndex === 2) {
+                  updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, background: currentSync.background === 'steamgrid' ? 'igdb' : (currentSync.background === 'igdb' ? 'none' : 'steamgrid') } as any } });
+                } else if (settingsFocusIndex === 3) {
+                  updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, logo: currentSync.logo === 'steamgrid' ? 'none' : 'steamgrid' } as any } });
                 }
               }
             }
@@ -1763,10 +1780,18 @@ export default function ConsoleHome() {
                 <Text style={[styles.settingsTabText, settingsTab === 'home' && styles.settingsTabTextActive]}>Inicio</Text>
               </TouchableOpacity>
 
+              <TouchableOpacity
+                style={[styles.settingsTab, settingsTab === 'sync' && styles.settingsTabActive, (settingsFocusArea === 'sidebar' && settingsFocusIndex === 2) && styles.buttonFocused]}
+                onPress={() => setSettingsTab('sync')}
+              >
+                <Ionicons name="sync-circle-outline" size={20} color={settingsTab === 'sync' ? '#00FFFF' : '#AAA'} />
+                <Text style={[styles.settingsTabText, settingsTab === 'sync' && styles.settingsTabTextActive]}>Sincronización</Text>
+              </TouchableOpacity>
+
               <View style={{ flex: 1 }} />
 
               <TouchableOpacity
-                style={[styles.settingsSidebarClose, (settingsFocusArea === 'sidebar' && settingsFocusIndex === 2) && styles.buttonFocused]}
+                style={[styles.settingsSidebarClose, (settingsFocusArea === 'sidebar' && settingsFocusIndex === 3) && styles.buttonFocused]}
                 onPress={() => {
                   setSettingsVisible(false);
                   setUserModalVisible(true);
@@ -1850,7 +1875,7 @@ export default function ConsoleHome() {
                     </View>
                   </View>
                 </ScrollView>
-              ) : (
+              ) : settingsTab === 'home' ? (
                 <ScrollView contentContainerStyle={styles.settingsScrollContentInner}>
                   <Text style={styles.settingsMainTitle}>Configuración de Inicio</Text>
 
@@ -1890,7 +1915,48 @@ export default function ConsoleHome() {
                     </TouchableOpacity>
                   </View>
                 </ScrollView>
-              )}
+              ) : settingsTab === 'sync' ? (
+                <ScrollView contentContainerStyle={styles.settingsScrollContentInner}>
+                  <Text style={styles.settingsMainTitle}>Sincronización Inteligente</Text>
+                  <Text style={[styles.settingsOptionDesc, {marginBottom: 20, color: '#888'}]}>Elige la fuente de datos predeterminada para cada tipo de contenido cuando uses el botón "Sincronizar Datos".</Text>
+
+                  {[
+                    { key: 'ratingAndSummary', label: 'Resumen y Rating', options: [{ id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
+                    { key: 'cover', label: 'Portada (Cover)', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
+                    { key: 'background', label: 'Fondo (Background)', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
+                    { key: 'logo', label: 'Logo', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'none', label: 'Ninguno' }] }
+                  ].map((pref, index) => {
+                    const currentSync = activeUser?.settings?.syncPreferences || { ratingAndSummary: 'igdb', cover: 'steamgrid', background: 'steamgrid', logo: 'steamgrid' };
+                    const currentValue = (currentSync as any)[pref.key];
+                    return (
+                      <View key={pref.key} style={[styles.settingsSection, (settingsFocusArea === 'content' && settingsFocusIndex === index) && styles.buttonFocused]}>
+                        <Text style={styles.settingsLabel}>{pref.label}</Text>
+                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                          {pref.options.map(opt => (
+                            <TouchableOpacity
+                              key={opt.id}
+                              style={[
+                                styles.platformBtn,
+                                currentValue === opt.id && styles.platformBtnActive
+                              ]}
+                              onPress={() => {
+                                updateUser({
+                                  settings: {
+                                    autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true,
+                                    syncPreferences: { ...currentSync, [pref.key]: opt.id } as any
+                                  }
+                                });
+                              }}
+                            >
+                              <Text style={[styles.platformBtnText, currentValue === opt.id && styles.platformBtnTextActive]}>{opt.label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              ) : null}
             </View>
           </View>
         </View>

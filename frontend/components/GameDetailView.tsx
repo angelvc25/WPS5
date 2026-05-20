@@ -5,6 +5,7 @@ import { BlurView } from 'expo-blur';
 import { ConsoleItem } from '../app/(tabs)/index';
 import YoutubePlayer from './YoutubePlayer';
 import ControlPrompt from './ControlPrompt';
+import { useUser } from '../contexts/UserContext';
 
 interface GameDetailViewProps {
   isVisible: boolean;
@@ -23,6 +24,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [focusIndex, setFocusIndex] = useState(0); // 0: Inicio, 1: Editar, 2: Favorito
   const [editModalFocusIndex, setEditModalFocusIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'basic' | 'path' | 'art'>('basic');
+  const { activeUser } = useUser();
 
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 1100; // Handheld PC threshold
@@ -95,7 +97,6 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             
             // Tab 3: art
             else if (editModalFocusIndex === 0) setEditModalFocusIndex(11);
-            else if (editModalFocusIndex === 1) setEditModalFocusIndex(12);
             else if (editModalFocusIndex === 11) setEditModalFocusIndex(13);
             else if (editModalFocusIndex === 12) setEditModalFocusIndex(14);
             else if (editModalFocusIndex === 13) setEditModalFocusIndex(16); // to Cancel
@@ -119,9 +120,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 18) setEditModalFocusIndex(21); // Back to sidebar path tab
             
             // Tab 3: art
-            else if (editModalFocusIndex === 0 || editModalFocusIndex === 1) setEditModalFocusIndex(22); // Back to sidebar art tab
+            else if (editModalFocusIndex === 0) setEditModalFocusIndex(22); // Back to sidebar art tab
             else if (editModalFocusIndex === 11) setEditModalFocusIndex(0);
-            else if (editModalFocusIndex === 12) setEditModalFocusIndex(1);
+            else if (editModalFocusIndex === 12) setEditModalFocusIndex(0);
             else if (editModalFocusIndex === 13) setEditModalFocusIndex(11);
             else if (editModalFocusIndex === 14) setEditModalFocusIndex(12);
             
@@ -137,11 +138,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             // From tabs to content area
             if (editModalFocusIndex === 20) setEditModalFocusIndex(2); // Basic -> Title
             else if (editModalFocusIndex === 21) setEditModalFocusIndex(18); // Path -> Path selection
-            else if (editModalFocusIndex === 22) setEditModalFocusIndex(0); // Art -> IGDB sync
+            else if (editModalFocusIndex === 22) setEditModalFocusIndex(0); // Art -> Sync
             
             // Within content elements
             else if (editModalFocusIndex >= 3 && editModalFocusIndex < 9) setEditModalFocusIndex(prev => prev + 1);
-            else if (editModalFocusIndex === 0) setEditModalFocusIndex(1);
             else if (editModalFocusIndex === 11) setEditModalFocusIndex(12);
             else if (editModalFocusIndex === 13) setEditModalFocusIndex(14);
             
@@ -157,7 +157,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             
             else if (editModalFocusIndex === 18) setEditModalFocusIndex(21);
             
-            else if (editModalFocusIndex === 0 || editModalFocusIndex === 1) setEditModalFocusIndex(22);
+            else if (editModalFocusIndex === 0) setEditModalFocusIndex(22);
             else if (editModalFocusIndex === 11 || editModalFocusIndex === 13) setEditModalFocusIndex(22);
             else if (editModalFocusIndex === 12) setEditModalFocusIndex(11);
             else if (editModalFocusIndex === 14) setEditModalFocusIndex(13);
@@ -170,8 +170,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             if (editModalFocusIndex === 20) setActiveTab('basic');
             else if (editModalFocusIndex === 21) setActiveTab('path');
             else if (editModalFocusIndex === 22) setActiveTab('art');
-            else if (editModalFocusIndex === 0) handleSyncIGDB();
-            else if (editModalFocusIndex === 1) handleSyncSteamGrid();
+            else if (editModalFocusIndex === 0) handleUnifiedSync();
             else if (editModalFocusIndex === 2) editTitleRef.current?.focus();
             else if (editModalFocusIndex === 18) {
               if ((editData.type || item?.type) === 'web') editPathInputRef.current?.focus();
@@ -262,43 +261,60 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
   };
 
-  const handleSyncIGDB = async () => {
-    if ((window as any).electronAPI && editData.title) {
-      setIsSyncing(true);
-      const result = await (window as any).electronAPI.fetchGameData(editData.title);
-      setIsSyncing(false);
-      
-      if (result.success) {
-        const game = result.data;
-        const newEditData: any = {
-          ...editData,
-          rating: game.rating ? game.rating / 20 : (game.aggregated_rating ? game.aggregated_rating / 20 : 5.0),
-          description: game.summary || editData.description,
-          youtubeId: game.videos && game.videos.length > 0 ? game.videos[0].video_id : editData.youtubeId
-        };
+  const handleUnifiedSync = async () => {
+    if (!(window as any).electronAPI || !editData.title) return;
 
-        // Si IGDB devuelve una carátula, la usamos (convertimos a alta resolución)
-        if (game.cover && game.cover.url) {
-          const coverUrl = 'https:' + game.cover.url.replace('t_thumb', 't_cover_big');
-          newEditData.image = coverUrl;
+    setIsSyncing(true);
+    const syncPrefs = activeUser?.settings?.syncPreferences || {
+      ratingAndSummary: 'igdb',
+      cover: 'steamgrid',
+      background: 'steamgrid',
+      logo: 'steamgrid'
+    };
+
+    let newEditData = { ...editData };
+
+    // Fetch IGDB if needed
+    if (syncPrefs.ratingAndSummary === 'igdb' || syncPrefs.cover === 'igdb' || syncPrefs.background === 'igdb') {
+      const resultIGDB = await (window as any).electronAPI.fetchGameData(editData.title);
+      if (resultIGDB.success) {
+        const game = resultIGDB.data;
+        if (syncPrefs.ratingAndSummary === 'igdb') {
+          newEditData.rating = game.rating ? game.rating / 20 : (game.aggregated_rating ? game.aggregated_rating / 20 : 5.0);
+          newEditData.description = game.summary || newEditData.description;
+          newEditData.youtubeId = game.videos && game.videos.length > 0 ? game.videos[0].video_id : newEditData.youtubeId;
         }
-
-        // Si IGDB devuelve capturas o arte, usamos la primera como fondo (1080p)
-        if (game.screenshots && game.screenshots.length > 0) {
-          newEditData.backgroundImage = 'https:' + game.screenshots[0].url.replace('t_thumb', 't_1080p');
-        } else if (game.artworks && game.artworks.length > 0) {
-          newEditData.backgroundImage = 'https:' + game.artworks[0].url.replace('t_thumb', 't_1080p');
+        if (syncPrefs.cover === 'igdb' && game.cover?.url) {
+          newEditData.image = 'https:' + game.cover.url.replace('t_thumb', 't_cover_big');
         }
-
-        setEditData(newEditData);
-
+        if (syncPrefs.background === 'igdb') {
+          if (game.screenshots && game.screenshots.length > 0) {
+            newEditData.backgroundImage = 'https:' + game.screenshots[0].url.replace('t_thumb', 't_1080p');
+          } else if (game.artworks && game.artworks.length > 0) {
+            newEditData.backgroundImage = 'https:' + game.artworks[0].url.replace('t_thumb', 't_1080p');
+          }
+        }
       } else {
-
-        alert('No se encontró información en IGDB. Revisa el nombre del juego.');
+        console.log('IGDB Sync failed:', resultIGDB.error);
       }
     }
-  };
 
+    // Fetch SteamGridDB if needed
+    if (syncPrefs.cover === 'steamgrid' || syncPrefs.background === 'steamgrid' || syncPrefs.logo === 'steamgrid') {
+      const resultSteam = await (window as any).electronAPI.fetchSteamGridData(editData.title);
+      if (resultSteam.success) {
+        const assets = resultSteam.data;
+        if (syncPrefs.cover === 'steamgrid' && assets.grid) newEditData.image = assets.grid;
+        if (syncPrefs.background === 'steamgrid' && assets.hero) newEditData.backgroundImage = assets.hero;
+        if (syncPrefs.logo === 'steamgrid' && assets.logo) newEditData.logo = assets.logo;
+      } else {
+        console.log('SteamGrid Sync failed:', resultSteam.error);
+      }
+    }
+
+    setEditData(newEditData);
+    setIsSyncing(false);
+  };
 
   const handleToggleFavorite = async () => {
     console.log('Toggling favorite for:', item.id);
@@ -330,28 +346,6 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       }
     }
   };
-
-
-  const handleSyncSteamGrid = async () => {
-    if ((window as any).electronAPI && editData.title) {
-      setIsSyncing(true);
-      const result = await (window as any).electronAPI.fetchSteamGridData(editData.title);
-      setIsSyncing(false);
-      
-      if (result.success) {
-        const assets = result.data;
-        setEditData({
-          ...editData,
-          image: assets.grid || editData.image,
-          backgroundImage: assets.hero || editData.backgroundImage,
-          logo: assets.logo || editData.logo
-        });
-      } else {
-        alert('SteamGridDB: ' + result.error);
-      }
-    }
-  };
-
 
   return (
     <Modal visible={isVisible} transparent={false} animationType="fade" onRequestClose={onClose}>
@@ -698,21 +692,12 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <Text style={styles.label}>Sincronización Inteligente</Text>
                         <View style={styles.syncRow}>
                           <TouchableOpacity 
-                            style={[styles.syncBtnCompact, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.buttonFocused]} 
-                            onPress={handleSyncIGDB}
+                            style={[styles.syncBtnUnified, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.buttonFocused]} 
+                            onPress={handleUnifiedSync}
                             disabled={isSyncing}
                           >
-                            <Ionicons name="sync" size={16} color="#000" />
-                            <Text style={styles.syncBtnTextCompact}>IGDB (Resumen/Stars)</Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity 
-                            style={[styles.syncBtnCompact, { backgroundColor: '#171a21' }, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 1 && styles.buttonFocused]} 
-                            onPress={handleSyncSteamGrid}
-                            disabled={isSyncing}
-                          >
-                            <Ionicons name="images" size={16} color="#FFF" />
-                            <Text style={[styles.syncBtnTextCompact, { color: '#FFF' }]}>SteamGrid (Arte)</Text>
+                            <Ionicons name="sync" size={18} color="#000" />
+                            <Text style={styles.syncBtnTextCompact}>{isSyncing ? 'Sincronizando...' : 'Sincronizar Datos (Auto)'}</Text>
                           </TouchableOpacity>
                         </View>
 
@@ -1001,6 +986,7 @@ const styles = StyleSheet.create({
   syncRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   syncBtnCompact: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFD700', paddingVertical: 12, paddingHorizontal: 10, borderRadius: 10 },
   syncBtnTextCompact: { color: '#000', fontWeight: '800', marginLeft: 6, fontSize: 12 },
+  syncBtnUnified: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#00FFFF', paddingVertical: 15, paddingHorizontal: 15, borderRadius: 12, shadowColor: '#00FFFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 10 },
   artGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
   artFileBtn: { width: '47%', backgroundColor: 'rgba(255, 255, 255, 0.04)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
   artFileBtnTitle: { color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 6 },
