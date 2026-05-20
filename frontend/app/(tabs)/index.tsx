@@ -1825,11 +1825,26 @@ export default function ConsoleHome() {
                           style={[
                             styles.colorCircle,
                             { backgroundColor: color },
-                            activeUser?.color === color && styles.colorCircleActive
+                            activeUser?.color === color && styles.colorCircleActive,
                           ]}
                           onPress={() => updateUser({ color })}
                         />
                       ))}
+                    <TouchableOpacity
+                      style={[styles.colorCircle, { backgroundColor: activeUser?.color }]}
+                      onPress={() => {
+                        const el = document.getElementById('colorPicker') as any;
+                        if (el) el.click();
+                      }}
+                    >
+                      <input
+                        id="colorPicker"
+                        type="color"
+                        value={activeUser?.color}
+                        onChange={(e) => updateUser({ color: e.target.value })}
+                        style={{ display: 'none' }}
+                      />
+                    </TouchableOpacity>
                     </View>
                   </View>
                 </ScrollView>
@@ -2259,19 +2274,11 @@ const styles = StyleSheet.create({
   itemFocused: {
     borderWidth: 3,
     borderColor: '#00FFFF',
-    shadowColor: '#00FFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
     transform: [{ scale: 1.05 }],
   },
   buttonFocused: {
     borderColor: '#00FFFF',
     borderWidth: 3,
-    // shadowColor: '#00FFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
     transform: [{ scale: 1.05 }],
     zIndex: 10,
   },
@@ -2448,72 +2455,76 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   settingsContainer: {
-    width: 800,
-    height: 500,
-    backgroundColor: 'rgba(20, 20, 35, 0.95)',
-    borderRadius: 30,
+    width: 850,
+    height: 600,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 24,
     flexDirection: 'row',
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.6,
-    shadowRadius: 30,
   },
   settingsSidebar: {
-    width: 220,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    padding: 30,
+    width: 240,
+    backgroundColor: '#141416',
+    padding: 24,
     borderRightWidth: 1,
-    borderRightColor: 'rgba(255, 255, 255, 0.05)',
+    borderRightColor: 'rgba(255, 255, 255, 0.08)',
   },
   settingsSidebarTitle: {
     color: '#FFF',
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 40,
+    marginBottom: 25,
+    letterSpacing: 0.5,
   },
   settingsTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
+    padding: 14,
     borderRadius: 12,
-    marginBottom: 10,
-    gap: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    gap: 10,
   },
   settingsTabActive: {
-    backgroundColor: 'rgba(0, 255, 255, 0.15)',
+    backgroundColor: 'rgba(0, 255, 255, 0.08)',
+    borderColor: 'rgba(0, 255, 255, 0.15)',
   },
   settingsTabText: {
-    color: '#AAA',
-    fontSize: 16,
+    color: '#8E8E93',
+    fontSize: 15,
     fontWeight: '600',
   },
   settingsTabTextActive: {
     color: '#00FFFF',
+    fontWeight: 'bold',
   },
   settingsSidebarClose: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
     gap: 10,
-    opacity: 0.7,
   },
   settingsSidebarCloseText: {
-    color: '#AAA',
-    fontSize: 14,
+    color: '#8E8E93',
+    fontSize: 15,
     fontWeight: '600',
   },
   settingsMain: {
     flex: 1,
-    padding: 40,
+    padding: 30,
+    backgroundColor: '#1C1C1E',
   },
   settingsMainTitle: {
     color: '#FFF',
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   settingsScrollContentInner: {
     paddingBottom: 20,
@@ -2544,6 +2555,7 @@ const styles = StyleSheet.create({
   settingsAvatar: {
     width: '100%',
     height: '100%',
+    borderRadius: 60,
   },
   settingsAvatarEditBadge: {
     position: 'absolute',
@@ -2567,13 +2579,30 @@ const styles = StyleSheet.create({
   colorPickerContainer: {
     flexDirection: 'row',
     gap: 15,
+    alignItems: 'center',
+
+  },
+  colorPickerInput: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    overflow: 'hidden',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    border: 0,
+    padding: 0,
+    cursor: 'pointer',
   },
   colorCircle: {
     width: 38,
     height: 38,
     borderRadius: 19,
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: '#FFF',
+    cursor: 'pointer',
   },
   colorCircleActive: {
     borderColor: '#FFF',
@@ -2609,6 +2638,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: 'rgba(255,255,255,0.1)',
     padding: 3,
+    justifyContent: 'center',
   },
   toggleContainerActive: {
     backgroundColor: '#00FFFF',
@@ -2620,7 +2650,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
   },
   toggleCircleActive: {
-    transform: [{ translateX: 24 }],
+    transform: [{ translateX: 25 }],
   },
   settingsSecondaryBtn: {
     flexDirection: 'row',

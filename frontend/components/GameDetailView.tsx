@@ -1041,10 +1041,6 @@ const styles = StyleSheet.create({
   buttonFocused: {
     borderColor: '#FFF',
     borderWidth: 3,
-    shadowColor: '#FFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
     transform: [{ scale: 1.04 }],
     zIndex: 10,
   },
