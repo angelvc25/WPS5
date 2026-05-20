@@ -1830,21 +1830,21 @@ export default function ConsoleHome() {
                           onPress={() => updateUser({ color })}
                         />
                       ))}
-                    <TouchableOpacity
-                      style={[styles.colorCircle, { backgroundColor: activeUser?.color }]}
-                      onPress={() => {
-                        const el = document.getElementById('colorPicker') as any;
-                        if (el) el.click();
-                      }}
-                    >
-                      <input
-                        id="colorPicker"
-                        type="color"
-                        value={activeUser?.color}
-                        onChange={(e) => updateUser({ color: e.target.value })}
-                        style={{ display: 'none' }}
-                      />
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.colorCircle, { backgroundColor: activeUser?.color }]}
+                        onPress={() => {
+                          const el = document.getElementById('colorPicker') as any;
+                          if (el) el.click();
+                        }}
+                      >
+                        <input
+                          id="colorPicker"
+                          type="color"
+                          value={activeUser?.color}
+                          onChange={(e) => updateUser({ color: e.target.value })}
+                          style={{ display: 'none' }}
+                        />
+                      </TouchableOpacity>
                     </View>
                   </View>
                 </ScrollView>
@@ -2590,9 +2590,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
     backgroundColor: 'rgba(0,0,0,0.2)',
     overflow: 'hidden',
-    appearance: 'none',
-    WebkitAppearance: 'none',
-    border: 0,
+    // appearance: 'none',
+    // WebkitAppearance: 'none',
+    // border: 0,
     padding: 0,
     cursor: 'pointer',
   },
