@@ -22,12 +22,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [isSyncing, setIsSyncing] = useState(false);
   const [focusIndex, setFocusIndex] = useState(0); // 0: Inicio, 1: Editar, 2: Favorito
   const [editModalFocusIndex, setEditModalFocusIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<'basic' | 'path' | 'art'>('basic');
 
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 1100; // Handheld PC threshold
 
   const editTitleRef = React.useRef<TextInput>(null);
   const editDescRef = React.useRef<TextInput>(null);
+  const editPathInputRef = React.useRef<TextInput>(null);
 
 
   useEffect(() => {
@@ -44,6 +46,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         video: item.video?.uri?.startsWith('local-file://') ? item.video.uri.replace('local-file://', '') : (item.video?.uri?.startsWith('http') ? item.video.uri : undefined),
         youtubeId: item.youtubeId,
         platform: item.platform,
+        path: item.path,
+        type: item.type,
       };
 
       setEditData(initialData);
@@ -52,9 +56,18 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
   useEffect(() => {
     if (isEditModalVisible) {
-      setEditModalFocusIndex(0);
+      setEditModalFocusIndex(20);
+      setActiveTab('basic');
     }
   }, [isEditModalVisible]);
+
+  useEffect(() => {
+    if (isEditModalVisible) {
+      if (editModalFocusIndex === 20) setActiveTab('basic');
+      else if (editModalFocusIndex === 21) setActiveTab('path');
+      else if (editModalFocusIndex === 22) setActiveTab('art');
+    }
+  }, [editModalFocusIndex, isEditModalVisible]);
 
   // Keyboard navigation within Detail View
   useEffect(() => {
@@ -66,27 +79,104 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
         if (isEditModalVisible) {
           const isGame = (editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web';
+          
           if (e.key === 'ArrowDown') {
-            if (editModalFocusIndex === 2) setEditModalFocusIndex(isGame ? 3 : 10);
+            if (editModalFocusIndex === 20) setEditModalFocusIndex(21);
+            else if (editModalFocusIndex === 21) setEditModalFocusIndex(22);
+            else if (editModalFocusIndex === 22) {} // Tab end
+            
+            // Tab 1: basic
+            else if (editModalFocusIndex === 2) setEditModalFocusIndex(isGame ? 3 : 10);
             else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(10);
-            else if (editModalFocusIndex === 14) setEditModalFocusIndex(16);
-            else if (editModalFocusIndex >= 15 && editModalFocusIndex <= 17) {} // Do nothing
-            else setEditModalFocusIndex(prev => Math.min(prev + 1, 17));
-          } else if (e.key === 'ArrowUp') {
-            if (editModalFocusIndex === 10) setEditModalFocusIndex(isGame ? 3 : 2);
+            else if (editModalFocusIndex === 10) setEditModalFocusIndex(16); // to Cancel
+            
+            // Tab 2: path
+            else if (editModalFocusIndex === 18) setEditModalFocusIndex(16); // to Cancel
+            
+            // Tab 3: art
+            else if (editModalFocusIndex === 0) setEditModalFocusIndex(11);
+            else if (editModalFocusIndex === 1) setEditModalFocusIndex(12);
+            else if (editModalFocusIndex === 11) setEditModalFocusIndex(13);
+            else if (editModalFocusIndex === 12) setEditModalFocusIndex(14);
+            else if (editModalFocusIndex === 13) setEditModalFocusIndex(16); // to Cancel
+            else if (editModalFocusIndex === 14) setEditModalFocusIndex(17); // to Save
+            
+            // Actions
+            else if (editModalFocusIndex >= 15 && editModalFocusIndex <= 17) {}
+          } 
+          
+          else if (e.key === 'ArrowUp') {
+            if (editModalFocusIndex === 22) setEditModalFocusIndex(21);
+            else if (editModalFocusIndex === 21) setEditModalFocusIndex(20);
+            else if (editModalFocusIndex === 20) {} // Tab start
+            
+            // Tab 1: basic
+            else if (editModalFocusIndex === 2) setEditModalFocusIndex(20); // Back to sidebar basic tab
             else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(2);
-            else if (editModalFocusIndex >= 15 && editModalFocusIndex <= 17) setEditModalFocusIndex(14);
-            else setEditModalFocusIndex(prev => Math.max(prev - 1, 0));
-          } else if (e.key === 'ArrowRight') {
-            if (editModalFocusIndex >= 3 && editModalFocusIndex < 9) setEditModalFocusIndex(prev => prev + 1);
+            else if (editModalFocusIndex === 10) setEditModalFocusIndex(isGame ? 3 : 2);
+            
+            // Tab 2: path
+            else if (editModalFocusIndex === 18) setEditModalFocusIndex(21); // Back to sidebar path tab
+            
+            // Tab 3: art
+            else if (editModalFocusIndex === 0 || editModalFocusIndex === 1) setEditModalFocusIndex(22); // Back to sidebar art tab
+            else if (editModalFocusIndex === 11) setEditModalFocusIndex(0);
+            else if (editModalFocusIndex === 12) setEditModalFocusIndex(1);
+            else if (editModalFocusIndex === 13) setEditModalFocusIndex(11);
+            else if (editModalFocusIndex === 14) setEditModalFocusIndex(12);
+            
+            // Actions
+            else if (editModalFocusIndex >= 15 && editModalFocusIndex <= 17) {
+              if (activeTab === 'basic') setEditModalFocusIndex(10);
+              else if (activeTab === 'path') setEditModalFocusIndex(18);
+              else if (activeTab === 'art') setEditModalFocusIndex(editModalFocusIndex === 17 ? 14 : 13);
+            }
+          } 
+          
+          else if (e.key === 'ArrowRight') {
+            // From tabs to content area
+            if (editModalFocusIndex === 20) setEditModalFocusIndex(2); // Basic -> Title
+            else if (editModalFocusIndex === 21) setEditModalFocusIndex(18); // Path -> Path selection
+            else if (editModalFocusIndex === 22) setEditModalFocusIndex(0); // Art -> IGDB sync
+            
+            // Within content elements
+            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 9) setEditModalFocusIndex(prev => prev + 1);
+            else if (editModalFocusIndex === 0) setEditModalFocusIndex(1);
+            else if (editModalFocusIndex === 11) setEditModalFocusIndex(12);
+            else if (editModalFocusIndex === 13) setEditModalFocusIndex(14);
+            
+            // Actions
             else if (editModalFocusIndex >= 15 && editModalFocusIndex < 17) setEditModalFocusIndex(prev => prev + 1);
-          } else if (e.key === 'ArrowLeft') {
-            if (editModalFocusIndex > 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(prev => prev - 1);
+          } 
+          
+          else if (e.key === 'ArrowLeft') {
+            // From content area to tabs sidebar
+            if (editModalFocusIndex === 2) setEditModalFocusIndex(20);
+            else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(20);
+            else if (editModalFocusIndex === 10) setEditModalFocusIndex(20);
+            
+            else if (editModalFocusIndex === 18) setEditModalFocusIndex(21);
+            
+            else if (editModalFocusIndex === 0 || editModalFocusIndex === 1) setEditModalFocusIndex(22);
+            else if (editModalFocusIndex === 11 || editModalFocusIndex === 13) setEditModalFocusIndex(22);
+            else if (editModalFocusIndex === 12) setEditModalFocusIndex(11);
+            else if (editModalFocusIndex === 14) setEditModalFocusIndex(13);
+            
+            // Actions
             else if (editModalFocusIndex > 15 && editModalFocusIndex <= 17) setEditModalFocusIndex(prev => prev - 1);
-          } else if (e.key === 'Enter') {
-            if (editModalFocusIndex === 0) handleSyncIGDB();
+          } 
+          
+          else if (e.key === 'Enter') {
+            if (editModalFocusIndex === 20) setActiveTab('basic');
+            else if (editModalFocusIndex === 21) setActiveTab('path');
+            else if (editModalFocusIndex === 22) setActiveTab('art');
+            else if (editModalFocusIndex === 0) handleSyncIGDB();
             else if (editModalFocusIndex === 1) handleSyncSteamGrid();
             else if (editModalFocusIndex === 2) editTitleRef.current?.focus();
+            else if (editModalFocusIndex === 18) {
+              if ((editData.type || item?.type) === 'web') editPathInputRef.current?.focus();
+              else handleSelectPath();
+            }
             else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) {
                const platforms = ['PC', 'PS5', 'Xbox', 'Switch', 'Steam', 'EA', 'Epic'];
                setEditData({ ...editData, platform: platforms[editModalFocusIndex - 3] });
@@ -99,7 +189,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 15) handleDeleteApp();
             else if (editModalFocusIndex === 16) setEditModalVisible(false);
             else if (editModalFocusIndex === 17) handleSaveEdit();
-          } else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+          } 
+          
+          else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
             setEditModalVisible(false);
           }
           return;
@@ -128,9 +220,16 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isVisible, isEditModalVisible, focusIndex, editModalFocusIndex, item, onLaunch, onClose]);
+  }, [isVisible, isEditModalVisible, focusIndex, editModalFocusIndex, item, onLaunch, onClose, editData]);
 
   if (!item) return null;
+
+  const handleSelectPath = async () => {
+    if ((window as any).electronAPI) {
+      const p = await (window as any).electronAPI.selectFile();
+      if (p) setEditData({ ...editData, path: p });
+    }
+  };
 
   const handleSelectImage = async (field: 'image' | 'backgroundImage' | 'logo') => {
     if ((window as any).electronAPI) {
@@ -453,134 +552,238 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       {/* EDIT MODAL */}
       <Modal visible={isEditModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Editar Aplicación</Text>
+          <View style={[styles.modalContent, styles.modalContentExpanded]}>
+            <View style={styles.modalBodyRow}>
+              {/* SIDEBAR TABS */}
+              <View style={styles.sidebar}>
+                <Text style={styles.sidebarTitle}>Ajustes</Text>
+                
+                {[
+                  { id: 'basic', label: 'Datos Básicos', icon: 'information-circle-outline', index: 20 },
+                  { id: 'path', label: 'Ruta del Juego', icon: 'folder-open-outline', index: 21 },
+                  { id: 'art', label: 'Arte y Multimedia', icon: 'image-outline', index: 22 },
+                ].map((tab) => {
+                  const isTabActive = activeTab === tab.id;
+                  const isTabFocused = editModalFocusIndex === tab.index;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={tab.id}
+                      style={[
+                        styles.tabButton,
+                        isTabActive && styles.tabButtonActive,
+                        isTabFocused && styles.buttonFocused
+                      ]}
+                      onPress={() => {
+                        setEditModalFocusIndex(tab.index);
+                        setActiveTab(tab.id as any);
+                      }}
+                    >
+                      <Ionicons 
+                        name={tab.icon as any} 
+                        size={20} 
+                        color={isTabActive ? '#00FFFF' : '#8E8E93'} 
+                        style={{ marginRight: 10 }}
+                      />
+                      <Text style={[
+                        styles.tabButtonText, 
+                        isTabActive && styles.tabButtonTextActive
+                      ]}>
+                        {tab.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-            <TouchableOpacity 
-              style={[styles.syncBtn, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.buttonFocused]} 
-              onPress={handleSyncIGDB}
-              disabled={isSyncing}
-            >
-              <Ionicons name="sync" size={18} color="#000" />
-              <Text style={styles.syncBtnText}>{isSyncing ? 'Sincronizando...' : 'Sincronizar con IGDB (Rating/Resumen)'}</Text>
-            </TouchableOpacity>
+              {/* RIGHT CONTENT AREA */}
+              <View style={styles.contentArea}>
+                <View style={{ flex: 1 }}>
+                  {activeTab === 'basic' && (
+                    <>
+                      <Text style={styles.sectionTitle}>Datos Básicos</Text>
+                      <ScrollView showsVerticalScrollIndicator={false}>
+                        <Text style={styles.label}>Título</Text>
+                        <TextInput
+                          ref={editTitleRef}
+                          style={[styles.input, editModalFocusIndex === 2 && styles.inputFocused]}
+                          value={editData.title}
+                          onChangeText={(text) => setEditData({ ...editData, title: text })}
+                        />
 
-            <TouchableOpacity 
-              style={[styles.syncBtn, { backgroundColor: '#171a21' }, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 1 && styles.buttonFocused]} 
-              onPress={handleSyncSteamGrid}
-              disabled={isSyncing}
-            >
-              <Ionicons name="images" size={18} color="#FFF" />
-              <Text style={[styles.syncBtnText, { color: '#FFF' }]}>{isSyncing ? 'Sincronizando...' : 'Sincronizar con SteamGridDB (Arte)'}</Text>
-            </TouchableOpacity>
+                        {((editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web') && (
+                          <>
+                            <Text style={styles.label}>Plataforma</Text>
+                            <View style={{ marginBottom: 20 }}>
+                              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
+                                {[
+                                  { id: 'PC', icon: 'microsoft-windows' },
+                                  { id: 'PS5', icon: 'sony-playstation' },
+                                  { id: 'Xbox', icon: 'microsoft-xbox' },
+                                  { id: 'Switch', icon: 'nintendo-switch' },
+                                  { id: 'Steam', icon: 'steam' },
+                                  { id: 'EA', icon: 'alpha-e-box' },
+                                  { id: 'Epic', icon: 'alpha-e-circle' }
+                                ].map((plat, idx) => {
+                                   const focusIdx = 3 + idx;
+                                   return (
+                                    <TouchableOpacity
+                                      key={plat.id}
+                                      style={[
+                                        styles.platformBtn,
+                                        editData.platform === plat.id && styles.platformBtnActive,
+                                        editModalFocusIndex === focusIdx && styles.buttonFocused
+                                      ]}
+                                      onPress={() => setEditData({ ...editData, platform: plat.id })}
+                                    >
+                                      <MaterialCommunityIcons name={plat.icon as any} size={20} color={editData.platform === plat.id ? '#000' : '#FFF'} />
+                                      <Text style={[styles.platformBtnText, editData.platform === plat.id && styles.platformBtnTextActive]}>{plat.id}</Text>
+                                    </TouchableOpacity>
+                                   );
+                                })}
+                              </ScrollView>
+                            </View>
+                          </>
+                        )}
 
-            <ScrollView style={{ maxHeight: 400 }}>
-              <Text style={styles.label}>Título</Text>
-              <TextInput
-                ref={editTitleRef}
-                style={[styles.input, editModalFocusIndex === 2 && styles.inputFocused]}
-                value={editData.title}
-                onChangeText={(text) => setEditData({ ...editData, title: text })}
-              />
+                        <Text style={styles.label}>Descripción</Text>
+                        <TextInput
+                          ref={editDescRef}
+                          style={[styles.input, { height: 120, textAlignVertical: 'top' }, editModalFocusIndex === 10 && styles.inputFocused]}
+                          multiline
+                          value={editData.description}
+                          onChangeText={(text) => setEditData({ ...editData, description: text })}
+                        />
+                      </ScrollView>
+                    </>
+                  )}
 
-              {((editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web') && (
-                <>
-                  <Text style={styles.label}>Plataforma</Text>
-                  <View style={{ marginBottom: 20 }}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
-                      {[
-                        { id: 'PC', icon: 'microsoft-windows' },
-                        { id: 'PS5', icon: 'sony-playstation' },
-                        { id: 'Xbox', icon: 'microsoft-xbox' },
-                        { id: 'Switch', icon: 'nintendo-switch' },
-                        { id: 'Steam', icon: 'steam' },
-                        { id: 'EA', icon: 'alpha-e-box' },
-                        { id: 'Epic', icon: 'alpha-e-circle' }
-                      ].map((plat, idx) => {
-                         const focusIdx = 3 + idx;
-                         return (
-                          <TouchableOpacity
-                            key={plat.id}
-                            style={[
-                              styles.platformBtn,
-                              editData.platform === plat.id && styles.platformBtnActive,
-                              editModalFocusIndex === focusIdx && styles.buttonFocused
-                            ]}
-                            onPress={() => setEditData({ ...editData, platform: plat.id })}
+                  {activeTab === 'path' && (
+                    <>
+                      <Text style={styles.sectionTitle}>Ruta del Juego</Text>
+                      <ScrollView showsVerticalScrollIndicator={false}>
+                        <Text style={styles.label}>Ubicación del ejecutable o enlace</Text>
+                        {((editData.type || item?.type) === 'web') ? (
+                          <TextInput
+                            ref={editPathInputRef}
+                            style={[styles.input, editModalFocusIndex === 18 && styles.inputFocused]}
+                            placeholder="URL (https://...)"
+                            placeholderTextColor="#888"
+                            value={editData.path}
+                            onChangeText={(text) => setEditData({ ...editData, path: text })}
+                          />
+                        ) : (
+                          <>
+                            <TouchableOpacity
+                              style={[styles.fileBtn, { marginBottom: 15 }, editModalFocusIndex === 18 && styles.buttonFocused]}
+                              onPress={handleSelectPath}
+                            >
+                              <Ionicons name="folder-open" size={20} color="#FFF" />
+                              <Text style={styles.fileBtnText}>Seleccionar nuevo ejecutable (.exe)</Text>
+                            </TouchableOpacity>
+                            <View style={styles.pathDisplayBox}>
+                              <Text style={styles.pathDisplayTextHeader}>Ruta actual del juego:</Text>
+                              <Text style={styles.pathDisplayText}>{editData.path || 'No seleccionada'}</Text>
+                            </View>
+                          </>
+                        )}
+                      </ScrollView>
+                    </>
+                  )}
+
+                  {activeTab === 'art' && (
+                    <>
+                      <Text style={styles.sectionTitle}>Arte y Multimedia</Text>
+                      <ScrollView showsVerticalScrollIndicator={false}>
+                        <Text style={styles.label}>Sincronización Inteligente</Text>
+                        <View style={styles.syncRow}>
+                          <TouchableOpacity 
+                            style={[styles.syncBtnCompact, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.buttonFocused]} 
+                            onPress={handleSyncIGDB}
+                            disabled={isSyncing}
                           >
-                            <MaterialCommunityIcons name={plat.icon as any} size={20} color={editData.platform === plat.id ? '#000' : '#FFF'} />
-                            <Text style={[styles.platformBtnText, editData.platform === plat.id && styles.platformBtnTextActive]}>{plat.id}</Text>
+                            <Ionicons name="sync" size={16} color="#000" />
+                            <Text style={styles.syncBtnTextCompact}>IGDB (Resumen/Stars)</Text>
                           </TouchableOpacity>
-                         );
-                      })}
-                    </ScrollView>
+
+                          <TouchableOpacity 
+                            style={[styles.syncBtnCompact, { backgroundColor: '#171a21' }, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 1 && styles.buttonFocused]} 
+                            onPress={handleSyncSteamGrid}
+                            disabled={isSyncing}
+                          >
+                            <Ionicons name="images" size={16} color="#FFF" />
+                            <Text style={[styles.syncBtnTextCompact, { color: '#FFF' }]}>SteamGrid (Arte)</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        <Text style={styles.label}>Archivos Locales</Text>
+                        <View style={styles.artGrid}>
+                          <TouchableOpacity 
+                            style={[styles.artFileBtn, editModalFocusIndex === 11 && styles.buttonFocused]} 
+                            onPress={() => handleSelectImage('image')}
+                          >
+                            <Ionicons name="image" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
+                            <Text style={styles.artFileBtnTitle}>Portada</Text>
+                            <Text style={styles.artFileBtnSub}>Imagen vertical</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity 
+                            style={[styles.artFileBtn, editModalFocusIndex === 12 && styles.buttonFocused]} 
+                            onPress={() => handleSelectImage('logo')}
+                          >
+                            <Ionicons name="color-palette" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
+                            <Text style={styles.artFileBtnTitle}>Logo PNG</Text>
+                            <Text style={styles.artFileBtnSub}>Transparente</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity 
+                            style={[styles.artFileBtn, editModalFocusIndex === 13 && styles.buttonFocused]} 
+                            onPress={() => handleSelectImage('backgroundImage')}
+                          >
+                            <Ionicons name="images" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
+                            <Text style={styles.artFileBtnTitle}>Fondo</Text>
+                            <Text style={styles.artFileBtnSub}>Horizontal</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity 
+                            style={[styles.artFileBtn, editModalFocusIndex === 14 && styles.buttonFocused]} 
+                            onPress={handleSelectVideo}
+                          >
+                            <Ionicons name="videocam" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
+                            <Text style={styles.artFileBtnTitle}>Video</Text>
+                            <Text style={styles.artFileBtnSub}>Trailer/Gameplay</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </ScrollView>
+                    </>
+                  )}
+                </View>
+
+                {/* MODAL ACTIONS FOOTER */}
+                <View style={styles.modalDivider} />
+                <View style={styles.modalActions}>
+                  <TouchableOpacity 
+                    style={[styles.deleteBtn, editModalFocusIndex === 15 && styles.buttonFocused]} 
+                    onPress={handleDeleteApp}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF2D55" />
+                  </TouchableOpacity>
+                  
+                  <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end' }}>
+                    <TouchableOpacity 
+                      style={[styles.cancelBtn, editModalFocusIndex === 16 && styles.buttonFocused]} 
+                      onPress={() => setEditModalVisible(false)}
+                    >
+                      <Text style={styles.cancelBtnText}>Cancelar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.saveBtn, editModalFocusIndex === 17 && styles.buttonFocused]} 
+                      onPress={handleSaveEdit}
+                    >
+                      <Text style={styles.saveBtnText}>Guardar</Text>
+                    </TouchableOpacity>
                   </View>
-                </>
-              )}
-
-              <Text style={styles.label}>Descripción</Text>
-              <TextInput
-                ref={editDescRef}
-                style={[styles.input, { height: 80 }, editModalFocusIndex === 10 && styles.inputFocused]}
-                multiline
-                value={editData.description}
-                onChangeText={(text) => setEditData({ ...editData, description: text })}
-              />
-
-              <TouchableOpacity 
-                style={[styles.fileBtn, editModalFocusIndex === 11 && styles.buttonFocused]} 
-                onPress={() => handleSelectImage('image')}
-              >
-                <Ionicons name="image" size={20} color="#FFF" />
-                <Text style={styles.fileBtnText}>Cambiar Portada</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.fileBtn, editModalFocusIndex === 12 && styles.buttonFocused]} 
-                onPress={() => handleSelectImage('logo')}
-              >
-                <Ionicons name="color-palette" size={20} color="#FFF" />
-                <Text style={styles.fileBtnText}>Cambiar Logo (PNG)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.fileBtn, editModalFocusIndex === 13 && styles.buttonFocused]} 
-                onPress={() => handleSelectImage('backgroundImage')}
-              >
-                <Ionicons name="images" size={20} color="#FFF" />
-                <Text style={styles.fileBtnText}>Cambiar Fondo</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.fileBtn, editModalFocusIndex === 14 && styles.buttonFocused]} 
-                onPress={handleSelectVideo}
-              >
-                <Ionicons name="videocam" size={20} color="#FFF" />
-                <Text style={styles.fileBtnText}>Cambiar Video</Text>
-              </TouchableOpacity>
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity 
-                style={[styles.deleteBtn, editModalFocusIndex === 15 && styles.buttonFocused]} 
-                onPress={handleDeleteApp}
-              >
-                <Ionicons name="trash-outline" size={20} color="#FF2D55" />
-              </TouchableOpacity>
-              
-              <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end' }}>
-                <TouchableOpacity 
-                  style={[styles.cancelBtn, editModalFocusIndex === 16 && styles.buttonFocused]} 
-                  onPress={() => setEditModalVisible(false)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.saveBtn, editModalFocusIndex === 17 && styles.buttonFocused]} 
-                  onPress={handleSaveEdit}
-                >
-                  <Text style={styles.saveBtnText}>Guardar</Text>
-                </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -782,6 +985,27 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: 480, backgroundColor: '#1C1C1E', borderRadius: 24, padding: 35, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  modalContentExpanded: { width: 850, height: 600, padding: 0, overflow: 'hidden' },
+  modalBodyRow: { flexDirection: 'row', width: '100%', height: '100%' },
+  sidebar: { width: 240, backgroundColor: '#141416', padding: 24, borderRightWidth: 1, borderRightColor: 'rgba(255, 255, 255, 0.08)' },
+  sidebarTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold', marginBottom: 25, letterSpacing: 0.5 },
+  tabButton: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: 'transparent' },
+  tabButtonActive: { backgroundColor: 'rgba(0, 255, 255, 0.08)', borderColor: 'rgba(0, 255, 255, 0.15)' },
+  tabButtonText: { color: '#8E8E93', fontSize: 15, fontWeight: '600' },
+  tabButtonTextActive: { color: '#00FFFF', fontWeight: 'bold' },
+  contentArea: { flex: 1, padding: 30, justifyContent: 'space-between', backgroundColor: '#1C1C1E' },
+  sectionTitle: { color: '#FFF', fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
+  pathDisplayBox: { backgroundColor: 'rgba(255, 255, 255, 0.04)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginTop: 10 },
+  pathDisplayTextHeader: { color: '#8E8E93', fontSize: 12, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  pathDisplayText: { color: '#FFF', fontSize: 14 },
+  syncRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  syncBtnCompact: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFD700', paddingVertical: 12, paddingHorizontal: 10, borderRadius: 10 },
+  syncBtnTextCompact: { color: '#000', fontWeight: '800', marginLeft: 6, fontSize: 12 },
+  artGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
+  artFileBtn: { width: '47%', backgroundColor: 'rgba(255, 255, 255, 0.04)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+  artFileBtnTitle: { color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 6 },
+  artFileBtnSub: { color: '#8E8E93', fontSize: 11, marginTop: 2 },
+  modalDivider: { height: 1, backgroundColor: 'rgba(255, 255, 255, 0.1)', marginVertical: 15, width: '100%' },
   modalTitle: { color: '#FFF', fontSize: 24, fontWeight: 'bold', marginBottom: 25, textAlign: 'center' },
   label: { color: '#8E8E93', fontSize: 13, marginBottom: 8, marginLeft: 5, textTransform: 'uppercase', letterSpacing: 1 },
   input: { backgroundColor: '#000', color: '#FFF', padding: 16, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#333', fontSize: 16 },

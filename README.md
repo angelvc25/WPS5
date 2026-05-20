@@ -12,8 +12,9 @@ Para poder ejecutar este proyecto.
    cd frontend
 4. **Instalar las dependencias:** (Solo la primera vez)
    npm install
-5. **inciar servidor web:** npm run dev
-6. **Iniciar la aplicación (Modo Desarrollo):**
+5. **inciar servidor web:** npm run web
+6. **espere a que se inicie la web:**
+7. **Iniciar la aplicación (Modo Desarrollo):**
    npm run electron:dev
 
 *Nota: Esto abrirá tanto el servidor de Expo como la ventana de la aplicación de escritorio.*

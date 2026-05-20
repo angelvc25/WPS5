@@ -846,7 +846,15 @@ export default function ConsoleHome() {
   const handleSelectExecutable = async () => {
     if ((window as any).electronAPI) {
       const path = await (window as any).electronAPI.selectFile();
-      if (path) setNewApp({ ...newApp, path });
+      if (path) {
+        const filename = path.split(/[\\/]/).pop() || '';
+        const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+        setNewApp({
+          ...newApp,
+          path,
+          title: newApp.title || nameWithoutExt
+        });
+      }
     }
   };
 
@@ -977,7 +985,7 @@ export default function ConsoleHome() {
       {/* OVERLAY PARA LEGIBILIDAD (Solo si hay fondo o estamos en Biblioteca) */}
       {(currentBg || activeTab === 'Biblioteca') && (
         <View style={[
-          StyleSheet.absoluteFillObject, 
+          StyleSheet.absoluteFillObject,
           { backgroundColor: activeTab === 'Biblioteca' ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.5)' }
         ]} />
       )}
@@ -2260,7 +2268,7 @@ const styles = StyleSheet.create({
   buttonFocused: {
     borderColor: '#00FFFF',
     borderWidth: 3,
-    shadowColor: '#00FFFF',
+    // shadowColor: '#00FFFF',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 10,

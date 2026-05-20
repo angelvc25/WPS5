@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "electron:start": "electron electron/main.js",
-    "electron:dev": "concurrently \"npm run web\" \"wait-on http://localhost:8081 && npm run electron:start\"",
+    "electron:dev": "concurrently \"npm run electron:start\"",
     "electron:build": "expo export -p web && electron-builder"
   },
   "dependencies": {
