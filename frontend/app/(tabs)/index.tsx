@@ -403,11 +403,6 @@ export default function ConsoleHome() {
         // Si el usuario está escribiendo en un input o textarea, no interferimos con la navegación del sistema
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) {
           e.preventDefault();
-          // Blur any focused non-input element so it doesn't re-fire onPress when Enter is pressed
-          const active = document.activeElement as HTMLElement | null;
-          if (active && active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA' && !active.isContentEditable) {
-            active.blur();
-          }
         }
 
         if (e.target && (
@@ -794,9 +789,9 @@ export default function ConsoleHome() {
           });
         }
       };
-      // capture:true ensures our handler fires before React's internal listeners on focused elements
-      window.addEventListener('keydown', handleKeyDown, { capture: true });
-      return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+      // Bubble phase — tabs already call blur() on click so they won't intercept Enter
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
     }
   }, [activeTab, currentData, activeIndex, focusArea, focusIndex, isAddModalVisible, isDetailVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp]);
 
