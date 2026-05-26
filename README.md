@@ -3,7 +3,7 @@
 
 <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/04af1f58-b307-4fdb-87ed-49ac859c4f25" />
 
-Para poder ejecutar este proyecto.
+# Guia de ejecución de proyecto.
 
 1. **Instalar Node.js:** Asegurarse de tener Node.js instalado en su sistema. (v24.12.0 o superior)
 2. **Clonar/Descargar el repositorio:** Obtener el código fuente del proyecto.
