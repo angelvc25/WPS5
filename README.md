@@ -1,8 +1,7 @@
 
+# WConsole
 
-<video src="docs/WConsola_video.mp4" width="100%" controls autoplay loop muted>
-  Tu navegador no admite el elemento de video.
-</video>
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/04af1f58-b307-4fdb-87ed-49ac859c4f25" />
 
 Para poder ejecutar este proyecto.
 
