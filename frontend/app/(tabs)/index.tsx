@@ -2229,7 +2229,7 @@ const styles = StyleSheet.create({
   },
   cardActive: {
     borderWidth: 3.5,
-    borderColor: 'rgba(255,255,255,0.85)',
+    borderColor: 'rgba(255, 255, 255, 0)',
     shadowColor: 'rgba(255, 255, 255, 0)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
@@ -2277,7 +2277,7 @@ const styles = StyleSheet.create({
   gameLogo: {
     width: 360,
     height: 120,
-    marginBottom: 14,
+    marginBottom: 50,
   },
   gameTitle: {
     color: '#FFFFFF',
