@@ -928,7 +928,7 @@ export default function ConsoleHome() {
     return (
       <>
         <style>{`
-        /* --- ANIMACIÓN 1: BORDE GIRATORIO --- */
+        /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
         @keyframes wc-spin-border {
           0%   { transform: translate(-50%, -50%) rotate(0deg); }
           100% { transform: translate(-50%, -50%) rotate(360deg); }
@@ -939,18 +939,20 @@ export default function ConsoleHome() {
           left: 50%;
           width: 300%;
           height: 300%;
-          animation: wc-spin-border 6.8s linear infinite;
+          animation: wc-spin-border 9.8s linear infinite;
+          
+          /* Cambiado 'transparent' por un color base semi-translucido elegante (rgba 255, 255, 255, 0.15) */
           background: conic-gradient(
             from 0deg,
-            transparent 0%,
-            transparent 28%,
-            rgba(180,210,255,0.0) 33%,
-            rgba(220,235,255,0.95) 48%,
-            rgba(255,255,255,1.0) 50%,
-            rgba(220,235,255,0.95) 52%,
-            rgba(180,210,255,0.0) 57%,
-            transparent 62%,
-            transparent 100%
+            rgba(255, 255, 255, 0.15) 0%,
+            rgba(255, 255, 255, 0.15) 28%,
+            rgba(180, 210, 255, 0.3) 33%,
+            rgba(220, 235, 255, 0.95) 48%,
+            rgba(255, 255, 255, 1.0) 50%,
+            rgba(220, 235, 255, 0.95) 52%,
+            rgba(180, 210, 255, 0.3) 57%,
+            rgba(255, 255, 255, 0.15) 62%,
+            rgba(255, 255, 255, 0.15) 100%
           );
           border-radius: 50%;
         }
@@ -962,35 +964,34 @@ export default function ConsoleHome() {
             opacity: 0; 
           }
           15% { 
-            opacity: 1; /* Transición de entrada ultra suave */
+            opacity: 1; 
           }
           50% { 
-            opacity: 1; /* Se mantiene visible en el centro por más tiempo */
+            opacity: 1; 
           }
           70% { 
             transform: translate(130%, -50%) rotate(48deg); 
-            opacity: 0; /* Completa el viaje de esquina a esquina disolviéndose suavemente */
+            opacity: 0; 
           }
           100% { 
             transform: translate(130%, -50%) rotate(48deg); 
-            opacity: 0; /* Pausa exacta de 1.5 segundos (30%) para clavar los 5s totales */
+            opacity: 0; 
           }
         }
         .wc-shimmer-line {
           position: absolute;
           top: 50%;
           left: 50%;
-          width: 140%; /* Un poco más ancho para suavizar los extremos */
+          width: 140%; 
           height: 420%; 
           background: linear-gradient(
             to right,
             transparent 0%,
             rgba(255, 255, 255, 0.01) 20%,
-            rgba(255, 255, 255, 0.18) 50%, /* Opacidad refinada para máxima suavidad */
+            rgba(255, 255, 255, 0.18) 50%, 
             rgba(255, 255, 255, 0.01) 80%,
             transparent 100%
           );
-          /* Fijado en 5 segundos exactos con una curva de aceleración/deceleración premium */
           animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
         }
       `}</style>
@@ -999,10 +1000,10 @@ export default function ConsoleHome() {
         <View
           style={{
             position: 'absolute',
-            top: -2,
-            left: 8,
-            right: 8,
-            bottom: -2,
+            top: -1,
+            left: 9,
+            right: 9,
+            bottom: -1,
             borderRadius: 24,
             zIndex: -1,
             overflow: 'hidden',
