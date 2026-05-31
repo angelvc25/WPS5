@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Modal, TextInput, useWindowDimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ export interface ConsoleItem {
   image?: any;
   logo?: any;
   backgroundImage?: any;
+  backgroundVideo?: any;
   video?: any;
   isFolder?: boolean;
   isGrid?: boolean;
@@ -39,7 +41,7 @@ export interface ConsoleItem {
 }
 
 const DATA_GAMES: ConsoleItem[] = [
-  { id: '1', title: 'Welcome', time: 'WConsole - Home', image: require('@/assets/images/Home.gif'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0, backgroundImage: require('@/assets/images/FondoDefault.png') },
+  { id: '1', title: 'Welcome', time: 'WConsole - Home', image: require('@/assets/images/Home.gif'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0, backgroundVideo: require('@/assets/video/waves.mp4') },
   { id: 'last_played', title: 'Último Jugado', time: 'No ejecutado aún', image: require('@/assets/images/Home.gif'), isLastPlayed: true },
   // { id: '3', title: 'Favoritos Juegos', time: 'Folder - Colección', isFolder: true },
   // { id: '4', title: 'Favoritos Media', time: 'Aplicaciones de Streaming', isGrid: true },
@@ -847,7 +849,10 @@ export default function ConsoleHome() {
   const currentBg = (activeTab === 'Games' && activeIndex === 0)
     ? (homeBackground || require('@/assets/images/FondoDefault.png'))
     : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault.png')));
-
+  const currentBackgroundVideo =
+    activeTab === 'Games' && activeIndex === 0
+      ? currentData[activeIndex]?.backgroundVideo
+      : null;
   useEffect(() => {
     if (activeLayer === 'A') {
       if (currentBg !== bgA) { setBgB(currentBg); setActiveLayer('B'); fade.value = withTiming(1, { duration: 800 }); }
@@ -871,15 +876,47 @@ export default function ConsoleHome() {
     <SafeAreaView style={styles.container}>
       {/* === BACKGROUND: Dual Layer Crossfade === */}
       <View style={StyleSheet.absoluteFill}>
-        {showTrailer && currentData[activeIndex]?.youtubeId ? (
+
+        {/* VIDEO DE FONDO */}
+        {currentBackgroundVideo ? (
+          <Video
+            source={currentBackgroundVideo}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay
+            isLooping
+            isMuted
+          />
+        ) : showTrailer && currentData[activeIndex]?.youtubeId ? (
+
           <View style={{ width: windowWidth, height: windowHeight, overflow: 'hidden' }}>
-            <YoutubePlayer height={windowHeight} width={windowWidth} play={true} videoId={currentData[activeIndex].youtubeId!} mute={true} />
+            <YoutubePlayer
+              height={windowHeight}
+              width={windowWidth}
+              play={true}
+              videoId={currentData[activeIndex].youtubeId!}
+              mute={true}
+            />
           </View>
+
         ) : (
           <>
-            {bgA && <Image source={bgA} style={StyleSheet.absoluteFillObject} contentFit="cover" />}
+            {bgA && (
+              <Image
+                source={bgA}
+                style={StyleSheet.absoluteFillObject}
+                contentFit="cover"
+              />
+            )}
+
             <Animated.View style={[StyleSheet.absoluteFill, animatedStyleB]}>
-              {bgB && <Image source={bgB} style={StyleSheet.absoluteFillObject} contentFit="cover" />}
+              {bgB && (
+                <Image
+                  source={bgB}
+                  style={StyleSheet.absoluteFillObject}
+                  contentFit="cover"
+                />
+              )}
             </Animated.View>
           </>
         )}
