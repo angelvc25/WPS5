@@ -63,6 +63,8 @@ export default function ConsoleHome() {
   const [steamNews, setSteamNews] = useState<SteamNewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const mainScrollRef = useRef<ScrollView>(null);
+  const newsScrollRef = useRef<ScrollView>(null);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   // PS5-style card sizing: smaller, square cards like the real PS5
@@ -466,7 +468,15 @@ export default function ConsoleHome() {
             const nextIdx = Math.min(focusIndex + 1, TABS.length - 1);
             setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
           }
-          else if (focusArea === 'game_panel') { setGamePanelFocusIndex(prev => Math.min(prev + 1, 3)); }
+          else if (focusArea === 'game_panel') {
+            if (gamePanelFocusIndex === 0) {
+              setGamePanelFocusIndex(1);
+            } else if (gamePanelFocusIndex === 2) {
+              setGamePanelFocusIndex(3);
+            } else if (gamePanelFocusIndex >= 4) {
+              setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + steamNews.length - 1));
+            }
+          }
           return;
         }
         if (e.key === 'ArrowLeft') {
@@ -476,18 +486,53 @@ export default function ConsoleHome() {
             const nextIdx = Math.max(focusIndex - 1, 0);
             setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
           }
-          else if (focusArea === 'game_panel') { setGamePanelFocusIndex(prev => Math.max(prev - 1, 0)); }
+          else if (focusArea === 'game_panel') {
+            if (gamePanelFocusIndex === 1) {
+              setGamePanelFocusIndex(0);
+            } else if (gamePanelFocusIndex === 3) {
+              setGamePanelFocusIndex(2);
+            } else if (gamePanelFocusIndex >= 4) {
+              setGamePanelFocusIndex(prev => Math.max(prev - 1, 4));
+            }
+          }
           return;
         }
         if (e.key === 'ArrowDown') {
           soundService.playNavigation();
           if (focusArea === 'header_user' || focusArea === 'header_tabs') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
           else if (focusArea === 'main_carousel' && canPlay) { setFocusArea('game_panel'); setGamePanelFocusIndex(0); }
+          else if (focusArea === 'game_panel') {
+            if (gamePanelFocusIndex === 0) {
+              setGamePanelFocusIndex(2);
+            } else if (gamePanelFocusIndex === 1) {
+              setGamePanelFocusIndex(3);
+            } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
+              if (steamNews.length > 0) {
+                setGamePanelFocusIndex(4);
+              }
+            }
+          }
           return;
         }
         if (e.key === 'ArrowUp') {
           soundService.playNavigation();
-          if (focusArea === 'game_panel') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
+          if (focusArea === 'game_panel') {
+            if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
+              setFocusArea('main_carousel');
+              setFocusIndex(activeIndex);
+            } else if (gamePanelFocusIndex === 2) {
+              setGamePanelFocusIndex(0);
+            } else if (gamePanelFocusIndex === 3) {
+              setGamePanelFocusIndex(1);
+            } else if (gamePanelFocusIndex >= 4) {
+              const newsIndex = gamePanelFocusIndex - 4;
+              if (newsIndex % 2 === 0) {
+                setGamePanelFocusIndex(2);
+              } else {
+                setGamePanelFocusIndex(3);
+              }
+            }
+          }
           else if (focusArea === 'main_carousel') { setFocusArea('header_tabs'); setFocusIndex(TABS.indexOf(activeTab)); }
           else if (focusArea === 'header_tabs') { setFocusArea('header_user'); setFocusIndex(0); }
           return;
@@ -497,6 +542,11 @@ export default function ConsoleHome() {
           if (focusArea === 'game_panel') {
             if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
               if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
+            } else if (gamePanelFocusIndex >= 4) {
+              const newsItem = steamNews[gamePanelFocusIndex - 4];
+              if (newsItem && newsItem.url) {
+                Linking.openURL(newsItem.url);
+              }
             }
             return;
           }
@@ -532,7 +582,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isDetailVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isDetailVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews]);
 
   // Fetch Steam news when the active item changes
   useEffect(() => {
@@ -549,6 +599,33 @@ export default function ConsoleHome() {
     });
     return () => { cancelled = true; };
   }, [activeIndex, activeTab, lastPlayedGame?.id]);
+
+  // Auto-scroll main vertical scrollview when focus moves to lower sections
+  useEffect(() => {
+    if (!mainScrollRef.current) return;
+    if (focusArea !== 'game_panel') {
+      mainScrollRef.current.scrollTo({ y: 0, animated: true });
+    } else {
+      if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
+        mainScrollRef.current.scrollTo({ y: 0, animated: true });
+      } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
+        mainScrollRef.current.scrollTo({ y: 220, animated: true });
+      } else if (gamePanelFocusIndex >= 4) {
+        mainScrollRef.current.scrollTo({ y: 480, animated: true });
+      }
+    }
+  }, [focusArea, gamePanelFocusIndex]);
+
+  // Auto-scroll news horizontal scrollview when navigating through news cards
+  useEffect(() => {
+    if (focusArea === 'game_panel' && gamePanelFocusIndex >= 4 && newsScrollRef.current) {
+      const newsIndex = gamePanelFocusIndex - 4;
+      const cardWidth = 340;
+      const gap = 16;
+      const scrollX = newsIndex * (cardWidth + gap);
+      newsScrollRef.current.scrollTo({ x: scrollX, animated: true });
+    }
+  }, [gamePanelFocusIndex, focusArea]);
 
   // Auto-scroll carousel
   useEffect(() => {
@@ -684,12 +761,12 @@ export default function ConsoleHome() {
 
       {/* MINI HEADER FOR GAME PANEL FOCUS */}
       <Animated.View style={[styles.miniHeader, topBarMiniStyle]} pointerEvents="none">
-         {canPlay && activeItem && (
-           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-             <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 36, height: 36, borderRadius: 8, marginRight: 12 }} />
-             <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
-           </View>
-         )}
+        {canPlay && activeItem && (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 36, height: 36, borderRadius: 8, marginRight: 12 }} />
+            <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
+          </View>
+        )}
       </Animated.View>
 
       {/* === HEADER (PS5 style) — fixed on top === */}
@@ -760,6 +837,7 @@ export default function ConsoleHome() {
 
       {/* === MAIN SCROLLABLE CONTENT === */}
       <Animated.ScrollView
+        ref={mainScrollRef}
         style={[styles.mainContent, animatedTabContentStyle]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.mainScrollContent}
@@ -968,7 +1046,7 @@ export default function ConsoleHome() {
                 ]}>
                   {/* Avatars row */}
                   <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-                    {[1,2,3,4,5].map((_, i) => (
+                    {[1, 2, 3, 4, 5].map((_, i) => (
                       <View key={i} style={{
                         width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
                         borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
@@ -988,60 +1066,67 @@ export default function ConsoleHome() {
 
             {/* === NOTICIAS OFICIALES === */}
             {canPlay && (
-              <View style={styles.newsSectionWrapper}>
-                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Últimas noticias</Text>
+              <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
+                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Últimas noticias</Text>
 
                 {newsLoading ? (
-                  <View style={styles.newsLoadingRow}>
+                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
                     <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
                     <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
                   </View>
                 ) : steamNews.length === 0 ? (
-                  <View style={styles.newsLoadingRow}>
+                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
                     <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
                     <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
                   </View>
                 ) : (
                   <ScrollView
+                    ref={newsScrollRef}
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.newsScrollContent}
+                    contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
                   >
-                    {steamNews.slice(0, 8).map((item) => (
-                      <TouchableOpacity
-                        key={item.gid}
-                        style={styles.newsCard}
-                        activeOpacity={0.8}
-                        onPress={() => { if (item.url) Linking.openURL(item.url); }}
-                      >
-                        {/* Thumbnail area */}
-                        <View style={styles.newsCardThumbnail}>
-                          {item.image_url ? (
-                            <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-                          ) : (
-                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
-                              <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
-                            </View>
-                          )}
-                        </View>
-                        {/* Text area */}
-                        <View style={styles.newsCardContent}>
-                          <Text style={styles.newsCardTitle} numberOfLines={2}>
-                            {item.title}
-                          </Text>
-                          <Text style={styles.newsCardFooterText} numberOfLines={1}>
-                            {(item.feedlabel || item.feedname || 'Steam')} | {formatSteamDate(item.date)}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
+                    {steamNews.slice(0, 8).map((item, idx) => {
+                      const isNewsFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx;
+                      return (
+                        <TouchableOpacity
+                          key={item.gid}
+                          style={[
+                            styles.newsCard,
+                            isNewsFocused && styles.newsCardFocused
+                          ]}
+                          activeOpacity={0.8}
+                          onPress={() => { if (item.url) Linking.openURL(item.url); }}
+                        >
+                          {/* Thumbnail area */}
+                          <View style={styles.newsCardThumbnail}>
+                            {item.image_url ? (
+                              <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                            ) : (
+                              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
+                                <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
+                              </View>
+                            )}
+                          </View>
+                          {/* Text area */}
+                          <View style={styles.newsCardContent}>
+                            <Text style={styles.newsCardTitle} numberOfLines={2}>
+                              {item.title}
+                            </Text>
+                            <Text style={styles.newsCardFooterText} numberOfLines={1}>
+                              {(item.feedlabel || item.feedname || 'Steam')} | {formatSteamDate(item.date)}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </ScrollView>
                 )}
               </View>
             )}
           </View>
         </Animated.View>
-        </Animated.ScrollView>
+      </Animated.ScrollView>
 
       {/* === FOOTER (minimal, PS5 style) === */}
       <View style={styles.footer}>
@@ -1543,53 +1628,53 @@ const styles = StyleSheet.create({
   gameInfoPanel: {
     paddingLeft: 50,
     paddingTop: 24,
-    maxWidth: 540,
+    maxWidth: '100%' as any,
   },
   gameLogo: {
-    width: 240,
-    height: 80,
-    marginBottom: 10,
+    width: 360,
+    height: 120,
+    marginBottom: 14,
   },
   gameTitle: {
     color: '#FFFFFF',
-    fontSize: 32,
+    fontSize: 38,
     fontWeight: '800',
     letterSpacing: -0.5,
-    marginBottom: 8,
+    marginBottom: 10,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 6,
   },
   gameDesc: {
     color: 'rgba(255,255,255,0.65)',
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 16,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 18,
   },
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 14,
   },
   playBtn: {
     backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingHorizontal: 36,
-    paddingVertical: 10,
-    borderRadius: 22,
+    paddingHorizontal: 52,
+    paddingVertical: 14,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   playBtnText: {
     color: '#000000',
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   moreBtn: {
     backgroundColor: 'rgba(60,60,60,0.85)',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -1597,7 +1682,7 @@ const styles = StyleSheet.create({
   },
   moreBtnText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     lineHeight: 20,
     marginTop: -4,
@@ -1627,6 +1712,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     marginTop: 20,
+    width: '90%',
   },
   infoCard: {
     padding: 16,
@@ -1647,21 +1733,28 @@ const styles = StyleSheet.create({
   // === STEAM NEWS SECTION ===
   newsSectionWrapper: {
     marginTop: 30,
-    maxWidth: 900,
+    marginLeft: -50,
   },
   newsScrollContent: {
     gap: 16,
-    paddingRight: 20,
   },
   newsCard: {
-    width: 280,
+    width: 340,
     borderRadius: 8,
     backgroundColor: 'rgba(20,20,30,0.4)',
     overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  } as any,
+  newsCardFocused: {
+    borderColor: 'rgba(255,255,255,0.85)',
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(35,35,45,0.6)',
+    transform: [{ scale: 1.03 }],
   } as any,
   newsCardThumbnail: {
     width: '100%',
-    height: 157, // 16:9 for 280px width
+    height: 191, // 16:9 for 340px width
     backgroundColor: '#333',
     position: 'relative',
   },
