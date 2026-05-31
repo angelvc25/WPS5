@@ -16,6 +16,7 @@ import { soundService } from '@/services/soundService';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
 import { Feather } from '@expo/vector-icons';
+import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 
 const TABS = ['Games', 'Media'];
 
@@ -295,7 +296,6 @@ export default function ConsoleHome() {
           type: app.type,
           platform: app.platform
         });
-
         const gamesList = (data.games || []).map(formatApp);
         const mediaList = (data.media || []).map(formatApp);
 
@@ -924,57 +924,111 @@ export default function ConsoleHome() {
   // Uses negative absolute positioning to overflow outside the card bounds.
   const SpinningBorder = ({ size }: { size: number }) => {
     if (Platform.OS !== 'web') return null;
-    const overflow = 5; // px bleeding outside the card on each side
+
     return (
-      <View
-        style={{
-          position: 'absolute',
-          top: -2,
-          left: 8,
-          right: 8,
-          bottom: -2,
-          borderRadius: 24,
-          zIndex: -1,
-          overflow: 'hidden',
-        } as any}
-        pointerEvents="none"
-      >
+      <>
         <style>{`
-          @keyframes wc-spin-border {
-            0%   { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        /* --- ANIMACIÓN 1: BORDE GIRATORIO --- */
+        @keyframes wc-spin-border {
+          0%   { transform: translate(-50%, -50%) rotate(0deg); }
+          100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        .wc-spinning-inner {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 300%;
+          height: 300%;
+          animation: wc-spin-border 6.8s linear infinite;
+          background: conic-gradient(
+            from 0deg,
+            transparent 0%,
+            transparent 28%,
+            rgba(180,210,255,0.0) 33%,
+            rgba(220,235,255,0.95) 48%,
+            rgba(255,255,255,1.0) 50%,
+            rgba(220,235,255,0.95) 52%,
+            rgba(180,210,255,0.0) 57%,
+            transparent 62%,
+            transparent 100%
+          );
+          border-radius: 50%;
+        }
+
+        /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE (CICLO 5s) --- */
+        @keyframes wc-content-shimmer {
+          0% { 
+            transform: translate(-160%, -50%) rotate(48deg); 
+            opacity: 0; 
           }
-          .wc-spinning-inner {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 300%;
-            height: 300%;
-            animation: wc-spin-border 6.8s linear infinite;
-            background: conic-gradient(
-              from 0deg,
-              transparent 0%,
-              transparent 28%,
-              rgba(180,210,255,0.0) 33%,
-              rgba(220,235,255,0.95) 48%,
-              rgba(255,255,255,1.0) 50%,
-              rgba(220,235,255,0.95) 52%,
-              rgba(180,210,255,0.0) 57%,
-              transparent 62%,
-              transparent 100%
-            );
-            border-radius: 50%;
+          15% { 
+            opacity: 1; /* Transición de entrada ultra suave */
           }
-          .wc-spinning-mask {
-            position: absolute;
-            inset: ${overflow + 2}px;
-            border-radius: 21px;
-            background: transparent;
+          50% { 
+            opacity: 1; /* Se mantiene visible en el centro por más tiempo */
           }
-        `}</style>
-        <div className="wc-spinning-inner" />
-        <div className="wc-spinning-mask" />
-      </View>
+          70% { 
+            transform: translate(130%, -50%) rotate(48deg); 
+            opacity: 0; /* Completa el viaje de esquina a esquina disolviéndose suavemente */
+          }
+          100% { 
+            transform: translate(130%, -50%) rotate(48deg); 
+            opacity: 0; /* Pausa exacta de 1.5 segundos (30%) para clavar los 5s totales */
+          }
+        }
+        .wc-shimmer-line {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 140%; /* Un poco más ancho para suavizar los extremos */
+          height: 420%; 
+          background: linear-gradient(
+            to right,
+            transparent 0%,
+            rgba(255, 255, 255, 0.01) 20%,
+            rgba(255, 255, 255, 0.18) 50%, /* Opacidad refinada para máxima suavidad */
+            rgba(255, 255, 255, 0.01) 80%,
+            transparent 100%
+          );
+          /* Fijado en 5 segundos exactos con una curva de aceleración/deceleración premium */
+          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+        }
+      `}</style>
+
+        {/* CAPA ATRÁS: Borde Giratorio */}
+        <View
+          style={{
+            position: 'absolute',
+            top: -2,
+            left: 8,
+            right: 8,
+            bottom: -2,
+            borderRadius: 24,
+            zIndex: -1,
+            overflow: 'hidden',
+          } as any}
+          pointerEvents="none"
+        >
+          <div className="wc-spinning-inner" />
+        </View>
+
+        {/* CAPA ADELANTE: Brillo Adaptado Amplio */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 10,
+            right: 10,
+            bottom: 0,
+            borderRadius: 22,
+            zIndex: 5,
+            overflow: 'hidden',
+          } as any}
+          pointerEvents="none"
+        >
+          <div className="wc-shimmer-line" />
+        </View>
+      </>
     );
   };
 
@@ -2217,8 +2271,8 @@ const styles = StyleSheet.create({
     opacity: 1,
     overflow: 'visible',
     transform: [{ scale: 1.4 }, { translateY: 13 }],
-    marginLeft: 10,
-    marginRight: 10,
+    marginLeft: 15,
+    marginRight: 15,
   },
   card: {
     width: 120,
