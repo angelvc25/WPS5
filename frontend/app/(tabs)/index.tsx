@@ -1130,7 +1130,7 @@ export default function ConsoleHome() {
               ref={scrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingLeft: LEFT_PADDING, paddingRight: RIGHT_PADDING, alignItems: 'center' }}
+              contentContainerStyle={{ paddingLeft: LEFT_PADDING, paddingRight: RIGHT_PADDING, marginTop: 20 }}
               snapToInterval={ITEM_WIDTH}
               snapToAlignment="start"
               decelerationRate="fast"
