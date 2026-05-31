@@ -189,7 +189,7 @@ export default function ConsoleHome() {
   const carouselStyle = useAnimatedStyle(() => ({
     opacity: 1 - gamePanelFocusAnim.value,
     transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }],
-    height: interpolate(gamePanelFocusAnim.value, [0, 1], [180, 0]),
+    height: interpolate(gamePanelFocusAnim.value, [0, 1], [240, 0]),
     overflow: 'hidden'
   }));
 
@@ -998,7 +998,7 @@ export default function ConsoleHome() {
                 }
 
                 return (
-                  <View key={item.id} style={{ position: 'relative', overflow: 'visible' }}>
+                  <View key={item.id} style={{ position: 'relative', overflow: 'visible', zIndex: isActive ? 10 : 1 }}>
                     {cardContent}
                     {isActive && item.id !== 'more_library' && (
                       <View style={styles.activeLabelContainer}>
@@ -1634,7 +1634,7 @@ const styles = StyleSheet.create({
 
   // === CAROUSEL ===
   carouselSection: {
-    height: 180,
+    height: 240,
     justifyContent: 'center',
     marginBottom: 0,
   },
@@ -1643,11 +1643,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     opacity: 0.65,
-    transform: [{ scale: 0.92 }, { translateY: -5.2 }],
+    transform: [{ scale: 1 }, { translateY: 0 }],
   },
   cardWrapperActive: {
     opacity: 1,
-    transform: [{ scale: 1 }, { translateY: 0 }],
+    transform: [{ scale: 1.2 }, { translateY: 13 }],
   },
   card: {
     width: 130,
@@ -2000,11 +2000,11 @@ const styles = StyleSheet.create({
   activeLabelContainer: {
     position: 'absolute',
     top: 132,
-    left: 135,
+    left: 155,
     flexDirection: 'row',
     alignItems: 'center',
     zIndex: 100,
-    width: 400,
+    minWidth: 500,
   },
   platformBadge: {
     backgroundColor: '#FFFFFF',
@@ -2027,5 +2027,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowRadius: 2,
-  },
+    whiteSpace: 'nowrap',
+  } as any,
 });
