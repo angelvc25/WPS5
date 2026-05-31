@@ -116,6 +116,7 @@ export default function ConsoleHome() {
   const [inputMode, setInputMode] = useState<'keyboard' | 'gamepad'>('keyboard');
   const fade = useSharedValue(0);
   const tabFade = useSharedValue(1);
+  const gamePanelFocusAnim = useSharedValue(0);
 
   useEffect(() => {
     setShowTrailer(false);
@@ -133,9 +134,29 @@ export default function ConsoleHome() {
     tabFade.value = withTiming(1, { duration: 400 });
   }, [activeTab]);
 
+  const isGamePanelFocused = focusArea === 'game_panel';
+  useEffect(() => {
+    gamePanelFocusAnim.value = withTiming(isGamePanelFocused ? 1 : 0, { duration: 300 });
+  }, [isGamePanelFocused]);
+
   const animatedTabContentStyle = useAnimatedStyle(() => ({
     opacity: tabFade.value,
     transform: [{ translateY: interpolate(tabFade.value, [0, 1], [10, 0]) }]
+  }));
+
+  const headerOpacityStyle = useAnimatedStyle(() => ({
+    opacity: 1 - gamePanelFocusAnim.value,
+    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }]
+  }));
+
+  const topBarMiniStyle = useAnimatedStyle(() => ({
+    opacity: gamePanelFocusAnim.value,
+    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [-20, 0]) }],
+    pointerEvents: isGamePanelFocused ? 'auto' : 'none'
+  }));
+
+  const gameInfoPanelStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -60]) }]
   }));
 
   useEffect(() => {
@@ -661,8 +682,18 @@ export default function ConsoleHome() {
       <View style={styles.gradientOverlay} pointerEvents="none" />
       <View style={styles.gradientOverlayTop} pointerEvents="none" />
 
+      {/* MINI HEADER FOR GAME PANEL FOCUS */}
+      <Animated.View style={[styles.miniHeader, topBarMiniStyle]} pointerEvents="none">
+         {canPlay && activeItem && (
+           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+             <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 36, height: 36, borderRadius: 8, marginRight: 12 }} />
+             <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
+           </View>
+         )}
+      </Animated.View>
+
       {/* === HEADER (PS5 style) — fixed on top === */}
-      <View style={styles.header}>
+      <Animated.View style={[styles.header, headerOpacityStyle]}>
         {/* Left: Navigation Tabs */}
         <View style={styles.headerLeft}>
           <ControlPrompt btn="L" label="" inputMode={inputMode} />
@@ -725,7 +756,7 @@ export default function ConsoleHome() {
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
 
       {/* === MAIN SCROLLABLE CONTENT === */}
       <Animated.ScrollView
@@ -735,7 +766,7 @@ export default function ConsoleHome() {
         scrollEventThrottle={16}
       >
         {/* CAROUSEL ROW */}
-        <View style={styles.carouselSection}>
+        <Animated.View style={[styles.carouselSection, headerOpacityStyle]}>
           {currentData.length === 0 ? (
             <View style={styles.mediaEmptyContainer}>
               <Ionicons name="film-outline" size={80} color="rgba(255,255,255,0.15)" />
@@ -843,10 +874,10 @@ export default function ConsoleHome() {
               })}
             </ScrollView>
           )}
-        </View>
+        </Animated.View>
 
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
-        <View style={styles.gameInfoPanel}>
+        <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
             {/* Logo or title */}
             {displayLogo ? (
               <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
@@ -989,7 +1020,7 @@ export default function ConsoleHome() {
 
             {/* Bottom padding */}
             <View style={{ height: 80 }} />
-          </View>
+          </Animated.View>
         </Animated.ScrollView>
 
       {/* === FOOTER (minimal, PS5 style) === */}
@@ -1338,8 +1369,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 50,
-    paddingTop: 22,
+    paddingTop: 40,
     paddingBottom: 12,
+  },
+  miniHeader: {
+    position: 'absolute',
+    top: 40,
+    left: 50,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -1413,7 +1452,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   mainScrollContent: {
-    paddingTop: 70, // space for fixed header
+    paddingTop: 10, // space for fixed header (reduced to move games higher)
     paddingBottom: 60, // space for footer
     minHeight: '100%',
   },
