@@ -950,7 +950,7 @@ export default function ConsoleHome() {
             left: 50%;
             width: 300%;
             height: 300%;
-            animation: wc-spin-border 2.8s linear infinite;
+            animation: wc-spin-border 6.8s linear infinite;
             background: conic-gradient(
               from 0deg,
               transparent 0%,
@@ -2228,9 +2228,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   cardActive: {
-    borderWidth: 2.5,
+    borderWidth: 3.5,
     borderColor: 'rgba(255,255,255,0.85)',
-    shadowColor: 'rgba(255,255,255,0.5)',
+    shadowColor: 'rgba(255, 255, 255, 0)',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 12,
