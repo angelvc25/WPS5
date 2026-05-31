@@ -13,6 +13,7 @@ import { useUser } from '@/contexts/UserContext';
 import { Linking } from 'react-native';
 import { fetchGamingNews, NewsArticle } from '@/services/newsService';
 import { soundService } from '@/services/soundService';
+import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services/steamNewsService';
 
 const TABS = ['Games', 'Media'];
 
@@ -52,9 +53,15 @@ export default function ConsoleHome() {
   const [activeIndex, setActiveIndex] = useState(0);
 
   // Focus management
-  type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'footer';
+  type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'game_panel' | 'footer';
   const [focusArea, setFocusArea] = useState<FocusArea>('main_carousel');
   const [focusIndex, setFocusIndex] = useState(0);
+  // game_panel focus: 0=Play, 1=More, 2=Trophies, 3=Friends
+  const [gamePanelFocusIndex, setGamePanelFocusIndex] = useState(0);
+
+  // Steam news
+  const [steamNews, setSteamNews] = useState<SteamNewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
@@ -438,6 +445,7 @@ export default function ConsoleHome() {
             const nextIdx = Math.min(focusIndex + 1, TABS.length - 1);
             setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
           }
+          else if (focusArea === 'game_panel') { setGamePanelFocusIndex(prev => Math.min(prev + 1, 3)); }
           return;
         }
         if (e.key === 'ArrowLeft') {
@@ -447,21 +455,30 @@ export default function ConsoleHome() {
             const nextIdx = Math.max(focusIndex - 1, 0);
             setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
           }
+          else if (focusArea === 'game_panel') { setGamePanelFocusIndex(prev => Math.max(prev - 1, 0)); }
           return;
         }
         if (e.key === 'ArrowDown') {
           soundService.playNavigation();
           if (focusArea === 'header_user' || focusArea === 'header_tabs') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
+          else if (focusArea === 'main_carousel' && canPlay) { setFocusArea('game_panel'); setGamePanelFocusIndex(0); }
           return;
         }
         if (e.key === 'ArrowUp') {
           soundService.playNavigation();
-          if (focusArea === 'main_carousel') { setFocusArea('header_tabs'); setFocusIndex(TABS.indexOf(activeTab)); }
+          if (focusArea === 'game_panel') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
+          else if (focusArea === 'main_carousel') { setFocusArea('header_tabs'); setFocusIndex(TABS.indexOf(activeTab)); }
           else if (focusArea === 'header_tabs') { setFocusArea('header_user'); setFocusIndex(0); }
           return;
         }
         if (e.key === 'Enter') {
           soundService.playActivation();
+          if (focusArea === 'game_panel') {
+            if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
+              if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
+            }
+            return;
+          }
           if (focusArea === 'main_carousel') {
             const item = currentData[activeIndex];
             if (item) {
@@ -494,7 +511,23 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, isAddModalVisible, isDetailVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isDetailVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp]);
+
+  // Fetch Steam news when the active item changes
+  useEffect(() => {
+    const item = currentData[activeIndex];
+    const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
+    if (!playable) { setSteamNews([]); return; }
+    const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
+    if (!title || title === 'Último Jugado') { setSteamNews([]); return; }
+    setNewsLoading(true);
+    setSteamNews([]);
+    let cancelled = false;
+    fetchSteamNewsByName(title).then(news => {
+      if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
+    });
+    return () => { cancelled = true; };
+  }, [activeIndex, activeTab, lastPlayedGame?.id]);
 
   // Auto-scroll carousel
   useEffect(() => {
@@ -628,7 +661,7 @@ export default function ConsoleHome() {
       <View style={styles.gradientOverlay} pointerEvents="none" />
       <View style={styles.gradientOverlayTop} pointerEvents="none" />
 
-      {/* === HEADER (PS5 style) === */}
+      {/* === HEADER (PS5 style) — fixed on top === */}
       <View style={styles.header}>
         {/* Left: Navigation Tabs */}
         <View style={styles.headerLeft}>
@@ -694,8 +727,13 @@ export default function ConsoleHome() {
         </View>
       </View>
 
-      {/* === MAIN CONTENT AREA === */}
-      <Animated.View style={[styles.mainContent, animatedTabContentStyle]}>
+      {/* === MAIN SCROLLABLE CONTENT === */}
+      <Animated.ScrollView
+        style={[styles.mainContent, animatedTabContentStyle]}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.mainScrollContent}
+        scrollEventThrottle={16}
+      >
         {/* CAROUSEL ROW */}
         <View style={styles.carouselSection}>
           {currentData.length === 0 ? (
@@ -809,45 +847,150 @@ export default function ConsoleHome() {
 
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         <View style={styles.gameInfoPanel}>
-          {/* Logo or title */}
-          {displayLogo ? (
-            <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
-          ) : (
-            <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
-          )}
+            {/* Logo or title */}
+            {displayLogo ? (
+              <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
+            ) : (
+              <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
+            )}
 
-          {/* Description */}
-          {displayDesc ? (
-            <Text style={styles.gameDesc} numberOfLines={2}>{displayDesc}</Text>
-          ) : null}
+            {/* Description */}
+            {displayDesc ? (
+              <Text style={styles.gameDesc} numberOfLines={2}>{displayDesc}</Text>
+            ) : null}
 
-          {/* Action Buttons */}
-          {canPlay && (
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                id="play-btn"
-                style={styles.playBtn}
-                activeOpacity={0.85}
-                onPress={() => {
-                  if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
-                }}
-              >
-                <Text style={styles.playBtnText}>Play</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                id="more-btn"
-                style={styles.moreBtn}
-                activeOpacity={0.8}
-                onPress={() => {
-                  if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
-                }}
-              >
-                <Text style={styles.moreBtnText}>···</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </Animated.View>
+            {/* Action Buttons */}
+            {canPlay && (
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  id="play-btn"
+                  style={[
+                    styles.playBtn,
+                    focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnFocused
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
+                  }}
+                >
+                  <Text style={[
+                    styles.playBtnText,
+                    focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
+                  ]}>Play</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  id="more-btn"
+                  style={[
+                    styles.moreBtn,
+                    focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnFocused
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
+                  }}
+                >
+                  <Text style={styles.moreBtnText}>···</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Trophies & Friends Cards */}
+            {canPlay && (
+              <View style={styles.infoCardsRow}>
+                {/* Trophies Card */}
+                <BlurView intensity={28} tint="dark" style={[
+                  styles.infoCard,
+                  focusArea === 'game_panel' && gamePanelFocusIndex === 2 && styles.infoCardFocused
+                ]}>
+                  <View style={styles.infoCardIconWrap}>
+                    <MaterialCommunityIcons name="trophy-outline" size={18} color="#FFD700" />
+                  </View>
+                  <View style={styles.infoCardBody}>
+                    <Text style={styles.infoCardLabel}>Trofeos</Text>
+                    <View style={styles.infoCardValueRow}>
+                      <MaterialCommunityIcons name="circle" size={8} color="#CD7F32" style={{ marginRight: 3 }} />
+                      <Text style={styles.infoCardValue}>0</Text>
+                      <MaterialCommunityIcons name="circle" size={8} color="#C0C0C0" style={{ marginHorizontal: 3 }} />
+                      <Text style={styles.infoCardValue}>0</Text>
+                      <MaterialCommunityIcons name="circle" size={8} color="#FFD700" style={{ marginHorizontal: 3 }} />
+                      <Text style={styles.infoCardValue}>0</Text>
+                      <MaterialCommunityIcons name="trophy" size={9} color="#B0B0FF" style={{ marginLeft: 4 }} />
+                      <Text style={[styles.infoCardValue, { marginLeft: 2 }]}>0</Text>
+                    </View>
+                  </View>
+                </BlurView>
+
+                {/* Friends Playing Card */}
+                <BlurView intensity={28} tint="dark" style={[
+                  styles.infoCard,
+                  focusArea === 'game_panel' && gamePanelFocusIndex === 3 && styles.infoCardFocused
+                ]}>
+                  <View style={styles.infoCardIconWrap}>
+                    <Ionicons name="people-outline" size={18} color="#4CD964" />
+                  </View>
+                  <View style={styles.infoCardBody}>
+                    <Text style={styles.infoCardLabel}>Amigos jugando</Text>
+                    <Text style={[styles.infoCardValue, { color: 'rgba(255,255,255,0.4)', fontSize: 11 }]}>Nadie está jugando</Text>
+                  </View>
+                </BlurView>
+              </View>
+            )}
+
+            {/* === NOTICIAS OFICIALES === */}
+            {canPlay && (
+              <View style={styles.newsSectionWrapper}>
+                <View style={styles.newsSectionHeader}>
+                  <MaterialCommunityIcons name="steam" size={14} color="rgba(255,255,255,0.5)" style={{ marginRight: 6 }} />
+                  <Text style={styles.newsSectionTitle}>Noticias Oficiales</Text>
+                </View>
+
+                {newsLoading ? (
+                  <View style={styles.newsLoadingRow}>
+                    <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                    <Text style={styles.newsEmptyText}>Buscando noticias...</Text>
+                  </View>
+                ) : steamNews.length === 0 ? (
+                  <View style={styles.newsLoadingRow}>
+                    <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
+                    <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.newsScrollContent}
+                  >
+                    {steamNews.slice(0, 8).map((item) => (
+                      <TouchableOpacity
+                        key={item.gid}
+                        style={styles.newsCard}
+                        activeOpacity={0.8}
+                        onPress={() => { if (item.url) Linking.openURL(item.url); }}
+                      >
+                        <View style={styles.newsCardAccent} />
+                        <View style={styles.newsCardContent}>
+                          <Text style={styles.newsCardFeed} numberOfLines={1}>
+                            {item.feedlabel || item.feedname || 'Steam'}
+                          </Text>
+                          <Text style={styles.newsCardTitle} numberOfLines={3}>
+                            {item.title}
+                          </Text>
+                          <View style={styles.newsCardFooter}>
+                            <Ionicons name="time-outline" size={10} color="rgba(255,255,255,0.35)" />
+                            <Text style={styles.newsCardDate}>{formatSteamDate(item.date)}</Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            )}
+
+            {/* Bottom padding */}
+            <View style={{ height: 80 }} />
+          </View>
+        </Animated.ScrollView>
 
       {/* === FOOTER (minimal, PS5 style) === */}
       <View style={styles.footer}>
@@ -1264,18 +1407,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
 
-  // === MAIN CONTENT ===
+  // === MAIN CONTENT (scrollable) ===
   mainContent: {
     flex: 1,
-    justifyContent: 'flex-start',
-    paddingTop: 12,
+    paddingTop: 0,
+  },
+  mainScrollContent: {
+    paddingTop: 70, // space for fixed header
+    paddingBottom: 60, // space for footer
+    minHeight: '100%',
   },
 
   // === CAROUSEL ===
   carouselSection: {
-    height: 160,
+    height: 180,
     justifyContent: 'center',
-    marginBottom: 22,
+    marginBottom: 0,
   },
   cardWrapper: {
     marginHorizontal: 5,
@@ -1333,12 +1480,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
 
-  // === GAME INFO PANEL (bottom-left, absolute) ===
+  // === GAME INFO PANEL (flows below carousel) ===
   gameInfoPanel: {
-    position: 'absolute',
-    bottom: 100,
-    left: 50,
-    maxWidth: 480,
+    paddingLeft: 50,
+    paddingTop: 24,
+    maxWidth: 540,
   },
   gameLogo: {
     width: 240,
@@ -1396,6 +1542,159 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 20,
     marginTop: -4,
+  },
+
+  // === PLAY BTN FOCUS STATES ===
+  playBtnFocused: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 14,
+    transform: [{ scale: 1.06 }],
+  } as any,
+  playBtnTextFocused: {
+    color: '#111111',
+  },
+  moreBtnFocused: {
+    borderColor: 'rgba(255,255,255,0.85)',
+    borderWidth: 2,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    transform: [{ scale: 1.08 }],
+  } as any,
+
+  // === INFO CARDS (below play button) ===
+  infoCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+    minWidth: 150,
+  } as any,
+  infoCardFocused: {
+    borderColor: 'rgba(255,255,255,0.75)',
+    borderWidth: 1.5,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    transform: [{ scale: 1.03 }],
+  } as any,
+  infoCardIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  infoCardBody: {
+    flex: 1,
+  },
+  infoCardLabel: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 3,
+  },
+  infoCardValue: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  infoCardValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  // === STEAM NEWS SECTION ===
+  newsSectionWrapper: {
+    marginTop: 18,
+    maxWidth: 700,
+  },
+  newsSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  newsSectionTitle: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
+  newsScrollContent: {
+    gap: 10,
+    paddingRight: 20,
+  },
+  newsCard: {
+    width: 160,
+    height: 140,
+    borderRadius: 12,
+    backgroundColor: 'rgba(20,20,30,0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  } as any,
+  newsCardAccent: {
+    height: 3,
+    backgroundColor: 'rgba(100,150,255,0.5)',
+    width: '60%',
+  },
+  newsCardContent: {
+    flex: 1,
+    padding: 10,
+    justifyContent: 'space-between',
+  },
+  newsCardFeed: {
+    color: 'rgba(100,150,255,0.8)',
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  newsCardTitle: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 15,
+    flex: 1,
+  },
+  newsCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  newsCardDate: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 9,
+    fontWeight: '500',
+  },
+  newsLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+  },
+  newsEmptyText: {
+    color: 'rgba(255,255,255,0.25)',
+    fontSize: 11,
+    fontStyle: 'italic',
   },
 
   // === FOOTER ===
