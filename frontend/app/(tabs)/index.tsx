@@ -920,19 +920,19 @@ export default function ConsoleHome() {
               {currentData.map((item, index) => {
                 const isActive = index === activeIndex;
 
+                let cardContent;
+
                 if (item.id === 'more_library') {
-                  return (
-                    <TouchableOpacity key={item.id} onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                  cardContent = (
+                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
                       <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive]}>
                         <MaterialCommunityIcons name="library-shelves" size={32} color={isActive ? "#FFF" : "#999"} />
                       </BlurView>
                     </TouchableOpacity>
                   );
-                }
-
-                if (item.isGrid) {
-                  return (
-                    <TouchableOpacity key={item.id} onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                } else if (item.isGrid) {
+                  cardContent = (
+                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
                       <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
                         <View style={styles.folderCardHeader}>
                           <MaterialCommunityIcons name="view-grid" size={14} color="rgba(255,255,255,0.7)" />
@@ -955,11 +955,9 @@ export default function ConsoleHome() {
                       </View>
                     </TouchableOpacity>
                   );
-                }
-
-                if (item.isFolder) {
-                  return (
-                    <TouchableOpacity key={item.id} onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                } else if (item.isFolder) {
+                  cardContent = (
+                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
                       <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
                         <View style={styles.folderCardHeader}>
                           <Ionicons name="heart" size={14} color="rgba(255,100,100,0.9)" />
@@ -982,23 +980,39 @@ export default function ConsoleHome() {
                       </View>
                     </TouchableOpacity>
                   );
-                }
-
-                if (item.isLastPlayed && !lastPlayedGame) {
-                  return (
-                    <TouchableOpacity key={item.id} onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                } else if (item.isLastPlayed && !lastPlayedGame) {
+                  cardContent = (
+                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
                       <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive]}>
                         <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
                       </BlurView>
                     </TouchableOpacity>
                   );
+                } else {
+                  const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
+                  cardContent = (
+                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                      <Image source={imgSource} style={[styles.card, isActive && styles.cardActive]} contentFit="cover" />
+                    </TouchableOpacity>
+                  );
                 }
 
-                const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
                 return (
-                  <TouchableOpacity key={item.id} onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
-                    <Image source={imgSource} style={[styles.card, isActive && styles.cardActive]} contentFit="cover" />
-                  </TouchableOpacity>
+                  <View key={item.id} style={{ position: 'relative', overflow: 'visible' }}>
+                    {cardContent}
+                    {isActive && item.id !== 'more_library' && (
+                      <View style={styles.activeLabelContainer}>
+                        <View style={styles.platformBadge}>
+                          <Text style={styles.platformBadgeText}>
+                            {item.isFolder || item.isGrid ? 'FAVS' : (item.platform || 'PS5')}
+                          </Text>
+                        </View>
+                        <Text style={styles.activeGameTitle} numberOfLines={1}>
+                          {item.isLastPlayed ? (lastPlayedGame?.title || 'Último Jugado') : item.title}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 );
               })}
             </ScrollView>
@@ -1629,11 +1643,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     opacity: 0.65,
-    transform: [{ scale: 0.92 }],
+    transform: [{ scale: 0.92 }, { translateY: -5.2 }],
   },
   cardWrapperActive: {
     opacity: 1,
-    transform: [{ scale: 1 }],
+    transform: [{ scale: 1 }, { translateY: 0 }],
   },
   card: {
     width: 130,
@@ -1981,4 +1995,37 @@ const styles = StyleSheet.create({
   // === LAUNCHING ===
   launchingOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
   launchingText: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', marginTop: 20, letterSpacing: 3, textTransform: 'uppercase' },
+
+  // === ACTIVE CARD LABEL ===
+  activeLabelContainer: {
+    position: 'absolute',
+    top: 132,
+    left: 135,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 100,
+    width: 400,
+  },
+  platformBadge: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  platformBadgeText: {
+    color: '#000000',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  activeGameTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowRadius: 2,
+  },
 });
