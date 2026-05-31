@@ -1206,8 +1206,21 @@ export default function ConsoleHome() {
                   cardContent = (
                     <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
                       {isActive && <SpinningBorder size={CARD_SIZE} />}
-                      <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive]}>
-                        <MaterialCommunityIcons name="library-shelves" size={32} color={isActive ? "#FFF" : "#999"} />
+
+                      {/* 1. Añadimos overflow: 'hidden' a la tarjeta para que la imagen no se salga de las esquinas redondeadas */}
+                      <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0 }]}>
+
+                        {/* 2. Modificamos la imagen para que llene todo el espacio */}
+                        <Image
+                          source={require('@/assets/images/Libreria.jpeg')}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            // ❌ Eliminamos tintColor para que no pinte un cuadro sólido sobre tu archivo .jpeg
+                          }}
+                          resizeMode="cover" // 3. "cover" asegura que llene todo el recuadro sin deformarse
+                        />
+
                       </BlurView>
                     </TouchableOpacity>
                   );
