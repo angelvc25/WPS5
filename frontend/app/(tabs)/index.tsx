@@ -166,7 +166,7 @@ export default function ConsoleHome() {
       lowerSectionFocusAnim.value,
       [0, 1],
       [
-        interpolate(gamePanelFocusAnim.value, [0, 1], [windowHeight - 390, windowHeight - 580]),
+        interpolate(gamePanelFocusAnim.value, [0, 1], [windowHeight - 390, windowHeight * 0.5 + 200]),
         320
       ]
     );
@@ -174,7 +174,6 @@ export default function ConsoleHome() {
       minHeight: Math.max(0, targetMinHeight),
       justifyContent: 'flex-end',
       paddingBottom: 20,
-      paddingTop: interpolate(gamePanelFocusAnim.value, [0, 1], [0, 80]),
     };
   });
 
