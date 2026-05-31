@@ -198,7 +198,7 @@ export default function ConsoleHome() {
   const carouselStyle = useAnimatedStyle(() => ({
     opacity: 1 - gamePanelFocusAnim.value,
     transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }],
-    height: interpolate(gamePanelFocusAnim.value, [0, 1], [200, 0]),
+    height: interpolate(gamePanelFocusAnim.value, [0, 1], [220, 0]),
     overflow: 'hidden'
   }));
 
