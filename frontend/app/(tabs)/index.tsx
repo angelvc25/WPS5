@@ -5,7 +5,6 @@ import { Image } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import YoutubePlayer from '@/components/YoutubePlayer';
-import GameDetailView from '@/components/GameDetailView';
 import FavoritesView from '@/components/FavoritesView';
 import ControlPrompt from '@/components/ControlPrompt';
 import RandomSelectorView from '@/components/RandomSelectorView';
@@ -69,7 +68,7 @@ export default function ConsoleHome() {
 
   // PS5-style card sizing: smaller, square cards like the real PS5
   const CARD_SIZE = 130;
-  const CARD_GAP = 10;
+  const CARD_GAP = 6;
   const ITEM_WIDTH = CARD_SIZE + CARD_GAP * 2;
   const LEFT_PADDING = 60;
   const RIGHT_PADDING = Math.max(windowWidth - ITEM_WIDTH - LEFT_PADDING, 60);
@@ -88,7 +87,6 @@ export default function ConsoleHome() {
   const [isSaving, setIsSaving] = useState(false);
 
   // States for Game Detail View
-  const [isDetailVisible, setDetailVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ConsoleItem | null>(null);
   const [isUserModalVisible, setUserModalVisible] = useState(false);
   const [modalSelectedIndex, setModalSelectedIndex] = useState(0);
@@ -162,6 +160,7 @@ export default function ConsoleHome() {
   }));
 
   const spacerStyle = useAnimatedStyle(() => {
+    const isWelcome = (activeTab === 'Games' ? games : media)[activeIndex]?.id === '1';
     const targetMinHeight = interpolate(
       lowerSectionFocusAnim.value,
       [0, 1],
@@ -171,7 +170,7 @@ export default function ConsoleHome() {
       ]
     );
     return {
-      minHeight: Math.max(0, targetMinHeight),
+      minHeight: isWelcome ? 30 : Math.max(0, targetMinHeight),
       justifyContent: 'flex-end',
       paddingBottom: 20,
     };
@@ -406,12 +405,11 @@ export default function ConsoleHome() {
           if (!isLaunching) {
             const willBeVisible = !isAddModalVisible;
             setAddModalVisible(willBeVisible);
-            if (willBeVisible) { setDetailVisible(false); setUserModalVisible(false); setSettingsVisible(false); setFavoritesVisible(false); setHomeBgModalVisible(false); }
+            if (willBeVisible) { setUserModalVisible(false); setSettingsVisible(false); setFavoritesVisible(false); setHomeBgModalVisible(false); }
           }
           return;
         }
 
-        if (isDetailVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setDetailVisible(false); return; }
         if (isUserModalVisible) {
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') { setUserModalVisible(false); setFocusArea('main_carousel'); }
           else if (e.key === 'ArrowRight') setModalSelectedIndex(prev => Math.min(prev + 1, 3));
@@ -592,7 +590,7 @@ export default function ConsoleHome() {
           soundService.playActivation();
           if (focusArea === 'game_panel') {
             if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
-              if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
+              if (activeItem) { handleLaunchApp(activeItem); }
             } else if (gamePanelFocusIndex >= 4) {
               const newsItem = steamNews[gamePanelFocusIndex - 4];
               if (newsItem && newsItem.url) {
@@ -608,9 +606,9 @@ export default function ConsoleHome() {
               if (item.isFolder || item.isGrid) { setFavoritesVisible(true); return; }
               if (activeTab === 'Games' && activeIndex === 0) { setHomeBgModalVisible(true); return; }
               if (item.isLastPlayed) {
-                if (lastPlayedGame) { setSelectedItem(lastPlayedGame); setDetailVisible(true); }
+                if (lastPlayedGame) { handleLaunchApp(lastPlayedGame); }
                 else alert('Aún no has jugado a ningún juego.');
-              } else { setSelectedItem(item); setDetailVisible(true); }
+              } else { handleLaunchApp(item); }
             }
           } else if (focusArea === 'header_user') { setUserModalVisible(true); }
           return;
@@ -633,7 +631,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isDetailVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews]);
 
   // Fetch Steam news when the active item changes
   useEffect(() => {
@@ -689,6 +687,23 @@ export default function ConsoleHome() {
     return () => clearTimeout(timer);
   }, [activeIndex, activeTab, ITEM_WIDTH]);
 
+  const handleLaunchApp = (item: ConsoleItem) => {
+    if (!item) return;
+    const targetItem = item.isLastPlayed ? (lastPlayedGame || item) : item;
+    if (!targetItem || !targetItem.path) return;
+    if (targetItem.path.startsWith('http')) {
+      Linking.openURL(targetItem.path);
+      return;
+    }
+    if (Platform.OS === 'web' && (window as any).electronAPI) {
+      setIsLaunching(true);
+      (window as any).electronAPI.launchApp(targetItem.id, targetItem.path).then(() => {
+        loadApps();
+        setTimeout(() => setIsLaunching(false), 4000);
+      });
+    }
+  };
+
   const handleAppPress = (index: number, item: ConsoleItem) => {
     setFocusArea('main_carousel');
     setActiveIndex(index);
@@ -698,11 +713,11 @@ export default function ConsoleHome() {
       if (activeTab === 'Games' && index === 0) { setHomeBgModalVisible(true); return; }
       if (item.isFolder || item.isGrid) { setFavoritesVisible(true); return; }
       if (item.isLastPlayed) {
-        if (lastPlayedGame) { setSelectedItem(lastPlayedGame); setDetailVisible(true); }
+        if (lastPlayedGame) { handleLaunchApp(lastPlayedGame); }
         else alert('Aún no has jugado a ningún juego.');
         return;
       }
-      if (!item.isGrid) { setSelectedItem(item); setDetailVisible(true); }
+      if (!item.isGrid) { handleLaunchApp(item); }
     }
   };
 
@@ -850,7 +865,7 @@ export default function ConsoleHome() {
           <ControlPrompt btn="R" label="" inputMode={inputMode} />
         </View>
 
-        {/* Right: Icons + Clock + Avatar */}
+        {/* Right: Icons + Avatar + Clock */}
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.headerIconBtn} activeOpacity={0.7}>
             <Ionicons name="search" size={20} color="rgba(255,255,255,0.85)" />
@@ -863,26 +878,29 @@ export default function ConsoleHome() {
             <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
 
-          <Text style={styles.timeText}>{currentTime}</Text>
+          <View style={{ position: 'relative' }}>
+            <TouchableOpacity
+              id="avatar-btn"
+              onPress={() => { setFocusArea('header_user'); setUserModalVisible(true); }}
+              style={[
+                styles.avatarContainer,
+                activeUser ? { borderColor: activeUser.color } : {},
+                focusArea === 'header_user' && styles.avatarFocused
+              ]}
+              activeOpacity={0.75}
+            >
+              {activeUser?.avatar ? (
+                <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.avatar} />
+              ) : (
+                <View style={styles.defaultAvatarHeader}>
+                  <Ionicons name="person" size={18} color="#FFF" />
+                </View>
+              )}
+            </TouchableOpacity>
+            <View style={styles.activeStatusDot} />
+          </View>
 
-          <TouchableOpacity
-            id="avatar-btn"
-            onPress={() => { setFocusArea('header_user'); setUserModalVisible(true); }}
-            style={[
-              styles.avatarContainer,
-              activeUser ? { borderColor: activeUser.color } : {},
-              focusArea === 'header_user' && styles.avatarFocused
-            ]}
-            activeOpacity={0.75}
-          >
-            {activeUser?.avatar ? (
-              <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.avatar} />
-            ) : (
-              <View style={styles.defaultAvatarHeader}>
-                <Ionicons name="person" size={18} color="#FFF" />
-              </View>
-            )}
-          </TouchableOpacity>
+          <Text style={styles.timeText}>{currentTime}</Text>
         </View>
       </Animated.View>
 
@@ -1046,7 +1064,7 @@ export default function ConsoleHome() {
                     ]}
                     activeOpacity={0.85}
                     onPress={() => {
-                      if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
+                      if (activeItem) { handleLaunchApp(activeItem); }
                     }}
                   >
                     <Text style={[
@@ -1054,29 +1072,152 @@ export default function ConsoleHome() {
                       focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
                     ]}>Jugar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    id="more-btn"
-                    style={[
-                      styles.moreBtn,
-                      focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnFocused
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
-                    }}
-                  >
-                    <Text style={[
-                      styles.moreBtnText,
-                      focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnTextFocused
-                    ]}>···</Text>
-                  </TouchableOpacity>
                 </View>
               )}
             </Animated.View>
           </Animated.View>
 
           <View style={{ paddingBottom: 80 }}>
-            {/* Trophies & Friends Cards */}
+            {/* === WELCOME WIDGETS (only when Welcome card is active) === */}
+            {activeItem?.id === '1' && (
+              <View style={styles.widgetGrid}>
+                {/* Row 1 */}
+                <View style={styles.widgetRow}>
+                  {/* Controller Widget */}
+                  <BlurView intensity={28} tint="dark" style={[styles.widgetCard, { flex: 0.8 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+                        <MaterialCommunityIcons name="gamepad-variant" size={26} color="#FFF" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>{gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : 'Control inalámbrico DualSense'}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          <Ionicons name="battery-full" size={14} color="#4CD964" />
+                          <Text style={{ color: '#888', fontSize: 11 }}>{gamepadInfo.connected ? `${Math.round(gamepadInfo.battery * 100)}%` : '75%'}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </BlurView>
+
+                  {/* Trophies Widget */}
+                  <BlurView intensity={28} tint="dark" style={[styles.widgetCard, { flex: 1.2 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <MaterialCommunityIcons name="trophy" size={18} color="#FFD700" />
+                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>Trofeos</Text>
+                      </View>
+                      <Text style={{ color: '#888', fontSize: 12 }}>Total: 232</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <MaterialCommunityIcons name="trophy" size={14} color="#B8D4E8" />
+                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>0</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <MaterialCommunityIcons name="trophy" size={14} color="#FFD700" />
+                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>9</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <MaterialCommunityIcons name="trophy" size={14} color="#C0C0C0" />
+                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>28</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <MaterialCommunityIcons name="trophy" size={14} color="#CD7F32" />
+                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>195</Text>
+                      </View>
+                    </View>
+                  </BlurView>
+
+                  {/* Store Widget */}
+                  <BlurView intensity={28} tint="dark" style={[styles.widgetCard, { flex: 1 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <Ionicons name="bag-handle" size={16} color="#0070D1" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>PlayStation Store</Text>
+                    </View>
+                    <Text style={{ color: '#AAA', fontSize: 12 }} numberOfLines={1}>Descubre las últimas ofertas</Text>
+                    <Text style={{ color: '#0070D1', fontSize: 13, fontWeight: '700', marginTop: 4 }}>Ver tienda →</Text>
+                  </BlurView>
+
+                  {/* News Widget */}
+                  <BlurView intensity={28} tint="dark" style={[styles.widgetCard, { flex: 0.6 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <Ionicons name="newspaper" size={16} color="#FFF" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>Noticias</Text>
+                    </View>
+                    <Text style={{ color: '#888', fontSize: 12 }}>Descubre juegos</Text>
+                  </BlurView>
+                </View>
+
+                {/* Row 2 */}
+                <View style={styles.widgetRow}>
+                  {/* Recently Played Widget */}
+                  <BlurView intensity={28} tint="dark" style={[styles.widgetCard, { flex: 1 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                      <Ionicons name="game-controller" size={16} color="#FFF" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>Jugados recientemente</Text>
+                    </View>
+                    {lastPlayedGame ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <Image source={lastPlayedGame.image} style={{ width: 48, height: 48, borderRadius: 8 }} contentFit="cover" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{lastPlayedGame.title}</Text>
+                          <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }}>Hace poco</Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <Text style={{ color: '#666', fontSize: 12, fontStyle: 'italic' }}>Sin juegos recientes</Text>
+                    )}
+                  </BlurView>
+
+                  {/* Messages Widget */}
+                  <BlurView intensity={28} tint="dark" style={[styles.widgetCard, { flex: 0.9 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                      <Ionicons name="chatbubble" size={16} color="#FFF" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>Mensajes</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person" size={18} color="#AAA" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>{activeUser?.name || 'Usuario'}</Text>
+                        <Text style={{ color: '#888', fontSize: 11 }}>Sin mensajes nuevos</Text>
+                      </View>
+                    </View>
+                  </BlurView>
+
+                  {/* Storage Widget */}
+                  <BlurView intensity={28} tint="dark" style={[styles.widgetCard, { flex: 1.1 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <MaterialCommunityIcons name="harddisk" size={16} color="#FFF" />
+                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>Almacenamiento</Text>
+                      </View>
+                      <Ionicons name="information-circle-outline" size={16} color="#888" />
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      <MaterialCommunityIcons name="circle" size={8} color="#AAA" />
+                      <Text style={{ color: '#AAA', fontSize: 12 }}>Espacio libre</Text>
+                      <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold', marginLeft: 'auto' }}>36.47 GB</Text>
+                    </View>
+                    <View style={{ height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                      <View style={{ height: '100%', width: '65%', borderRadius: 3, backgroundColor: '#0070D1' }} />
+                    </View>
+                  </BlurView>
+
+                  {/* Wishlist Widget */}
+                  <BlurView intensity={28} tint="dark" style={[styles.widgetCard, { flex: 0.6 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <Ionicons name="heart" size={16} color="#FF6B6B" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>Lista de deseos</Text>
+                    </View>
+                    <Text style={{ color: '#888', fontSize: 12 }}>Ver tu lista</Text>
+                  </BlurView>
+                </View>
+              </View>
+            )}
+
+            {/* Trophies & Friends Cards (for games, not Welcome) */}
             {canPlay && (
               <View style={styles.infoCardsRow}>
                 {/* Trophies Card */}
@@ -1134,7 +1275,7 @@ export default function ConsoleHome() {
               </View>
             )}
 
-            {/* === NOTICIAS OFICIALES === */}
+            {/* === NOTICIAS OFICIALES (for games, not Welcome) === */}
             {canPlay && (
               <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
                 <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Últimas noticias</Text>
@@ -1198,34 +1339,7 @@ export default function ConsoleHome() {
         </Animated.View>
       </Animated.ScrollView>
 
-      {/* === FOOTER (minimal, PS5 style) === */}
-      <View style={styles.footer}>
-        <View style={styles.footerLeft}>
-          <ControlPrompt btn="Options" label="Añadir" inputMode={inputMode} />
-        </View>
-        <View style={styles.footerRight}>
-          <ControlPrompt btn="B" label="Cerrar" inputMode={inputMode} />
-          <ControlPrompt btn="A" label="Iniciar" inputMode={inputMode} />
-        </View>
-      </View>
-
       {/* === MODALS (same as before, preserved fully) === */}
-
-      <GameDetailView
-        isVisible={isDetailVisible}
-        item={selectedItem}
-        isLaunching={isLaunching}
-        inputMode={inputMode}
-        onClose={() => setDetailVisible(false)}
-        onRefresh={loadApps}
-        onLaunch={(id, path) => {
-          if (path.startsWith('http')) { Linking.openURL(path); return; }
-          if (Platform.OS === 'web' && (window as any).electronAPI) {
-            setIsLaunching(true);
-            (window as any).electronAPI.launchApp(id, path).then(() => { loadApps(); setTimeout(() => setIsLaunching(false), 4000); });
-          }
-        }}
-      />
 
       <FavoritesView
         isVisible={isFavoritesVisible}
@@ -1620,6 +1734,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
+  activeStatusDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#4CD964',
+    borderWidth: 2,
+    borderColor: '#000',
+    zIndex: 10,
+  },
 
   // === MAIN CONTENT (scrollable) ===
   mainContent: {
@@ -1632,6 +1758,26 @@ const styles = StyleSheet.create({
     minHeight: '100%',
   },
 
+  // === WELCOME WIDGETS ===
+  widgetGrid: {
+    paddingHorizontal: 0,
+    paddingTop: 10,
+    gap: 12,
+  },
+  widgetRow: {
+    flexDirection: 'row',
+    gap: 12,
+  } as any,
+  widgetCard: {
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+    minHeight: 80,
+    justifyContent: 'center',
+  } as any,
+
   // === CAROUSEL ===
   carouselSection: {
     height: 240,
@@ -1639,7 +1785,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   cardWrapper: {
-    marginHorizontal: 10,
+    marginHorizontal: 6,
     borderRadius: 10,
     overflow: 'hidden',
     opacity: 0.65,
@@ -1648,6 +1794,8 @@ const styles = StyleSheet.create({
   cardWrapperActive: {
     opacity: 1,
     transform: [{ scale: 1.2 }, { translateY: 13 }],
+    marginLeft: 10,
+    marginRight: 10,
   },
   card: {
     width: 130,
