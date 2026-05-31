@@ -13,6 +13,7 @@ import { Linking } from 'react-native';
 import { fetchGamingNews, NewsArticle } from '@/services/newsService';
 import { soundService } from '@/services/soundService';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services/steamNewsService';
+import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
 
 const TABS = ['Games', 'Media'];
 
@@ -61,9 +62,16 @@ export default function ConsoleHome() {
   // Steam news
   const [steamNews, setSteamNews] = useState<SteamNewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
+
+  // Steam screenshots & trailers
+  const [steamMedia, setSteamMedia] = useState<SteamMediaItem[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [isScreenshotRowFocused, setScreenshotRowFocused] = useState(false);
+
   const scrollRef = useRef<ScrollView>(null);
   const mainScrollRef = useRef<ScrollView>(null);
   const newsScrollRef = useRef<ScrollView>(null);
+  const mediaScrollRef = useRef<ScrollView>(null);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   // PS5-style card sizing: smaller, square cards like the real PS5
@@ -684,6 +692,23 @@ export default function ConsoleHome() {
     let cancelled = false;
     fetchSteamNewsByName(title).then(news => {
       if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
+    });
+    return () => { cancelled = true; };
+  }, [activeIndex, activeTab, lastPlayedGame?.id]);
+
+  // Fetch Steam screenshots & trailers when the active item changes
+  useEffect(() => {
+    const item = currentData[activeIndex];
+    const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
+    if (!playable) { setSteamMedia([]); setScreenshotRowFocused(false); return; }
+    const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
+    if (!title || title === 'Último Jugado') { setSteamMedia([]); return; }
+    setMediaLoading(true);
+    setSteamMedia([]);
+    setScreenshotRowFocused(false);
+    let cancelled = false;
+    fetchSteamMediaByName(title).then(({ items }) => {
+      if (!cancelled) { setSteamMedia(items); setMediaLoading(false); }
     });
     return () => { cancelled = true; };
   }, [activeIndex, activeTab, lastPlayedGame?.id]);
@@ -1391,15 +1416,14 @@ export default function ConsoleHome() {
               </View>
             )}
 
-            {/* Trophies & Friends Cards (for games, not Welcome) */}
-            {canPlay && (
+            {/* Trophies & Friends Cards — se ocultan cuando el row de capturas está enfocado */}
+            {canPlay && !isScreenshotRowFocused && (
               <View style={styles.infoCardsRow}>
                 {/* Trophies Card */}
                 <BlurView intensity={28} tint="dark" style={[
                   styles.infoCard,
                   focusArea === 'game_panel' && gamePanelFocusIndex === 2 && styles.infoCardFocused
                 ]}>
-                  {/* Trophies row */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
@@ -1429,7 +1453,6 @@ export default function ConsoleHome() {
                   styles.infoCard,
                   focusArea === 'game_panel' && gamePanelFocusIndex === 3 && styles.infoCardFocused
                 ]}>
-                  {/* Avatars row */}
                   <View style={{ flexDirection: 'row', marginBottom: 12 }}>
                     {[1, 2, 3, 4, 5].map((_, i) => (
                       <View key={i} style={{
@@ -1446,6 +1469,85 @@ export default function ConsoleHome() {
                     <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
                   </View>
                 </BlurView>
+              </View>
+            )}
+
+            {/* === CAPTURAS Y TRAILERS (arriba de noticias) === */}
+            {canPlay && (
+              <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
+                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Capturas y trailers</Text>
+
+                {mediaLoading ? (
+                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+                    <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                    <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
+                  </View>
+                ) : steamMedia.length === 0 ? (
+                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+                    <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
+                    <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    ref={mediaScrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
+                    onScrollBeginDrag={() => setScreenshotRowFocused(true)}
+                    onMomentumScrollEnd={() => {}}
+                  >
+                    {steamMedia.map((item, idx) => {
+                      const isMediaFocused = isScreenshotRowFocused && gamePanelFocusIndex === 100 + idx;
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            setScreenshotRowFocused(true);
+                            setGamePanelFocusIndex(100 + idx);
+                            if (item.type === 'movie' && item.mp4_url) {
+                              Linking.openURL(item.mp4_url);
+                            } else if (item.full) {
+                              Linking.openURL(item.full);
+                            }
+                          }}
+                          onFocus={() => {
+                            setScreenshotRowFocused(true);
+                            setGamePanelFocusIndex(100 + idx);
+                          }}
+                          onBlur={() => {
+                            setScreenshotRowFocused(false);
+                          }}
+                        >
+                          {/* Thumbnail */}
+                          <View style={styles.newsCardThumbnail}>
+                            <Image
+                              source={{ uri: item.thumbnail }}
+                              style={{ width: '100%', height: '100%' }}
+                              contentFit="cover"
+                            />
+                            {/* Play badge para trailers */}
+                            {item.type === 'movie' && (
+                              <View style={styles.mediaPlayBadge}>
+                                <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
+                              </View>
+                            )}
+                          </View>
+                          {/* Footer */}
+                          <View style={styles.newsCardContent}>
+                            <Text style={styles.newsCardTitle} numberOfLines={2}>
+                              {item.type === 'movie' ? (item.name || 'Trailer') : 'Captura de pantalla'}
+                            </Text>
+                            <Text style={styles.newsCardFooterText} numberOfLines={1}>
+                              {item.type === 'movie' ? '▶ Trailer oficial' : '📷 Screenshot'}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
               </View>
             )}
 
@@ -2360,4 +2462,16 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
     whiteSpace: 'nowrap',
   } as any,
+
+  // === MEDIA (screenshots / trailers) ===
+  mediaPlayBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
 });
