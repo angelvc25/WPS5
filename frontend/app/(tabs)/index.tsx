@@ -878,6 +878,7 @@ export default function ConsoleHome() {
 
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
+          <View style={{ minHeight: windowHeight - 340, justifyContent: 'flex-end', paddingBottom: 20 }}>
             {/* Logo or title */}
             {displayLogo ? (
               <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
@@ -907,7 +908,7 @@ export default function ConsoleHome() {
                   <Text style={[
                     styles.playBtnText,
                     focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
-                  ]}>Play</Text>
+                  ]}>Jugar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   id="more-btn"
@@ -924,7 +925,9 @@ export default function ConsoleHome() {
                 </TouchableOpacity>
               </View>
             )}
+          </View>
 
+          <View style={{ paddingBottom: 80 }}>
             {/* Trophies & Friends Cards */}
             {canPlay && (
               <View style={styles.infoCardsRow}>
@@ -933,21 +936,28 @@ export default function ConsoleHome() {
                   styles.infoCard,
                   focusArea === 'game_panel' && gamePanelFocusIndex === 2 && styles.infoCardFocused
                 ]}>
-                  <View style={styles.infoCardIconWrap}>
-                    <MaterialCommunityIcons name="trophy-outline" size={18} color="#FFD700" />
-                  </View>
-                  <View style={styles.infoCardBody}>
-                    <Text style={styles.infoCardLabel}>Trofeos</Text>
-                    <View style={styles.infoCardValueRow}>
-                      <MaterialCommunityIcons name="circle" size={8} color="#CD7F32" style={{ marginRight: 3 }} />
-                      <Text style={styles.infoCardValue}>0</Text>
-                      <MaterialCommunityIcons name="circle" size={8} color="#C0C0C0" style={{ marginHorizontal: 3 }} />
-                      <Text style={styles.infoCardValue}>0</Text>
-                      <MaterialCommunityIcons name="circle" size={8} color="#FFD700" style={{ marginHorizontal: 3 }} />
-                      <Text style={styles.infoCardValue}>0</Text>
-                      <MaterialCommunityIcons name="trophy" size={9} color="#B0B0FF" style={{ marginLeft: 4 }} />
-                      <Text style={[styles.infoCardValue, { marginLeft: 2 }]}>0</Text>
+                  {/* Trophies row */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
                     </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
+                    </View>
+                  </View>
+                  <View>
+                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
+                    <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
                   </View>
                 </BlurView>
 
@@ -956,12 +966,21 @@ export default function ConsoleHome() {
                   styles.infoCard,
                   focusArea === 'game_panel' && gamePanelFocusIndex === 3 && styles.infoCardFocused
                 ]}>
-                  <View style={styles.infoCardIconWrap}>
-                    <Ionicons name="people-outline" size={18} color="#4CD964" />
+                  {/* Avatars row */}
+                  <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                    {[1,2,3,4,5].map((_, i) => (
+                      <View key={i} style={{
+                        width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
+                        borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
+                        alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <Ionicons name="person" size={16} color="#AAA" />
+                      </View>
+                    ))}
                   </View>
-                  <View style={styles.infoCardBody}>
-                    <Text style={styles.infoCardLabel}>Amigos jugando</Text>
-                    <Text style={[styles.infoCardValue, { color: 'rgba(255,255,255,0.4)', fontSize: 11 }]}>Nadie está jugando</Text>
+                  <View>
+                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
+                    <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
                   </View>
                 </BlurView>
               </View>
@@ -970,15 +989,12 @@ export default function ConsoleHome() {
             {/* === NOTICIAS OFICIALES === */}
             {canPlay && (
               <View style={styles.newsSectionWrapper}>
-                <View style={styles.newsSectionHeader}>
-                  <MaterialCommunityIcons name="steam" size={14} color="rgba(255,255,255,0.5)" style={{ marginRight: 6 }} />
-                  <Text style={styles.newsSectionTitle}>Noticias Oficiales</Text>
-                </View>
+                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Últimas noticias</Text>
 
                 {newsLoading ? (
                   <View style={styles.newsLoadingRow}>
                     <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-                    <Text style={styles.newsEmptyText}>Buscando noticias...</Text>
+                    <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
                   </View>
                 ) : steamNews.length === 0 ? (
                   <View style={styles.newsLoadingRow}>
@@ -998,18 +1014,24 @@ export default function ConsoleHome() {
                         activeOpacity={0.8}
                         onPress={() => { if (item.url) Linking.openURL(item.url); }}
                       >
-                        <View style={styles.newsCardAccent} />
+                        {/* Thumbnail area */}
+                        <View style={styles.newsCardThumbnail}>
+                          {item.image_url ? (
+                            <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                          ) : (
+                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
+                              <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
+                            </View>
+                          )}
+                        </View>
+                        {/* Text area */}
                         <View style={styles.newsCardContent}>
-                          <Text style={styles.newsCardFeed} numberOfLines={1}>
-                            {item.feedlabel || item.feedname || 'Steam'}
-                          </Text>
-                          <Text style={styles.newsCardTitle} numberOfLines={3}>
+                          <Text style={styles.newsCardTitle} numberOfLines={2}>
                             {item.title}
                           </Text>
-                          <View style={styles.newsCardFooter}>
-                            <Ionicons name="time-outline" size={10} color="rgba(255,255,255,0.35)" />
-                            <Text style={styles.newsCardDate}>{formatSteamDate(item.date)}</Text>
-                          </View>
+                          <Text style={styles.newsCardFooterText} numberOfLines={1}>
+                            {(item.feedlabel || item.feedname || 'Steam')} | {formatSteamDate(item.date)}
+                          </Text>
                         </View>
                       </TouchableOpacity>
                     ))}
@@ -1017,10 +1039,8 @@ export default function ConsoleHome() {
                 )}
               </View>
             )}
-
-            {/* Bottom padding */}
-            <View style={{ height: 80 }} />
-          </Animated.View>
+          </View>
+        </Animated.View>
         </Animated.ScrollView>
 
       {/* === FOOTER (minimal, PS5 style) === */}
@@ -1605,124 +1625,84 @@ const styles = StyleSheet.create({
   // === INFO CARDS (below play button) ===
   infoCardsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
+    gap: 16,
+    marginTop: 20,
   },
   infoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    padding: 16,
     borderRadius: 12,
+    backgroundColor: 'rgba(30,30,40,0.4)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    overflow: 'hidden',
-    minWidth: 150,
+    borderColor: 'rgba(255,255,255,0.05)',
+    minWidth: 260,
+    justifyContent: 'center',
   } as any,
   infoCardFocused: {
     borderColor: 'rgba(255,255,255,0.75)',
     borderWidth: 1.5,
-    shadowColor: '#FFFFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    transform: [{ scale: 1.03 }],
+    backgroundColor: 'rgba(40,40,50,0.6)',
+    transform: [{ scale: 1.02 }],
   } as any,
-  infoCardIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  infoCardBody: {
-    flex: 1,
-  },
-  infoCardLabel: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 3,
-  },
-  infoCardValue: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  infoCardValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
 
   // === STEAM NEWS SECTION ===
   newsSectionWrapper: {
-    marginTop: 18,
-    maxWidth: 700,
-  },
-  newsSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  newsSectionTitle: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
+    marginTop: 30,
+    maxWidth: 900,
   },
   newsScrollContent: {
-    gap: 10,
+    gap: 16,
     paddingRight: 20,
   },
   newsCard: {
-    width: 160,
-    height: 140,
-    borderRadius: 12,
-    backgroundColor: 'rgba(20,20,30,0.7)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    width: 280,
+    borderRadius: 8,
+    backgroundColor: 'rgba(20,20,30,0.4)',
     overflow: 'hidden',
   } as any,
-  newsCardAccent: {
-    height: 3,
-    backgroundColor: 'rgba(100,150,255,0.5)',
-    width: '60%',
+  newsCardThumbnail: {
+    width: '100%',
+    height: 157, // 16:9 for 280px width
+    backgroundColor: '#333',
+    position: 'relative',
+  },
+  newsDurationBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  newsDurationText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  newsPlayIcon: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   newsCardContent: {
-    flex: 1,
-    padding: 10,
-    justifyContent: 'space-between',
-  },
-  newsCardFeed: {
-    color: 'rgba(100,150,255,0.8)',
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 4,
+    padding: 12,
   },
   newsCardTitle: {
-    color: 'rgba(255,255,255,0.92)',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 15,
-    flex: 1,
-  },
-  newsCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 6,
-  },
-  newsCardDate: {
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 9,
+    color: '#FFF',
+    fontSize: 14,
     fontWeight: '500',
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  newsCardFooterText: {
+    color: '#888',
+    fontSize: 12,
   },
   newsLoadingRow: {
     flexDirection: 'row',

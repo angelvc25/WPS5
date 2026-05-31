@@ -10,6 +10,7 @@ export interface SteamNewsItem {
   feedname: string;
   feed_type: number;
   appid: number;
+  image_url?: string;
 }
 
 /**
@@ -41,11 +42,34 @@ export const searchSteamAppId = async (gameName: string): Promise<number | null>
 export const fetchSteamNewsForApp = async (appid: number): Promise<SteamNewsItem[]> => {
   try {
     const response = await fetch(
-      `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appid}&count=8&maxlength=200&format=json`
+      `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appid}&count=8&maxlength=5000&format=json`
     );
     if (!response.ok) return [];
     const data = await response.json();
-    return (data?.appnews?.newsitems as SteamNewsItem[]) || [];
+    const items = (data?.appnews?.newsitems as SteamNewsItem[]) || [];
+
+    return items.map(item => {
+      let image_url: string | undefined;
+
+      const clanMatch = item.contents?.match(/\{STEAM_CLAN_IMAGE\}\/([^\s"'<>]+)/);
+      if (clanMatch) {
+        image_url = `https://clan.akamai.steamstatic.com/images/${clanMatch[1]}`;
+      } else {
+        const imgMatch = item.contents?.match(/(https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|gif))/i);
+        if (imgMatch) {
+          image_url = imgMatch[1];
+        }
+      }
+
+      if (!image_url) {
+        image_url = `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appid}/header.jpg`;
+      }
+
+      return {
+        ...item,
+        image_url
+      };
+    });
   } catch (error) {
     console.error('[SteamNews] Error fetching Steam news:', error);
     return [];
