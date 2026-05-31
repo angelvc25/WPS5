@@ -158,12 +158,40 @@ export default function ConsoleHome() {
     transform: [{ translateY: interpolate(lowerSectionFocusAnim.value, [0, 1], [0, -20]) }],
     maxHeight: interpolate(lowerSectionFocusAnim.value, [0, 1], [500, 0]),
     marginTop: interpolate(lowerSectionFocusAnim.value, [0, 1], [0, -20]),
+    overflow: lowerSectionFocusAnim.value > 0.01 ? 'hidden' : 'visible'
+  }));
+
+  const spacerStyle = useAnimatedStyle(() => {
+    const targetMinHeight = interpolate(
+      lowerSectionFocusAnim.value,
+      [0, 1],
+      [
+        interpolate(gamePanelFocusAnim.value, [0, 1], [windowHeight - 390, windowHeight - 580]),
+        320
+      ]
+    );
+    return {
+      minHeight: Math.max(0, targetMinHeight),
+      justifyContent: 'flex-end',
+      paddingBottom: 20,
+      paddingTop: interpolate(gamePanelFocusAnim.value, [0, 1], [0, 80]),
+    };
+  });
+
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: 1 - gamePanelFocusAnim.value,
+    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }],
+    maxHeight: interpolate(gamePanelFocusAnim.value, [0, 1], [120, 0]),
+    paddingTop: interpolate(gamePanelFocusAnim.value, [0, 1], [40, 0]),
+    paddingBottom: interpolate(gamePanelFocusAnim.value, [0, 1], [12, 0]),
     overflow: 'hidden'
   }));
 
-  const headerOpacityStyle = useAnimatedStyle(() => ({
+  const carouselStyle = useAnimatedStyle(() => ({
     opacity: 1 - gamePanelFocusAnim.value,
-    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }]
+    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }],
+    height: interpolate(gamePanelFocusAnim.value, [0, 1], [180, 0]),
+    overflow: 'hidden'
   }));
 
   const topBarMiniStyle = useAnimatedStyle(() => ({
@@ -173,7 +201,16 @@ export default function ConsoleHome() {
   }));
 
   const gameInfoPanelStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -60]) }]
+    transform: [{
+      translateY: interpolate(
+        lowerSectionFocusAnim.value,
+        [0, 1],
+        [
+          interpolate(gamePanelFocusAnim.value, [0, 1], [0, -60]),
+          0
+        ]
+      )
+    }]
   }));
 
   useEffect(() => {
@@ -785,7 +822,7 @@ export default function ConsoleHome() {
       </Animated.View>
 
       {/* === HEADER (PS5 style) — fixed on top === */}
-      <Animated.View style={[styles.header, headerOpacityStyle]}>
+      <Animated.View style={[styles.header, headerStyle]}>
         {/* Left: Navigation Tabs */}
         <View style={styles.headerLeft}>
           <ControlPrompt btn="L" label="" inputMode={inputMode} />
@@ -859,7 +896,7 @@ export default function ConsoleHome() {
         scrollEventThrottle={16}
       >
         {/* CAROUSEL ROW */}
-        <Animated.View style={[styles.carouselSection, headerOpacityStyle]}>
+        <Animated.View style={[styles.carouselSection, carouselStyle]}>
           {currentData.length === 0 ? (
             <View style={styles.mediaEmptyContainer}>
               <Ionicons name="film-outline" size={80} color="rgba(255,255,255,0.15)" />
@@ -971,7 +1008,7 @@ export default function ConsoleHome() {
 
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
-          <View style={{ minHeight: windowHeight - 390, justifyContent: 'flex-end', paddingBottom: 20 }}>
+          <Animated.View style={spacerStyle}>
             <Animated.View style={topPanelStyle}>
               {/* Logo or title */}
               {displayLogo ? (
@@ -1023,7 +1060,7 @@ export default function ConsoleHome() {
                 </View>
               )}
             </Animated.View>
-          </View>
+          </Animated.View>
 
           <View style={{ paddingBottom: 80 }}>
             {/* Trophies & Friends Cards */}
