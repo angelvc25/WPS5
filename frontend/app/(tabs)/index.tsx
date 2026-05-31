@@ -39,10 +39,10 @@ export interface ConsoleItem {
 }
 
 const DATA_GAMES: ConsoleItem[] = [
-  { id: '1', title: 'Home', time: 'WConsole - Home', image: require('@/assets/images/Home.gif'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0, backgroundImage: require('@/assets/images/FondoDefault.png') },
+  { id: '1', title: 'Welcome', time: 'WConsole - Home', image: require('@/assets/images/Home.gif'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0, backgroundImage: require('@/assets/images/FondoDefault.png') },
   { id: 'last_played', title: 'Último Jugado', time: 'No ejecutado aún', image: require('@/assets/images/Home.gif'), isLastPlayed: true },
-  { id: '3', title: 'Favoritos Juegos', time: 'Folder - Colección', isFolder: true },
-  { id: '4', title: 'Favoritos Media', time: 'Aplicaciones de Streaming', isGrid: true },
+  // { id: '3', title: 'Favoritos Juegos', time: 'Folder - Colección', isFolder: true },
+  // { id: '4', title: 'Favoritos Media', time: 'Aplicaciones de Streaming', isGrid: true },
 ];
 
 const DATA_MEDIA: ConsoleItem[] = [];
@@ -1030,10 +1030,10 @@ export default function ConsoleHome() {
                 <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
               )}
 
-              {/* Description */}
+              {/* Description
               {displayDesc ? (
                 <Text style={styles.gameDesc} numberOfLines={2}>{displayDesc}</Text>
-              ) : null}
+              ) : null} */}
 
               {/* Action Buttons */}
               {canPlay && (
@@ -1639,7 +1639,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   cardWrapper: {
-    marginHorizontal: 5,
+    marginHorizontal: 10,
     borderRadius: 10,
     overflow: 'hidden',
     opacity: 0.65,
