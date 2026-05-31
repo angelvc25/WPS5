@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Pla
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, interpolate, Easing } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import FavoritesView from '@/components/FavoritesView';
@@ -128,6 +128,7 @@ export default function ConsoleHome() {
   const tabFade = useSharedValue(1);
   const gamePanelFocusAnim = useSharedValue(0);
   const lowerSectionFocusAnim = useSharedValue(0);
+  const spinRotation = useSharedValue(0);
 
   useEffect(() => {
     setShowTrailer(false);
@@ -144,6 +145,15 @@ export default function ConsoleHome() {
     tabFade.value = 0;
     tabFade.value = withTiming(1, { duration: 400 });
   }, [activeTab]);
+
+  // Spinning border animation — continuous rotation for active card
+  useEffect(() => {
+    spinRotation.value = withRepeat(
+      withTiming(360, { duration: 2800, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
 
   const isGamePanelFocused = focusArea === 'game_panel';
   const isLowerSectionFocused = isGamePanelFocused && gamePanelFocusIndex >= 2;
@@ -198,7 +208,7 @@ export default function ConsoleHome() {
   const carouselStyle = useAnimatedStyle(() => ({
     opacity: 1 - gamePanelFocusAnim.value,
     transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }],
-    height: interpolate(gamePanelFocusAnim.value, [0, 1], [220, 0]),
+    height: interpolate(gamePanelFocusAnim.value, [0, 1], [200, 0]),
     overflow: 'hidden'
   }));
 
@@ -908,6 +918,65 @@ export default function ConsoleHome() {
   const displayDesc = activeItem?.isLastPlayed ? (lastPlayedGame?.description || '') : (activeItem?.description || '');
   const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1';
 
+  // Spinning border component — rotating conic-gradient halo around the active card
+  // SpinningBorder: placed INSIDE the card's TouchableOpacity so it inherits scale/translate transforms.
+  // Uses negative absolute positioning to overflow outside the card bounds.
+  const SpinningBorder = ({ size }: { size: number }) => {
+    if (Platform.OS !== 'web') return null;
+    const overflow = 5; // px bleeding outside the card on each side
+    return (
+      <View
+        style={{
+          position: 'absolute',
+          top: -2,
+          left: 8,
+          right: 8,
+          bottom: -2,
+          borderRadius: 24,
+          zIndex: -1,
+          overflow: 'hidden',
+        } as any}
+        pointerEvents="none"
+      >
+        <style>{`
+          @keyframes wc-spin-border {
+            0%   { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+          }
+          .wc-spinning-inner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 300%;
+            height: 300%;
+            animation: wc-spin-border 2.8s linear infinite;
+            background: conic-gradient(
+              from 0deg,
+              transparent 0%,
+              transparent 28%,
+              rgba(180,210,255,0.0) 33%,
+              rgba(220,235,255,0.95) 48%,
+              rgba(255,255,255,1.0) 50%,
+              rgba(220,235,255,0.95) 52%,
+              rgba(180,210,255,0.0) 57%,
+              transparent 62%,
+              transparent 100%
+            );
+            border-radius: 50%;
+          }
+          .wc-spinning-mask {
+            position: absolute;
+            inset: ${overflow + 2}px;
+            border-radius: 21px;
+            background: transparent;
+          }
+        `}</style>
+        <div className="wc-spinning-inner" />
+        <div className="wc-spinning-mask" />
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* === BACKGROUND: Dual Layer Crossfade === */}
@@ -1080,6 +1149,7 @@ export default function ConsoleHome() {
                 if (item.id === 'more_library') {
                   cardContent = (
                     <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                      {isActive && <SpinningBorder size={CARD_SIZE} />}
                       <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive]}>
                         <MaterialCommunityIcons name="library-shelves" size={32} color={isActive ? "#FFF" : "#999"} />
                       </BlurView>
@@ -1088,6 +1158,7 @@ export default function ConsoleHome() {
                 } else if (item.isGrid) {
                   cardContent = (
                     <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                      {isActive && <SpinningBorder size={CARD_SIZE} />}
                       <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
                         <View style={styles.folderCardHeader}>
                           <MaterialCommunityIcons name="view-grid" size={14} color="rgba(255,255,255,0.7)" />
@@ -1113,6 +1184,7 @@ export default function ConsoleHome() {
                 } else if (item.isFolder) {
                   cardContent = (
                     <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                      {isActive && <SpinningBorder size={CARD_SIZE} />}
                       <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
                         <View style={styles.folderCardHeader}>
                           <Ionicons name="heart" size={14} color="rgba(255,100,100,0.9)" />
@@ -1138,6 +1210,7 @@ export default function ConsoleHome() {
                 } else if (item.isLastPlayed && !lastPlayedGame) {
                   cardContent = (
                     <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                      {isActive && <SpinningBorder size={CARD_SIZE} />}
                       <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive]}>
                         <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
                       </BlurView>
@@ -1147,6 +1220,7 @@ export default function ConsoleHome() {
                   const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
                   cardContent = (
                     <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                      {isActive && <SpinningBorder size={CARD_SIZE} />}
                       <Image source={imgSource} style={[styles.card, isActive && styles.cardActive]} contentFit="cover" />
                     </TouchableOpacity>
                   );
@@ -2132,6 +2206,7 @@ const styles = StyleSheet.create({
   },
   cardWrapperActive: {
     opacity: 1,
+    overflow: 'visible',
     transform: [{ scale: 1.3 }, { translateY: 13 }],
     marginLeft: 10,
     marginRight: 10,
@@ -2224,6 +2299,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 0,
+    width: 280,
   },
   playBtnText: {
     color: '#FFFFFF',
@@ -2283,7 +2359,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30,30,40,0.4)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
-    minWidth: 260,
+    minWidth: 280,
     justifyContent: 'center',
   } as any,
   infoCardFocused: {
