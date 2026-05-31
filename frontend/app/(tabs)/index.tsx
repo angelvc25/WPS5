@@ -119,6 +119,7 @@ export default function ConsoleHome() {
   const fade = useSharedValue(0);
   const tabFade = useSharedValue(1);
   const gamePanelFocusAnim = useSharedValue(0);
+  const lowerSectionFocusAnim = useSharedValue(0);
 
   useEffect(() => {
     setShowTrailer(false);
@@ -137,13 +138,27 @@ export default function ConsoleHome() {
   }, [activeTab]);
 
   const isGamePanelFocused = focusArea === 'game_panel';
+  const isLowerSectionFocused = isGamePanelFocused && gamePanelFocusIndex >= 2;
+
   useEffect(() => {
     gamePanelFocusAnim.value = withTiming(isGamePanelFocused ? 1 : 0, { duration: 300 });
   }, [isGamePanelFocused]);
 
+  useEffect(() => {
+    lowerSectionFocusAnim.value = withTiming(isLowerSectionFocused ? 1 : 0, { duration: 300 });
+  }, [isLowerSectionFocused]);
+
   const animatedTabContentStyle = useAnimatedStyle(() => ({
     opacity: tabFade.value,
     transform: [{ translateY: interpolate(tabFade.value, [0, 1], [10, 0]) }]
+  }));
+
+  const topPanelStyle = useAnimatedStyle(() => ({
+    opacity: 1 - lowerSectionFocusAnim.value,
+    transform: [{ translateY: interpolate(lowerSectionFocusAnim.value, [0, 1], [0, -20]) }],
+    maxHeight: interpolate(lowerSectionFocusAnim.value, [0, 1], [500, 0]),
+    marginTop: interpolate(lowerSectionFocusAnim.value, [0, 1], [0, -20]),
+    overflow: 'hidden'
   }));
 
   const headerOpacityStyle = useAnimatedStyle(() => ({
@@ -620,7 +635,7 @@ export default function ConsoleHome() {
   useEffect(() => {
     if (focusArea === 'game_panel' && gamePanelFocusIndex >= 4 && newsScrollRef.current) {
       const newsIndex = gamePanelFocusIndex - 4;
-      const cardWidth = 340;
+      const cardWidth = 500;
       const gap = 16;
       const scrollX = newsIndex * (cardWidth + gap);
       newsScrollRef.current.scrollTo({ x: scrollX, animated: true });
@@ -956,53 +971,58 @@ export default function ConsoleHome() {
 
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
-          <View style={{ minHeight: windowHeight - 340, justifyContent: 'flex-end', paddingBottom: 20 }}>
-            {/* Logo or title */}
-            {displayLogo ? (
-              <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
-            ) : (
-              <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
-            )}
+          <View style={{ minHeight: windowHeight - 390, justifyContent: 'flex-end', paddingBottom: 20 }}>
+            <Animated.View style={topPanelStyle}>
+              {/* Logo or title */}
+              {displayLogo ? (
+                <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
+              ) : (
+                <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
+              )}
 
-            {/* Description */}
-            {displayDesc ? (
-              <Text style={styles.gameDesc} numberOfLines={2}>{displayDesc}</Text>
-            ) : null}
+              {/* Description */}
+              {displayDesc ? (
+                <Text style={styles.gameDesc} numberOfLines={2}>{displayDesc}</Text>
+              ) : null}
 
-            {/* Action Buttons */}
-            {canPlay && (
-              <View style={styles.actionButtons}>
-                <TouchableOpacity
-                  id="play-btn"
-                  style={[
-                    styles.playBtn,
-                    focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnFocused
-                  ]}
-                  activeOpacity={0.85}
-                  onPress={() => {
-                    if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
-                  }}
-                >
-                  <Text style={[
-                    styles.playBtnText,
-                    focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
-                  ]}>Jugar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  id="more-btn"
-                  style={[
-                    styles.moreBtn,
-                    focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnFocused
-                  ]}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
-                  }}
-                >
-                  <Text style={styles.moreBtnText}>···</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              {/* Action Buttons */}
+              {canPlay && (
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    id="play-btn"
+                    style={[
+                      styles.playBtn,
+                      focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnFocused
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
+                    }}
+                  >
+                    <Text style={[
+                      styles.playBtnText,
+                      focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
+                    ]}>Jugar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    id="more-btn"
+                    style={[
+                      styles.moreBtn,
+                      focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnFocused
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      if (activeItem) { setSelectedItem(activeItem.isLastPlayed ? (lastPlayedGame || activeItem) : activeItem); setDetailVisible(true); }
+                    }}
+                  >
+                    <Text style={[
+                      styles.moreBtnText,
+                      focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnTextFocused
+                    ]}>···</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </Animated.View>
           </View>
 
           <View style={{ paddingBottom: 80 }}>
@@ -1657,28 +1677,28 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   playBtn: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: '#9999991c',
     paddingHorizontal: 52,
     paddingVertical: 14,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 0,
   },
   playBtnText: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   moreBtn: {
-    backgroundColor: 'rgba(60,60,60,0.85)',
+    backgroundColor: '#9999991c',
     width: 52,
     height: 52,
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 0,
   },
   moreBtnText: {
     color: '#FFFFFF',
@@ -1691,21 +1711,24 @@ const styles = StyleSheet.create({
   // === PLAY BTN FOCUS STATES ===
   playBtnFocused: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#FFFFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 14,
-    transform: [{ scale: 1.06 }],
+    outlineStyle: 'solid',
+    outlineWidth: 2,
+    outlineColor: '#FFFFFF',
+    outlineOffset: 1,
   } as any,
   playBtnTextFocused: {
     color: '#111111',
   },
   moreBtnFocused: {
-    borderColor: 'rgba(255,255,255,0.85)',
-    borderWidth: 2,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    transform: [{ scale: 1.08 }],
+    backgroundColor: '#FFFFFF',
+    outlineStyle: 'solid',
+    outlineWidth: 2,
+    outlineColor: '#FFFFFF',
+    outlineOffset: 1,
   } as any,
+  moreBtnTextFocused: {
+    color: '#111111',
+  },
 
   // === INFO CARDS (below play button) ===
   infoCardsRow: {
@@ -1739,7 +1762,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   newsCard: {
-    width: 340,
+    width: 500,
     borderRadius: 8,
     backgroundColor: 'rgba(20,20,30,0.4)',
     overflow: 'hidden',
@@ -1754,7 +1777,7 @@ const styles = StyleSheet.create({
   } as any,
   newsCardThumbnail: {
     width: '100%',
-    height: 191, // 16:9 for 340px width
+    height: 281, // 16:9 for 500px width
     backgroundColor: '#333',
     position: 'relative',
   },

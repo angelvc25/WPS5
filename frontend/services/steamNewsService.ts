@@ -51,13 +51,26 @@ export const fetchSteamNewsForApp = async (appid: number): Promise<SteamNewsItem
     return items.map(item => {
       let image_url: string | undefined;
 
-      const clanMatch = item.contents?.match(/\{STEAM_CLAN_IMAGE\}\/([^\s"'<>]+)/);
-      if (clanMatch) {
-        image_url = `https://clan.akamai.steamstatic.com/images/${clanMatch[1]}`;
+      // Try to match [img] BBCode first
+      const bbCodeMatch = item.contents?.match(/\[img\](.*?)\[\/img\]/i);
+      if (bbCodeMatch) {
+        image_url = bbCodeMatch[1].replace(/\{STEAM_CLAN_IMAGE\}/g, 'https://clan.akamai.steamstatic.com/images');
       } else {
-        const imgMatch = item.contents?.match(/(https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|gif))/i);
-        if (imgMatch) {
-          image_url = imgMatch[1];
+        // Try HTML img tags
+        const htmlImgMatch = item.contents?.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
+        if (htmlImgMatch) {
+          image_url = htmlImgMatch[1];
+        } else {
+          // Fallback to bare {STEAM_CLAN_IMAGE} or other URLs
+          const clanMatch = item.contents?.match(/\{STEAM_CLAN_IMAGE\}\/([^\s"'<>\]\[]+)/);
+          if (clanMatch) {
+            image_url = `https://clan.akamai.steamstatic.com/images/${clanMatch[1]}`;
+          } else {
+            const imgMatch = item.contents?.match(/(https?:\/\/[^\s"'<>\]\[]+\.(?:jpg|jpeg|png|gif))/i);
+            if (imgMatch) {
+              image_url = imgMatch[1];
+            }
+          }
         }
       }
 
