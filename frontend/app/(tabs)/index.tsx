@@ -196,7 +196,7 @@ export default function ConsoleHome() {
   const carouselStyle = useAnimatedStyle(() => ({
     opacity: 1 - gamePanelFocusAnim.value,
     transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }],
-    height: interpolate(gamePanelFocusAnim.value, [0, 1], [240, 0]),
+    height: interpolate(gamePanelFocusAnim.value, [0, 1], [200, 0]),
     overflow: 'hidden'
   }));
 
@@ -1494,7 +1494,7 @@ export default function ConsoleHome() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
                     onScrollBeginDrag={() => setScreenshotRowFocused(true)}
-                    onMomentumScrollEnd={() => {}}
+                    onMomentumScrollEnd={() => { }}
                   >
                     {steamMedia.map((item, idx) => {
                       const isMediaFocused = isScreenshotRowFocused && gamePanelFocusIndex === 100 + idx;
@@ -2060,7 +2060,7 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     borderWidth: 2,
     backgroundColor: 'rgba(255,255,255,0.06)',
-    transform: [{ scale: 1.02 }],
+    transform: [{ scale: 1.03 }],
   } as any,
 
   // === CAROUSEL ===
@@ -2073,12 +2073,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 6,
     borderRadius: 10,
     overflow: 'hidden',
-    opacity: 0.65,
+    // opacity: 0.65,
     transform: [{ scale: 1 }, { translateY: 0 }],
   },
   cardWrapperActive: {
     opacity: 1,
-    transform: [{ scale: 1.2 }, { translateY: 13 }],
+    transform: [{ scale: 1.3 }, { translateY: 13 }],
     marginLeft: 10,
     marginRight: 10,
   },
@@ -2432,8 +2432,8 @@ const styles = StyleSheet.create({
   // === ACTIVE CARD LABEL ===
   activeLabelContainer: {
     position: 'absolute',
-    top: 132,
-    left: 155,
+    top: 140,
+    left: 170,
     flexDirection: 'row',
     alignItems: 'center',
     zIndex: 100,
