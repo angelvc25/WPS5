@@ -15,6 +15,7 @@ import { fetchGamingNews, NewsArticle } from '@/services/newsService';
 import { soundService } from '@/services/soundService';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
+import { Feather } from '@expo/vector-icons';
 
 const TABS = ['Games', 'Media'];
 
@@ -1045,7 +1046,7 @@ export default function ConsoleHome() {
       <Animated.View style={[styles.header, headerStyle]}>
         {/* Left: Navigation Tabs */}
         <View style={styles.headerLeft}>
-          <ControlPrompt btn="L" label="" inputMode={inputMode} />
+          {/* <ControlPrompt btn="L" label="" inputMode={inputMode} /> */}
           {TABS.map((tab, idx) => (
             <TouchableOpacity
               key={tab}
@@ -1068,20 +1069,20 @@ export default function ConsoleHome() {
               </Text>
             </TouchableOpacity>
           ))}
-          <ControlPrompt btn="R" label="" inputMode={inputMode} />
+          {/* <ControlPrompt btn="R" label="" inputMode={inputMode} /> */}
         </View>
 
         {/* Right: Icons + Avatar + Clock */}
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.headerIconBtn} activeOpacity={0.7}>
-            <Ionicons name="search" size={20} color="rgba(255,255,255,0.85)" />
+            <Ionicons name="search" size={25} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerIconBtn}
             activeOpacity={0.7}
             onPress={() => { setUserModalVisible(false); setSettingsVisible(true); }}
           >
-            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+            <Ionicons name="settings-sharp" size={25} color="#fff" />
           </TouchableOpacity>
 
           <View style={{ position: 'relative' }}>
@@ -1106,7 +1107,7 @@ export default function ConsoleHome() {
             <View style={styles.activeStatusDot} />
           </View>
 
-          <Text style={styles.timeText}>{currentTime}</Text>
+          <Text style={styles.timeText2}>{currentTime}</Text>
         </View>
       </Animated.View>
 
@@ -2076,7 +2077,8 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    left: 30,
+    gap: 35,
   },
   tabTouchable: {
     paddingHorizontal: 8,
@@ -2084,13 +2086,13 @@ const styles = StyleSheet.create({
   },
   navItem: {
     color: 'rgba(255,255,255,0.5)',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 30,
+    fontWeight: '200',
     letterSpacing: 0.2,
   },
   navItemActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '400',
   },
   tabFocused: {
     color: '#FFFFFF',
@@ -2100,7 +2102,7 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 40,
   },
   headerIconBtn: {
     width: 36,
@@ -2114,6 +2116,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.5,
+    marginHorizontal: 4,
+  },
+  timeText2: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 23,
+    fontWeight: '200',
+    letterSpacing: 0.8,
     marginHorizontal: 4,
   },
   avatarContainer: {
@@ -2589,8 +2598,8 @@ const styles = StyleSheet.create({
   },
   activeGameTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '300',
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowRadius: 2,
     whiteSpace: 'nowrap',
