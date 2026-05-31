@@ -2108,7 +2108,7 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     marginHorizontal: 6,
-    borderRadius: 10,
+    borderRadius: 20,
     overflow: 'hidden',
     // opacity: 0.65,
     transform: [{ scale: 1 }, { translateY: 0 }],
@@ -2122,7 +2122,7 @@ const styles = StyleSheet.create({
   card: {
     width: 130,
     height: 130,
-    borderRadius: 10,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   cardActive: {
