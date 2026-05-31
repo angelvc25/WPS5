@@ -81,7 +81,7 @@ export default function ConsoleHome() {
   const CARD_SIZE = 130;
   const CARD_GAP = 6;
   const ITEM_WIDTH = CARD_SIZE + CARD_GAP * 2;
-  const LEFT_PADDING = 60;
+  const LEFT_PADDING = 150;
   const RIGHT_PADDING = Math.max(windowWidth - ITEM_WIDTH - LEFT_PADDING, 60);
 
   // States for dynamic data and clock
@@ -2120,7 +2120,7 @@ const styles = StyleSheet.create({
   },
   timeText2: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 23,
+    fontSize: 35,
     fontWeight: '200',
     letterSpacing: 0.8,
     marginHorizontal: 4,
@@ -2216,14 +2216,13 @@ const styles = StyleSheet.create({
   cardWrapperActive: {
     opacity: 1,
     overflow: 'visible',
-    transform: [{ scale: 1.3 }, { translateY: 13 }],
+    transform: [{ scale: 1.4 }, { translateY: 13 }],
     marginLeft: 10,
     marginRight: 10,
   },
   card: {
-    width: 130,
-    height: 130,
-
+    width: 120,
+    height: 120,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
@@ -2270,7 +2269,7 @@ const styles = StyleSheet.create({
 
   // === GAME INFO PANEL (flows below carousel) ===
   gameInfoPanel: {
-    paddingLeft: 50,
+    paddingLeft: 150,
     paddingTop: 24,
     maxWidth: '100%' as any,
   },
@@ -2574,7 +2573,7 @@ const styles = StyleSheet.create({
   // === ACTIVE CARD LABEL ===
   activeLabelContainer: {
     position: 'absolute',
-    top: 140,
+    top: 120,
     left: 180,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2592,13 +2591,13 @@ const styles = StyleSheet.create({
   },
   platformBadgeText: {
     color: '#000000',
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   activeGameTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 30,
     fontWeight: '300',
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowRadius: 2,
