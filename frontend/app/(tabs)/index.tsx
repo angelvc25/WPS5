@@ -1223,13 +1223,13 @@ export default function ConsoleHome() {
       <Animated.View style={[styles.miniHeader, topBarMiniStyle]} pointerEvents="none">
         {focusArea === 'library_grid' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image source={require('@/assets/images/Libreria.jpeg')} style={{ width: 36, height: 36, borderRadius: 8, marginRight: 12 }} />
-            <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Biblioteca</Text>
+            <Image source={require('@/assets/images/Libreria.jpeg')} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12 }} />
+            <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Biblioteca de juegos</Text>
           </View>
         ) : (canPlay && activeItem && (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 36, height: 36, borderRadius: 8, marginRight: 12 }} />
-            <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
+            <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12 }} />
+            <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
           </View>
         ))}
       </Animated.View>
