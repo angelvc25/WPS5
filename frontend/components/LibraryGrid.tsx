@@ -82,11 +82,11 @@ const SpinningBorder = ({ id }: { id: string }) => {
       <View
         style={{
           position: 'absolute',
-          top: 1,
-          left: 1,
-          right: 1,
-          bottom: 1,
-          borderRadius: 16,
+          top: -5,
+          left: -5,
+          right: -5,
+          bottom: -5,
+          borderRadius: 10,
           zIndex: -1,
           overflow: 'hidden',
         } as any}
@@ -158,49 +158,49 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
         {/* Grid wrapper that translates up/down depending on focus */}
         <Animated.View style={animatedGridStyle}>
           <View style={styles.grid}>
-        {games.map((game, index) => {
-          const isItemFocused = isFocused && focusedIndex === index;
-          const borderId = `lib-${game.id ?? index}`;
+            {games.map((game, index) => {
+              const isItemFocused = isFocused && focusedIndex === index;
+              const borderId = `lib-${game.id ?? index}`;
 
-          return (
-            <TouchableOpacity
-              key={game.id ?? index}
-              activeOpacity={0.8}
-              onPress={() => onItemPress?.(index, game)}
-              style={[
-                styles.gameCardWrapper,
-                isItemFocused && styles.gameCardWrapperFocused,
-              ]}
-            >
-              {/* SpinningBorder: sits outside the BlurView overflow:hidden clip */}
-              {isItemFocused && <SpinningBorder id={borderId} />}
+              return (
+                <TouchableOpacity
+                  key={game.id ?? index}
+                  activeOpacity={0.8}
+                  onPress={() => onItemPress?.(index, game)}
+                  style={[
+                    styles.gameCardWrapper,
+                    isItemFocused && styles.gameCardWrapperFocused,
+                  ]}
+                >
+                  {/* SpinningBorder: sits outside the BlurView overflow:hidden clip */}
+                  {isItemFocused && <SpinningBorder id={borderId} />}
 
-              <BlurView
-                intensity={isItemFocused ? 45 : 25}
-                tint="dark"
-                style={[
-                  styles.gameCard,
-                  isItemFocused && styles.gameCardFocused,
-                ]}
-              >
-                <View style={styles.imageContainer}>
-                  {game.image ? (
-                    <Image source={game.image} style={styles.gameImage} contentFit="cover" />
-                  ) : (
-                    <View style={styles.placeholderImage}>
-                      <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
+                  <BlurView
+                    intensity={isItemFocused ? 45 : 25}
+                    tint="dark"
+                    style={[
+                      styles.gameCard,
+                      isItemFocused && styles.gameCardFocused,
+                    ]}
+                  >
+                    <View style={styles.imageContainer}>
+                      {game.image ? (
+                        <Image source={game.image} style={styles.gameImage} contentFit="cover" />
+                      ) : (
+                        <View style={styles.placeholderImage}>
+                          <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
+                        </View>
+                      )}
+
+                      {/* Subtle dim overlay for non-focused items when grid has focus */}
+                      {isFocused && !isItemFocused && (
+                        <View style={styles.unfocusedOverlay} />
+                      )}
                     </View>
-                  )}
-
-                  {/* Subtle dim overlay for non-focused items when grid has focus */}
-                  {isFocused && !isItemFocused && (
-                    <View style={styles.unfocusedOverlay} />
-                  )}
-                </View>
-              </BlurView>
-            </TouchableOpacity>
-          );
-        })}
+                  </BlurView>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Animated.View>
       </View>
