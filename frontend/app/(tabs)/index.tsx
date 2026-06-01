@@ -1229,7 +1229,7 @@ export default function ConsoleHome() {
         ) : (canPlay && activeItem && (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 36, height: 36, borderRadius: 8, marginRight: 12 }} />
-            <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
+            <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
           </View>
         ))}
       </Animated.View>
