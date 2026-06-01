@@ -1204,7 +1204,7 @@ export default function ConsoleHome() {
 
                 if (item.id === 'more_library') {
                   cardContent = (
-                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive, { opacity: 0.75 }]}>
                       {isActive && <SpinningBorder size={CARD_SIZE} />}
 
                       {/* 1. Añadimos overflow: 'hidden' a la tarjeta para que la imagen no se salga de las esquinas redondeadas */}
@@ -2284,9 +2284,9 @@ const styles = StyleSheet.create({
   cardWrapperActive: {
     opacity: 1,
     overflow: 'visible',
-    transform: [{ scale: 1.4 }, { translateY: 13 }],
-    marginLeft: 15,
-    marginRight: 15,
+    transform: [{ scale: 1.5 }, { translateY: 17 }],
+    marginLeft: 20,
+    marginRight: 20,
   },
   card: {
     width: 120,
