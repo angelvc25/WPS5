@@ -271,8 +271,8 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   gameCardFocused: {
-    borderColor: 'rgba(255, 255, 255, 0.85)',
-    backgroundColor: 'rgba(40, 50, 70, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0)',
+    backgroundColor: 'rgba(40, 50, 70, 0)',
   },
   imageContainer: {
     width: '100%',
