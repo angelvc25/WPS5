@@ -19,6 +19,13 @@ import { Feather } from '@expo/vector-icons';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import PS5WidgetRow from '@/components/ps5widgetrow';
 
+// WPS5 UI Expansion Components
+import LibraryGrid from '@/components/LibraryGrid';
+import FloatingSystemNav from '@/components/FloatingSystemNav';
+import OverlayTab from '@/components/OverlayTab';
+import GameContextMenu from '@/components/GameContextMenu';
+import GameDetailView from '@/components/GameDetailView';
+
 const TABS = ['Games', 'Media'];
 
 export interface ConsoleItem {
@@ -120,6 +127,13 @@ export default function ConsoleHome() {
   const [homeBackground, setHomeBackground] = useState<any>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [isRandomSelectorVisible, setRandomSelectorVisible] = useState(false);
+
+  // States for new UI features (WPS5 UI Expansion)
+  const [isLibraryFocused, setIsLibraryFocused] = useState(false);
+  const [libraryGridFocusIndex, setLibraryGridFocusIndex] = useState(0);
+  const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+  const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
+  const [isDetailVisible, setDetailVisible] = useState(false);
 
   // Background transition states
   const [bgA, setBgA] = useState<any>(null);
@@ -254,6 +268,19 @@ export default function ConsoleHome() {
     } as any);
   }
 
+  // Filter out system utility cards from the saved games list
+  const savedGames = games.filter(
+    item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && !item.isFolder && !item.isGrid
+  );
+
+  useEffect(() => {
+    const currentItem = currentData[activeIndex];
+    setIsLibraryFocused(
+      (focusArea === 'main_carousel' && currentItem?.id === 'more_library') ||
+      focusArea === 'library_grid'
+    );
+  }, [activeIndex, focusArea, currentData]);
+
   // Clock
   useEffect(() => {
     const updateTime = () => {
@@ -326,6 +353,49 @@ export default function ConsoleHome() {
       });
     }
   }, []);
+
+  const handleContextMenuAction = async (idx: number) => {
+    setIsContextMenuOpen(false);
+    const item = currentData[activeIndex];
+    if (!item) return;
+
+    if (idx === 0) {
+      // Editar Datos
+      setSelectedItem(item);
+      setDetailVisible(true);
+    } else if (idx === 1) {
+      // Ubicación
+      alert(`Ubicación de la aplicación:\n\n${item.path || 'No seleccionada'}`);
+    } else if (idx === 2) {
+      // Eliminar
+      const confirmed = window.confirm(`¿Estás seguro de que quieres eliminar "${item.title}"? Esta acción no se puede deshacer.`);
+      if (confirmed) {
+        if (Platform.OS === 'web' && (window as any).electronAPI) {
+          const result = await (window as any).electronAPI.deleteApp(item.id);
+          if (result.success) {
+            loadApps();
+          } else {
+            alert('Error al eliminar: ' + result.error);
+          }
+        }
+      }
+    }
+  };
+
+  const handleSystemNavAction = (idx: number) => {
+    if (idx === 0) {
+      // Ajustes
+      setSettingsVisible(true);
+    } else if (idx === 1) {
+      // Cambiar usuario
+      changeUser();
+    } else if (idx === 2) {
+      // Apagar
+      if (Platform.OS === 'web' && (window as any).electronAPI) {
+        (window as any).electronAPI.closeApp();
+      }
+    }
+  };
 
   // Gamepad state refs
   const prevButtonsRef = useRef(new Array(16).fill(false));
@@ -432,19 +502,53 @@ export default function ConsoleHome() {
           return;
         }
 
-        if (isUserModalVisible) {
-          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') { setUserModalVisible(false); setFocusArea('main_carousel'); }
-          else if (e.key === 'ArrowRight') setModalSelectedIndex(prev => Math.min(prev + 1, 3));
-          else if (e.key === 'ArrowLeft') setModalSelectedIndex(prev => Math.max(prev - 1, 0));
-          else if (e.key === 'Enter') {
-            if (modalSelectedIndex === 0) { setUserModalVisible(false); setSettingsVisible(true); }
-            else if (modalSelectedIndex === 2) { setUserModalVisible(false); changeUser(); }
-            else if (modalSelectedIndex === 3) { if ((window as any).electronAPI) (window as any).electronAPI.closeApp(); }
+        // 1. Context Menu Keyboard Navigation
+        if (isContextMenuOpen) {
+          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+            setIsContextMenuOpen(false);
+          } else if (e.key === 'ArrowDown') {
+            setContextMenuFocusIndex(prev => Math.min(prev + 1, 2));
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowUp') {
+            setContextMenuFocusIndex(prev => Math.max(prev - 1, 0));
+            soundService.playNavigation();
+          } else if (e.key === 'Enter') {
+            handleContextMenuAction(contextMenuFocusIndex);
           }
           return;
         }
+
+        // 2. Floating System Navigation Keyboard Navigation
+        if (focusArea === 'header_user') {
+          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+            setFocusArea('main_carousel');
+          } else if (e.key === 'ArrowRight') {
+            setModalSelectedIndex(prev => Math.min(prev + 1, 2));
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowLeft') {
+            setModalSelectedIndex(prev => Math.max(prev - 1, 0));
+            soundService.playNavigation();
+          } else if (e.key === 'Enter') {
+            handleSystemNavAction(modalSelectedIndex);
+          }
+          return;
+        }
+
+        // 3. Option Action Keys (Open Context Menu)
+        if (e.key === 'x' || e.key === 'X' || e.key === 'm' || e.key === 'M') {
+          if (focusArea === 'main_carousel') {
+            const item = currentData[activeIndex];
+            if (item && item.id !== 'more_library') {
+              setIsContextMenuOpen(true);
+              setContextMenuFocusIndex(0);
+              soundService.playNavigation();
+            }
+          }
+          return;
+        }
+
         if (isSettingsVisible) {
-          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') { setSettingsVisible(false); setUserModalVisible(true); setFocusArea('header_user'); }
+          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') { setSettingsVisible(false); setFocusArea('header_user'); }
           else if (e.key === 'ArrowDown') {
             if (settingsFocusArea === 'sidebar') setSettingsFocusIndex(prev => Math.min(prev + 1, 3));
             else { let maxIdx = 1; if (settingsTab === 'profile') maxIdx = 2; if (settingsTab === 'sync') maxIdx = 3; setSettingsFocusIndex(prev => Math.min(prev + 1, maxIdx)); }
@@ -534,7 +638,10 @@ export default function ConsoleHome() {
         // --- SPATIAL NAVIGATION ---
         if (e.key === 'ArrowRight') {
           soundService.playNavigation();
-          if (focusArea === 'main_carousel') { const nextIdx = Math.min(activeIndex + 1, currentData.length - 1); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
+          if (focusArea === 'library_grid') {
+            setLibraryGridFocusIndex(prev => Math.min(prev + 1, savedGames.length - 1));
+          }
+          else if (focusArea === 'main_carousel') { const nextIdx = Math.min(activeIndex + 1, currentData.length - 1); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
           else if (focusArea === 'header_tabs') {
             const nextIdx = Math.min(focusIndex + 1, TABS.length - 1);
             setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
@@ -558,7 +665,10 @@ export default function ConsoleHome() {
         }
         if (e.key === 'ArrowLeft') {
           soundService.playNavigation();
-          if (focusArea === 'main_carousel') { const nextIdx = Math.max(activeIndex - 1, 0); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
+          if (focusArea === 'library_grid') {
+            setLibraryGridFocusIndex(prev => Math.max(prev - 1, 0));
+          }
+          else if (focusArea === 'main_carousel') { const nextIdx = Math.max(activeIndex - 1, 0); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
           else if (focusArea === 'header_tabs') {
             const nextIdx = Math.max(focusIndex - 1, 0);
             setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
@@ -582,9 +692,15 @@ export default function ConsoleHome() {
         }
         if (e.key === 'ArrowDown') {
           soundService.playNavigation();
-          if (focusArea === 'header_user' || focusArea === 'header_tabs') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
+          if (focusArea === 'library_grid') {
+            setLibraryGridFocusIndex(prev => Math.min(prev + 5, savedGames.length - 1));
+          }
+          else if (focusArea === 'header_user' || focusArea === 'header_tabs') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
           else if (focusArea === 'main_carousel') {
-            if (activeItem?.id === '1') {
+            if (activeItem?.id === 'more_library') {
+              setFocusArea('library_grid');
+              setLibraryGridFocusIndex(0);
+            } else if (activeItem?.id === '1') {
               setFocusArea('welcome_widgets');
               setFocusIndex(0);
             } else if (canPlay) {
@@ -616,7 +732,14 @@ export default function ConsoleHome() {
         }
         if (e.key === 'ArrowUp') {
           soundService.playNavigation();
-          if (focusArea === 'game_panel') {
+          if (focusArea === 'library_grid') {
+            if (libraryGridFocusIndex < 5) {
+              setFocusArea('main_carousel');
+            } else {
+              setLibraryGridFocusIndex(prev => Math.max(prev - 5, 0));
+            }
+          }
+          else if (focusArea === 'game_panel') {
             if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
               setFocusArea('main_carousel');
               setFocusIndex(activeIndex);
@@ -649,6 +772,11 @@ export default function ConsoleHome() {
         }
         if (e.key === 'Enter') {
           soundService.playActivation();
+          if (focusArea === 'library_grid') {
+            const game = savedGames[libraryGridFocusIndex];
+            if (game) { handleLaunchApp(game); }
+            return;
+          }
           if (focusArea === 'game_panel') {
             if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
               if (activeItem) { handleLaunchApp(activeItem); }
@@ -692,7 +820,7 @@ export default function ConsoleHome() {
                 else alert('Aún no has jugado a ningún juego.');
               } else { handleLaunchApp(item); }
             }
-          } else if (focusArea === 'header_user') { setUserModalVisible(true); }
+          } else if (focusArea === 'header_user') { handleSystemNavAction(modalSelectedIndex); }
           return;
         }
         if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
@@ -1144,7 +1272,7 @@ export default function ConsoleHome() {
           <View style={{ position: 'relative' }}>
             <TouchableOpacity
               id="avatar-btn"
-              onPress={() => { setFocusArea('header_user'); setUserModalVisible(true); }}
+              onPress={() => { setFocusArea('header_user'); }}
               style={[
                 styles.avatarContainer,
                 activeUser ? { borderColor: activeUser.color } : {},
@@ -1176,7 +1304,7 @@ export default function ConsoleHome() {
         scrollEventThrottle={16}
       >
         {/* CAROUSEL ROW */}
-        <Animated.View style={[styles.carouselSection, carouselStyle]}>
+        <Animated.View style={[styles.carouselSection, carouselStyle, focusArea === 'library_grid' && { opacity: 0, height: 0, overflow: 'hidden' }]}>
           {currentData.length === 0 ? (
             <View style={styles.mediaEmptyContainer}>
               <Ionicons name="film-outline" size={80} color="rgba(255,255,255,0.15)" />
@@ -1309,7 +1437,27 @@ export default function ConsoleHome() {
                         <Text style={styles.activeGameTitle} numberOfLines={1}>
                           {item.isLastPlayed ? (lastPlayedGame?.title || 'Último Jugado') : item.title}
                         </Text>
+                        
+                        {/* Options button to open context menu via mouse/click */}
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          style={{ marginLeft: 6, paddingHorizontal: 4 }}
+                          onPress={() => {
+                            setIsContextMenuOpen(prev => !prev);
+                            setContextMenuFocusIndex(0);
+                          }}
+                        >
+                          <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
+                        </TouchableOpacity>
                       </View>
+                    )}
+
+                    {/* Absolutely positioned context menu */}
+                    {isActive && item.id !== 'more_library' && isContextMenuOpen && (
+                      <GameContextMenu
+                        focusedIndex={contextMenuFocusIndex}
+                        onPressItem={handleContextMenuAction}
+                      />
                     )}
                   </View>
                 );
@@ -1317,6 +1465,16 @@ export default function ConsoleHome() {
             </ScrollView>
           )}
         </Animated.View>
+
+        {/* LIBRARY GRID SECTION */}
+        {isLibraryFocused && (
+          <LibraryGrid 
+            games={savedGames} 
+            isFocused={focusArea === 'library_grid'} 
+            focusedIndex={libraryGridFocusIndex} 
+            onItemPress={(index, game) => handleLaunchApp(game)}
+          />
+        )}
 
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
@@ -1390,7 +1548,7 @@ export default function ConsoleHome() {
                       setFocusIndex(0);
                     }}
                   >
-                    <BlurView intensity={28} tint="dark" style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 0) && styles.welcomeWidgetCardFocused]}>
+                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 0) && styles.welcomeWidgetCardFocused]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                         <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
                           <MaterialCommunityIcons name="gamepad-variant" size={22} color="#FFF" />
@@ -1405,7 +1563,7 @@ export default function ConsoleHome() {
                           </View>
                         </View>
                       </View>
-                    </BlurView>
+                    </View>
                   </TouchableOpacity>
 
                   {/* Trophies Widget */}
@@ -1417,7 +1575,7 @@ export default function ConsoleHome() {
                       setFocusIndex(1);
                     }}
                   >
-                    <BlurView intensity={28} tint="dark" style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 1) && styles.welcomeWidgetCardFocused]}>
+                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 1) && styles.welcomeWidgetCardFocused]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <MaterialCommunityIcons name="trophy" size={16} color="#FFD700" />
@@ -1443,7 +1601,7 @@ export default function ConsoleHome() {
                           <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>195</Text>
                         </View>
                       </View>
-                    </BlurView>
+                    </View>
                   </TouchableOpacity>
 
                   {/* Store Widget */}
@@ -1456,14 +1614,14 @@ export default function ConsoleHome() {
                       Linking.openURL('https://store.playstation.com');
                     }}
                   >
-                    <BlurView intensity={28} tint="dark" style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 2) && styles.welcomeWidgetCardFocused]}>
+                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 2) && styles.welcomeWidgetCardFocused]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         <Ionicons name="bag-handle" size={14} color="#0070D1" />
                         <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>PlayStation Store</Text>
                       </View>
                       <Text style={{ color: '#AAA', fontSize: 11 }} numberOfLines={1}>Descubre las últimas ofertas</Text>
                       <Text style={{ color: '#0070D1', fontSize: 12, fontWeight: '700', marginTop: 4 }}>Ver tienda →</Text>
-                    </BlurView>
+                    </View>
                   </TouchableOpacity>
 
                   {/* News Widget */}
@@ -1475,13 +1633,13 @@ export default function ConsoleHome() {
                       setFocusIndex(3);
                     }}
                   >
-                    <BlurView intensity={28} tint="dark" style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
+                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         <Ionicons name="newspaper" size={14} color="#FFF" />
                         <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Noticias</Text>
                       </View>
                       <Text style={{ color: '#888', fontSize: 11 }}>Descubre juegos nuevos</Text>
-                    </BlurView>
+                    </View>
                   </TouchableOpacity>
 
                   {/* Agregar Juego Widget */}
@@ -1494,7 +1652,7 @@ export default function ConsoleHome() {
                       setAddModalVisible(true);
                     }}
                   >
-                    <BlurView intensity={28} tint="dark" style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 4) && styles.welcomeWidgetCardFocused]}>
+                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 4) && styles.welcomeWidgetCardFocused]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                         <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
                           <Ionicons name="add" size={20} color="#FFF" />
@@ -1504,7 +1662,7 @@ export default function ConsoleHome() {
                           <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }} numberOfLines={1}>Agrega accesos directos</Text>
                         </View>
                       </View>
-                    </BlurView>
+                    </View>
                   </TouchableOpacity>
                 </View>
 
@@ -1520,7 +1678,7 @@ export default function ConsoleHome() {
                       if (lastPlayedGame) handleLaunchApp(lastPlayedGame);
                     }}
                   >
-                    <BlurView intensity={28} tint="dark" style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 5) && styles.welcomeWidgetCardFocused]}>
+                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 5) && styles.welcomeWidgetCardFocused]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                         <Ionicons name="game-controller" size={14} color="#FFF" />
                         <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Jugados recientemente</Text>
@@ -1535,7 +1693,7 @@ export default function ConsoleHome() {
                       ) : (
                         <Text style={{ color: '#666', fontSize: 11, fontStyle: 'italic' }}>Sin juegos recientes</Text>
                       )}
-                    </BlurView>
+                    </View>
                   </TouchableOpacity>
 
                   {/* Messages Widget */}
@@ -1547,7 +1705,7 @@ export default function ConsoleHome() {
                       setFocusIndex(6);
                     }}
                   >
-                    <BlurView intensity={28} tint="dark" style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 6) && styles.welcomeWidgetCardFocused]}>
+                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 6) && styles.welcomeWidgetCardFocused]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                         <Ionicons name="chatbubble" size={14} color="#FFF" />
                         <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Mensajes</Text>
@@ -1561,7 +1719,7 @@ export default function ConsoleHome() {
                           <Text style={{ color: '#888', fontSize: 10 }}>Sin mensajes</Text>
                         </View>
                       </View>
-                    </BlurView>
+                    </View>
                   </TouchableOpacity>
 
                   {/* Storage Widget */}
@@ -1573,7 +1731,7 @@ export default function ConsoleHome() {
                       setFocusIndex(7);
                     }}
                   >
-                    <BlurView intensity={28} tint="dark" style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 7) && styles.welcomeWidgetCardFocused]}>
+                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 7) && styles.welcomeWidgetCardFocused]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <MaterialCommunityIcons name="harddisk" size={14} color="#FFF" />
@@ -1587,7 +1745,7 @@ export default function ConsoleHome() {
                       <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
                         <View style={{ height: '100%', width: '65%', borderRadius: 2, backgroundColor: '#0070D1' }} />
                       </View>
-                    </BlurView>
+                    </View>
                   </TouchableOpacity>
 
                   {/* Wishlist Widget */}
@@ -1599,13 +1757,13 @@ export default function ConsoleHome() {
                       setFocusIndex(8);
                     }}
                   >
-                    <BlurView intensity={28} tint="dark" style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 8) && styles.welcomeWidgetCardFocused]}>
+                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 8) && styles.welcomeWidgetCardFocused]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         <Ionicons name="heart" size={14} color="#FF6B6B" />
                         <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Lista de deseos</Text>
                       </View>
                       <Text style={{ color: '#888', fontSize: 11 }}>Ver tu lista de deseos</Text>
-                    </BlurView>
+                    </View>
                   </TouchableOpacity>
 
                   {/* Cambiar Fondo Widget */}
@@ -1618,7 +1776,7 @@ export default function ConsoleHome() {
                       setHomeBgModalVisible(true);
                     }}
                   >
-                    <BlurView intensity={28} tint="dark" style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 9) && styles.welcomeWidgetCardFocused]}>
+                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 9) && styles.welcomeWidgetCardFocused]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                         <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
                           <Ionicons name="image-outline" size={18} color="#FFF" />
@@ -1628,7 +1786,7 @@ export default function ConsoleHome() {
                           <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }} numberOfLines={1}>Personaliza tu consola</Text>
                         </View>
                       </View>
-                    </BlurView>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1814,7 +1972,23 @@ export default function ConsoleHome() {
         </Animated.View>
       </Animated.ScrollView>
 
-      {/* === MODALS (same as before, preserved fully) === */}
+      {/* WPS5 UI EXPANSION COMPONENTS */}
+      <GameDetailView
+        isVisible={isDetailVisible}
+        item={selectedItem}
+        onClose={() => setDetailVisible(false)}
+        onRefresh={() => loadApps()}
+        inputMode={inputMode}
+      />
+
+      <FloatingSystemNav
+        focusedIndex={modalSelectedIndex}
+        isFocused={focusArea === 'header_user'}
+        onPressItem={(index) => {
+          setModalSelectedIndex(index);
+          handleSystemNavAction(index);
+        }}
+      />
 
       <FavoritesView
         isVisible={isFavoritesVisible}
@@ -1954,7 +2128,7 @@ export default function ConsoleHome() {
                 <Text style={[styles.settingsTabText, settingsTab === 'sync' && styles.settingsTabTextActive]}>Sincronización</Text>
               </TouchableOpacity>
               <View style={{ flex: 1 }} />
-              <TouchableOpacity style={[styles.settingsSidebarClose, (settingsFocusArea === 'sidebar' && settingsFocusIndex === 3) && styles.buttonFocused]} onPress={() => { setSettingsVisible(false); setUserModalVisible(true); }}>
+              <TouchableOpacity style={[styles.settingsSidebarClose, (settingsFocusArea === 'sidebar' && settingsFocusIndex === 3) && styles.buttonFocused]} onPress={() => { setSettingsVisible(false); setFocusArea('header_user'); }}>
                 <Ionicons name="arrow-back" size={20} color="#AAA" />
                 <Text style={styles.settingsSidebarCloseText}>Volver</Text>
               </TouchableOpacity>
@@ -2258,15 +2432,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255, 255, 255, 0)',
     overflow: 'hidden',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    backgroundColor: 'rgba(12, 26, 39, 1)',
   } as any,
   welcomeWidgetCardFocused: {
     borderColor: '#FFFFFF',
     borderWidth: 2,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(29, 51, 71, 1)',
     transform: [{ scale: 1.03 }],
   } as any,
 
