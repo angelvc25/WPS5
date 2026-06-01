@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import RadarFocusWrapper from './RadarFocusWrapper';
 import {
   View,
   Text,
@@ -9,10 +10,9 @@ import {
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import ControlPrompt from './ControlPrompt';
 import { soundService } from '../services/soundService';
-
 
 export interface SyncPreferences {
   ratingAndSummary: 'igdb' | 'none';
@@ -42,7 +42,7 @@ const DEFAULT_SYNC_PREFERENCES: SyncPreferences = {
   ratingAndSummary: 'igdb',
   cover: 'steamgrid',
   background: 'steamgrid',
-  logo: 'steamgrid'
+  logo: 'steamgrid',
 };
 
 const DEFAULT_USERS: UserProfile[] = [
@@ -51,17 +51,75 @@ const DEFAULT_USERS: UserProfile[] = [
     name: 'Player 1',
     avatar: 'assets/images/userDefault.jpeg',
     color: '#FF3B30',
-    settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES }
+    settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES },
   },
   {
     id: '2',
     name: 'Player 2',
     avatar: 'assets/images/userDefault.jpeg',
     color: '#00D4FF',
-    settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES }
+    settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES },
   },
 ];
 
+// ─── Radar canvas drawing ────────────────────────────────────────────────────
+function startRadarAnimation(canvasId: string): () => void {
+  const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
+  if (!canvas) return () => { };
+  const ctx = canvas.getContext('2d')!;
+  const SIZE = 164, cx = 82, cy = 82, R = 77, LINE = 2.5;
+  const CYCLE = 12; // seconds
+  let start: number | null = null;
+  let rafId: number;
+
+  const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
+
+  const draw = (ts: number) => {
+    if (!start) start = ts;
+    const elapsed = ((ts - start) / 1000) % CYCLE;
+    ctx.clearRect(0, 0, SIZE, SIZE);
+
+    let blend = 0, rotation = 0;
+    if (elapsed < 2) { blend = 0; rotation = 0; }
+    else if (elapsed < 4) { blend = easeInOut((elapsed - 2) / 2); rotation = 0; }
+    else if (elapsed < 8) { blend = 1; rotation = easeInOut((elapsed - 4) / 4) * Math.PI * 2; }
+    else if (elapsed < 10) { blend = easeInOut(1 - (elapsed - 8) / 2); rotation = Math.PI * 2; }
+    else { blend = 0; rotation = 0; }
+
+    for (let i = 0; i < 360; i++) {
+      const angleRot = (i / 360) * Math.PI * 2 + rotation;
+      const cosVal = Math.cos(angleRot);
+      const sweepA = (cosVal + 1) / 2; // 0..1
+
+      const solidAlpha = 0.55;
+      const brightAlpha = 0.65;
+      const fadeAlpha = 0.02;
+
+      let alpha: number;
+      if (blend === 0) {
+        alpha = solidAlpha;
+      } else {
+        const target = fadeAlpha + sweepA * (brightAlpha - fadeAlpha);
+        alpha = solidAlpha + blend * (target - solidAlpha);
+      }
+
+      const a0 = (i / 360) * Math.PI * 2 - Math.PI / 2;
+      const a1 = ((i + 1.8) / 360) * Math.PI * 2 - Math.PI / 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, a0, a1);
+      ctx.strokeStyle = `rgba(255,255,255,${Math.max(0, alpha).toFixed(3)})`;
+      ctx.lineWidth = LINE;
+      ctx.stroke();
+    }
+
+    rafId = requestAnimationFrame(draw);
+  };
+
+  rafId = requestAnimationFrame(draw);
+  return () => cancelAnimationFrame(rafId);
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 export default function UserSelectScreen({ onUserSelected }: UserSelectScreenProps) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -69,16 +127,47 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   const [time, setTime] = useState('');
   const [inputMode, setInputMode] = useState<'keyboard' | 'gamepad'>('keyboard');
 
-  // Cargar usuarios al inicio
+  // Store cleanup functions for radar animations
+  const radarCleanups = useRef<Record<string, () => void>>({});
+
+  // ── Inject CSS animations once ──────────────────────────────────────────
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes shimmerMove {
+        0%   { left: -100%; top: -100%; }
+        100% { left: 200%;  top: 200%;  }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
+
+  // ── Start/stop radar per focused user ───────────────────────────────────
+  useEffect(() => {
+    // Clean up previous
+    Object.values(radarCleanups.current).forEach(fn => fn());
+    radarCleanups.current = {};
+
+    if (hoveredId && hoveredId !== 'add' && hoveredId !== 'power') {
+      // Small delay so the canvas is in the DOM
+      const t = setTimeout(() => {
+        const cleanup = startRadarAnimation(`radar-${hoveredId}`);
+        radarCleanups.current[hoveredId] = cleanup;
+      }, 30);
+      return () => clearTimeout(t);
+    }
+  }, [hoveredId]);
+
+  // ── Load users ──────────────────────────────────────────────────────────
   useEffect(() => {
     const loadUsers = async () => {
-      // 1. Intentar cargar desde Electron DB
       if (Platform.OS === 'web' && (window as any).electronAPI) {
         try {
           const dbUsers = await (window as any).electronAPI.getUsers();
           if (dbUsers && dbUsers.length > 0) {
             setUsers(dbUsers);
-            localStorage.setItem('console_users', JSON.stringify(dbUsers)); // Sync localstorage
+            localStorage.setItem('console_users', JSON.stringify(dbUsers));
             setHoveredId(dbUsers[0].id);
             return;
           }
@@ -87,19 +176,15 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
         }
       }
 
-      // 2. Fallback a LocalStorage
       const saved = localStorage.getItem('console_users');
       if (saved) {
         const parsed = JSON.parse(saved);
         setUsers(parsed);
         if (parsed.length > 0) setHoveredId(parsed[0].id);
       } else {
-        // 3. Usuarios por defecto si no hay nada
         localStorage.setItem('console_users', JSON.stringify(DEFAULT_USERS));
         setUsers(DEFAULT_USERS);
         setHoveredId(DEFAULT_USERS[0].id);
-
-        // Guardar por defecto en DB también
         if (Platform.OS === 'web' && (window as any).electronAPI) {
           (window as any).electronAPI.saveUsers(DEFAULT_USERS);
         }
@@ -110,7 +195,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     soundService.init();
   }, []);
 
-  // Background pulse animation for fallback
+  // ── Background pulse (fallback) ─────────────────────────────────────────
   const bgPulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -121,7 +206,6 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       ])
     ).start();
 
-    // Fetch background
     if (Platform.OS === 'web') {
       const savedBg = localStorage.getItem('home_background');
       if (savedBg) setHomeBg(savedBg);
@@ -133,34 +217,29 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       let hours = now.getHours();
       const minutes = now.getMinutes().toString().padStart(2, '0');
       const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12;
+      hours = hours % 12 || 12;
       setTime(`${hours}:${minutes} ${ampm}`);
     };
     updateTime();
     const interval = setInterval(updateTime, 60000);
-    // Keyboard Navigation
+
+    // ── Keyboard navigation ──────────────────────────────────────────────
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!(e as any).fromGamepad) setInputMode('keyboard');
-      const totalItems = users.length + 1; // +1 for Add User
+      const totalItems = users.length + 1;
       const allIds = ['add', ...users.map(u => u.id)];
       const currentIndex = allIds.indexOf(hoveredId || 'add');
 
       if (e.key === 'ArrowRight') {
         if (hoveredId === 'power') return;
         soundService.playNavigation();
-        const nextIndex = (currentIndex + 1) % totalItems;
-        setHoveredId(allIds[nextIndex]);
+        setHoveredId(allIds[(currentIndex + 1) % totalItems]);
       } else if (e.key === 'ArrowLeft') {
         if (hoveredId === 'power') return;
         soundService.playNavigation();
-        const nextIndex = (currentIndex - 1 + totalItems) % totalItems;
-        setHoveredId(allIds[nextIndex]);
+        setHoveredId(allIds[(currentIndex - 1 + totalItems) % totalItems]);
       } else if (e.key === 'ArrowDown') {
-        if (hoveredId !== 'power') {
-          soundService.playNavigation();
-          setHoveredId('power');
-        }
+        if (hoveredId !== 'power') { soundService.playNavigation(); setHoveredId('power'); }
       } else if (e.key === 'ArrowUp') {
         if (hoveredId === 'power') {
           soundService.playNavigation();
@@ -177,7 +256,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
             id: Date.now().toString(),
             name: `Player ${users.length + 1}`,
             avatar: 'assets/images/userDefault.jpeg',
-            color: '#FFCC00'
+            color: '#FFCC00',
           };
           const newList = [...users, newUser];
           setUsers(newList);
@@ -193,64 +272,50 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       }
     };
 
-    if (Platform.OS === 'web') {
-      window.addEventListener('keydown', handleKeyDown);
-    }
+    if (Platform.OS === 'web') window.addEventListener('keydown', handleKeyDown);
 
-    // Gamepad Support
+    // ── Gamepad polling ──────────────────────────────────────────────────
     let rafId: number;
     const prevButtons = new Array(16).fill(false);
     let lastMoveTime = 0;
     const THROTTLE = 220;
 
     const poll = () => {
-      const gamepads = navigator.getGamepads();
-      const gp = gamepads[0];
+      const gp = navigator.getGamepads()[0];
       if (gp) {
         const now = Date.now();
-        const buttons = gp.buttons;
-
         const dispatch = (key: string) => {
           setInputMode('gamepad');
-          const event = new KeyboardEvent('keydown', { key } as any);
-          (event as any).fromGamepad = true;
-          window.dispatchEvent(event);
+          const ev = new KeyboardEvent('keydown', { key } as any);
+          (ev as any).fromGamepad = true;
+          window.dispatchEvent(ev);
           lastMoveTime = now;
         };
-
         if (now - lastMoveTime > THROTTLE) {
-          if (buttons[14]?.pressed || gp.axes[0] < -0.5) dispatch('ArrowLeft');
-          else if (buttons[15]?.pressed || gp.axes[0] > 0.5) dispatch('ArrowRight');
-          else if (buttons[12]?.pressed || gp.axes[1] < -0.5) dispatch('ArrowUp');
-          else if (buttons[13]?.pressed || gp.axes[1] > 0.5) dispatch('ArrowDown');
+          if (gp.buttons[14]?.pressed || gp.axes[0] < -0.5) dispatch('ArrowLeft');
+          else if (gp.buttons[15]?.pressed || gp.axes[0] > 0.5) dispatch('ArrowRight');
+          else if (gp.buttons[12]?.pressed || gp.axes[1] < -0.5) dispatch('ArrowUp');
+          else if (gp.buttons[13]?.pressed || gp.axes[1] > 0.5) dispatch('ArrowDown');
         }
-
-        const checkButton = (idx: number, key: string) => {
-          if (buttons[idx]?.pressed && !prevButtons[idx]) dispatch(key);
-          prevButtons[idx] = buttons[idx]?.pressed;
+        const check = (idx: number, key: string) => {
+          if (gp.buttons[idx]?.pressed && !prevButtons[idx]) dispatch(key);
+          prevButtons[idx] = gp.buttons[idx]?.pressed;
         };
-
-        checkButton(0, 'Enter'); // A
+        check(0, 'Enter');
       }
       rafId = requestAnimationFrame(poll);
     };
 
-    if (Platform.OS === 'web') {
-      rafId = requestAnimationFrame(poll);
-    }
+    if (Platform.OS === 'web') rafId = requestAnimationFrame(poll);
 
     return () => {
       clearInterval(interval);
       cancelAnimationFrame(rafId);
-      if (Platform.OS === 'web') {
-        window.removeEventListener('keydown', handleKeyDown);
-      }
+      if (Platform.OS === 'web') window.removeEventListener('keydown', handleKeyDown);
     };
   }, [hoveredId, users]);
 
-  const handleSelect = (user: UserProfile) => {
-    onUserSelected(user);
-  };
+  const handleSelect = (user: UserProfile) => onUserSelected(user);
 
   const bgInterpolate = bgPulse.interpolate({
     inputRange: [0, 1],
@@ -259,41 +324,36 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
   return (
     <View style={styles.container}>
-      {/* BACKGROUND LAYER */}
+      {/* BACKGROUND */}
       {homeBg ? (
-        <Image
-          source={{ uri: homeBg }}
-          style={styles.blurredBg}
-          blurRadius={40}
-        />
+        <Image source={{ uri: homeBg }} style={styles.blurredBg} blurRadius={40} />
       ) : (
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bgInterpolate }]} />
       )}
-
-      {/* DARK OVERLAY */}
       <View style={styles.overlay} />
 
-      {/* TOP RIGHT CLOCK */}
+      {/* CLOCK */}
       <View style={styles.topRight}>
         <Text style={styles.timeText}>{time}</Text>
       </View>
 
-      {/* CENTERED TITLES */}
+      {/* TITLE */}
       <View style={styles.titleArea}>
         <Text style={styles.title}>Welcome Back to WConsole</Text>
         <Text style={styles.subtitle}>Who's playing today?</Text>
       </View>
 
-      {/* USER LIST */}
+      {/* USER CARDS */}
       <View style={styles.cardsRow}>
-        {/* ADD USER BUTTON */}
+
+        {/* ADD USER */}
         <TouchableOpacity
           activeOpacity={0.8}
           style={styles.cardWrapper}
           onPress={() => { }}
           {...(Platform.OS === 'web' ? {
             onMouseEnter: () => setHoveredId('add'),
-            onMouseLeave: () => setHoveredId(null)
+            onMouseLeave: () => setHoveredId(null),
           } : {})}
         >
           <View style={[styles.card, hoveredId === 'add' && styles.cardFocused]}>
@@ -304,7 +364,8 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
           <Text style={styles.userName}>Add User</Text>
         </TouchableOpacity>
 
-        {users.map((user, index) => {
+        {/* USERS */}
+        {users.map((user) => {
           const isFocused = hoveredId === user.id;
           return (
             <TouchableOpacity
@@ -314,21 +375,24 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
               onPress={() => handleSelect(user)}
               {...(Platform.OS === 'web' ? {
                 onMouseEnter: () => setHoveredId(user.id),
-                onMouseLeave: () => setHoveredId(null)
+                onMouseLeave: () => setHoveredId(null),
               } : {})}
             >
-              {/* Removed focus indicator */}
-              <View style={[
-                styles.card,
-                isFocused && styles.cardFocused,
-                isFocused && { borderColor: '#FFF', borderWidth: 3 }
-              ]}>
-                <Image
-                  source={{ uri: (user as any).avatarBase64 || user.avatar }}
-                  style={styles.avatarImg}
-                />
-              </View>
-              <Text style={[styles.userName, isFocused && styles.userNameFocused]}>{user.name}</Text>
+
+              {/* ¡Toda la magia ocurre aquí dentro de manera limpia! */}
+              <RadarFocusWrapper id={user.id} isFocused={isFocused} size={164} innerSize={isFocused ? 150 : 130}>
+                <View style={[styles.card, isFocused && styles.cardFocused]}>
+                  <Image
+                    source={{ uri: (user as any).avatarBase64 || user.avatar }}
+                    style={styles.avatarImg}
+                  />
+                </View>
+              </RadarFocusWrapper>
+
+              <Text style={[styles.userName, isFocused && styles.userNameFocused]}>
+                {user.name}
+              </Text>
+
               {isFocused && (
                 <View style={styles.optionsHint}>
                   <ControlPrompt btn="Options" label="Opciones" inputMode={inputMode} />
@@ -339,9 +403,9 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
         })}
       </View>
 
-      {/* BOTTOM POWER BUTTON */}
-      <TouchableOpacity 
-        style={[styles.powerButton, hoveredId === 'power' && styles.powerButtonFocused]} 
+      {/* POWER BUTTON */}
+      <TouchableOpacity
+        style={[styles.powerButton, hoveredId === 'power' && styles.powerButtonFocused]}
         activeOpacity={0.7}
         onPress={() => {
           if (Platform.OS === 'web' && (window as any).electronAPI) {
@@ -352,7 +416,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
         <Ionicons name="power" size={24} color="#FFF" />
       </TouchableOpacity>
 
-      {/* BOTTOM RIGHT HINT */}
+      {/* BOTTOM HINT */}
       <View style={styles.bottomRightHint}>
         <ControlPrompt btn="A" label="Seleccionar" inputMode={inputMode} />
       </View>
@@ -414,28 +478,35 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     alignItems: 'center',
-    width: 150,
-    height: 250, // Fixed height to prevent layout shifts
+    width: 164,
+    height: 250,
     justifyContent: 'center',
+  },
+  // Outer container that holds the canvas + circle (no overflow clip here)
+  avatarStack: {
+    width: 164,
+    height: 164,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
   card: {
     width: 130,
     height: 130,
-    borderRadius: 20,
+    borderRadius: 65,        // 50% via number
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 0,          // border removed — radar canvas handles it
+    zIndex: 1,
   },
   cardFocused: {
     width: 150,
     height: 150,
-    backgroundColor: '#FFF',
-    shadowColor: '#FFF',
+    borderRadius: 75,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.4,
     shadowRadius: 20,
     elevation: 10,
   },
@@ -447,7 +518,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -463,21 +533,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontStyle: 'italic',
   },
-  focusIndicator: {
-    position: 'absolute',
-    top: 15,
-  },
   optionsHint: {
     position: 'absolute',
     bottom: 5,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-  },
-  optionsText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
   powerButton: {
     position: 'absolute',
@@ -508,18 +569,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  hintIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  hintText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '500',
   },
 });
