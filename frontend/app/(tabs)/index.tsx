@@ -65,7 +65,7 @@ export default function ConsoleHome() {
   const [activeIndex, setActiveIndex] = useState(0);
 
   // Focus management
-  type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'game_panel' | 'footer' | 'welcome_widgets';
+  type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'game_panel' | 'footer' | 'welcome_widgets' | 'library_grid';
   const [focusArea, setFocusArea] = useState<FocusArea>('main_carousel');
   const [focusIndex, setFocusIndex] = useState(0);
   // game_panel focus: 0=Play, 1=More, 2=Trophies, 3=Friends
@@ -1445,11 +1445,11 @@ export default function ConsoleHome() {
                         <Text style={styles.activeGameTitle} numberOfLines={1}>
                           {item.isLastPlayed ? (lastPlayedGame?.title || 'Último Jugado') : item.title}
                         </Text>
-                        
+
                         {/* Options button to open context menu via mouse/click */}
                         <TouchableOpacity
                           activeOpacity={0.7}
-                          style={{ marginLeft: 6, paddingHorizontal: 4 }}
+                          style={{ marginLeft: 6, paddingHorizontal: 4, display: 'none' }}
                           onPress={() => {
                             setIsContextMenuOpen(prev => !prev);
                             setContextMenuFocusIndex(0);
@@ -1476,10 +1476,10 @@ export default function ConsoleHome() {
 
         {/* LIBRARY GRID SECTION */}
         {isLibraryFocused && (
-          <LibraryGrid 
-            games={savedGames} 
-            isFocused={focusArea === 'library_grid'} 
-            focusedIndex={libraryGridFocusIndex} 
+          <LibraryGrid
+            games={savedGames}
+            isFocused={focusArea === 'library_grid'}
+            focusedIndex={libraryGridFocusIndex}
             onItemPress={(index, game) => handleLaunchApp(game)}
           />
         )}
@@ -1487,496 +1487,496 @@ export default function ConsoleHome() {
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         {focusArea !== 'library_grid' && (
           <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
-          <Animated.View style={spacerStyle}>
-            <Animated.View style={topPanelStyle}>
-              {/* Logo or title */}
-              {displayLogo ? (
-                <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
-              ) : (
-                <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
-              )}
+            <Animated.View style={spacerStyle}>
+              <Animated.View style={topPanelStyle}>
+                {/* Logo or title */}
+                {displayLogo ? (
+                  <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
+                ) : (
+                  <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
+                )}
 
-              {/* Description
+                {/* Description
               {displayDesc ? (
                 <Text style={styles.gameDesc} numberOfLines={2}>{displayDesc}</Text>
               ) : null} */}
 
-              {/* Action Buttons */}
-              {canPlay && (
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity
-                    id="play-btn"
-                    style={[
-                      styles.playBtn,
-                      focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnFocused
-                    ]}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      if (activeItem) { handleLaunchApp(activeItem); }
-                    }}
-                  >
-                    <Text style={[
-                      styles.playBtnText,
-                      focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
-                    ]}>Jugar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    id="more-btn"
-                    style={[
-                      styles.moreBtn,
-                      focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnFocused
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      if (activeItem) { handleLaunchApp(activeItem); }
-                    }}
-                  >
-                    <Text style={[
-                      styles.moreBtnText,
-                      focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnTextFocused
-                    ]}>···</Text>
-                  </TouchableOpacity>
+                {/* Action Buttons */}
+                {canPlay && (
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                      id="play-btn"
+                      style={[
+                        styles.playBtn,
+                        focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnFocused
+                      ]}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        if (activeItem) { handleLaunchApp(activeItem); }
+                      }}
+                    >
+                      <Text style={[
+                        styles.playBtnText,
+                        focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
+                      ]}>Jugar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      id="more-btn"
+                      style={[
+                        styles.moreBtn,
+                        focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnFocused
+                      ]}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        if (activeItem) { handleLaunchApp(activeItem); }
+                      }}
+                    >
+                      <Text style={[
+                        styles.moreBtnText,
+                        focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnTextFocused
+                      ]}>···</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </Animated.View>
+            </Animated.View>
+
+            <View style={{ paddingBottom: 80 }}>
+              {/* === WELCOME WIDGETS (only when Welcome card is active) === */}
+              {/* <PS5WidgetRow /> */}
+              {activeItem?.id === '1' && (
+                <View style={styles.widgetGrid}>
+                  {/* Row 1 */}
+                  <View style={styles.widgetRow}>
+                    {/* Controller Widget */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setFocusIndex(0);
+                      }}
+                    >
+                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 0) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+                            <MaterialCommunityIcons name="gamepad-variant" size={22} color="#FFF" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>
+                              {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : 'DualSense Controller'}
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                              <Ionicons name="battery-full" size={12} color="#4CD964" />
+                              <Text style={{ color: '#888', fontSize: 10 }}>{gamepadInfo.connected ? `${Math.round(gamepadInfo.battery * 100)}%` : '75%'}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Trophies Widget */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setFocusIndex(1);
+                      }}
+                    >
+                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 1) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <MaterialCommunityIcons name="trophy" size={16} color="#FFD700" />
+                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Trofeos</Text>
+                          </View>
+                          <Text style={{ color: '#888', fontSize: 11 }}>Total: 232</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                            <MaterialCommunityIcons name="trophy" size={12} color="#B8D4E8" />
+                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>0</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                            <MaterialCommunityIcons name="trophy" size={12} color="#FFD700" />
+                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>9</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                            <MaterialCommunityIcons name="trophy" size={12} color="#C0C0C0" />
+                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>28</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                            <MaterialCommunityIcons name="trophy" size={12} color="#CD7F32" />
+                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>195</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Store Widget */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setFocusIndex(2);
+                        Linking.openURL('https://store.playstation.com');
+                      }}
+                    >
+                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 2) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <Ionicons name="bag-handle" size={14} color="#0070D1" />
+                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>PlayStation Store</Text>
+                        </View>
+                        <Text style={{ color: '#AAA', fontSize: 11 }} numberOfLines={1}>Descubre las últimas ofertas</Text>
+                        <Text style={{ color: '#0070D1', fontSize: 12, fontWeight: '700', marginTop: 4 }}>Ver tienda →</Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* News Widget */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setFocusIndex(3);
+                      }}
+                    >
+                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <Ionicons name="newspaper" size={14} color="#FFF" />
+                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Noticias</Text>
+                        </View>
+                        <Text style={{ color: '#888', fontSize: 11 }}>Descubre juegos nuevos</Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Agregar Juego Widget */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setFocusIndex(4);
+                        setAddModalVisible(true);
+                      }}
+                    >
+                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 4) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="add" size={20} color="#FFF" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Agregar Juego</Text>
+                            <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }} numberOfLines={1}>Agrega accesos directos</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Row 2 */}
+                  <View style={styles.widgetRow}>
+                    {/* Recently Played Widget */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setFocusIndex(5);
+                        if (lastPlayedGame) handleLaunchApp(lastPlayedGame);
+                      }}
+                    >
+                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 5) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                          <Ionicons name="game-controller" size={14} color="#FFF" />
+                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Jugados recientemente</Text>
+                        </View>
+                        {lastPlayedGame ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Image source={lastPlayedGame.image} style={{ width: 32, height: 32, borderRadius: 6 }} contentFit="cover" />
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>{lastPlayedGame.title}</Text>
+                            </View>
+                          </View>
+                        ) : (
+                          <Text style={{ color: '#666', fontSize: 11, fontStyle: 'italic' }}>Sin juegos recientes</Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Messages Widget */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setFocusIndex(6);
+                      }}
+                    >
+                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 6) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                          <Ionicons name="chatbubble" size={14} color="#FFF" />
+                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Mensajes</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="person" size={14} color="#AAA" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>{activeUser?.name || 'Usuario'}</Text>
+                            <Text style={{ color: '#888', fontSize: 10 }}>Sin mensajes</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Storage Widget */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setFocusIndex(7);
+                      }}
+                    >
+                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 7) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <MaterialCommunityIcons name="harddisk" size={14} color="#FFF" />
+                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Almacenamiento</Text>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <Text style={{ color: '#AAA', fontSize: 10 }}>Espacio libre</Text>
+                          <Text style={{ color: '#FFF', fontSize: 11, fontWeight: 'bold' }}>36.47 GB</Text>
+                        </View>
+                        <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                          <View style={{ height: '100%', width: '65%', borderRadius: 2, backgroundColor: '#0070D1' }} />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Wishlist Widget */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setFocusIndex(8);
+                      }}
+                    >
+                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 8) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <Ionicons name="heart" size={14} color="#FF6B6B" />
+                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Lista de deseos</Text>
+                        </View>
+                        <Text style={{ color: '#888', fontSize: 11 }}>Ver tu lista de deseos</Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Cambiar Fondo Widget */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setFocusIndex(9);
+                        setHomeBgModalVisible(true);
+                      }}
+                    >
+                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 9) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="image-outline" size={18} color="#FFF" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Cambiar Fondo</Text>
+                            <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }} numberOfLines={1}>Personaliza tu consola</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
-            </Animated.View>
-          </Animated.View>
 
-          <View style={{ paddingBottom: 80 }}>
-            {/* === WELCOME WIDGETS (only when Welcome card is active) === */}
-            {/* <PS5WidgetRow /> */}
-            {activeItem?.id === '1' && (
-              <View style={styles.widgetGrid}>
-                {/* Row 1 */}
-                <View style={styles.widgetRow}>
-                  {/* Controller Widget */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      setFocusArea('welcome_widgets');
-                      setFocusIndex(0);
-                    }}
-                  >
-                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 0) && styles.welcomeWidgetCardFocused]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                          <MaterialCommunityIcons name="gamepad-variant" size={22} color="#FFF" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>
-                            {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : 'DualSense Controller'}
-                          </Text>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                            <Ionicons name="battery-full" size={12} color="#4CD964" />
-                            <Text style={{ color: '#888', fontSize: 10 }}>{gamepadInfo.connected ? `${Math.round(gamepadInfo.battery * 100)}%` : '75%'}</Text>
-                          </View>
-                        </View>
+              {/* Trophies & Friends Cards — se ocultan cuando el row de capturas está enfocado */}
+              {canPlay && !isScreenshotRowFocused && (
+                <View style={styles.infoCardsRow}>
+                  {/* Trophies Card */}
+                  <BlurView intensity={28} tint="dark" style={[
+                    styles.infoCard,
+                    focusArea === 'game_panel' && gamePanelFocusIndex === 2 && styles.infoCardFocused
+                  ]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
+                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
+                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
+                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
+                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
                       </View>
                     </View>
-                  </TouchableOpacity>
-
-                  {/* Trophies Widget */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      setFocusArea('welcome_widgets');
-                      setFocusIndex(1);
-                    }}
-                  >
-                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 1) && styles.welcomeWidgetCardFocused]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <MaterialCommunityIcons name="trophy" size={16} color="#FFD700" />
-                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Trofeos</Text>
-                        </View>
-                        <Text style={{ color: '#888', fontSize: 11 }}>Total: 232</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                          <MaterialCommunityIcons name="trophy" size={12} color="#B8D4E8" />
-                          <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>0</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                          <MaterialCommunityIcons name="trophy" size={12} color="#FFD700" />
-                          <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>9</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                          <MaterialCommunityIcons name="trophy" size={12} color="#C0C0C0" />
-                          <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>28</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                          <MaterialCommunityIcons name="trophy" size={12} color="#CD7F32" />
-                          <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>195</Text>
-                        </View>
-                      </View>
+                    <View>
+                      <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
+                      <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
                     </View>
-                  </TouchableOpacity>
+                  </BlurView>
 
-                  {/* Store Widget */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      setFocusArea('welcome_widgets');
-                      setFocusIndex(2);
-                      Linking.openURL('https://store.playstation.com');
-                    }}
-                  >
-                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 2) && styles.welcomeWidgetCardFocused]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <Ionicons name="bag-handle" size={14} color="#0070D1" />
-                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>PlayStation Store</Text>
-                      </View>
-                      <Text style={{ color: '#AAA', fontSize: 11 }} numberOfLines={1}>Descubre las últimas ofertas</Text>
-                      <Text style={{ color: '#0070D1', fontSize: 12, fontWeight: '700', marginTop: 4 }}>Ver tienda →</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* News Widget */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      setFocusArea('welcome_widgets');
-                      setFocusIndex(3);
-                    }}
-                  >
-                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <Ionicons name="newspaper" size={14} color="#FFF" />
-                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Noticias</Text>
-                      </View>
-                      <Text style={{ color: '#888', fontSize: 11 }}>Descubre juegos nuevos</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Agregar Juego Widget */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      setFocusArea('welcome_widgets');
-                      setFocusIndex(4);
-                      setAddModalVisible(true);
-                    }}
-                  >
-                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 4) && styles.welcomeWidgetCardFocused]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="add" size={20} color="#FFF" />
+                  {/* Friends Playing Card */}
+                  <BlurView intensity={28} tint="dark" style={[
+                    styles.infoCard,
+                    focusArea === 'game_panel' && gamePanelFocusIndex === 3 && styles.infoCardFocused
+                  ]}>
+                    <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                      {[1, 2, 3, 4, 5].map((_, i) => (
+                        <View key={i} style={{
+                          width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
+                          borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
+                          alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          <Ionicons name="person" size={16} color="#AAA" />
                         </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Agregar Juego</Text>
-                          <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }} numberOfLines={1}>Agrega accesos directos</Text>
-                        </View>
-                      </View>
+                      ))}
                     </View>
-                  </TouchableOpacity>
+                    <View>
+                      <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
+                      <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
+                    </View>
+                  </BlurView>
                 </View>
+              )}
 
-                {/* Row 2 */}
-                <View style={styles.widgetRow}>
-                  {/* Recently Played Widget */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      setFocusArea('welcome_widgets');
-                      setFocusIndex(5);
-                      if (lastPlayedGame) handleLaunchApp(lastPlayedGame);
-                    }}
-                  >
-                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 5) && styles.welcomeWidgetCardFocused]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <Ionicons name="game-controller" size={14} color="#FFF" />
-                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Jugados recientemente</Text>
-                      </View>
-                      {lastPlayedGame ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Image source={lastPlayedGame.image} style={{ width: 32, height: 32, borderRadius: 6 }} contentFit="cover" />
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>{lastPlayedGame.title}</Text>
-                          </View>
-                        </View>
-                      ) : (
-                        <Text style={{ color: '#666', fontSize: 11, fontStyle: 'italic' }}>Sin juegos recientes</Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
+              {/* === CAPTURAS Y TRAILERS (arriba de noticias) === */}
+              {canPlay && (
+                <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
+                  <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Capturas y trailers</Text>
 
-                  {/* Messages Widget */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      setFocusArea('welcome_widgets');
-                      setFocusIndex(6);
-                    }}
-                  >
-                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 6) && styles.welcomeWidgetCardFocused]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <Ionicons name="chatbubble" size={14} color="#FFF" />
-                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Mensajes</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="person" size={14} color="#AAA" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>{activeUser?.name || 'Usuario'}</Text>
-                          <Text style={{ color: '#888', fontSize: 10 }}>Sin mensajes</Text>
-                        </View>
-                      </View>
+                  {mediaLoading ? (
+                    <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+                      <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                      <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
                     </View>
-                  </TouchableOpacity>
-
-                  {/* Storage Widget */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      setFocusArea('welcome_widgets');
-                      setFocusIndex(7);
-                    }}
-                  >
-                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 7) && styles.welcomeWidgetCardFocused]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <MaterialCommunityIcons name="harddisk" size={14} color="#FFF" />
-                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Almacenamiento</Text>
-                        </View>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <Text style={{ color: '#AAA', fontSize: 10 }}>Espacio libre</Text>
-                        <Text style={{ color: '#FFF', fontSize: 11, fontWeight: 'bold' }}>36.47 GB</Text>
-                      </View>
-                      <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                        <View style={{ height: '100%', width: '65%', borderRadius: 2, backgroundColor: '#0070D1' }} />
-                      </View>
+                  ) : steamMedia.length === 0 ? (
+                    <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+                      <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
+                      <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
                     </View>
-                  </TouchableOpacity>
-
-                  {/* Wishlist Widget */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      setFocusArea('welcome_widgets');
-                      setFocusIndex(8);
-                    }}
-                  >
-                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 8) && styles.welcomeWidgetCardFocused]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <Ionicons name="heart" size={14} color="#FF6B6B" />
-                        <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Lista de deseos</Text>
-                      </View>
-                      <Text style={{ color: '#888', fontSize: 11 }}>Ver tu lista de deseos</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Cambiar Fondo Widget */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      setFocusArea('welcome_widgets');
-                      setFocusIndex(9);
-                      setHomeBgModalVisible(true);
-                    }}
-                  >
-                    <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 9) && styles.welcomeWidgetCardFocused]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="image-outline" size={18} color="#FFF" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Cambiar Fondo</Text>
-                          <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }} numberOfLines={1}>Personaliza tu consola</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+                  ) : (
+                    <ScrollView
+                      ref={mediaScrollRef}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
+                    >
+                      {steamMedia.map((item, idx) => {
+                        const isMediaFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx;
+                        return (
+                          <TouchableOpacity
+                            key={item.id}
+                            style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              setGamePanelFocusIndex(100 + idx);
+                              if (item.type === 'movie' && item.mp4_url) {
+                                Linking.openURL(item.mp4_url);
+                              } else if (item.full) {
+                                Linking.openURL(item.full);
+                              }
+                            }}
+                          >
+                            {/* Thumbnail */}
+                            <View style={styles.newsCardThumbnail}>
+                              <Image
+                                source={{ uri: item.thumbnail }}
+                                style={{ width: '100%', height: '100%' }}
+                                contentFit="cover"
+                              />
+                              {/* Play badge para trailers */}
+                              {item.type === 'movie' && (
+                                <View style={styles.mediaPlayBadge}>
+                                  <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
+                                </View>
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
                 </View>
-              </View>
-            )}
+              )}
 
-            {/* Trophies & Friends Cards — se ocultan cuando el row de capturas está enfocado */}
-            {canPlay && !isScreenshotRowFocused && (
-              <View style={styles.infoCardsRow}>
-                {/* Trophies Card */}
-                <BlurView intensity={28} tint="dark" style={[
-                  styles.infoCard,
-                  focusArea === 'game_panel' && gamePanelFocusIndex === 2 && styles.infoCardFocused
-                ]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
+              {/* === NOTICIAS OFICIALES (for games, not Welcome) === */}
+              {canPlay && (
+                <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
+                  <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Últimas noticias</Text>
+
+                  {newsLoading ? (
+                    <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+                      <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                      <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
+                  ) : steamNews.length === 0 ? (
+                    <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+                      <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
+                      <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
-                    </View>
-                  </View>
-                  <View>
-                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
-                    <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
-                  </View>
-                </BlurView>
-
-                {/* Friends Playing Card */}
-                <BlurView intensity={28} tint="dark" style={[
-                  styles.infoCard,
-                  focusArea === 'game_panel' && gamePanelFocusIndex === 3 && styles.infoCardFocused
-                ]}>
-                  <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-                    {[1, 2, 3, 4, 5].map((_, i) => (
-                      <View key={i} style={{
-                        width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
-                        borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
-                        alignItems: 'center', justifyContent: 'center'
-                      }}>
-                        <Ionicons name="person" size={16} color="#AAA" />
-                      </View>
-                    ))}
-                  </View>
-                  <View>
-                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
-                    <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
-                  </View>
-                </BlurView>
-              </View>
-            )}
-
-            {/* === CAPTURAS Y TRAILERS (arriba de noticias) === */}
-            {canPlay && (
-              <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Capturas y trailers</Text>
-
-                {mediaLoading ? (
-                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
-                    <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-                    <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
-                  </View>
-                ) : steamMedia.length === 0 ? (
-                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
-                    <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
-                    <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
-                  </View>
-                ) : (
-                  <ScrollView
-                    ref={mediaScrollRef}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
-                  >
-                    {steamMedia.map((item, idx) => {
-                      const isMediaFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx;
-                      return (
-                        <TouchableOpacity
-                          key={item.id}
-                          style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
-                          activeOpacity={0.8}
-                          onPress={() => {
-                            setGamePanelFocusIndex(100 + idx);
-                            if (item.type === 'movie' && item.mp4_url) {
-                              Linking.openURL(item.mp4_url);
-                            } else if (item.full) {
-                              Linking.openURL(item.full);
-                            }
-                          }}
-                        >
-                          {/* Thumbnail */}
-                          <View style={styles.newsCardThumbnail}>
-                            <Image
-                              source={{ uri: item.thumbnail }}
-                              style={{ width: '100%', height: '100%' }}
-                              contentFit="cover"
-                            />
-                            {/* Play badge para trailers */}
-                            {item.type === 'movie' && (
-                              <View style={styles.mediaPlayBadge}>
-                                <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
-                              </View>
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                )}
-              </View>
-            )}
-
-            {/* === NOTICIAS OFICIALES (for games, not Welcome) === */}
-            {canPlay && (
-              <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Últimas noticias</Text>
-
-                {newsLoading ? (
-                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
-                    <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-                    <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
-                  </View>
-                ) : steamNews.length === 0 ? (
-                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
-                    <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
-                    <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
-                  </View>
-                ) : (
-                  <ScrollView
-                    ref={newsScrollRef}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
-                  >
-                    {steamNews.slice(0, 8).map((item, idx) => {
-                      const isNewsFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx;
-                      return (
-                        <TouchableOpacity
-                          key={item.gid}
-                          style={[
-                            styles.newsCard,
-                            isNewsFocused && styles.newsCardFocused
-                          ]}
-                          activeOpacity={0.8}
-                          onPress={() => { if (item.url) Linking.openURL(item.url); }}
-                        >
-                          {/* Thumbnail area */}
-                          <View style={styles.newsCardThumbnail}>
-                            {item.image_url ? (
-                              <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-                            ) : (
-                              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
-                                <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
-                              </View>
-                            )}
-                          </View>
-                          {/* Text area */}
-                          <View style={styles.newsCardContent}>
-                            <Text style={styles.newsCardTitle} numberOfLines={2}>
-                              {item.title}
-                            </Text>
-                            <Text style={styles.newsCardFooterText} numberOfLines={1}>
-                              {(item.feedlabel || item.feedname || 'Steam')} | {formatSteamDate(item.date)}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                )}
-              </View>
-            )}
+                  ) : (
+                    <ScrollView
+                      ref={newsScrollRef}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
+                    >
+                      {steamNews.slice(0, 8).map((item, idx) => {
+                        const isNewsFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx;
+                        return (
+                          <TouchableOpacity
+                            key={item.gid}
+                            style={[
+                              styles.newsCard,
+                              isNewsFocused && styles.newsCardFocused
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => { if (item.url) Linking.openURL(item.url); }}
+                          >
+                            {/* Thumbnail area */}
+                            <View style={styles.newsCardThumbnail}>
+                              {item.image_url ? (
+                                <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                              ) : (
+                                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
+                                  <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
+                                </View>
+                              )}
+                            </View>
+                            {/* Text area */}
+                            <View style={styles.newsCardContent}>
+                              <Text style={styles.newsCardTitle} numberOfLines={2}>
+                                {item.title}
+                              </Text>
+                              <Text style={styles.newsCardFooterText} numberOfLines={1}>
+                                {(item.feedlabel || item.feedname || 'Steam')} | {formatSteamDate(item.date)}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
+                </View>
+              )}
             </View>
           </Animated.View>
         )}
@@ -2828,7 +2828,7 @@ const styles = StyleSheet.create({
   activeLabelContainer: {
     position: 'absolute',
     top: 120,
-    left: 180,
+    left: 190,
     flexDirection: 'row',
     alignItems: 'center',
     zIndex: 100,
@@ -2836,7 +2836,7 @@ const styles = StyleSheet.create({
   },
   platformBadge: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 2,
     borderRadius: 4,
     marginRight: 8,
