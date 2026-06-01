@@ -36,16 +36,16 @@ interface FloatingSystemNavProps {
   onCloseExpanded?: () => void;
 }
 
-export default function FloatingSystemNav({ 
-  focusedIndex, 
-  isFocused, 
-  onPressItem, 
+export default function FloatingSystemNav({
+  focusedIndex,
+  isFocused,
+  onPressItem,
   onClose,
   navLevel = 0,
   cardIndex = 0,
   isCardExpanded = false,
-  onPressCard = () => {},
-  onCloseExpanded = () => {}
+  onPressCard = () => { },
+  onCloseExpanded = () => { }
 }: FloatingSystemNavProps) {
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(50);
@@ -103,7 +103,7 @@ export default function FloatingSystemNav({
             onCloseExpanded={onCloseExpanded}
           />
         )}
-        
+
         <BlurView intensity={50} tint="dark" style={styles.pillContainer}>
           {NAV_ITEMS.map((item, index) => {
             const isActive = isFocused && focusedIndex === index;
@@ -135,13 +135,17 @@ export default function FloatingSystemNav({
   );
 }
 
+document.querySelector("#\\32 59 > div.css-view-g5y9jx.r-alignItems-1awozwy.r-flexDirection-18u37iz.r-justifyContent-1777fci.r-overflow-bztko3.r-paddingBlock-11f147o.r-paddingInline-is05cd")?.style.setProperty('background-color', 'transparent');
+
 const styles = StyleSheet.create({
   menuContainer: {
     position: 'absolute',
-    bottom: 60,
+    bottom: 20,
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
+
+    width: '100%'
   },
   pillContainer: {
     flexDirection: 'row',
@@ -149,10 +153,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 8,
     paddingVertical: 8,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    //borderRadius: 30,
+    //borderWidth: 1,
+    //borderColor: 'rgba(255, 255, 255, 0.1)',
+    //backgroundColor: 'rgba(15, 23, 42, 0.4)',
     overflow: 'visible',
   },
   iconButton: {
@@ -182,12 +186,12 @@ const styles = StyleSheet.create({
   tooltip: {
     position: 'absolute',
     top: -50,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(0, 0, 0, 0)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    //borderWidth: 1,
+    //borderColor: 'rgba(255, 255, 255, 0.15)',
     zIndex: 100,
   },
   tooltipText: {

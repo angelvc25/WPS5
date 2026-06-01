@@ -85,7 +85,10 @@ function AnimatedCard({
 }) {
   const translateY = useSharedValue(40);
   const opacity = useSharedValue(0);
-  const scale = useSharedValue(isActive ? 1.03 : 1);
+
+  const scale = useSharedValue(1);
+  const scaleX = useSharedValue(1);
+  const focusLift = useSharedValue(0);
 
   // Entrance animation on mount (staggered per card)
   useEffect(() => {
@@ -101,14 +104,51 @@ function AnimatedCard({
 
   // Scale on focus
   useEffect(() => {
-    scale.value = withSpring(isActive ? 1.03 : 1, { damping: 20, stiffness: 300 });
+    if (isActive) {
+      scale.value = withTiming(1.30, {
+        duration: 180,
+        easing: Easing.out(Easing.quad),
+      });
+
+      scaleX.value = withSpring(1.015, {
+        damping: 18,
+        stiffness: 280,
+      });
+
+      focusLift.value = withTiming(-35, {
+        duration: 180,
+        easing: Easing.out(Easing.quad),
+      });
+    } else {
+      scale.value = withTiming(1, {
+        duration: 180,
+        easing: Easing.out(Easing.quad),
+      });
+
+      scaleX.value = withTiming(1, {
+        duration: 180,
+        easing: Easing.out(Easing.quad),
+      });
+
+      focusLift.value = withTiming(0, {
+        duration: 180,
+        easing: Easing.out(Easing.quad),
+      });
+    }
   }, [isActive]);
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [
-      { translateY: translateY.value },
-      { scale: scale.value },
+      {
+        translateY: translateY.value + focusLift.value,
+      },
+      {
+        scaleX: scaleX.value,
+      },
+      {
+        scaleY: scale.value,
+      },
     ],
   }));
 
@@ -149,7 +189,7 @@ function AnimatedCard({
         {isActive && (
           <SpinningBorder
             width={260}
-            height={230}
+            height={260}
             borderRadius={16}
             id={`ctrl-card-${card.id}`}
           />
@@ -349,13 +389,14 @@ const styles = StyleSheet.create({
   cardsRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    justifyContent: 'center',
-    marginBottom: 16,
+    justifyContent: 'flex-start',
+    marginBottom: 50,
+    width: '95%',
     gap: 14,
   },
   card: {
     width: 260,
-    height: 230,
+    height: 260,
     borderRadius: 16,
     overflow: 'visible',
     backgroundColor: '#1c1c1e',
