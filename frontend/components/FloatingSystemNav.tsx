@@ -104,7 +104,7 @@ export default function FloatingSystemNav({
           />
         )}
 
-        <BlurView intensity={50} tint="dark" style={styles.pillContainer}>
+        <BlurView intensity={0} tint="dark" style={styles.pillContainer}>
           {NAV_ITEMS.map((item, index) => {
             const isActive = isFocused && focusedIndex === index;
             return (
@@ -134,8 +134,6 @@ export default function FloatingSystemNav({
     </View>
   );
 }
-
-document.querySelector("#\\32 59 > div.css-view-g5y9jx.r-alignItems-1awozwy.r-flexDirection-18u37iz.r-justifyContent-1777fci.r-overflow-bztko3.r-paddingBlock-11f147o.r-paddingInline-is05cd")?.style.setProperty('background-color', 'transparent');
 
 const styles = StyleSheet.create({
   menuContainer: {
