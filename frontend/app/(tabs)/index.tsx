@@ -532,6 +532,8 @@ export default function ConsoleHome() {
               setGamePanelFocusIndex(1);
             } else if (gamePanelFocusIndex === 2) {
               setGamePanelFocusIndex(3);
+            } else if (gamePanelFocusIndex >= 100) {
+              setGamePanelFocusIndex(prev => Math.min(prev + 1, 100 + steamMedia.length - 1));
             } else if (gamePanelFocusIndex >= 4) {
               setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + steamNews.length - 1));
             }
@@ -554,6 +556,8 @@ export default function ConsoleHome() {
               setGamePanelFocusIndex(0);
             } else if (gamePanelFocusIndex === 3) {
               setGamePanelFocusIndex(2);
+            } else if (gamePanelFocusIndex >= 100) {
+              setGamePanelFocusIndex(prev => Math.max(prev - 1, 100));
             } else if (gamePanelFocusIndex >= 4) {
               setGamePanelFocusIndex(prev => Math.max(prev - 1, 4));
             }
@@ -582,6 +586,12 @@ export default function ConsoleHome() {
             } else if (gamePanelFocusIndex === 1) {
               setGamePanelFocusIndex(3);
             } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
+              if (steamMedia.length > 0) {
+                setGamePanelFocusIndex(100);
+              } else if (steamNews.length > 0) {
+                setGamePanelFocusIndex(4);
+              }
+            } else if (gamePanelFocusIndex >= 100) {
               if (steamNews.length > 0) {
                 setGamePanelFocusIndex(4);
               }
@@ -602,12 +612,14 @@ export default function ConsoleHome() {
               setGamePanelFocusIndex(0);
             } else if (gamePanelFocusIndex === 3) {
               setGamePanelFocusIndex(1);
+            } else if (gamePanelFocusIndex >= 100) {
+              setGamePanelFocusIndex(2);
             } else if (gamePanelFocusIndex >= 4) {
-              const newsIndex = gamePanelFocusIndex - 4;
-              if (newsIndex % 2 === 0) {
-                setGamePanelFocusIndex(2);
+              if (steamMedia.length > 0) {
+                setGamePanelFocusIndex(100);
               } else {
-                setGamePanelFocusIndex(3);
+                const newsIndex = gamePanelFocusIndex - 4;
+                setGamePanelFocusIndex(newsIndex % 2 === 0 ? 2 : 3);
               }
             }
           }
@@ -628,6 +640,15 @@ export default function ConsoleHome() {
           if (focusArea === 'game_panel') {
             if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
               if (activeItem) { handleLaunchApp(activeItem); }
+            } else if (gamePanelFocusIndex >= 100) {
+              const mediaItem = steamMedia[gamePanelFocusIndex - 100];
+              if (mediaItem) {
+                if (mediaItem.type === 'movie' && mediaItem.mp4_url) {
+                  Linking.openURL(mediaItem.mp4_url);
+                } else if (mediaItem.full) {
+                  Linking.openURL(mediaItem.full);
+                }
+              }
             } else if (gamePanelFocusIndex >= 4) {
               const newsItem = steamNews[gamePanelFocusIndex - 4];
               if (newsItem && newsItem.url) {
@@ -725,20 +746,35 @@ export default function ConsoleHome() {
         mainScrollRef.current.scrollTo({ y: 0, animated: true });
       } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
         mainScrollRef.current.scrollTo({ y: 220, animated: true });
-      } else if (gamePanelFocusIndex >= 4) {
+      } else if (gamePanelFocusIndex >= 100) {
         mainScrollRef.current.scrollTo({ y: 480, animated: true });
+      } else if (gamePanelFocusIndex >= 4) {
+        mainScrollRef.current.scrollTo({ y: 700, animated: true });
       }
     }
   }, [focusArea, gamePanelFocusIndex]);
 
+  // Auto-scroll media horizontal scrollview when navigating through media cards
+  useEffect(() => {
+    if (focusArea === 'game_panel' && gamePanelFocusIndex >= 100 && mediaScrollRef.current) {
+      const mediaIndex = gamePanelFocusIndex - 100;
+      const cardWidth = 500 + 16;
+      mediaScrollRef.current.scrollTo({ x: mediaIndex * cardWidth, animated: true });
+    }
+  }, [gamePanelFocusIndex, focusArea]);
+
   // Auto-scroll news horizontal scrollview when navigating through news cards
   useEffect(() => {
-    if (focusArea === 'game_panel' && gamePanelFocusIndex >= 4 && newsScrollRef.current) {
+    if (focusArea === 'game_panel' && gamePanelFocusIndex >= 4 && gamePanelFocusIndex < 100 && newsScrollRef.current) {
       const newsIndex = gamePanelFocusIndex - 4;
       const cardWidth = 500;
       const gap = 16;
       const scrollX = newsIndex * (cardWidth + gap);
       newsScrollRef.current.scrollTo({ x: scrollX, animated: true });
+    }
+    // Reset news scroll when focus leaves the news row
+    if (focusArea === 'game_panel' && gamePanelFocusIndex >= 100 && newsScrollRef.current) {
+      newsScrollRef.current.scrollTo({ x: 0, animated: true });
     }
   }, [gamePanelFocusIndex, focusArea]);
 
@@ -1530,31 +1566,21 @@ export default function ConsoleHome() {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
-                    onScrollBeginDrag={() => setScreenshotRowFocused(true)}
-                    onMomentumScrollEnd={() => { }}
                   >
                     {steamMedia.map((item, idx) => {
-                      const isMediaFocused = isScreenshotRowFocused && gamePanelFocusIndex === 100 + idx;
+                      const isMediaFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx;
                       return (
                         <TouchableOpacity
                           key={item.id}
                           style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
                           activeOpacity={0.8}
                           onPress={() => {
-                            setScreenshotRowFocused(true);
                             setGamePanelFocusIndex(100 + idx);
                             if (item.type === 'movie' && item.mp4_url) {
                               Linking.openURL(item.mp4_url);
                             } else if (item.full) {
                               Linking.openURL(item.full);
                             }
-                          }}
-                          onFocus={() => {
-                            setScreenshotRowFocused(true);
-                            setGamePanelFocusIndex(100 + idx);
-                          }}
-                          onBlur={() => {
-                            setScreenshotRowFocused(false);
                           }}
                         >
                           {/* Thumbnail */}
@@ -1570,15 +1596,6 @@ export default function ConsoleHome() {
                                 <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
                               </View>
                             )}
-                          </View>
-                          {/* Footer */}
-                          <View style={styles.newsCardContent}>
-                            <Text style={styles.newsCardTitle} numberOfLines={2}>
-                              {item.type === 'movie' ? (item.name || 'Trailer') : 'Captura de pantalla'}
-                            </Text>
-                            <Text style={styles.newsCardFooterText} numberOfLines={1}>
-                              {item.type === 'movie' ? '▶ Trailer oficial' : '📷 Screenshot'}
-                            </Text>
                           </View>
                         </TouchableOpacity>
                       );
@@ -2122,6 +2139,7 @@ const styles = StyleSheet.create({
   card: {
     width: 130,
     height: 130,
+
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
@@ -2132,6 +2150,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 12,
+    marginLeft: 10,
+    marginRight: 10,
   } as any,
   moreCard: {
     justifyContent: 'center',
@@ -2470,7 +2490,7 @@ const styles = StyleSheet.create({
   activeLabelContainer: {
     position: 'absolute',
     top: 140,
-    left: 170,
+    left: 180,
     flexDirection: 'row',
     alignItems: 'center',
     zIndex: 100,
