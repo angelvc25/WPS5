@@ -946,13 +946,13 @@ export default function ConsoleHome() {
           background: conic-gradient(
             from 0deg,
             rgba(255, 255, 255, 0.15) 0%,
-            rgba(255, 255, 255, 0.15) 28%,
-            rgba(180, 210, 255, 0.3) 33%,
+            rgba(255, 255, 255, 0.79) 28%,
+            rgba(180, 210, 255, 0.86) 33%,
             rgba(220, 235, 255, 0.95) 48%,
             rgba(255, 255, 255, 1.0) 50%,
-            rgba(220, 235, 255, 0.95) 52%,
-            rgba(180, 210, 255, 0.3) 57%,
-            rgba(255, 255, 255, 0.15) 62%,
+            rgba(223, 248, 182, 0.95) 52%,
+            rgba(180, 210, 255, 0.88) 57%,
+            rgba(255, 255, 255, 0.75) 62%,
             rgba(255, 255, 255, 0.15) 100%
           );
           border-radius: 50%;
@@ -1001,11 +1001,11 @@ export default function ConsoleHome() {
         <View
           style={{
             position: 'absolute',
-            top: -1,
-            left: 9,
-            right: 9,
-            bottom: -1,
-            borderRadius: 24,
+            top: 1,
+            left: 11,
+            right: 11,
+            bottom: 1,
+            borderRadius: 20,
             zIndex: -1,
             overflow: 'hidden',
           } as any}
@@ -1205,7 +1205,7 @@ export default function ConsoleHome() {
 
                 if (item.id === 'more_library') {
                   cardContent = (
-                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
+                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive, { opacity: 0.75 }]}>
                       {isActive && <SpinningBorder size={CARD_SIZE} />}
 
                       {/* 1. Añadimos overflow: 'hidden' a la tarjeta para que la imagen no se salga de las esquinas redondeadas */}
@@ -2030,9 +2030,9 @@ const styles = StyleSheet.create({
   cardWrapperActive: {
     opacity: 1,
     overflow: 'visible',
-    transform: [{ scale: 1.4 }, { translateY: 13 }],
-    marginLeft: 15,
-    marginRight: 15,
+    transform: [{ scale: 1.5 }, { translateY: 17 }],
+    marginLeft: 20,
+    marginRight: 20,
   },
   card: {
     width: 120,
