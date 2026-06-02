@@ -145,6 +145,7 @@ export default function ConsoleHome() {
   const tabFade = useSharedValue(1);
   const gamePanelFocusAnim = useSharedValue(0);
   const lowerSectionFocusAnim = useSharedValue(0);
+  const carouselHideAnim = useSharedValue(0);
   const spinRotation = useSharedValue(0);
 
   useEffect(() => {
@@ -178,6 +179,11 @@ export default function ConsoleHome() {
   useEffect(() => {
     gamePanelFocusAnim.value = withTiming(isGamePanelFocused ? 1 : 0, { duration: 300 });
   }, [isGamePanelFocused]);
+
+  useEffect(() => {
+    const shouldHideCarousel = focusArea === 'game_panel' || focusArea === 'library_grid';
+    carouselHideAnim.value = withTiming(shouldHideCarousel ? 1 : 0, { duration: 300 });
+  }, [focusArea]);
 
   useEffect(() => {
     lowerSectionFocusAnim.value = withTiming(isLowerSectionFocused ? 1 : 0, { duration: 300 });
@@ -223,9 +229,9 @@ export default function ConsoleHome() {
   }));
 
   const carouselStyle = useAnimatedStyle(() => ({
-    opacity: 1 - gamePanelFocusAnim.value,
-    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }],
-    height: interpolate(gamePanelFocusAnim.value, [0, 1], [200, 0]),
+    opacity: 1 - carouselHideAnim.value,
+    transform: [{ translateY: interpolate(carouselHideAnim.value, [0, 1], [0, -20]) }],
+    height: interpolate(carouselHideAnim.value, [0, 1], [200, 0]),
     overflow: 'hidden'
   }));
 
@@ -879,7 +885,11 @@ export default function ConsoleHome() {
   // Auto-scroll main vertical scrollview when focus moves to lower sections
   useEffect(() => {
     if (!mainScrollRef.current) return;
-    if (focusArea !== 'game_panel') {
+    if (focusArea === 'library_grid') {
+      const row = Math.floor(libraryGridFocusIndex / 5);
+      const rowHeight = Platform.OS === 'web' ? 250 : 180;
+      mainScrollRef.current.scrollTo({ y: row * rowHeight, animated: true });
+    } else if (focusArea !== 'game_panel') {
       mainScrollRef.current.scrollTo({ y: 0, animated: true });
     } else {
       if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
@@ -892,7 +902,7 @@ export default function ConsoleHome() {
         mainScrollRef.current.scrollTo({ y: 700, animated: true });
       }
     }
-  }, [focusArea, gamePanelFocusIndex]);
+  }, [focusArea, gamePanelFocusIndex, libraryGridFocusIndex]);
 
   // Auto-scroll media horizontal scrollview when navigating through media cards
   useEffect(() => {
@@ -1304,7 +1314,7 @@ export default function ConsoleHome() {
         scrollEventThrottle={16}
       >
         {/* CAROUSEL ROW */}
-        <Animated.View style={[styles.carouselSection, carouselStyle, focusArea === 'library_grid' && { opacity: 0, height: 0, overflow: 'hidden' }]}>
+        <Animated.View style={[styles.carouselSection, carouselStyle]}>
           {currentData.length === 0 ? (
             <View style={styles.mediaEmptyContainer}>
               <Ionicons name="film-outline" size={80} color="rgba(255,255,255,0.15)" />
