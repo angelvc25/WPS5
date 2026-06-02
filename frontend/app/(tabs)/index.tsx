@@ -1486,6 +1486,15 @@ export default function ConsoleHome() {
             >
               {currentData.map((item, index) => {
                 const isActive = index === activeIndex;
+                const isHomeCard = item.id === '1';
+                const isStoreCard = item.id === '5';
+
+                const customOpacity =
+                  isHomeCard
+                    ? (isActive ? 0.9 : 0.9)
+                    : isStoreCard
+                      ? (isActive ? 0.9 : 0.9)
+                      : 1;
 
                 let cardContent;
 
@@ -1515,7 +1524,7 @@ export default function ConsoleHome() {
                   );
                 } else if (item.isGrid) {
                   cardContent = (
-                    <AnimatedCardWrapper isActive={isActive}>
+                    <AnimatedCardWrapper isActive={isActive} style={{ opacity: customOpacity }}>
                       <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                         {isActive && <SpinningBorder size={CARD_SIZE} />}
                         <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
@@ -1571,7 +1580,7 @@ export default function ConsoleHome() {
                   );
                 } else if (item.isLastPlayed && !lastPlayedGame) {
                   cardContent = (
-                    <AnimatedCardWrapper isActive={isActive}>
+                    <AnimatedCardWrapper isActive={isActive} style={{ opacity: customOpacity }}>
                       <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                         {isActive && <SpinningBorder size={CARD_SIZE} />}
                         <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive]}>
@@ -1583,7 +1592,7 @@ export default function ConsoleHome() {
                 } else {
                   const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
                   cardContent = (
-                    <AnimatedCardWrapper isActive={isActive}>
+                    <AnimatedCardWrapper isActive={isActive} style={{ opacity: customOpacity }}>
                       <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                         {isActive && <SpinningBorder size={CARD_SIZE} />}
                         <Image source={imgSource} style={[styles.card, isActive && styles.cardActive]} contentFit="cover" />
@@ -1593,7 +1602,7 @@ export default function ConsoleHome() {
                 }
 
                 return (
-                  <View key={item.id} style={{ position: 'relative', overflow: 'visible', zIndex: isActive ? 10 : 1 }}>
+                  <View key={item.id} style={{ position: 'relative', overflow: 'visible', zIndex: isActive ? 10 : 1, opacity: customOpacity }}>
                     {cardContent}
                     {isActive && item.id !== 'more_library' && (
                       <View style={styles.activeLabelContainer}>
