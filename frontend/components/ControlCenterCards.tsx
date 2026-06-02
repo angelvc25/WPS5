@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 14,
     // subtle gradient-like dark bottom via backgroundColor at bottom half
-    background: undefined,
+    //background: undefined,
   },
   cardTopBar: {
     flexDirection: 'row',
