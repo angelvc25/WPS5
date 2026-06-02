@@ -1817,7 +1817,7 @@ export default function ConsoleHome() {
                           <Text style={styles.widgetSubtitle}>Descubre juegos nuevos</Text>
                           <Text style={styles.widgetSubtitle}>Apex Legends | Ayer</Text>
                         </View>
-                        <Image source={require("../../assets/images/Home.jpeg")} style={{ width: 70, height: 70, borderRadius: 6 }} contentFit="cover" />
+                        <Image source={require("../../assets/images/Store.png")} style={{ width: 70, height: 70, borderRadius: 6 }} contentFit="cover" />
                       </View>
                     </TouchableOpacity>
 
