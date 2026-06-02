@@ -1,25 +1,126 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  Animated,
+} from 'react-native';
 
+// ─── Shimmer que barre todo el menú ──────────────────────────────────────────
+function ShimmerOverlay() {
+  if (Platform.OS !== 'web') return null;
+
+  return (
+    <>
+      <style>{`
+        @keyframes wc-content-shimmer {
+          0% {
+            transform: translate(-160%, -50%) rotate(-48deg);
+            opacity: 0;
+          }
+
+          15% {
+            opacity: 1;
+          }
+
+          50% {
+            opacity: 1;
+          }
+
+          70% {
+            transform: translate(130%, -50%) rotate(48deg);
+            opacity: 0;
+          }
+
+          100% {
+            transform: translate(130%, -50%) rotate(48deg);
+            opacity: 0;
+          }
+        }
+
+        .wc-shimmer-line {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+
+          width: 140%;
+          height: 420%;
+
+          background: linear-gradient(
+            to right,
+            transparent 0%,
+            rgba(255, 255, 255, 0.01) 20%,
+            rgba(255, 255, 255, 0.18) 50%,
+            rgba(255, 255, 255, 0.01) 80%,
+            transparent 100%
+          );
+
+          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+
+          pointer-events: none;
+          z-index: 20;
+        }
+      `}</style>
+
+      <div className="wc-shimmer-line" />
+    </>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 interface GameContextMenuProps {
-  focusedIndex: number; // 0: Editar, 1: Ubicación, 2: Eliminar
+  focusedIndex: number;
   onPressItem: (index: number) => void;
 }
 
-export default function GameContextMenu({ focusedIndex, onPressItem }: GameContextMenuProps) {
+const MENU_WIDTH = 250;
+const ITEM_HEIGHT = 50;
+
+export default function GameContextMenu({
+  focusedIndex,
+  onPressItem,
+}: GameContextMenuProps) {
   const options = [
-    { icon: 'pencil-outline', label: 'Editar Datos', color: '#cacacaff' },
-    { icon: 'folder-open-outline', label: 'Ubicación', color: '#cacacaff' },
-    { icon: 'trash-outline', label: 'Eliminar Juego', color: '#cacacaff' },
+    { label: 'Administrar contenido del juego' },
+    { label: 'Ubicación del juego' },
+    { label: 'Eliminar' },
   ];
 
   return (
     <View style={styles.absoluteWrapper}>
       <View style={styles.container}>
+
+        {Platform.OS === 'web' && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+
+              background: `
+        linear-gradient(
+          45deg,
+          rgba(232, 249, 255, 0.14) 0%,
+          rgba(120,220,255,0.06) 18%,
+          rgba(255,255,255,0.02) 35%,
+          rgba(255,255,255,0.00) 58%,
+          rgba(0,0,0,0.00) 100%
+        )
+      `,
+
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          />
+        )}
+
+        {/* SHIMMER DEL CONTENEDOR */}
+        <ShimmerOverlay />
+
         {options.map((opt, idx) => {
           const isFocused = idx === focusedIndex;
+
           return (
             <TouchableOpacity
               key={idx}
@@ -30,16 +131,14 @@ export default function GameContextMenu({ focusedIndex, onPressItem }: GameConte
                 isFocused && styles.itemFocused,
               ]}
             >
-              <Ionicons
-                name={opt.icon as any}
-                size={16}
-                color={isFocused ? '#00FFFF' : opt.color}
-                style={{ marginRight: 10 }}
-              />
+              {/* Glow focus */}
+              {isFocused && (
+                <View style={styles.focusGlow} pointerEvents="none" />
+              )}
+
               <Text
                 style={[
                   styles.label,
-                  { color: opt.color },
                   isFocused && styles.labelFocused,
                 ]}
               >
@@ -53,48 +152,88 @@ export default function GameContextMenu({ focusedIndex, onPressItem }: GameConte
   );
 }
 
+// ─── Estilos ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   absoluteWrapper: {
     position: 'absolute',
-    left: 185, // Fits right next to the card (since CARD_SIZE is 130)
+    left: 185,
     top: 0,
     zIndex: 9999,
-    width: 170,
+    width: MENU_WIDTH,
   },
+
   container: {
     borderRadius: 3,
     overflow: 'hidden',
+    position: 'relative',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(26, 26, 26, 1)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(26,26,26,1)',
     padding: 6,
+
     shadowColor: '#000',
-    shadowOffset: { width: 4, height: 8 },
+    shadowOffset: {
+      width: 4,
+      height: 8,
+    },
     shadowOpacity: 0.4,
     shadowRadius: 12,
+
+    width: MENU_WIDTH,
   },
+
   item: {
     flexDirection: 'row',
     alignItems: 'center',
+
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 8,
+
+    borderRadius: 3,
     marginVertical: 2,
+
     backgroundColor: 'transparent',
+
+    overflow: 'hidden',
+    position: 'relative',
+
+    height: ITEM_HEIGHT,
   },
+
   itemFocused: {
-    backgroundColor: 'rgba(0, 255, 255, 0)',
-    borderWidth: 2,
-    borderColor: 'rgba(0, 255, 255, 0.4)',
+    backgroundColor: 'rgba(120,255,255,0.05)',
+
+    borderWidth: 1,
+    borderColor: 'rgba(120,255,255,0.35)',
+
+    shadowColor: '#7cffff',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
   },
+
+  focusGlow: {
+    ...StyleSheet.absoluteFillObject,
+
+    borderRadius: 3,
+
+    borderWidth: 1,
+    borderColor: 'rgba(180,255,255,0.55)',
+
+    backgroundColor: 'rgba(180,255,255,0.03)',
+  },
+
   label: {
     fontSize: 12,
     color: '#cacacaff',
-    fontWeight: '500',
+
+    fontWeight: '400',
     letterSpacing: 0.5,
+
+    zIndex: 1,
   },
+
   labelFocused: {
-    color: '#cacacaff',
-    fontWeight: 'bold',
+    color: '#e8ffff',
   },
 });
