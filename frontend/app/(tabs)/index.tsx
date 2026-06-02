@@ -59,6 +59,42 @@ const DATA_GAMES: ConsoleItem[] = [
 
 const DATA_MEDIA: ConsoleItem[] = [];
 
+// AnimatedCardWrapper — top-level component so each card owns its shared value.
+// This prevents the flicker caused by a single global shared value resetting on index change.
+const AnimatedCardWrapper = React.memo(({
+  isActive,
+  children,
+  style,
+}: {
+  isActive: boolean;
+  children: React.ReactNode;
+  style?: any;
+}) => {
+  const scale = useSharedValue(isActive ? 1.5 : 1);
+  const translateY = useSharedValue(isActive ? 17 : 0);
+  const marginH = useSharedValue(isActive ? 20 : 6);
+
+  React.useEffect(() => {
+    scale.value = withTiming(isActive ? 1.5 : 1, { duration: 280, easing: Easing.out(Easing.quad) });
+    translateY.value = withTiming(isActive ? 17 : 0, { duration: 280, easing: Easing.out(Easing.quad) });
+    marginH.value = withTiming(isActive ? 20 : 6, { duration: 280, easing: Easing.out(Easing.quad) });
+  }, [isActive]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { translateY: translateY.value }],
+    marginLeft: marginH.value,
+    marginRight: marginH.value,
+    overflow: isActive ? 'visible' : 'hidden',
+    borderRadius: 20,
+  }));
+
+  return (
+    <Animated.View style={[animStyle, style]}>
+      {children}
+    </Animated.View>
+  );
+});
+
 export default function ConsoleHome() {
   const { activeUser, changeUser, updateUser } = useUser();
   const [activeTab, setActiveTab] = useState('Games');
@@ -164,7 +200,7 @@ export default function ConsoleHome() {
 
   useEffect(() => {
     tabFade.value = 0;
-    tabFade.value = withTiming(1, { duration: 400 });
+    tabFade.value = withTiming(1, { duration: 300 });
   }, [activeTab]);
 
   // Spinning border animation — continuous rotation for active card
@@ -969,13 +1005,10 @@ export default function ConsoleHome() {
 
   // Auto-scroll carousel
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (scrollRef.current) {
-        const scrollX = activeIndex * ITEM_WIDTH;
-        scrollRef.current.scrollTo({ x: scrollX, animated: true });
-      }
-    }, 10);
-    return () => clearTimeout(timer);
+    if (scrollRef.current) {
+      const scrollX = activeIndex * ITEM_WIDTH;
+      scrollRef.current.scrollTo({ x: scrollX, animated: true });
+    }
   }, [activeIndex, activeTab, ITEM_WIDTH]);
 
   const handleLaunchApp = (item: ConsoleItem) => {
@@ -1096,6 +1129,7 @@ export default function ConsoleHome() {
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
   const displayDesc = activeItem?.isLastPlayed ? (lastPlayedGame?.description || '') : (activeItem?.description || '');
   const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1';
+
 
   // Spinning border component — rotating conic-gradient halo around the active card
   // SpinningBorder: placed INSIDE the card's TouchableOpacity so it inherits scale/translate transforms.
@@ -1387,94 +1421,104 @@ export default function ConsoleHome() {
 
                 if (item.id === 'more_library') {
                   cardContent = (
-                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive, { opacity: 0.75 }]}>
-                      {isActive && <SpinningBorder size={CARD_SIZE} />}
+                    <AnimatedCardWrapper isActive={isActive} style={{ opacity: 0.75 }}>
+                      <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+                        {isActive && <SpinningBorder size={CARD_SIZE} />}
 
-                      {/* 1. Añadimos overflow: 'hidden' a la tarjeta para que la imagen no se salga de las esquinas redondeadas */}
-                      <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0 }]}>
+                        {/* 1. Añadimos overflow: 'hidden' a la tarjeta para que la imagen no se salga de las esquinas redondeadas */}
+                        <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0 }]}>
 
-                        {/* 2. Modificamos la imagen para que llene todo el espacio */}
-                        <Image
-                          source={require('@/assets/images/Libreria.jpeg')}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            // ❌ Eliminamos tintColor para que no pinte un cuadro sólido sobre tu archivo .jpeg
-                          }}
-                          resizeMode="cover" // 3. "cover" asegura que llene todo el recuadro sin deformarse
-                        />
+                          {/* 2. Modificamos la imagen para que llene todo el espacio */}
+                          <Image
+                            source={require('@/assets/images/Libreria.jpeg')}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              // ❌ Eliminamos tintColor para que no pinte un cuadro sólido sobre tu archivo .jpeg
+                            }}
+                            resizeMode="cover" // 3. "cover" asegura que llene todo el recuadro sin deformarse
+                          />
 
-                      </BlurView>
-                    </TouchableOpacity>
+                        </BlurView>
+                      </TouchableOpacity>
+                    </AnimatedCardWrapper>
                   );
                 } else if (item.isGrid) {
                   cardContent = (
-                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
-                      {isActive && <SpinningBorder size={CARD_SIZE} />}
-                      <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
-                        <View style={styles.folderCardHeader}>
-                          <MaterialCommunityIcons name="view-grid" size={14} color="rgba(255,255,255,0.7)" />
-                          <Text style={styles.folderCardTitle}> Media</Text>
+                    <AnimatedCardWrapper isActive={isActive}>
+                      <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+                        {isActive && <SpinningBorder size={CARD_SIZE} />}
+                        <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
+                          <View style={styles.folderCardHeader}>
+                            <MaterialCommunityIcons name="view-grid" size={14} color="rgba(255,255,255,0.7)" />
+                            <Text style={styles.folderCardTitle}> Media</Text>
+                          </View>
+                          <View style={styles.folderCardContent}>
+                            {(() => {
+                              const favs = media.filter(m => m.isFavorite);
+                              if (favs.length === 0) return <Ionicons name="apps-outline" size={28} color="rgba(255,255,255,0.2)" />;
+                              if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" />;
+                              return (
+                                <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
+                                  {favs.slice(0, 4).map((f, fi) => (
+                                    <Image key={fi} source={f.image} style={{ width: '50%', height: '50%' }} contentFit="cover" />
+                                  ))}
+                                </View>
+                              );
+                            })()}
+                          </View>
                         </View>
-                        <View style={styles.folderCardContent}>
-                          {(() => {
-                            const favs = media.filter(m => m.isFavorite);
-                            if (favs.length === 0) return <Ionicons name="apps-outline" size={28} color="rgba(255,255,255,0.2)" />;
-                            if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" />;
-                            return (
-                              <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
-                                {favs.slice(0, 4).map((f, fi) => (
-                                  <Image key={fi} source={f.image} style={{ width: '50%', height: '50%' }} contentFit="cover" />
-                                ))}
-                              </View>
-                            );
-                          })()}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
+                      </TouchableOpacity>
+                    </AnimatedCardWrapper>
                   );
                 } else if (item.isFolder) {
                   cardContent = (
-                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
-                      {isActive && <SpinningBorder size={CARD_SIZE} />}
-                      <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
-                        <View style={styles.folderCardHeader}>
-                          <Ionicons name="heart" size={14} color="rgba(255,100,100,0.9)" />
-                          <Text style={styles.folderCardTitle}> Favs</Text>
+                    <AnimatedCardWrapper isActive={isActive}>
+                      <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+                        {isActive && <SpinningBorder size={CARD_SIZE} />}
+                        <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
+                          <View style={styles.folderCardHeader}>
+                            <Ionicons name="heart" size={14} color="rgba(255,100,100,0.9)" />
+                            <Text style={styles.folderCardTitle}> Favs</Text>
+                          </View>
+                          <View style={styles.folderCardContent}>
+                            {(() => {
+                              const favs = games.filter(g => g.isFavorite);
+                              if (favs.length === 0) return <Ionicons name="star-outline" size={28} color="rgba(255,255,255,0.2)" />;
+                              if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" />;
+                              return (
+                                <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
+                                  {favs.slice(0, 4).map((f, fi) => (
+                                    <Image key={fi} source={f.image} style={{ width: '50%', height: '50%' }} contentFit="cover" />
+                                  ))}
+                                </View>
+                              );
+                            })()}
+                          </View>
                         </View>
-                        <View style={styles.folderCardContent}>
-                          {(() => {
-                            const favs = games.filter(g => g.isFavorite);
-                            if (favs.length === 0) return <Ionicons name="star-outline" size={28} color="rgba(255,255,255,0.2)" />;
-                            if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" />;
-                            return (
-                              <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
-                                {favs.slice(0, 4).map((f, fi) => (
-                                  <Image key={fi} source={f.image} style={{ width: '50%', height: '50%' }} contentFit="cover" />
-                                ))}
-                              </View>
-                            );
-                          })()}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
+                      </TouchableOpacity>
+                    </AnimatedCardWrapper>
                   );
                 } else if (item.isLastPlayed && !lastPlayedGame) {
                   cardContent = (
-                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
-                      {isActive && <SpinningBorder size={CARD_SIZE} />}
-                      <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive]}>
-                        <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
-                      </BlurView>
-                    </TouchableOpacity>
+                    <AnimatedCardWrapper isActive={isActive}>
+                      <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+                        {isActive && <SpinningBorder size={CARD_SIZE} />}
+                        <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive]}>
+                          <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
+                        </BlurView>
+                      </TouchableOpacity>
+                    </AnimatedCardWrapper>
                   );
                 } else {
                   const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
                   cardContent = (
-                    <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9} style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}>
-                      {isActive && <SpinningBorder size={CARD_SIZE} />}
-                      <Image source={imgSource} style={[styles.card, isActive && styles.cardActive]} contentFit="cover" />
-                    </TouchableOpacity>
+                    <AnimatedCardWrapper isActive={isActive}>
+                      <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+                        {isActive && <SpinningBorder size={CARD_SIZE} />}
+                        <Image source={imgSource} style={[styles.card, isActive && styles.cardActive]} contentFit="cover" />
+                      </TouchableOpacity>
+                    </AnimatedCardWrapper>
                   );
                 }
 
