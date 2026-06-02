@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeInDown, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 
 interface LibraryGridProps {
@@ -15,17 +15,108 @@ interface LibraryGridProps {
 
 const COLUMNS = 5;
 
+// ─── SpinningBorder Component (adapted for square/library cards) ──────────────
+// Web-only: conic-gradient spinning halo + diagonal shimmer sweep.
+// Placed INSIDE the card's TouchableOpacity so it inherits transforms.
+const SpinningBorder = ({ id }: { id: string }) => {
+  if (Platform.OS !== 'web') return null;
+
+  return (
+    <>
+      <style>{`
+        /* --- SPINNING HALO ANIMATION --- */
+        @keyframes lib-spin-border-${id} {
+          0%   { transform: translate(-50%, -50%) rotate(0deg); }
+          100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        .lib-spinning-inner-${id} {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 300%;
+          height: 300%;
+          animation: lib-spin-border-${id} 9.8s linear infinite;
+          background: conic-gradient(
+            from 0deg,
+            rgba(255, 255, 255, 0.10) 0%,
+            rgba(255, 255, 255, 0.79) 28%,
+            rgba(180, 210, 255, 0.86) 33%,
+            rgba(220, 235, 255, 0.95) 48%,
+            rgba(255, 255, 255, 1.0)  50%,
+            rgba(223, 248, 182, 0.95) 52%,
+            rgba(180, 210, 255, 0.88) 57%,
+            rgba(255, 255, 255, 0.75) 62%,
+            rgba(255, 255, 255, 0.10) 100%
+          );
+          border-radius: 50%;
+        }
+
+        /* --- DIAGONAL SHIMMER SWEEP ANIMATION --- */
+        @keyframes lib-shimmer-${id} {
+          0%   { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+          15%  { opacity: 1; }
+          50%  { opacity: 1; }
+          70%  { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+        }
+        .lib-shimmer-line-${id} {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 140%;
+          height: 420%;
+          background: linear-gradient(
+            to right,
+            transparent 0%,
+            rgba(255, 255, 255, 0.01) 20%,
+            rgba(255, 255, 255, 0.15) 50%,
+            rgba(255, 255, 255, 0.01) 80%,
+            transparent 100%
+          );
+          animation: lib-shimmer-${id} 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+        }
+      `}</style>
+
+      {/* LAYER 1: Spinning halo behind the card */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 1,
+          left: 1,
+          right: 1,
+          bottom: 1,
+          borderRadius: 16,
+          zIndex: -1,
+          overflow: 'hidden',
+        } as any}
+        pointerEvents="none"
+      >
+        {/* @ts-ignore */}
+        <div className={`lib-spinning-inner-${id}`} />
+      </View>
+
+      {/* LAYER 2: Diagonal shimmer sweep over the card surface */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: 16,
+          zIndex: 5,
+          overflow: 'hidden',
+        } as any}
+        pointerEvents="none"
+      >
+        {/* @ts-ignore */}
+        <div className={`lib-shimmer-line-${id}`} />
+      </View>
+    </>
+  );
+};
+
 export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0, onItemPress }: LibraryGridProps) {
-  const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    if (isFocused && scrollRef.current) {
-      const row = Math.floor(focusedIndex / COLUMNS);
-      // Estimate row height (approx 350px) to scroll into view
-      scrollRef.current.scrollTo({ y: row * 350, animated: true });
-    }
-  }, [focusedIndex, isFocused]);
-
   if (!games || games.length === 0) {
     return (
       <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
@@ -36,74 +127,58 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
     );
   }
 
-  const getPlatformIcon = (platform?: string): string => {
-    if (!platform) return 'controller-classic';
-    const mapping: Record<string, string> = {
-      'PC': 'microsoft-windows',
-      'PS5': 'sony-playstation',
-      'Xbox': 'microsoft-xbox',
-      'Switch': 'nintendo-switch',
-      'Steam': 'steam',
-      'EA': 'alpha-e-box',
-      'Epic': 'alpha-e-circle',
-    };
-    return mapping[platform] || 'controller-classic';
-  };
-
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
       <View style={styles.header}>
-        {/* <MaterialCommunityIcons name="bookshelf" size={28} color="#FFF" style={{ marginRight: 12 }} /> */}
         <Text style={styles.headerTitle}>Almacenamiento de la consola: {games.length}</Text>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
-        <View style={styles.grid}>
-          {games.map((game, index) => {
-            const platformIcon = getPlatformIcon(game.platform);
-            const isItemFocused = isFocused && focusedIndex === index;
+      {/* NOTE: No ScrollView here — scroll is handled by parent Animated.ScrollView in index.tsx */}
+      <View style={styles.grid}>
+        {games.map((game, index) => {
+          const isItemFocused = isFocused && focusedIndex === index;
+          const borderId = `lib-${game.id ?? index}`;
 
-            return (
-              <TouchableOpacity
-                key={game.id}
-                activeOpacity={0.8}
-                onPress={() => onItemPress?.(index, game)}
+          return (
+            <TouchableOpacity
+              key={game.id ?? index}
+              activeOpacity={0.8}
+              onPress={() => onItemPress?.(index, game)}
+              style={[
+                styles.gameCardWrapper,
+                isItemFocused && styles.gameCardWrapperFocused,
+              ]}
+            >
+              {/* SpinningBorder: sits outside the BlurView overflow:hidden clip */}
+              {isItemFocused && <SpinningBorder id={borderId} />}
+
+              <BlurView
+                intensity={isItemFocused ? 45 : 25}
+                tint="dark"
                 style={[
-                  styles.gameCardWrapper,
-                  isItemFocused && styles.gameCardWrapperFocused
+                  styles.gameCard,
+                  isItemFocused && styles.gameCardFocused,
                 ]}
               >
-                <BlurView
-                  intensity={isItemFocused ? 40 : 25}
-                  tint="dark"
-                  style={[
-                    styles.gameCard,
-                    isItemFocused && styles.gameCardFocused
-                  ]}
-                >
-                  <View style={styles.imageContainer}>
-                    {game.image ? (
-                      <Image source={game.image} style={styles.gameImage} contentFit="cover" />
-                    ) : (
-                      <View style={styles.placeholderImage}>
-                        <MaterialCommunityIcons name="controller-classic" size={64} color="rgba(255,255,255,0.2)" />
-                      </View>
-                    )}
-                    {/* Dark overlay for unfocused items when grid is focused */}
-                    {isFocused && !isItemFocused && (
-                      <View style={styles.unfocusedOverlay} />
-                    )}
-                  </View>
-                </BlurView>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
+                <View style={styles.imageContainer}>
+                  {game.image ? (
+                    <Image source={game.image} style={styles.gameImage} contentFit="cover" />
+                  ) : (
+                    <View style={styles.placeholderImage}>
+                      <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
+                    </View>
+                  )}
+
+                  {/* Subtle dim overlay for non-focused items when grid has focus */}
+                  {isFocused && !isItemFocused && (
+                    <View style={styles.unfocusedOverlay} />
+                  )}
+                </View>
+              </BlurView>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </Animated.View>
   );
 }
@@ -111,57 +186,59 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    flex: 1,
     paddingHorizontal: 100,
-    marginTop: 20,
+    paddingBottom: 80,
+    marginTop: 10,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 30,
-    //marginBottom: 24,
-    //borderBottomWidth: 1,
-    //borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    paddingBottom: 15,
+    marginTop: 20,
+    paddingBottom: 18,
   },
   headerTitle: {
     color: '#FFF',
     fontSize: 24,
-    fontWeight: 100,
+    fontWeight: '100',
     letterSpacing: 1.2,
   },
   grid: {
     ...Platform.select({
       web: {
-        display: 'ruby',
-        //gridTemplateColumns: `repeat(${COLUMNS}, minmax(0, 1fr))`,
-        gap: '24px',
+        display: 'grid',
+        gridTemplateColumns: `repeat(${COLUMNS}, minmax(0, 1fr))`,
+        gap: '20px',
       } as any,
       default: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'flex-start',
+        gap: 16,
       },
     }),
   },
   gameCardWrapper: {
-    borderRadius: 1,
+    borderRadius: 16,
     ...Platform.select({
+      web: {
+        // sizing is handled by grid
+      } as any,
       default: {
         width: '18%',
-        marginRight: '2%',
-        marginBottom: 24,
+        marginBottom: 20,
       },
     }),
     transform: [{ scale: 1 }],
     transition: 'transform 0.2s',
+    zIndex: 1,
   } as any,
   gameCardWrapperFocused: {
     transform: [{ scale: 1 }],
     zIndex: 10,
+    // overflow visible so the spinning halo bleeds outside card bounds
+    overflow: 'visible',
   } as any,
   gameCard: {
-    borderRadius: 0,
+    borderRadius: 1,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
@@ -169,16 +246,12 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   gameCardFocused: {
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(40, 50, 70, 0.8)',
-    shadowColor: '#00FFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(40, 50, 70, 0.85)',
   },
   imageContainer: {
     width: '100%',
-    aspectRatio: 1 / 1, // Taller covers instead of square
+    aspectRatio: 1 / 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     position: 'relative',
   },
@@ -192,40 +265,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  unfocusedOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    //backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  infoContainer: {
-    padding: 16,
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  gameTitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    lineHeight: 22,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  platformBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 255, 255, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  platformText: {
-    color: '#00FFFF',
-    fontSize: 11,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-  },
+  // unfocusedOverlay: {
+  //   ...StyleSheet.absoluteFillObject,
+  //   backgroundColor: 'rgba(0,0,0,0.38)',
+  // },
   emptyContainer: {
     width: '100%',
     height: 200,
