@@ -2152,7 +2152,7 @@ export default function ConsoleHome() {
                           <TouchableOpacity
                             key={item.gid}
                             style={[
-                              styles.newsCard,
+                              styles.newsCard2,
                               isNewsFocused && styles.newsCardFocused
                             ]}
                             activeOpacity={0.8}
@@ -2161,7 +2161,7 @@ export default function ConsoleHome() {
                             {/* Thumbnail area */}
                             <View style={styles.newsCardThumbnail}>
                               {item.image_url ? (
-                                <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                                <Image source={{ uri: item.image_url }} style={[{ width: '100%', height: '120%' }]} contentFit="cover" />
                               ) : (
                                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
                                   <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
@@ -2170,12 +2170,12 @@ export default function ConsoleHome() {
                             </View>
                             {/* Text area */}
                             <View style={styles.newsCardContent}>
-                              <Text style={styles.newsCardTitle} numberOfLines={2}>
+                              <Text style={[styles.newsCardTitle]} numberOfLines={1}>
                                 {item.title}
                               </Text>
-                              <Text style={styles.newsCardFooterText} numberOfLines={1}>
+                              {/* <Text style={styles.newsCardFooterText} numberOfLines={1}>
                                 {(item.feedlabel || item.feedname || 'Steam')} | {formatSteamDate(item.date)}
-                              </Text>
+                              </Text> */}
                             </View>
                           </TouchableOpacity>
                         );
@@ -2885,6 +2885,16 @@ const styles = StyleSheet.create({
   },
   newsCard: {
     width: 500,
+    height: 250,
+    borderRadius: 8,
+    backgroundColor: 'rgba(20,20,30,0.4)',
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    objectFit: ''
+  } as any,
+  newsCard2: {
+    width: 320,
     borderRadius: 8,
     backgroundColor: 'rgba(20,20,30,0.4)',
     overflow: 'hidden',
