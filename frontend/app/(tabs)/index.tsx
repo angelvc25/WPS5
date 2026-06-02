@@ -1655,7 +1655,9 @@ export default function ConsoleHome() {
                   </Animated.View>
                 ) : (
                   <Animated.View key={`title-${activeIndex}`} entering={FadeInDown.duration(400)}>
-                    <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
+                    {activeItem?.id !== '1' && (
+                      <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
+                    )}
                   </Animated.View>
                 )}
 
