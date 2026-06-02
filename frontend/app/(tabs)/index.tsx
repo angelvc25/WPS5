@@ -1487,7 +1487,8 @@ export default function ConsoleHome() {
         )}
 
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
-        <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
+        {focusArea !== 'library_grid' && (
+          <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
           <Animated.View style={spacerStyle}>
             <Animated.View style={topPanelStyle}>
               {/* Logo or title */}
@@ -1978,8 +1979,9 @@ export default function ConsoleHome() {
                 )}
               </View>
             )}
-          </View>
-        </Animated.View>
+            </View>
+          </Animated.View>
+        )}
       </Animated.ScrollView>
 
       {/* WPS5 UI EXPANSION COMPONENTS */}
