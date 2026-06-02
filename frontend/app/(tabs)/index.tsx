@@ -398,7 +398,7 @@ export default function ConsoleHome() {
             ? { uri: app.backgroundImageBase64 }
             : (app.backgroundImage
               ? (app.backgroundImage.startsWith('http') ? { uri: app.backgroundImage } : { uri: `local-file:///${app.backgroundImage.replace(/\\/g, '/')}` })
-              : require('@/assets/images/FondoDefault.png')
+              : require('@/assets/images/FondoDefault2.jpg')
             ),
           video: app.video ? (app.video.startsWith('http') ? { uri: app.video } : { uri: `local-file:///${app.video.replace(/\\/g, '/')}` }) : null,
           path: app.path,
@@ -1153,8 +1153,8 @@ export default function ConsoleHome() {
   };
 
   const currentBg = (activeTab === 'Games' && activeIndex === 1)
-    ? (homeBackground || require('@/assets/images/FondoDefault.png'))
-    : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault.png')));
+    ? (homeBackground || require('@/assets/images/FondoDefault2.jpg'))
+    : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg')));
   const currentBackgroundVideo =
     activeTab === 'Games' && activeIndex === 0
       ? currentData[activeIndex]?.backgroundVideo
