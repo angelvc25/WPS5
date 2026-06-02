@@ -1,5 +1,5 @@
 
-# WConsole
+# WPS5
 
 <img width="1919" height="1079" alt="Captura de pantalla 2026-06-02 072535" src="https://github.com/user-attachments/assets/bf60cf50-0f58-492f-8d54-4ccd753ed6c0" />
 
