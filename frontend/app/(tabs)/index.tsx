@@ -274,7 +274,7 @@ export default function ConsoleHome() {
     const welcomeHeight = interpolate(
       welcomeWidgetsFocusAnim.value,
       [0, 1],
-      [Math.max(30, windowHeight - 600), 0]
+      [Math.max(30, windowHeight - 655), 0]
     );
     return {
       minHeight: isWelcome ? welcomeHeight : Math.max(0, targetMinHeight),
@@ -1769,6 +1769,70 @@ export default function ConsoleHome() {
               z-index: 2;
             }
           `}</style>
+
+            {activeItem?.id === '1' && (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={{ flex: 1 }}
+                onPress={() => {
+                  setFocusArea('welcome_widgets');
+                  setFocusIndex(0);
+                }}
+              >
+                <View style={[styles.welcomeWidgetCard, { maxWidth: 347 }, (focusArea === 'welcome_widgets' && focusIndex === 10) && styles.welcomeWidgetCardFocused]}>
+                  {/* DEGRADADO */}
+                  {Platform.OS === 'web' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+
+                        background: `
+                              linear-gradient(
+                                45deg,
+                                rgba(120,220,255,0.14) 0%,
+                                rgba(120,220,255,0.06) 18%,
+                                rgba(255,255,255,0.02) 35%,
+                                rgba(255,255,255,0.00) 58%,
+                                rgba(0,0,0,0.00) 100%
+                              )
+                            `,
+
+                        pointerEvents: 'none',
+                        zIndex: 1,
+
+                        opacity:
+                          focusArea === 'welcome_widgets'
+                            ? 1
+                            : 0,
+
+                        transition:
+                          'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                      }}
+                    />
+                  )}
+
+                  {/* SHIMMER */}
+                  {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 0 && (
+                    <div
+                      className="widget-shimmer-line"
+                      style={{
+                        animationDuration: '7s',
+                        opacity: 0.8,
+                      }}
+                    />
+                  )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="battery-full" size={11} color="#fff" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.widgetTitle} numberOfLines={1}>
+                        Obtenén EA Sports FC 26 con PlayStation Plus
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
 
 
             <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={widgetContainerStyle}>
