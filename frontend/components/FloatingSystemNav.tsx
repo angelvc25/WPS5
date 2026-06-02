@@ -83,7 +83,7 @@ export default function FloatingSystemNav({
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.15) 100%)',
+            background: 'linear-gradient(to top, rgba(0, 0, 0, 1) 10%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.15) 100%)',
             pointerEvents: 'none',
           }}
         />
@@ -136,7 +136,7 @@ export default function FloatingSystemNav({
                     <Ionicons
                       name={item.icon}
                       size={24}
-                      color={'rgba(255, 255, 255, 0.7)'}
+                      color={'rgba(255, 255, 255, 1)'}
                     />
                   </View>
                 )}
