@@ -1716,7 +1716,7 @@ export default function ConsoleHome() {
               </Animated.View>
             </Animated.View>
             {/* el siguiente Animated.View es el que proiporciona la animacion de subir al entrar a una vista */}
-            <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={styles.widgetContainerStyle}>
+            <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={widgetContainerStyle}>
               {/* === WELCOME WIDGETS (only when Welcome card is active) === */}
               {/* <PS5WidgetRow /> */}
               {activeItem?.id === '1' && (
