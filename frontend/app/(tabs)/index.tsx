@@ -55,7 +55,7 @@ const DATA_GAMES: ConsoleItem[] = [
   { id: 'last_played', title: 'Último Jugado', time: 'No ejecutado aún', image: require('@/assets/images/Home.gif'), isLastPlayed: true },
   // { id: '3', title: 'Favoritos Juegos', time: 'Folder - Colección', isFolder: true },
   // { id: '4', title: 'Favoritos Media', time: 'Aplicaciones de Streaming', isGrid: true },
-  { id: '5', title: 'PlayStation Store', time: 'Tienda', image: require('@/assets/images/Store.png'), backgroundVideo: require('@/assets/video/waves.mp4') }
+  { id: '5', title: 'PlayStation Store', time: 'Tienda', image: require('@/assets/images/Store.png'), backgroundImage: require('@/assets/images/StoreFondo.jpg') }
 ];
 
 const DATA_MEDIA: ConsoleItem[] = [];
