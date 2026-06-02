@@ -1537,9 +1537,13 @@ export default function ConsoleHome() {
               <Animated.View style={topPanelStyle}>
                 {/* Logo or title */}
                 {displayLogo ? (
-                  <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
+                  <Animated.View key={`logo-${activeIndex}`} entering={FadeInDown.duration(400)}>
+                    <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
+                  </Animated.View>
                 ) : (
-                  <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
+                  <Animated.View key={`title-${activeIndex}`} entering={FadeInDown.duration(400)}>
+                    <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
+                  </Animated.View>
                 )}
 
                 {/* Description
@@ -1549,7 +1553,7 @@ export default function ConsoleHome() {
 
                 {/* Action Buttons */}
                 {canPlay && (
-                  <View style={styles.actionButtons}>
+                  <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={styles.actionButtons}>
                     <TouchableOpacity
                       id="play-btn"
                       style={[
@@ -1582,7 +1586,7 @@ export default function ConsoleHome() {
                         focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnTextFocused
                       ]}>···</Text>
                     </TouchableOpacity>
-                  </View>
+                  </Animated.View>
                 )}
               </Animated.View>
             </Animated.View>
@@ -1849,7 +1853,7 @@ export default function ConsoleHome() {
 
               {/* Trophies & Friends Cards — se ocultan cuando el row de capturas está enfocado */}
               {canPlay && !isScreenshotRowFocused && (
-                <View style={styles.infoCardsRow}>
+                <Animated.View key={`cards-${activeIndex}`} entering={FadeInDown.duration(400).delay(120)} style={styles.infoCardsRow}>
                   {/* Trophies Card */}
                   <BlurView intensity={28} tint="dark" style={[
                     styles.infoCard,
@@ -1900,10 +1904,8 @@ export default function ConsoleHome() {
                       <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
                     </View>
                   </BlurView>
-                </View>
+                </Animated.View>
               )}
-
-              {/* === CAPTURAS Y TRAILERS (arriba de noticias) === */}
               {canPlay && (
                 <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
                   <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Capturas y trailers</Text>
