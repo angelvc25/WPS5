@@ -1724,15 +1724,16 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 0) && styles.welcomeWidgetCardFocused]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <View style={styles.widgetIconWrap}>
+                          <View style={[styles.widgetIconWrap, { width: 80, height: 80, borderRadius: 50, border: "5px solid #4CD964" }]}>
+                            <Text style={{ color: "#FFF" }}>1</Text>
                             <MaterialCommunityIcons name="gamepad-variant" size={20} color="#FFF" />
+                            <Ionicons name="battery-full" size={11} color="#fff" />
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.widgetTitle} numberOfLines={1}>
-                              {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : 'DualSense'}
+                              {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : 'Control inalambrico DualSense'}
                             </Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
-                              <Ionicons name="battery-full" size={11} color="#4CD964" />
                               <Text style={styles.widgetSubtitle}>{gamepadInfo.connected ? `${Math.round(gamepadInfo.battery * 100)}%` : '75%'}</Text>
                             </View>
                           </View>
@@ -1783,13 +1784,17 @@ export default function ConsoleHome() {
                         Linking.openURL('https://store.playstation.com');
                       }}
                     >
-                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 2) && styles.welcomeWidgetCardFocused]}>
+                      <View style={[styles.welcomeWidgetCard, {
+                        backgroundImage: 'url(https://clan.fastly.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg)',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }, (focusArea === 'welcome_widgets' && focusIndex === 2) && styles.welcomeWidgetCardFocused]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                           <Ionicons name="bag-handle" size={13} color="#0070D1" />
                           <Text style={styles.widgetTitle}>PlayStation Store</Text>
                         </View>
                         <Text style={styles.widgetSubtitle} numberOfLines={1}>Últimas ofertas disponibles</Text>
-                        <Text style={{ color: '#4e9fe8', fontSize: 11, fontWeight: '700', marginTop: 4 }}>Ver tienda →</Text>
+                        <Text style={{ fontSize: 10, fontWeight: "bold", marginTop: 15, color: "#fff" }} numberOfLines={1}>US$69.99</Text>
                       </View>
                     </TouchableOpacity>
 
@@ -1802,12 +1807,16 @@ export default function ConsoleHome() {
                         setFocusIndex(3);
                       }}
                     >
-                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                          <Ionicons name="newspaper" size={13} color="rgba(255,255,255,0.8)" />
-                          <Text style={styles.widgetTitle}>Noticias</Text>
+                      <View style={[styles.welcomeWidgetCard, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'column', alignItems: 'start' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15 }}>
+                            <Ionicons name="newspaper" size={13} color="rgba(255,255,255,0.8)" />
+                            <Text style={styles.widgetTitle}>Noticias</Text>
+                          </View>
+                          <Text style={styles.widgetSubtitle}>Descubre juegos nuevos</Text>
+                          <Text style={styles.widgetSubtitle}>Apex Legends | Ayer</Text>
                         </View>
-                        <Text style={styles.widgetSubtitle}>Descubre juegos nuevos</Text>
+                        <Image source={require("../../assets/images/Home.jpeg")} style={{ width: 70, height: 70, borderRadius: 6 }} contentFit="cover" />
                       </View>
                     </TouchableOpacity>
 
@@ -1847,15 +1856,19 @@ export default function ConsoleHome() {
                         if (lastPlayedGame) handleLaunchApp(lastPlayedGame);
                       }}
                     >
-                      <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 5) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                          <Ionicons name="game-controller" size={13} color="rgba(255,255,255,0.8)" />
-                          <Text style={styles.widgetTitle}>Jugados recientemente</Text>
+                      {/* jugados recientemente */}
+                      <View style={[styles.welcomeWidgetCard, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && focusIndex === 5) && styles.welcomeWidgetCardFocused]}>
+                        <View style={{ flexDirection: 'column', alignItems: 'start', gap: 5, marginBottom: 6, maxWidth: 160 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                            <Ionicons name="game-controller" size={13} color="rgba(255,255,255,0.8)" />
+                            <Text style={styles.widgetTitle}>Jugados recientemente</Text>
+                          </View>
+                          <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600', flex: 1 }} numberOfLines={1}>{lastPlayedGame.title}</Text>
+                          <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600', flex: 1 }}><MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />2 horas</Text>
                         </View>
                         {lastPlayedGame ? (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Image source={lastPlayedGame.image} style={{ width: 30, height: 30, borderRadius: 6 }} contentFit="cover" />
-                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600', flex: 1 }} numberOfLines={1}>{lastPlayedGame.title}</Text>
+                            <Image source={lastPlayedGame.image} style={{ width: 70, height: 70, borderRadius: 6 }} contentFit="cover" />
                           </View>
                         ) : (
                           <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontStyle: 'italic' }}>Sin juegos recientes</Text>
@@ -1874,16 +1887,16 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 6) && styles.welcomeWidgetCardFocused]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                          <Ionicons name="chatbubble" size={13} color="rgba(255,255,255,0.8)" />
-                          <Text style={styles.widgetTitle}>Mensajes</Text>
+                          <Ionicons name="chatbubble" size={13} style={{ marginBottom: 9 }} color="rgba(255,255,255,0.8)" />
+                          <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>Mensajes</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                          <View style={{ width: 36, height: 36, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
                             <Ionicons name="person" size={13} color="rgba(255,255,255,0.5)" />
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }} numberOfLines={1}>{activeUser?.name || 'Usuario'}</Text>
-                            <Text style={styles.widgetSubtitle}>Sin mensajes</Text>
+                            <Text style={styles.widgetSubtitle}>Ayer</Text>
                           </View>
                         </View>
                       </View>
@@ -1899,21 +1912,56 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 7) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+
+                        {/* Header */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <MaterialCommunityIcons name="harddisk" size={13} color="rgba(255,255,255,0.8)" />
                             <Text style={styles.widgetTitle}>Almacenamiento</Text>
                           </View>
                         </View>
+
+                        {/* Espacio libre */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                          <Text style={styles.widgetSubtitle}>Espacio libre</Text>
+                          <Text style={styles.widgetSubtitle}>
+                            <MaterialCommunityIcons name="circle" size={13} color="rgba(255,255,255,0.4)" style={{ marginRight: 5 }} /> Espacio libre
+                          </Text>
                           <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>
                             {storageInfo.freeGB > 0 ? `${storageInfo.freeGB.toFixed(1)} GB` : '36.47 GB'}
                           </Text>
                         </View>
-                        <View style={{ height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                          <View style={{ height: '100%', width: `${storageInfo.percent > 0 ? storageInfo.percent : 65}%`, borderRadius: 2, backgroundColor: '#0070D1' }} />
+
+                        {/* Barra multicolor */}
+                        <View style={{ height: 9, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', flexDirection: 'row' }}>
+                          {/* Segmento usado — azul */}
+                          <View style={{
+                            height: '100%',
+                            // borderTopRightRadius: 5,
+                            // borderBottomRightRadius: 5,
+                            width: `${storageInfo.percent > 0 ? storageInfo.percent : 65}%`,
+                            backgroundColor: '#0070D1',
+                          }} />
+                          {/* Segmento adicional — morado oscuro, ocupa el resto hasta ~68% */}
+                          <View style={{
+                            height: '100%',
+                            width: `${Math.max(0, (storageInfo.percent > 65 ? storageInfo.percent : 63) - (storageInfo.percent > 0 ? storageInfo.percent : 65))}%`,
+                            backgroundColor: '#3c1afaff',
+                          }} />
+                          <View style={{
+                            height: '100%',
+                            width: `${Math.max(0, (storageInfo.percent > 63 ? storageInfo.percent : 65) - (storageInfo.percent > 0 ? storageInfo.percent : 65))}%`,
+                            backgroundColor: '#fa6c1aff',
+                          }} />
+                          <View style={{
+                            height: '100%',
+                            borderTopRightRadius: 5,
+                            borderBottomRightRadius: 5,
+                            width: `${Math.max(0, (storageInfo.percent > 65 ? storageInfo.percent : 79) - (storageInfo.percent > 0 ? storageInfo.percent : 65))}%`,
+                            backgroundColor: '#c2c2c2ff',
+                          }} />
+                          {/* El resto queda transparente por el backgroundColor del contenedor */}
                         </View>
+
                       </View>
                     </TouchableOpacity>
 
@@ -2136,12 +2184,13 @@ export default function ConsoleHome() {
                 </View>
               )}
             </Animated.View>
-          </Animated.View>
-        )}
-      </Animated.ScrollView>
+          </Animated.View >
+        )
+        }
+      </Animated.ScrollView >
 
       {/* WPS5 UI EXPANSION COMPONENTS */}
-      <GameDetailView
+      < GameDetailView
         isVisible={isDetailVisible}
         item={selectedItem}
         onClose={() => setDetailVisible(false)}
@@ -2452,7 +2501,7 @@ export default function ConsoleHome() {
         </BlurView>
       </Modal>
 
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 
