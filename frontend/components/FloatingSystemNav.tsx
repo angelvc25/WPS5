@@ -93,8 +93,8 @@ export default function FloatingSystemNav({
       </Animated.View>
 
       <Animated.View style={[styles.menuContainer, menuStyle]}>
-        {/* Render Control Center Cards when the "Inicio" (index 0) option is selected or when we are interacting with cards */}
-        {(focusedIndex === 0 || navLevel === 1) && (
+        {/* Always show cards while the menu is open */}
+        {isFocused && (
           <ControlCenterCards
             isFocusedLayer={isFocused && navLevel === 1}
             focusedIndex={cardIndex}
@@ -104,7 +104,7 @@ export default function FloatingSystemNav({
           />
         )}
         
-        <BlurView intensity={50} tint="dark" style={[styles.pillContainer, { opacity: isCardExpanded ? 0 : 1 }]}>
+        <BlurView intensity={50} tint="dark" style={styles.pillContainer}>
           {NAV_ITEMS.map((item, index) => {
             const isActive = isFocused && focusedIndex === index;
             return (

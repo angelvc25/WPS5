@@ -87,22 +87,17 @@ function AnimatedCard({
   const opacity = useSharedValue(0);
   const scale = useSharedValue(isActive ? 1.03 : 1);
 
-  // Entrance animation (staggered)
+  // Entrance animation on mount (staggered per card)
   useEffect(() => {
-    if (isFocusedLayer) {
-      translateY.value = withDelay(
-        enterDelay,
-        withSpring(0, { damping: 18, stiffness: 200 })
-      );
-      opacity.value = withDelay(
-        enterDelay,
-        withTiming(1, { duration: 200 })
-      );
-    } else {
-      translateY.value = withTiming(20, { duration: 150 });
-      opacity.value = withTiming(0, { duration: 150 });
-    }
-  }, [isFocusedLayer]);
+    translateY.value = withDelay(
+      enterDelay,
+      withSpring(0, { damping: 18, stiffness: 200 })
+    );
+    opacity.value = withDelay(
+      enterDelay,
+      withTiming(1, { duration: 220 })
+    );
+  }, []);
 
   // Scale on focus
   useEffect(() => {
