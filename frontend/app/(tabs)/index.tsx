@@ -1748,7 +1748,7 @@ export default function ConsoleHome() {
               position: absolute;
 
               top: 50%;
-              left: -30%;
+              left: -60%;
 
               width: 140%;
               height: 420%;
