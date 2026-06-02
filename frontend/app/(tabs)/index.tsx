@@ -99,7 +99,7 @@ const AnimatedCardWrapper = React.memo(({
 export default function ConsoleHome() {
   const { activeUser, changeUser, updateUser } = useUser();
   const [activeTab, setActiveTab] = useState('Games');
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(1);
 
   // Focus management
   type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'game_panel' | 'footer' | 'welcome_widgets' | 'library_grid';
@@ -274,7 +274,7 @@ export default function ConsoleHome() {
     const welcomeHeight = interpolate(
       welcomeWidgetsFocusAnim.value,
       [0, 1],
-      [Math.max(30, windowHeight - 540), 0]
+      [Math.max(30, windowHeight - 600), 0]
     );
     return {
       minHeight: isWelcome ? welcomeHeight : Math.max(0, targetMinHeight),
