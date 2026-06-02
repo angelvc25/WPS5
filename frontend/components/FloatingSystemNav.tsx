@@ -4,6 +4,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import ControlCenterCards from './ControlCenterCards';
+import RadarFocusWrapper from './RadarFocusWrapper';
 
 export interface NavItem {
   icon: keyof typeof Ionicons.glyphMap;
@@ -114,13 +115,31 @@ export default function FloatingSystemNav({
                 onPress={() => onPressItem(index)}
                 style={styles.iconButton}
               >
-                <View style={[styles.iconWrapper, isActive && styles.iconWrapperActive]}>
-                  <Ionicons
-                    name={item.icon}
-                    size={24}
-                    color={isActive ? '#000' : 'rgba(255, 255, 255, 0.7)'}
-                  />
-                </View>
+                {isActive ? (
+                  <RadarFocusWrapper isFocused={isActive} size={58} innerSize={0}>
+                    <Ionicons
+                      name={item.icon}
+                      size={24}
+                      color={'#000'}
+                      style={{
+                        backgroundColor: '#FFF',
+                        width: 40,
+                        height: 40,
+                        borderRadius: 29,
+                        padding: 7,
+                        paddingLeft: 8,
+                      }}
+                    />
+                  </RadarFocusWrapper>
+                ) : (
+                  <View style={styles.iconWrapper}>
+                    <Ionicons
+                      name={item.icon}
+                      size={24}
+                      color={'rgba(255, 255, 255, 0.7)'}
+                    />
+                  </View>
+                )}
                 {isActive && (
                   <View style={styles.tooltip}>
                     <Text style={styles.tooltipText}>{item.label}</Text>
