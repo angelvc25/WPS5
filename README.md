@@ -1,7 +1,8 @@
 
 # WConsole
 
-<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/04af1f58-b307-4fdb-87ed-49ac859c4f25" />
+<img width="1919" height="1079" alt="Captura de pantalla 2026-06-02 072535" src="https://github.com/user-attachments/assets/bf60cf50-0f58-492f-8d54-4ccd753ed6c0" />
+
 
 # Guia de ejecución de proyecto.
 
