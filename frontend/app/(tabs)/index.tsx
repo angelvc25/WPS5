@@ -51,11 +51,11 @@ export interface ConsoleItem {
 }
 
 const DATA_GAMES: ConsoleItem[] = [
-  // { id: '1', title: 'Welcome', time: 'WConsole - Home', image: require('@/assets/images/Home.png'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0, backgroundVideo: require('@/assets/video/waves.mp4') },
   { id: '1', title: 'Welcome', time: 'WConsole - Home', image: require('@/assets/images/Home.png'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0 },
   { id: 'last_played', title: 'Último Jugado', time: 'No ejecutado aún', image: require('@/assets/images/Home.gif'), isLastPlayed: true },
   // { id: '3', title: 'Favoritos Juegos', time: 'Folder - Colección', isFolder: true },
   // { id: '4', title: 'Favoritos Media', time: 'Aplicaciones de Streaming', isGrid: true },
+  { id: '5', title: 'PlayStation Store', time: 'Tienda', image: require('@/assets/images/Store.png'), backgroundVideo: require('@/assets/video/waves.mp4') }
 ];
 
 const DATA_MEDIA: ConsoleItem[] = [];
@@ -417,8 +417,9 @@ export default function ConsoleHome() {
         const lastPlayed = DATA_GAMES.find(g => g.id === 'last_played');
         const favGames = DATA_GAMES.find(g => g.id === '3');
         const favMedia = DATA_GAMES.find(g => g.id === '4');
+        const ps5store = DATA_GAMES.find(g => g.id === '5');
 
-        const baseItems = [home, lastPlayed, favGames, favMedia].filter(Boolean) as ConsoleItem[];
+        const baseItems = [ps5store, home, lastPlayed, favGames, favMedia].filter(Boolean) as ConsoleItem[];
         setGames([...baseItems, ...gamesList.reverse()]);
         setMedia([...DATA_MEDIA, ...mediaList.reverse()]);
 
@@ -1151,7 +1152,7 @@ export default function ConsoleHome() {
     }
   };
 
-  const currentBg = (activeTab === 'Games' && activeIndex === 0)
+  const currentBg = (activeTab === 'Games' && activeIndex === 1)
     ? (homeBackground || require('@/assets/images/FondoDefault.png'))
     : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault.png')));
   const currentBackgroundVideo =
