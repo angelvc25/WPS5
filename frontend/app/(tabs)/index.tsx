@@ -186,6 +186,7 @@ export default function ConsoleHome() {
   const tabFade = useSharedValue(1);
   const gamePanelFocusAnim = useSharedValue(0);
   const lowerSectionFocusAnim = useSharedValue(0);
+  const welcomeWidgetsFocusAnim = useSharedValue(0);
   const spinRotation = useSharedValue(0);
   const infoCardsAnim = useSharedValue(1); // 1=visible, 0=hidden
 
@@ -227,6 +228,10 @@ export default function ConsoleHome() {
   }, [isLowerSectionFocused]);
 
   useEffect(() => {
+    welcomeWidgetsFocusAnim.value = withTiming(focusArea === 'welcome_widgets' ? 1 : 0, { duration: 280, easing: Easing.out(Easing.quad) });
+  }, [focusArea]);
+
+  useEffect(() => {
     infoCardsAnim.value = withTiming(isScreenshotRowFocused ? 0 : 1, { duration: 300, easing: Easing.out(Easing.quad) });
   }, [isScreenshotRowFocused]);
 
@@ -243,13 +248,17 @@ export default function ConsoleHome() {
     transform: [{ translateY: interpolate(tabFade.value, [0, 1], [10, 0]) }]
   }));
 
-  const topPanelStyle = useAnimatedStyle(() => ({
-    opacity: 1 - lowerSectionFocusAnim.value,
-    transform: [{ translateY: interpolate(lowerSectionFocusAnim.value, [0, 1], [0, -20]) }],
-    maxHeight: interpolate(lowerSectionFocusAnim.value, [0, 1], [500, 0]),
-    marginTop: interpolate(lowerSectionFocusAnim.value, [0, 1], [0, -20]),
-    overflow: lowerSectionFocusAnim.value > 0.01 ? 'hidden' : 'visible'
-  }));
+  const topPanelStyle = useAnimatedStyle(() => {
+    // Collapse both for game lower section AND for welcome widgets focus
+    const collapseAnim = Math.max(lowerSectionFocusAnim.value, welcomeWidgetsFocusAnim.value);
+    return {
+      opacity: 1 - collapseAnim,
+      transform: [{ translateY: interpolate(collapseAnim, [0, 1], [0, -20]) }],
+      maxHeight: interpolate(collapseAnim, [0, 1], [500, 0]),
+      marginTop: interpolate(collapseAnim, [0, 1], [0, -20]),
+      overflow: collapseAnim > 0.01 ? 'hidden' : 'visible',
+    };
+  });
 
   const spacerStyle = useAnimatedStyle(() => {
     const isWelcome = (activeTab === 'Games' ? games : media)[activeIndex]?.id === '1';
@@ -261,34 +270,50 @@ export default function ConsoleHome() {
         320
       ]
     );
+    // When welcome_widgets is focused: shrink spacer to ~0 so title+carousel collapse up
+    const welcomeHeight = interpolate(
+      welcomeWidgetsFocusAnim.value,
+      [0, 1],
+      [Math.max(30, windowHeight - 540), 0]
+    );
     return {
-      minHeight: isWelcome ? Math.max(30, windowHeight - 740) : Math.max(0, targetMinHeight),
+      minHeight: isWelcome ? welcomeHeight : Math.max(0, targetMinHeight),
       justifyContent: 'flex-end',
       paddingBottom: 20,
     };
   });
 
-  const headerStyle = useAnimatedStyle(() => ({
-    opacity: 1 - gamePanelFocusAnim.value,
-    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }],
-    maxHeight: interpolate(gamePanelFocusAnim.value, [0, 1], [120, 0]),
-    paddingTop: interpolate(gamePanelFocusAnim.value, [0, 1], [40, 0]),
-    paddingBottom: interpolate(gamePanelFocusAnim.value, [0, 1], [12, 0]),
-    overflow: 'hidden'
-  }));
+  const headerStyle = useAnimatedStyle(() => {
+    // Collapse both when game_panel is focused AND when welcome_widgets is focused
+    const collapseAnim = Math.max(gamePanelFocusAnim.value, welcomeWidgetsFocusAnim.value);
+    return {
+      opacity: 1 - collapseAnim,
+      transform: [{ translateY: interpolate(collapseAnim, [0, 1], [0, -20]) }],
+      maxHeight: interpolate(collapseAnim, [0, 1], [120, 0]),
+      paddingTop: interpolate(collapseAnim, [0, 1], [40, 0]),
+      paddingBottom: interpolate(collapseAnim, [0, 1], [12, 0]),
+      overflow: 'hidden',
+    };
+  });
 
-  const carouselStyle = useAnimatedStyle(() => ({
-    opacity: 1 - gamePanelFocusAnim.value,
-    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }],
-    height: interpolate(gamePanelFocusAnim.value, [0, 1], [200, 0]),
-    overflow: 'hidden'
-  }));
+  const carouselStyle = useAnimatedStyle(() => {
+    const collapseAnim = Math.max(gamePanelFocusAnim.value, welcomeWidgetsFocusAnim.value);
+    return {
+      opacity: 1 - collapseAnim,
+      transform: [{ translateY: interpolate(collapseAnim, [0, 1], [0, -20]) }],
+      height: interpolate(collapseAnim, [0, 1], [200, 0]),
+      overflow: 'hidden',
+    };
+  });
 
-  const topBarMiniStyle = useAnimatedStyle(() => ({
-    opacity: gamePanelFocusAnim.value,
-    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [-20, 0]) }],
-    pointerEvents: isTopHidden ? 'auto' : 'none'
-  }));
+  const topBarMiniStyle = useAnimatedStyle(() => {
+    const collapseAnim = Math.max(gamePanelFocusAnim.value, welcomeWidgetsFocusAnim.value);
+    return {
+      opacity: collapseAnim,
+      transform: [{ translateY: interpolate(collapseAnim, [0, 1], [-20, 0]) }],
+      pointerEvents: (isTopHidden || focusArea === 'welcome_widgets') ? 'auto' : 'none',
+    };
+  });
 
   const gameInfoPanelStyle = useAnimatedStyle(() => ({
     transform: [{
@@ -301,6 +326,12 @@ export default function ConsoleHome() {
         ]
       )
     }]
+  }));
+
+  // Push widgets down when contracted so they appear centered/lower on screen
+  const widgetContainerStyle = useAnimatedStyle(() => ({
+    paddingBottom: 80,
+    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.22]),
   }));
 
   useEffect(() => {
@@ -978,6 +1009,8 @@ export default function ConsoleHome() {
     if (!mainScrollRef.current) return;
     if (focusArea === 'library_grid') {
       mainScrollRef.current.scrollTo({ y: 0, animated: true });
+    } else if (focusArea === 'welcome_widgets') {
+      mainScrollRef.current.scrollTo({ y: windowHeight * 0.35, animated: true });
     } else if (focusArea !== 'game_panel') {
       mainScrollRef.current.scrollTo({ y: 0, animated: true });
     } else {
@@ -1337,6 +1370,11 @@ export default function ConsoleHome() {
             <Image source={require('@/assets/images/Libreria.jpeg')} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12 }} />
             <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Biblioteca de juegos</Text>
           </View>
+        ) : focusArea === 'welcome_widgets' ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Image source={currentData[activeIndex]?.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12 }} contentFit="cover" />
+            <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Welcome</Text>
+          </View>
         ) : (canPlay && activeItem && (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12 }} />
@@ -1666,7 +1704,7 @@ export default function ConsoleHome() {
               </Animated.View>
             </Animated.View>
 
-            <View style={{ paddingBottom: 80 }}>
+            <Animated.View style={widgetContainerStyle}>
               {/* === WELCOME WIDGETS (only when Welcome card is active) === */}
               {/* <PS5WidgetRow /> */}
               {activeItem?.id === '1' && (
@@ -1683,17 +1721,17 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 0) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                          <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                            <MaterialCommunityIcons name="gamepad-variant" size={22} color="#FFF" />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={styles.widgetIconWrap}>
+                            <MaterialCommunityIcons name="gamepad-variant" size={20} color="#FFF" />
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>
-                              {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : 'DualSense Controller'}
+                            <Text style={styles.widgetTitle} numberOfLines={1}>
+                              {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : 'DualSense'}
                             </Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                              <Ionicons name="battery-full" size={12} color="#4CD964" />
-                              <Text style={{ color: '#888', fontSize: 10 }}>{gamepadInfo.connected ? `${Math.round(gamepadInfo.battery * 100)}%` : '75%'}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                              <Ionicons name="battery-full" size={11} color="#4CD964" />
+                              <Text style={styles.widgetSubtitle}>{gamepadInfo.connected ? `${Math.round(gamepadInfo.battery * 100)}%` : '75%'}</Text>
                             </View>
                           </View>
                         </View>
@@ -1710,30 +1748,25 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 1) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <MaterialCommunityIcons name="trophy" size={16} color="#FFD700" />
-                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Trofeos</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                            <MaterialCommunityIcons name="trophy" size={14} color="#FFD700" />
+                            <Text style={styles.widgetTitle}>Trofeos</Text>
                           </View>
-                          <Text style={{ color: '#888', fontSize: 11 }}>Total: 232</Text>
+                          <Text style={styles.widgetBadge}>457</Text>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                            <MaterialCommunityIcons name="trophy" size={12} color="#B8D4E8" />
-                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>0</Text>
-                          </View>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                            <MaterialCommunityIcons name="trophy" size={12} color="#FFD700" />
-                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>9</Text>
-                          </View>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                            <MaterialCommunityIcons name="trophy" size={12} color="#C0C0C0" />
-                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>28</Text>
-                          </View>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                            <MaterialCommunityIcons name="trophy" size={12} color="#CD7F32" />
-                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>195</Text>
-                          </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          {[
+                            { color: '#B8D4E8', count: 0 },
+                            { color: '#FFD700', count: 13 },
+                            { color: '#C0C0C0', count: 45 },
+                            { color: '#CD7F32', count: 399 },
+                          ].map((t, i) => (
+                            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                              <MaterialCommunityIcons name="trophy" size={11} color={t.color} />
+                              <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>{t.count}</Text>
+                            </View>
+                          ))}
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -1749,12 +1782,12 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 2) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <Ionicons name="bag-handle" size={14} color="#0070D1" />
-                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>PlayStation Store</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                          <Ionicons name="bag-handle" size={13} color="#0070D1" />
+                          <Text style={styles.widgetTitle}>PlayStation Store</Text>
                         </View>
-                        <Text style={{ color: '#AAA', fontSize: 11 }} numberOfLines={1}>Descubre las últimas ofertas</Text>
-                        <Text style={{ color: '#0070D1', fontSize: 12, fontWeight: '700', marginTop: 4 }}>Ver tienda →</Text>
+                        <Text style={styles.widgetSubtitle} numberOfLines={1}>Últimas ofertas disponibles</Text>
+                        <Text style={{ color: '#4e9fe8', fontSize: 11, fontWeight: '700', marginTop: 4 }}>Ver tienda →</Text>
                       </View>
                     </TouchableOpacity>
 
@@ -1768,11 +1801,11 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <Ionicons name="newspaper" size={14} color="#FFF" />
-                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Noticias</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                          <Ionicons name="newspaper" size={13} color="rgba(255,255,255,0.8)" />
+                          <Text style={styles.widgetTitle}>Noticias</Text>
                         </View>
-                        <Text style={{ color: '#888', fontSize: 11 }}>Descubre juegos nuevos</Text>
+                        <Text style={styles.widgetSubtitle}>Descubre juegos nuevos</Text>
                       </View>
                     </TouchableOpacity>
 
@@ -1788,12 +1821,12 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 4) && styles.welcomeWidgetCardFocused]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+                          <View style={styles.widgetIconWrap}>
                             <Ionicons name="add" size={20} color="#FFF" />
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Agregar Juego</Text>
-                            <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }} numberOfLines={1}>Agrega accesos directos</Text>
+                            <Text style={styles.widgetTitle}>Agregar Juego</Text>
+                            <Text style={styles.widgetSubtitle} numberOfLines={1}>Accesos directos</Text>
                           </View>
                         </View>
                       </View>
@@ -1813,19 +1846,17 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 5) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                          <Ionicons name="game-controller" size={14} color="#FFF" />
-                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Jugados recientemente</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                          <Ionicons name="game-controller" size={13} color="rgba(255,255,255,0.8)" />
+                          <Text style={styles.widgetTitle}>Jugados recientemente</Text>
                         </View>
                         {lastPlayedGame ? (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Image source={lastPlayedGame.image} style={{ width: 32, height: 32, borderRadius: 6 }} contentFit="cover" />
-                            <View style={{ flex: 1 }}>
-                              <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>{lastPlayedGame.title}</Text>
-                            </View>
+                            <Image source={lastPlayedGame.image} style={{ width: 30, height: 30, borderRadius: 6 }} contentFit="cover" />
+                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600', flex: 1 }} numberOfLines={1}>{lastPlayedGame.title}</Text>
                           </View>
                         ) : (
-                          <Text style={{ color: '#666', fontSize: 11, fontStyle: 'italic' }}>Sin juegos recientes</Text>
+                          <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontStyle: 'italic' }}>Sin juegos recientes</Text>
                         )}
                       </View>
                     </TouchableOpacity>
@@ -1840,17 +1871,17 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 6) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                          <Ionicons name="chatbubble" size={14} color="#FFF" />
-                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Mensajes</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                          <Ionicons name="chatbubble" size={13} color="rgba(255,255,255,0.8)" />
+                          <Text style={styles.widgetTitle}>Mensajes</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                            <Ionicons name="person" size={14} color="#AAA" />
+                          <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                            <Ionicons name="person" size={13} color="rgba(255,255,255,0.5)" />
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>{activeUser?.name || 'Usuario'}</Text>
-                            <Text style={{ color: '#888', fontSize: 10 }}>Sin mensajes</Text>
+                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }} numberOfLines={1}>{activeUser?.name || 'Usuario'}</Text>
+                            <Text style={styles.widgetSubtitle}>Sin mensajes</Text>
                           </View>
                         </View>
                       </View>
@@ -1866,18 +1897,20 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 7) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <MaterialCommunityIcons name="harddisk" size={14} color="#FFF" />
-                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Almacenamiento</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                            <MaterialCommunityIcons name="harddisk" size={13} color="rgba(255,255,255,0.8)" />
+                            <Text style={styles.widgetTitle}>Almacenamiento</Text>
                           </View>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <Text style={{ color: '#AAA', fontSize: 10 }}>Espacio libre</Text>
-                          <Text style={{ color: '#FFF', fontSize: 11, fontWeight: 'bold' }}>36.47 GB</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                          <Text style={styles.widgetSubtitle}>Espacio libre</Text>
+                          <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>
+                            {storageInfo.freeGB > 0 ? `${storageInfo.freeGB.toFixed(1)} GB` : '36.47 GB'}
+                          </Text>
                         </View>
-                        <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                          <View style={{ height: '100%', width: '65%', borderRadius: 2, backgroundColor: '#0070D1' }} />
+                        <View style={{ height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                          <View style={{ height: '100%', width: `${storageInfo.percent > 0 ? storageInfo.percent : 65}%`, borderRadius: 2, backgroundColor: '#0070D1' }} />
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -1892,11 +1925,11 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 8) && styles.welcomeWidgetCardFocused]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <Ionicons name="heart" size={14} color="#FF6B6B" />
-                          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Lista de deseos</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+                          <Ionicons name="heart" size={13} color="#FF6B6B" />
+                          <Text style={styles.widgetTitle}>Lista de deseos</Text>
                         </View>
-                        <Text style={{ color: '#888', fontSize: 11 }}>Ver tu lista de deseos</Text>
+                        <Text style={styles.widgetSubtitle}>Ver tu lista de deseos</Text>
                       </View>
                     </TouchableOpacity>
 
@@ -1912,12 +1945,12 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 9) && styles.welcomeWidgetCardFocused]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                            <Ionicons name="image-outline" size={18} color="#FFF" />
+                          <View style={styles.widgetIconWrap}>
+                            <Ionicons name="image-outline" size={17} color="#FFF" />
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>Cambiar Fondo</Text>
-                            <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }} numberOfLines={1}>Personaliza tu consola</Text>
+                            <Text style={styles.widgetTitle}>Cambiar Fondo</Text>
+                            <Text style={styles.widgetSubtitle} numberOfLines={1}>Personaliza tu consola</Text>
                           </View>
                         </View>
                       </View>
@@ -2100,7 +2133,7 @@ export default function ConsoleHome() {
                   )}
                 </View>
               )}
-            </View>
+            </Animated.View>
           </Animated.View>
         )}
       </Animated.ScrollView>
@@ -2562,29 +2595,55 @@ const styles = StyleSheet.create({
   widgetGrid: {
     paddingHorizontal: 0,
     paddingTop: 10,
-    gap: 12,
+    gap: 10,
     width: '100%',
   },
   widgetRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   } as any,
   welcomeWidgetCard: {
     flex: 1,
-    height: 96,
-    borderRadius: 12,
-    padding: 14,
+    height: 88,
+    borderRadius: 10,
+    padding: 13,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0)',
     overflow: 'hidden',
     justifyContent: 'center',
-    backgroundColor: 'rgba(12, 26, 39, 1)',
+    backgroundColor: 'rgba(10, 22, 34, 0.92)',
   } as any,
   welcomeWidgetCardFocused: {
-    borderColor: '#FFFFFF',
-    borderWidth: 2,
-    backgroundColor: 'rgba(29, 51, 71, 1)',
-    transform: [{ scale: 1.03 }],
+    borderColor: 'rgba(255,255,255,0.85)',
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(25, 50, 72, 0.95)',
+    transform: [{ scale: 1.02 }],
+  } as any,
+  widgetTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  } as any,
+  widgetSubtitle: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 10,
+    marginTop: 1,
+  } as any,
+  widgetBadge: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 10,
+    fontWeight: '500',
+  } as any,
+  widgetIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   } as any,
 
   // === CAROUSEL ===
