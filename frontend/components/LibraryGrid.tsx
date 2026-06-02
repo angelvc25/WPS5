@@ -147,6 +147,9 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
     transform: [{ translateY: translateY.value }]
   }));
 
+  const currentRow = Math.floor(focusedIndex / COLUMNS);
+  const hasScrolled = currentRow > 1;
+
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
       <View style={styles.header}>
@@ -156,18 +159,25 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
       {/* Container to clip overflow and restrict scroll area */}
       <View style={{ height: windowHeight - 220, overflow: 'hidden', paddingTop: 20, marginTop: -20, paddingHorizontal: 20, marginHorizontal: -20 }}>
         {/* Inset shadow overlay — sits on top, non-interactive */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 100,
-            ...(Platform.OS === 'web' ? { boxShadow: 'inset 0px 26px 15px -10px rgb(0 0 0 / 90%)' } as any : {}),
-          }}
-        />
+        {hasScrolled && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 100,
+              ...(Platform.OS === 'web'
+                ? {
+                  boxShadow:
+                    'inset 0px 26px 15px -10px rgb(0 0 0 / 90%)',
+                }
+                : {}),
+            }}
+          />
+        )}
         {/* Grid wrapper that translates up/down depending on focus */}
         <Animated.View style={animatedGridStyle}>
           <View style={styles.grid}>
