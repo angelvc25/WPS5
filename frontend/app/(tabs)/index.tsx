@@ -328,10 +328,10 @@ export default function ConsoleHome() {
     }]
   }));
 
-  // Push widgets down when contracted so they appear centered/lower on screen
+  // Push widgets down when contracted so they appear centered/lower on screen posicion de los widgets cuando se contrae windowHeight/0.22
   const widgetContainerStyle = useAnimatedStyle(() => ({
     paddingBottom: 80,
-    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.22]),
+    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.50]),
   }));
 
   useEffect(() => {
