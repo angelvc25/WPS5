@@ -145,7 +145,6 @@ export default function ConsoleHome() {
   const tabFade = useSharedValue(1);
   const gamePanelFocusAnim = useSharedValue(0);
   const lowerSectionFocusAnim = useSharedValue(0);
-  const carouselHideAnim = useSharedValue(0);
   const spinRotation = useSharedValue(0);
 
   useEffect(() => {
@@ -175,15 +174,11 @@ export default function ConsoleHome() {
 
   const isGamePanelFocused = focusArea === 'game_panel';
   const isLowerSectionFocused = isGamePanelFocused && gamePanelFocusIndex >= 2;
+  const isTopHidden = focusArea === 'game_panel' || focusArea === 'library_grid';
 
   useEffect(() => {
-    gamePanelFocusAnim.value = withTiming(isGamePanelFocused ? 1 : 0, { duration: 300 });
-  }, [isGamePanelFocused]);
-
-  useEffect(() => {
-    const shouldHideCarousel = focusArea === 'game_panel' || focusArea === 'library_grid';
-    carouselHideAnim.value = withTiming(shouldHideCarousel ? 1 : 0, { duration: 300 });
-  }, [focusArea]);
+    gamePanelFocusAnim.value = withTiming(isTopHidden ? 1 : 0, { duration: 300 });
+  }, [isTopHidden]);
 
   useEffect(() => {
     lowerSectionFocusAnim.value = withTiming(isLowerSectionFocused ? 1 : 0, { duration: 300 });
@@ -229,16 +224,16 @@ export default function ConsoleHome() {
   }));
 
   const carouselStyle = useAnimatedStyle(() => ({
-    opacity: 1 - carouselHideAnim.value,
-    transform: [{ translateY: interpolate(carouselHideAnim.value, [0, 1], [0, -20]) }],
-    height: interpolate(carouselHideAnim.value, [0, 1], [200, 0]),
+    opacity: 1 - gamePanelFocusAnim.value,
+    transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [0, -20]) }],
+    height: interpolate(gamePanelFocusAnim.value, [0, 1], [200, 0]),
     overflow: 'hidden'
   }));
 
   const topBarMiniStyle = useAnimatedStyle(() => ({
     opacity: gamePanelFocusAnim.value,
     transform: [{ translateY: interpolate(gamePanelFocusAnim.value, [0, 1], [-20, 0]) }],
-    pointerEvents: isGamePanelFocused ? 'auto' : 'none'
+    pointerEvents: isTopHidden ? 'auto' : 'none'
   }));
 
   const gameInfoPanelStyle = useAnimatedStyle(() => ({
@@ -1228,12 +1223,17 @@ export default function ConsoleHome() {
 
       {/* MINI HEADER FOR GAME PANEL FOCUS */}
       <Animated.View style={[styles.miniHeader, topBarMiniStyle]} pointerEvents="none">
-        {canPlay && activeItem && (
+        {focusArea === 'library_grid' ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Image source={require('@/assets/images/Libreria.jpeg')} style={{ width: 36, height: 36, borderRadius: 8, marginRight: 12 }} />
+            <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Biblioteca</Text>
+          </View>
+        ) : (canPlay && activeItem && (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 36, height: 36, borderRadius: 8, marginRight: 12 }} />
             <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
           </View>
-        )}
+        ))}
       </Animated.View>
 
       {/* === HEADER (PS5 style) — fixed on top === */}
