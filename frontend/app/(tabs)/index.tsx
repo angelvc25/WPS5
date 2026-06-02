@@ -1716,6 +1716,61 @@ export default function ConsoleHome() {
               </Animated.View>
             </Animated.View>
             {/* el siguiente Animated.View es el que proiporciona la animacion de subir al entrar a una vista */}
+
+
+            <style>{`
+            @keyframes widget-shimmer {
+              0% {
+                transform: translate(-160%, 120%) rotate(-45deg);
+                opacity: 0;
+              }
+
+              15% {
+                opacity: 1;
+              }
+
+              50% {
+                opacity: 1;
+              }
+
+              70% {
+                transform: translate(130%, -120%) rotate(-45deg);
+                opacity: 0;
+              }
+
+              100% {
+                transform: translate(130%, -120%) rotate(-45deg);
+                opacity: 0;
+              }
+            }
+
+            .widget-shimmer-line {
+              position: absolute;
+
+              top: 50%;
+              left: -30%;
+
+              width: 140%;
+              height: 420%;
+
+              background: linear-gradient(
+                to right,
+                transparent 0%,
+                rgba(255,255,255,0.01) 20%,
+                rgba(255,255,255,0.18) 50%,
+                rgba(255,255,255,0.01) 80%,
+                transparent 100%
+              );
+
+              animation: widget-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+
+              pointer-events: none;
+
+              z-index: 2;
+            }
+          `}</style>
+
+
             <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={widgetContainerStyle}>
               {/* === WELCOME WIDGETS (only when Welcome card is active) === */}
               {/* <PS5WidgetRow /> */}
@@ -1734,36 +1789,39 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 0) && styles.welcomeWidgetCardFocused]}>
                         {/* DEGRADADO */}
-                        {Platform.OS === 'web' &&
-                          focusArea === 'welcome_widgets' && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
 
-                                background: `
-        linear-gradient(
-          45deg,
-          rgba(120,220,255,0.14) 0%,
-          rgba(120,220,255,0.06) 18%,
-          rgba(255,255,255,0.02) 35%,
-          rgba(255,255,255,0.00) 58%,
-          rgba(0,0,0,0.00) 100%
-        )
-      `,
+                              background: `
+                              linear-gradient(
+                                45deg,
+                                rgba(120,220,255,0.14) 0%,
+                                rgba(120,220,255,0.06) 18%,
+                                rgba(255,255,255,0.02) 35%,
+                                rgba(255,255,255,0.00) 58%,
+                                rgba(0,0,0,0.00) 100%
+                              )
+                            `,
 
-                                pointerEvents: 'none',
-                                zIndex: 1,
+                              pointerEvents: 'none',
+                              zIndex: 1,
 
-                                opacity: 1,
+                              opacity:
+                                focusArea === 'welcome_widgets'
+                                  ? 1
+                                  : 0,
 
-                                transition: 'opacity 0.35s ease',
-                              }}
-                            />
-                          )}
+                              transition:
+                                'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
 
                         {/* SHIMMER */}
-                        {Platform.OS === 'web' && (
+                        {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 0 && (
                           <div
                             className="widget-shimmer-line"
                             style={{
@@ -1801,36 +1859,39 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 1) && styles.welcomeWidgetCardFocused]}>
                         {/* DEGRADADO */}
-                        {Platform.OS === 'web' &&
-                          focusArea === 'welcome_widgets' && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
 
-                                background: `
-                                linear-gradient(
-                                  45deg,
-                                  rgba(120,220,255,0.14) 0%,
-                                  rgba(120,220,255,0.06) 18%,
-                                  rgba(255,255,255,0.02) 35%,
-                                  rgba(255,255,255,0.00) 58%,
-                                  rgba(0,0,0,0.00) 100%
-                                )
-                              `,
+                              background: `
+                              linear-gradient(
+                                45deg,
+                                rgba(120,220,255,0.14) 0%,
+                                rgba(120,220,255,0.06) 18%,
+                                rgba(255,255,255,0.02) 35%,
+                                rgba(255,255,255,0.00) 58%,
+                                rgba(0,0,0,0.00) 100%
+                              )
+                            `,
 
-                                pointerEvents: 'none',
-                                zIndex: 1,
+                              pointerEvents: 'none',
+                              zIndex: 1,
 
-                                opacity: 1,
+                              opacity:
+                                focusArea === 'welcome_widgets'
+                                  ? 1
+                                  : 0,
 
-                                transition: 'opacity 0.35s ease',
-                              }}
-                            />
-                          )}
+                              transition:
+                                'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
 
                         {/* SHIMMER */}
-                        {Platform.OS === 'web' && (
+                        {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 1 && (
                           <div
                             className="widget-shimmer-line"
                             style={{
@@ -1897,14 +1958,13 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
                         {/* DEGRADADO */}
-                        {Platform.OS === 'web' &&
-                          focusArea === 'welcome_widgets' && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
 
-                                background: `
+                              background: `
                                 linear-gradient(
                                   45deg,
                                   rgba(120,220,255,0.14) 0%,
@@ -1915,18 +1975,22 @@ export default function ConsoleHome() {
                                 )
                               `,
 
-                                pointerEvents: 'none',
-                                zIndex: 1,
+                              pointerEvents: 'none',
+                              zIndex: 1,
 
-                                opacity: 1,
+                              opacity:
+                                focusArea === 'welcome_widgets'
+                                  ? 1
+                                  : 0,
 
-                                transition: 'opacity 0.35s ease',
-                              }}
-                            />
-                          )}
+                              transition:
+                                'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
 
                         {/* SHIMMER */}
-                        {Platform.OS === 'web' && (
+                        {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 3 && (
                           <div
                             className="widget-shimmer-line"
                             style={{
@@ -1959,14 +2023,13 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 4) && styles.welcomeWidgetCardFocused]}>
                         {/* DEGRADADO */}
-                        {Platform.OS === 'web' &&
-                          focusArea === 'welcome_widgets' && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
 
-                                background: `
+                              background: `
                                 linear-gradient(
                                   45deg,
                                   rgba(120,220,255,0.14) 0%,
@@ -1977,18 +2040,22 @@ export default function ConsoleHome() {
                                 )
                               `,
 
-                                pointerEvents: 'none',
-                                zIndex: 1,
+                              pointerEvents: 'none',
+                              zIndex: 1,
 
-                                opacity: 1,
+                              opacity:
+                                focusArea === 'welcome_widgets'
+                                  ? 1
+                                  : 0,
 
-                                transition: 'opacity 0.35s ease',
-                              }}
-                            />
-                          )}
+                              transition:
+                                'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
 
                         {/* SHIMMER */}
-                        {Platform.OS === 'web' && (
+                        {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 4 && (
                           <div
                             className="widget-shimmer-line"
                             style={{
@@ -2025,36 +2092,39 @@ export default function ConsoleHome() {
                       {/* jugados recientemente */}
                       <View style={[styles.welcomeWidgetCard, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && focusIndex === 5) && styles.welcomeWidgetCardFocused]}>
                         {/* DEGRADADO */}
-                        {Platform.OS === 'web' &&
-                          focusArea === 'welcome_widgets' && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
 
-                                background: `
-                                linear-gradient(
-                                  45deg,
-                                  rgba(120,220,255,0.14) 0%,
-                                  rgba(120,220,255,0.06) 18%,
-                                  rgba(255,255,255,0.02) 35%,
-                                  rgba(255,255,255,0.00) 58%,
-                                  rgba(0,0,0,0.00) 100%
-                                )
-                              `,
+                              background: `
+                              linear-gradient(
+                                45deg,
+                                rgba(120,220,255,0.14) 0%,
+                                rgba(120,220,255,0.06) 18%,
+                                rgba(255,255,255,0.02) 35%,
+                                rgba(255,255,255,0.00) 58%,
+                                rgba(0,0,0,0.00) 100%
+                              )
+                            `,
 
-                                pointerEvents: 'none',
-                                zIndex: 1,
+                              pointerEvents: 'none',
+                              zIndex: 1,
 
-                                opacity: 1,
+                              opacity:
+                                focusArea === 'welcome_widgets'
+                                  ? 1
+                                  : 0,
 
-                                transition: 'opacity 0.35s ease',
-                              }}
-                            />
-                          )}
+                              transition:
+                                'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
 
                         {/* SHIMMER */}
-                        {Platform.OS === 'web' && (
+                        {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 5 && (
                           <div
                             className="widget-shimmer-line"
                             style={{
@@ -2092,14 +2162,13 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 6) && styles.welcomeWidgetCardFocused]}>
                         {/* DEGRADADO */}
-                        {Platform.OS === 'web' &&
-                          focusArea === 'welcome_widgets' && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
 
-                                background: `
+                              background: `
                                 linear-gradient(
                                   45deg,
                                   rgba(120,220,255,0.14) 0%,
@@ -2110,18 +2179,22 @@ export default function ConsoleHome() {
                                 )
                               `,
 
-                                pointerEvents: 'none',
-                                zIndex: 1,
+                              pointerEvents: 'none',
+                              zIndex: 1,
 
-                                opacity: 1,
+                              opacity:
+                                focusArea === 'welcome_widgets'
+                                  ? 1
+                                  : 0,
 
-                                transition: 'opacity 0.35s ease',
-                              }}
-                            />
-                          )}
+                              transition:
+                                'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
 
                         {/* SHIMMER */}
-                        {Platform.OS === 'web' && (
+                        {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 6 && (
                           <div
                             className="widget-shimmer-line"
                             style={{
@@ -2157,14 +2230,13 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 7) && styles.welcomeWidgetCardFocused]}>
                         {/* DEGRADADO */}
-                        {Platform.OS === 'web' &&
-                          focusArea === 'welcome_widgets' && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
 
-                                background: `
+                              background: `
                                 linear-gradient(
                                   45deg,
                                   rgba(120,220,255,0.14) 0%,
@@ -2175,18 +2247,22 @@ export default function ConsoleHome() {
                                 )
                               `,
 
-                                pointerEvents: 'none',
-                                zIndex: 1,
+                              pointerEvents: 'none',
+                              zIndex: 1,
 
-                                opacity: 1,
+                              opacity:
+                                focusArea === 'welcome_widgets'
+                                  ? 1
+                                  : 0,
 
-                                transition: 'opacity 0.35s ease',
-                              }}
-                            />
-                          )}
+                              transition:
+                                'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
 
                         {/* SHIMMER */}
-                        {Platform.OS === 'web' && (
+                        {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 7 && (
                           <div
                             className="widget-shimmer-line"
                             style={{
@@ -2258,14 +2334,13 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 8) && styles.welcomeWidgetCardFocused]}>
                         {/* DEGRADADO */}
-                        {Platform.OS === 'web' &&
-                          focusArea === 'welcome_widgets' && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
 
-                                background: `
+                              background: `
                                 linear-gradient(
                                   45deg,
                                   rgba(120,220,255,0.14) 0%,
@@ -2276,18 +2351,22 @@ export default function ConsoleHome() {
                                 )
                               `,
 
-                                pointerEvents: 'none',
-                                zIndex: 1,
+                              pointerEvents: 'none',
+                              zIndex: 1,
 
-                                opacity: 1,
+                              opacity:
+                                focusArea === 'welcome_widgets'
+                                  ? 1
+                                  : 0,
 
-                                transition: 'opacity 0.35s ease',
-                              }}
-                            />
-                          )}
+                              transition:
+                                'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
 
                         {/* SHIMMER */}
-                        {Platform.OS === 'web' && (
+                        {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 8 && (
                           <div
                             className="widget-shimmer-line"
                             style={{
@@ -2316,14 +2395,13 @@ export default function ConsoleHome() {
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 9) && styles.welcomeWidgetCardFocused]}>
                         {/* DEGRADADO */}
-                        {Platform.OS === 'web' &&
-                          focusArea === 'welcome_widgets' && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
 
-                                background: `
+                              background: `
                                 linear-gradient(
                                   45deg,
                                   rgba(120,220,255,0.14) 0%,
@@ -2334,18 +2412,22 @@ export default function ConsoleHome() {
                                 )
                               `,
 
-                                pointerEvents: 'none',
-                                zIndex: 1,
+                              pointerEvents: 'none',
+                              zIndex: 1,
 
-                                opacity: 1,
+                              opacity:
+                                focusArea === 'welcome_widgets'
+                                  ? 1
+                                  : 0,
 
-                                transition: 'opacity 0.35s ease',
-                              }}
-                            />
-                          )}
+                              transition:
+                                'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
 
                         {/* SHIMMER */}
-                        {Platform.OS === 'web' && (
+                        {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 9 && (
                           <div
                             className="widget-shimmer-line"
                             style={{
