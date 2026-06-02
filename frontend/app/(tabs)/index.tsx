@@ -881,9 +881,7 @@ export default function ConsoleHome() {
   useEffect(() => {
     if (!mainScrollRef.current) return;
     if (focusArea === 'library_grid') {
-      const row = Math.floor(libraryGridFocusIndex / 5);
-      const rowHeight = Platform.OS === 'web' ? 250 : 180;
-      mainScrollRef.current.scrollTo({ y: row * rowHeight, animated: true });
+      mainScrollRef.current.scrollTo({ y: 0, animated: true });
     } else if (focusArea !== 'game_panel') {
       mainScrollRef.current.scrollTo({ y: 0, animated: true });
     } else {

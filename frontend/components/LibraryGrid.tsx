@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
+import { useEffect } from 'react';
 
 interface LibraryGridProps {
   games: ConsoleItem[];
@@ -117,6 +118,8 @@ const SpinningBorder = ({ id }: { id: string }) => {
 };
 
 export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0, onItemPress }: LibraryGridProps) {
+  const { height: windowHeight } = useWindowDimensions();
+
   if (!games || games.length === 0) {
     return (
       <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
@@ -127,14 +130,34 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
     );
   }
 
+  const translateY = useSharedValue(0);
+
+  useEffect(() => {
+    if (isFocused) {
+      const row = Math.floor(focusedIndex / COLUMNS);
+      const rowHeight = Platform.OS === 'web' ? 250 : 180;
+      const targetY = row > 1 ? -(row - 1) * rowHeight : 0;
+      translateY.value = withTiming(targetY, { duration: 300 });
+    } else {
+      translateY.value = withTiming(0, { duration: 300 });
+    }
+  }, [focusedIndex, isFocused]);
+
+  const animatedGridStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }]
+  }));
+
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Almacenamiento de la consola: {games.length}</Text>
       </View>
 
-      {/* NOTE: No ScrollView here — scroll is handled by parent Animated.ScrollView in index.tsx */}
-      <View style={styles.grid}>
+      {/* Container to clip overflow and restrict scroll area */}
+      <View style={{ height: windowHeight - 220, overflow: 'hidden', paddingTop: 20, marginTop: -20, paddingHorizontal: 20, marginHorizontal: -20 }}>
+        {/* Grid wrapper that translates up/down depending on focus */}
+        <Animated.View style={animatedGridStyle}>
+          <View style={styles.grid}>
         {games.map((game, index) => {
           const isItemFocused = isFocused && focusedIndex === index;
           const borderId = `lib-${game.id ?? index}`;
@@ -178,6 +201,8 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
             </TouchableOpacity>
           );
         })}
+          </View>
+        </Animated.View>
       </View>
     </Animated.View>
   );
@@ -188,7 +213,7 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 100,
     paddingBottom: 80,
-    marginTop: 10,
+    marginTop: 120,
   },
   header: {
     flexDirection: 'row',
