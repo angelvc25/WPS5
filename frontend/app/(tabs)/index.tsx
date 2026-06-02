@@ -134,6 +134,10 @@ export default function ConsoleHome() {
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
   const [isDetailVisible, setDetailVisible] = useState(false);
+  
+  const [systemNavLevel, setSystemNavLevel] = useState(0); // 0 = menu, 1 = cards
+  const [systemNavCardIndex, setSystemNavCardIndex] = useState(0);
+  const [isSystemNavCardExpanded, setSystemNavCardExpanded] = useState(false);
 
   // Background transition states
   const [bgA, setBgA] = useState<any>(null);
@@ -469,8 +473,17 @@ export default function ConsoleHome() {
   }, [games, media, activeTab]);
 
   useEffect(() => {
-    if (!isUserModalVisible && focusArea === 'header_user') setFocusArea('main_carousel');
+    if (!isUserModalVisible && focusArea === 'header_user') {
+      setFocusArea('main_carousel');
+    }
   }, [isUserModalVisible]);
+
+  useEffect(() => {
+    if (focusArea !== 'header_user') {
+      setSystemNavLevel(0);
+      setSystemNavCardExpanded(false);
+    }
+  }, [focusArea]);
 
   useEffect(() => {
     if (!isAddModalVisible && focusArea === 'footer') setFocusArea('main_carousel');
@@ -524,16 +537,46 @@ export default function ConsoleHome() {
 
         // 2. Floating System Navigation Keyboard Navigation
         if (focusArea === 'header_user') {
+          if (isSystemNavCardExpanded) {
+            if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+              setSystemNavCardExpanded(false);
+            }
+            return;
+          }
+
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
             setFocusArea('main_carousel');
+          } else if (e.key === 'ArrowUp') {
+            if (systemNavLevel === 0 && modalSelectedIndex === 0) {
+              setSystemNavLevel(1);
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'ArrowDown') {
+            if (systemNavLevel === 1) {
+              setSystemNavLevel(0);
+              soundService.playNavigation();
+            }
           } else if (e.key === 'ArrowRight') {
-            setModalSelectedIndex(prev => Math.min(prev + 1, 10));
+            if (systemNavLevel === 0) {
+              setModalSelectedIndex(prev => Math.min(prev + 1, 10));
+            } else {
+              setSystemNavCardIndex(prev => Math.min(prev + 1, 2)); // 3 cards total
+            }
             soundService.playNavigation();
           } else if (e.key === 'ArrowLeft') {
-            setModalSelectedIndex(prev => Math.max(prev - 1, 0));
+            if (systemNavLevel === 0) {
+              setModalSelectedIndex(prev => Math.max(prev - 1, 0));
+            } else {
+              setSystemNavCardIndex(prev => Math.max(prev - 1, 0));
+            }
             soundService.playNavigation();
           } else if (e.key === 'Enter') {
-            handleSystemNavAction(modalSelectedIndex);
+            if (systemNavLevel === 0) {
+              handleSystemNavAction(modalSelectedIndex);
+            } else {
+              setSystemNavCardExpanded(true);
+              soundService.playActivation?.();
+            }
           }
           return;
         }
@@ -2002,6 +2045,15 @@ export default function ConsoleHome() {
           handleSystemNavAction(index);
         }}
         onClose={() => setFocusArea('main_carousel')}
+        navLevel={systemNavLevel}
+        cardIndex={systemNavCardIndex}
+        isCardExpanded={isSystemNavCardExpanded}
+        onPressCard={(index) => {
+          setSystemNavCardIndex(index);
+          setSystemNavLevel(1);
+          setSystemNavCardExpanded(true);
+        }}
+        onCloseExpanded={() => setSystemNavCardExpanded(false)}
       />
 
       <FavoritesView

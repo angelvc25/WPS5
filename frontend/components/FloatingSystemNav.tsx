@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity, Pressable } from 'react-nativ
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import ControlCenterCards from './ControlCenterCards';
 
 export interface NavItem {
   icon: keyof typeof Ionicons.glyphMap;
@@ -28,9 +29,24 @@ interface FloatingSystemNavProps {
   isFocused: boolean;
   onPressItem: (index: number) => void;
   onClose: () => void;
+  navLevel?: number; // 0 for menu, 1 for cards
+  cardIndex?: number;
+  isCardExpanded?: boolean;
+  onPressCard?: (index: number) => void;
+  onCloseExpanded?: () => void;
 }
 
-export default function FloatingSystemNav({ focusedIndex, isFocused, onPressItem, onClose }: FloatingSystemNavProps) {
+export default function FloatingSystemNav({ 
+  focusedIndex, 
+  isFocused, 
+  onPressItem, 
+  onClose,
+  navLevel = 0,
+  cardIndex = 0,
+  isCardExpanded = false,
+  onPressCard = () => {},
+  onCloseExpanded = () => {}
+}: FloatingSystemNavProps) {
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(50);
 
@@ -59,14 +75,36 @@ export default function FloatingSystemNav({ focusedIndex, isFocused, onPressItem
 
   return (
     <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]} pointerEvents={isFocused ? 'auto' : 'none'}>
-      <Animated.View style={[StyleSheet.absoluteFill, overlayStyle]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
-        </Pressable>
+      <Animated.View style={[StyleSheet.absoluteFill, overlayStyle]} pointerEvents="none">
+        {/* Gradient overlay: transparent top → deep black bottom */}
+        {/* @ts-ignore */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.15) 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+      </Animated.View>
+      {/* Separate pressable layer so pointer events work */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: 0 }]} pointerEvents={isFocused ? 'auto' : 'none'}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
 
       <Animated.View style={[styles.menuContainer, menuStyle]}>
-        <BlurView intensity={50} tint="dark" style={styles.pillContainer}>
+        {/* Render Control Center Cards when the "Inicio" (index 0) option is selected or when we are interacting with cards */}
+        {(focusedIndex === 0 || navLevel === 1) && (
+          <ControlCenterCards
+            isFocusedLayer={isFocused && navLevel === 1}
+            focusedIndex={cardIndex}
+            onPressCard={onPressCard}
+            isExpanded={isCardExpanded}
+            onCloseExpanded={onCloseExpanded}
+          />
+        )}
+        
+        <BlurView intensity={50} tint="dark" style={[styles.pillContainer, { opacity: isCardExpanded ? 0 : 1 }]}>
           {NAV_ITEMS.map((item, index) => {
             const isActive = isFocused && focusedIndex === index;
             return (
