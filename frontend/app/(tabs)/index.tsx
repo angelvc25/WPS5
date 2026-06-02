@@ -331,6 +331,11 @@ export default function ConsoleHome() {
   // Push widgets down when contracted so they appear centered/lower on screen posicion de los widgets cuando se contrae windowHeight/0.22
   const widgetContainerStyle = useAnimatedStyle(() => ({
     paddingBottom: 80,
+    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.10]),
+  }));
+
+  const widgetContainerStyle2 = useAnimatedStyle(() => ({
+    paddingBottom: 0,
     paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.50]),
   }));
 
@@ -1770,24 +1775,25 @@ export default function ConsoleHome() {
             }
           `}</style>
 
-            {activeItem?.id === '1' && (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={{ flex: 1 }}
-                onPress={() => {
-                  setFocusArea('welcome_widgets');
-                  setFocusIndex(0);
-                }}
-              >
-                <View style={[styles.welcomeWidgetCard, { maxWidth: 347 }, (focusArea === 'welcome_widgets' && focusIndex === 10) && styles.welcomeWidgetCardFocused]}>
-                  {/* DEGRADADO */}
-                  {Platform.OS === 'web' && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
+            <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={widgetContainerStyle2}>
+              {activeItem?.id === '1' && (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={{ flex: 1 }}
+                  onPress={() => {
+                    setFocusArea('welcome_widgets');
+                    setFocusIndex(0);
+                  }}
+                >
+                  <View style={[styles.welcomeWidgetCard, { maxWidth: 347 }, (focusArea === 'welcome_widgets' && focusIndex === 10) && styles.welcomeWidgetCardFocused]}>
+                    {/* DEGRADADO */}
+                    {Platform.OS === 'web' && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
 
-                        background: `
+                          background: `
                               linear-gradient(
                                 45deg,
                                 rgba(120,220,255,0.14) 0%,
@@ -1798,42 +1804,42 @@ export default function ConsoleHome() {
                               )
                             `,
 
-                        pointerEvents: 'none',
-                        zIndex: 1,
+                          pointerEvents: 'none',
+                          zIndex: 1,
 
-                        opacity:
-                          focusArea === 'welcome_widgets'
-                            ? 1
-                            : 0,
+                          opacity:
+                            focusArea === 'welcome_widgets'
+                              ? 1
+                              : 0,
 
-                        transition:
-                          'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                      }}
-                    />
-                  )}
+                          transition:
+                            'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                        }}
+                      />
+                    )}
 
-                  {/* SHIMMER */}
-                  {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 0 && (
-                    <div
-                      className="widget-shimmer-line"
-                      style={{
-                        animationDuration: '7s',
-                        opacity: 0.8,
-                      }}
-                    />
-                  )}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Ionicons name="battery-full" size={11} color="#fff" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.widgetTitle} numberOfLines={1}>
-                        Obtenén EA Sports FC 26 con PlayStation Plus
-                      </Text>
+                    {/* SHIMMER */}
+                    {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 10 && (
+                      <div
+                        className="widget-shimmer-line"
+                        style={{
+                          animationDuration: '7s',
+                          opacity: 0.8,
+                        }}
+                      />
+                    )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Ionicons name="battery-full" size={11} color="#fff" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.widgetTitle} numberOfLines={1}>
+                          Obtenén EA Sports FC 26 con PlayStation Plus
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            )}
-
+                </TouchableOpacity>
+              )}
+            </Animated.View>
 
             <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={widgetContainerStyle}>
               {/* === WELCOME WIDGETS (only when Welcome card is active) === */}
