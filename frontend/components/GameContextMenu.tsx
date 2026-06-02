@@ -10,14 +10,14 @@ interface GameContextMenuProps {
 
 export default function GameContextMenu({ focusedIndex, onPressItem }: GameContextMenuProps) {
   const options = [
-    { icon: 'pencil-outline', label: 'Editar Datos', color: '#FFF' },
-    { icon: 'folder-open-outline', label: 'Ubicación', color: '#FFF' },
-    { icon: 'trash-outline', label: 'Eliminar Juego', color: '#FF2D55' },
+    { icon: 'pencil-outline', label: 'Editar Datos', color: '#cacacaff' },
+    { icon: 'folder-open-outline', label: 'Ubicación', color: '#cacacaff' },
+    { icon: 'trash-outline', label: 'Eliminar Juego', color: '#cacacaff' },
   ];
 
   return (
     <View style={styles.absoluteWrapper}>
-      <BlurView intensity={45} tint="dark" style={styles.container}>
+      <View style={styles.container}>
         {options.map((opt, idx) => {
           const isFocused = idx === focusedIndex;
           return (
@@ -48,7 +48,7 @@ export default function GameContextMenu({ focusedIndex, onPressItem }: GameConte
             </TouchableOpacity>
           );
         })}
-      </BlurView>
+      </View>
     </View>
   );
 }
@@ -56,17 +56,17 @@ export default function GameContextMenu({ focusedIndex, onPressItem }: GameConte
 const styles = StyleSheet.create({
   absoluteWrapper: {
     position: 'absolute',
-    left: 140, // Fits right next to the card (since CARD_SIZE is 130)
+    left: 185, // Fits right next to the card (since CARD_SIZE is 130)
     top: 0,
     zIndex: 9999,
     width: 170,
   },
   container: {
-    borderRadius: 12,
+    borderRadius: 3,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(26, 26, 26, 1)',
     padding: 6,
     shadowColor: '#000',
     shadowOffset: { width: 4, height: 8 },
@@ -83,17 +83,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   itemFocused: {
-    backgroundColor: 'rgba(0, 255, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 255, 255, 0.25)',
+    backgroundColor: 'rgba(0, 255, 255, 0)',
+    borderWidth: 2,
+    borderColor: 'rgba(0, 255, 255, 0.4)',
   },
   label: {
     fontSize: 12,
+    color: '#cacacaff',
     fontWeight: '500',
     letterSpacing: 0.5,
   },
   labelFocused: {
-    color: '#00FFFF',
+    color: '#cacacaff',
     fontWeight: 'bold',
   },
 });
