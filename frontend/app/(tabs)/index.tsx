@@ -51,7 +51,8 @@ export interface ConsoleItem {
 }
 
 const DATA_GAMES: ConsoleItem[] = [
-  { id: '1', title: 'Welcome', time: 'WConsole - Home', image: require('@/assets/images/Home.png'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0, backgroundVideo: require('@/assets/video/waves.mp4') },
+  // { id: '1', title: 'Welcome', time: 'WConsole - Home', image: require('@/assets/images/Home.png'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0, backgroundVideo: require('@/assets/video/waves.mp4') },
+  { id: '1', title: 'Welcome', time: 'WConsole - Home', image: require('@/assets/images/Home.png'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0 },
   { id: 'last_played', title: 'Último Jugado', time: 'No ejecutado aún', image: require('@/assets/images/Home.gif'), isLastPlayed: true },
   // { id: '3', title: 'Favoritos Juegos', time: 'Folder - Colección', isFolder: true },
   // { id: '4', title: 'Favoritos Media', time: 'Aplicaciones de Streaming', isGrid: true },
