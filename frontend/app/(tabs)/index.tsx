@@ -385,16 +385,19 @@ export default function ConsoleHome() {
 
   const handleSystemNavAction = (idx: number) => {
     if (idx === 0) {
-      // Ajustes
-      setSettingsVisible(true);
-    } else if (idx === 1) {
-      // Cambiar usuario
+      // Inicio
+      setFocusArea('main_carousel');
+    } else if (idx === 9) {
+      // Perfil (Cambiar usuario)
       changeUser();
-    } else if (idx === 2) {
-      // Apagar
+    } else if (idx === 10) {
+      // Alimentación (Apagar)
       if (Platform.OS === 'web' && (window as any).electronAPI) {
         (window as any).electronAPI.closeApp();
       }
+    } else {
+      // Placeholder para otras opciones
+      console.log('Acción no implementada aún para el índice:', idx);
     }
   };
 
@@ -524,7 +527,7 @@ export default function ConsoleHome() {
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
             setFocusArea('main_carousel');
           } else if (e.key === 'ArrowRight') {
-            setModalSelectedIndex(prev => Math.min(prev + 1, 2));
+            setModalSelectedIndex(prev => Math.min(prev + 1, 10));
             soundService.playNavigation();
           } else if (e.key === 'ArrowLeft') {
             setModalSelectedIndex(prev => Math.max(prev - 1, 0));
@@ -1998,6 +2001,7 @@ export default function ConsoleHome() {
           setModalSelectedIndex(index);
           handleSystemNavAction(index);
         }}
+        onClose={() => setFocusArea('main_carousel')}
       />
 
       <FavoritesView
