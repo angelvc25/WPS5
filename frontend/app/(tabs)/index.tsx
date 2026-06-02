@@ -1733,6 +1733,45 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 0) && styles.welcomeWidgetCardFocused]}>
+                        {/* DEGRADADO */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+
+                                background: `
+        linear-gradient(
+          45deg,
+          rgba(120,220,255,0.14) 0%,
+          rgba(120,220,255,0.06) 18%,
+          rgba(255,255,255,0.02) 35%,
+          rgba(255,255,255,0.00) 58%,
+          rgba(0,0,0,0.00) 100%
+        )
+      `,
+
+                                pointerEvents: 'none',
+                                zIndex: 1,
+
+                                opacity: 1,
+
+                                transition: 'opacity 0.35s ease',
+                              }}
+                            />
+                          )}
+
+                        {/* SHIMMER */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            className="widget-shimmer-line"
+                            style={{
+                              animationDuration: '7s',
+                              opacity: 0.8,
+                            }}
+                          />
+                        )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <View style={[styles.widgetIconWrap, { width: 80, height: 80, borderRadius: 50, border: "5px solid #4CD964" }]}>
                             <Text style={{ color: "#FFF" }}>1</Text>
@@ -1761,6 +1800,45 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 1) && styles.welcomeWidgetCardFocused]}>
+                        {/* DEGRADADO */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+
+                                background: `
+                                linear-gradient(
+                                  45deg,
+                                  rgba(120,220,255,0.14) 0%,
+                                  rgba(120,220,255,0.06) 18%,
+                                  rgba(255,255,255,0.02) 35%,
+                                  rgba(255,255,255,0.00) 58%,
+                                  rgba(0,0,0,0.00) 100%
+                                )
+                              `,
+
+                                pointerEvents: 'none',
+                                zIndex: 1,
+
+                                opacity: 1,
+
+                                transition: 'opacity 0.35s ease',
+                              }}
+                            />
+                          )}
+
+                        {/* SHIMMER */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            className="widget-shimmer-line"
+                            style={{
+                              animationDuration: '7s',
+                              opacity: 0.8,
+                            }}
+                          />
+                        )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <MaterialCommunityIcons name="trophy" size={14} color="#FFD700" />
@@ -1818,6 +1896,45 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
+                        {/* DEGRADADO */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+
+                                background: `
+                                linear-gradient(
+                                  45deg,
+                                  rgba(120,220,255,0.14) 0%,
+                                  rgba(120,220,255,0.06) 18%,
+                                  rgba(255,255,255,0.02) 35%,
+                                  rgba(255,255,255,0.00) 58%,
+                                  rgba(0,0,0,0.00) 100%
+                                )
+                              `,
+
+                                pointerEvents: 'none',
+                                zIndex: 1,
+
+                                opacity: 1,
+
+                                transition: 'opacity 0.35s ease',
+                              }}
+                            />
+                          )}
+
+                        {/* SHIMMER */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            className="widget-shimmer-line"
+                            style={{
+                              animationDuration: '7s',
+                              opacity: 0.8,
+                            }}
+                          />
+                        )}
                         <View style={{ flexDirection: 'column', alignItems: 'start' }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15 }}>
                             <Ionicons name="newspaper" size={13} color="rgba(255,255,255,0.8)" />
@@ -1841,6 +1958,45 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 4) && styles.welcomeWidgetCardFocused]}>
+                        {/* DEGRADADO */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+
+                                background: `
+                                linear-gradient(
+                                  45deg,
+                                  rgba(120,220,255,0.14) 0%,
+                                  rgba(120,220,255,0.06) 18%,
+                                  rgba(255,255,255,0.02) 35%,
+                                  rgba(255,255,255,0.00) 58%,
+                                  rgba(0,0,0,0.00) 100%
+                                )
+                              `,
+
+                                pointerEvents: 'none',
+                                zIndex: 1,
+
+                                opacity: 1,
+
+                                transition: 'opacity 0.35s ease',
+                              }}
+                            />
+                          )}
+
+                        {/* SHIMMER */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            className="widget-shimmer-line"
+                            style={{
+                              animationDuration: '7s',
+                              opacity: 0.8,
+                            }}
+                          />
+                        )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <View style={styles.widgetIconWrap}>
                             <Ionicons name="add" size={20} color="#FFF" />
@@ -1868,6 +2024,45 @@ export default function ConsoleHome() {
                     >
                       {/* jugados recientemente */}
                       <View style={[styles.welcomeWidgetCard, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && focusIndex === 5) && styles.welcomeWidgetCardFocused]}>
+                        {/* DEGRADADO */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+
+                                background: `
+                                linear-gradient(
+                                  45deg,
+                                  rgba(120,220,255,0.14) 0%,
+                                  rgba(120,220,255,0.06) 18%,
+                                  rgba(255,255,255,0.02) 35%,
+                                  rgba(255,255,255,0.00) 58%,
+                                  rgba(0,0,0,0.00) 100%
+                                )
+                              `,
+
+                                pointerEvents: 'none',
+                                zIndex: 1,
+
+                                opacity: 1,
+
+                                transition: 'opacity 0.35s ease',
+                              }}
+                            />
+                          )}
+
+                        {/* SHIMMER */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            className="widget-shimmer-line"
+                            style={{
+                              animationDuration: '7s',
+                              opacity: 0.8,
+                            }}
+                          />
+                        )}
                         <View style={{ flexDirection: 'column', alignItems: 'start', gap: 5, marginBottom: 6, maxWidth: 160 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <Ionicons name="game-controller" size={13} color="rgba(255,255,255,0.8)" />
@@ -1896,6 +2091,45 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 6) && styles.welcomeWidgetCardFocused]}>
+                        {/* DEGRADADO */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+
+                                background: `
+                                linear-gradient(
+                                  45deg,
+                                  rgba(120,220,255,0.14) 0%,
+                                  rgba(120,220,255,0.06) 18%,
+                                  rgba(255,255,255,0.02) 35%,
+                                  rgba(255,255,255,0.00) 58%,
+                                  rgba(0,0,0,0.00) 100%
+                                )
+                              `,
+
+                                pointerEvents: 'none',
+                                zIndex: 1,
+
+                                opacity: 1,
+
+                                transition: 'opacity 0.35s ease',
+                              }}
+                            />
+                          )}
+
+                        {/* SHIMMER */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            className="widget-shimmer-line"
+                            style={{
+                              animationDuration: '7s',
+                              opacity: 0.8,
+                            }}
+                          />
+                        )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
                           <Ionicons name="chatbubble" size={13} style={{ marginBottom: 9 }} color="rgba(255,255,255,0.8)" />
                           <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>Mensajes</Text>
@@ -1922,7 +2156,45 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 7) && styles.welcomeWidgetCardFocused]}>
+                        {/* DEGRADADO */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
 
+                                background: `
+                                linear-gradient(
+                                  45deg,
+                                  rgba(120,220,255,0.14) 0%,
+                                  rgba(120,220,255,0.06) 18%,
+                                  rgba(255,255,255,0.02) 35%,
+                                  rgba(255,255,255,0.00) 58%,
+                                  rgba(0,0,0,0.00) 100%
+                                )
+                              `,
+
+                                pointerEvents: 'none',
+                                zIndex: 1,
+
+                                opacity: 1,
+
+                                transition: 'opacity 0.35s ease',
+                              }}
+                            />
+                          )}
+
+                        {/* SHIMMER */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            className="widget-shimmer-line"
+                            style={{
+                              animationDuration: '7s',
+                              opacity: 0.8,
+                            }}
+                          />
+                        )}
                         {/* Header */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -1985,6 +2257,45 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 8) && styles.welcomeWidgetCardFocused]}>
+                        {/* DEGRADADO */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+
+                                background: `
+                                linear-gradient(
+                                  45deg,
+                                  rgba(120,220,255,0.14) 0%,
+                                  rgba(120,220,255,0.06) 18%,
+                                  rgba(255,255,255,0.02) 35%,
+                                  rgba(255,255,255,0.00) 58%,
+                                  rgba(0,0,0,0.00) 100%
+                                )
+                              `,
+
+                                pointerEvents: 'none',
+                                zIndex: 1,
+
+                                opacity: 1,
+
+                                transition: 'opacity 0.35s ease',
+                              }}
+                            />
+                          )}
+
+                        {/* SHIMMER */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            className="widget-shimmer-line"
+                            style={{
+                              animationDuration: '7s',
+                              opacity: 0.8,
+                            }}
+                          />
+                        )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
                           <Ionicons name="heart" size={13} color="#FF6B6B" />
                           <Text style={styles.widgetTitle}>Lista de deseos</Text>
@@ -2004,6 +2315,45 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 9) && styles.welcomeWidgetCardFocused]}>
+                        {/* DEGRADADO */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+
+                                background: `
+                                linear-gradient(
+                                  45deg,
+                                  rgba(120,220,255,0.14) 0%,
+                                  rgba(120,220,255,0.06) 18%,
+                                  rgba(255,255,255,0.02) 35%,
+                                  rgba(255,255,255,0.00) 58%,
+                                  rgba(0,0,0,0.00) 100%
+                                )
+                              `,
+
+                                pointerEvents: 'none',
+                                zIndex: 1,
+
+                                opacity: 1,
+
+                                transition: 'opacity 0.35s ease',
+                              }}
+                            />
+                          )}
+
+                        {/* SHIMMER */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            className="widget-shimmer-line"
+                            style={{
+                              animationDuration: '7s',
+                              opacity: 0.8,
+                            }}
+                          />
+                        )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <View style={styles.widgetIconWrap}>
                             <Ionicons name="image-outline" size={17} color="#FFF" />
@@ -2671,13 +3021,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0)',
     overflow: 'hidden',
+    position: 'relative',
     justifyContent: 'center',
-    backgroundColor: 'rgba(10, 22, 34, 0.92)',
+    backgroundColor: '#0d1015',
   } as any,
   welcomeWidgetCardFocused: {
     borderColor: 'rgba(255,255,255,0.85)',
-    borderWidth: 1.5,
-    backgroundColor: 'rgba(25, 50, 72, 0.95)',
+    borderWidth: 1.7,
+    //backgroundColor: 'rgba(25, 50, 72, 0.95)',
     transform: [{ scale: 1.02 }],
   } as any,
   widgetTitle: {
