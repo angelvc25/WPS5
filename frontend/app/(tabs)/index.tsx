@@ -186,6 +186,7 @@ export default function ConsoleHome() {
   const gamePanelFocusAnim = useSharedValue(0);
   const lowerSectionFocusAnim = useSharedValue(0);
   const spinRotation = useSharedValue(0);
+  const infoCardsAnim = useSharedValue(1); // 1=visible, 0=hidden
 
   useEffect(() => {
     setShowTrailer(false);
@@ -200,7 +201,7 @@ export default function ConsoleHome() {
 
   useEffect(() => {
     tabFade.value = 0;
-    tabFade.value = withTiming(1, { duration: 300 });
+    tabFade.value = withTiming(1, { duration: 400 });
   }, [activeTab]);
 
   // Spinning border animation — continuous rotation for active card
@@ -223,6 +224,18 @@ export default function ConsoleHome() {
   useEffect(() => {
     lowerSectionFocusAnim.value = withTiming(isLowerSectionFocused ? 1 : 0, { duration: 300 });
   }, [isLowerSectionFocused]);
+
+  useEffect(() => {
+    infoCardsAnim.value = withTiming(isScreenshotRowFocused ? 0 : 1, { duration: 300, easing: Easing.out(Easing.quad) });
+  }, [isScreenshotRowFocused]);
+
+  const infoCardsStyle = useAnimatedStyle(() => ({
+    opacity: infoCardsAnim.value,
+    transform: [{ translateY: interpolate(infoCardsAnim.value, [0, 1], [20, 0]) }],
+    maxHeight: interpolate(infoCardsAnim.value, [0, 1], [0, 200]),
+    overflow: 'hidden',
+    marginBottom: interpolate(infoCardsAnim.value, [0, 1], [0, 0]),
+  }));
 
   const animatedTabContentStyle = useAnimatedStyle(() => ({
     opacity: tabFade.value,
@@ -1113,15 +1126,30 @@ export default function ConsoleHome() {
       : null;
   useEffect(() => {
     if (activeLayer === 'A') {
-      if (currentBg !== bgA) { setBgB(currentBg); setActiveLayer('B'); fade.value = withTiming(1, { duration: 800 }); }
+      if (currentBg !== bgA) {
+        setBgB(currentBg);
+        setActiveLayer('B');
+        fade.value = withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) });
+      }
     } else {
-      if (currentBg !== bgB) { setBgA(currentBg); setActiveLayer('A'); fade.value = withTiming(0, { duration: 800 }); }
+      if (currentBg !== bgB) {
+        setBgA(currentBg);
+        setActiveLayer('A');
+        fade.value = withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.quad) });
+      }
     }
   }, [currentBg]);
 
   useEffect(() => { if (currentBg && !bgA && !bgB) setBgA(currentBg); }, []);
 
-  const animatedStyleB = useAnimatedStyle(() => ({ opacity: fade.value }));
+  const animatedStyleB = useAnimatedStyle(() => ({
+    opacity: fade.value,
+    transform: [{ scale: interpolate(fade.value, [0, 1], [1.04, 1]) }],
+  }));
+
+  const animatedStyleA = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(fade.value, [0, 1], [1, 1.04]) }],
+  }));
 
   // Get the active item info for the bottom panel
   const activeItem = currentData[activeIndex];
@@ -1274,13 +1302,15 @@ export default function ConsoleHome() {
 
         ) : (
           <>
-            {bgA && (
-              <Image
-                source={bgA}
-                style={StyleSheet.absoluteFillObject}
-                contentFit="cover"
-              />
-            )}
+            <Animated.View style={[StyleSheet.absoluteFill, animatedStyleA]}>
+              {bgA && (
+                <Image
+                  source={bgA}
+                  style={StyleSheet.absoluteFillObject}
+                  contentFit="cover"
+                />
+              )}
+            </Animated.View>
 
             <Animated.View style={[StyleSheet.absoluteFill, animatedStyleB]}>
               {bgB && (
@@ -1895,9 +1925,9 @@ export default function ConsoleHome() {
                 </View>
               )}
 
-              {/* Trophies & Friends Cards — se ocultan cuando el row de capturas está enfocado */}
-              {canPlay && !isScreenshotRowFocused && (
-                <Animated.View key={`cards-${activeIndex}`} entering={FadeInDown.duration(400).delay(120)} style={styles.infoCardsRow}>
+              {/* Trophies & Friends Cards — animadas al ocultarse cuando se enfoca capturas */}
+              {canPlay && (
+                <Animated.View key={`cards-${activeIndex}`} entering={FadeInDown.duration(400).delay(120)} style={[styles.infoCardsRow, infoCardsStyle]}>
                   {/* Trophies Card */}
                   <BlurView intensity={28} tint="dark" style={[
                     styles.infoCard,
