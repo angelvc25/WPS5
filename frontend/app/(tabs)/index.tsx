@@ -115,7 +115,7 @@ export default function ConsoleHome() {
   // Steam screenshots & trailers
   const [steamMedia, setSteamMedia] = useState<SteamMediaItem[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
-  const [isScreenshotRowFocused, setScreenshotRowFocused] = useState(false);
+
 
   const scrollRef = useRef<ScrollView>(null);
   const mainScrollRef = useRef<ScrollView>(null);
@@ -189,6 +189,7 @@ export default function ConsoleHome() {
   const welcomeWidgetsFocusAnim = useSharedValue(0);
   const spinRotation = useSharedValue(0);
   const infoCardsAnim = useSharedValue(1); // 1=visible, 0=hidden
+  const deepSectionFocusAnim = useSharedValue(0); // 1=capturas/noticias, 0=trofeos o arriba
 
   useEffect(() => {
     setShowTrailer(false);
@@ -217,7 +218,12 @@ export default function ConsoleHome() {
 
   const isGamePanelFocused = focusArea === 'game_panel';
   const isLowerSectionFocused = isGamePanelFocused && gamePanelFocusIndex >= 2;
+  const isDeepSectionFocused = isGamePanelFocused && gamePanelFocusIndex >= 4;
   const isTopHidden = focusArea === 'game_panel' || focusArea === 'library_grid';
+
+  useEffect(() => {
+    deepSectionFocusAnim.value = withTiming(isDeepSectionFocused ? 1 : 0, { duration: 300 });
+  }, [isDeepSectionFocused]);
 
   useEffect(() => {
     gamePanelFocusAnim.value = withTiming(isTopHidden ? 1 : 0, { duration: 300 });
@@ -230,6 +236,8 @@ export default function ConsoleHome() {
   useEffect(() => {
     welcomeWidgetsFocusAnim.value = withTiming(focusArea === 'welcome_widgets' ? 1 : 0, { duration: 280, easing: Easing.out(Easing.quad) });
   }, [focusArea]);
+
+  const isScreenshotRowFocused = focusArea === 'game_panel' && gamePanelFocusIndex >= 4;
 
   useEffect(() => {
     infoCardsAnim.value = withTiming(isScreenshotRowFocused ? 0 : 1, { duration: 300, easing: Easing.out(Easing.quad) });
@@ -262,12 +270,14 @@ export default function ConsoleHome() {
 
   const spacerStyle = useAnimatedStyle(() => {
     const isWelcome = (activeTab === 'Games' ? games : media)[activeIndex]?.id === '1';
+    const trophyHeight = 320;
+    const deepHeight = interpolate(deepSectionFocusAnim.value, [0, 1], [trophyHeight, 80]);
     const targetMinHeight = interpolate(
       lowerSectionFocusAnim.value,
       [0, 1],
       [
         interpolate(gamePanelFocusAnim.value, [0, 1], [windowHeight - 390, windowHeight * 0.5 + 200]),
-        320
+        deepHeight
       ]
     );
     // When welcome_widgets is focused: shrink spacer to ~0 so title+carousel collapse up
@@ -997,12 +1007,11 @@ export default function ConsoleHome() {
   useEffect(() => {
     const item = currentData[activeIndex];
     const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
-    if (!playable) { setSteamMedia([]); setScreenshotRowFocused(false); return; }
+    if (!playable) { setSteamMedia([]); return; }
     const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
     if (!title || title === 'Último Jugado') { setSteamMedia([]); return; }
     setMediaLoading(true);
     setSteamMedia([]);
-    setScreenshotRowFocused(false);
     let cancelled = false;
     fetchSteamMediaByName(title).then(({ items }) => {
       if (!cancelled) { setSteamMedia(items); setMediaLoading(false); }
