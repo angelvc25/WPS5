@@ -331,12 +331,12 @@ export default function ConsoleHome() {
   // Push widgets down when contracted so they appear centered/lower on screen posicion de los widgets cuando se contrae windowHeight/0.22
   const widgetContainerStyle = useAnimatedStyle(() => ({
     paddingBottom: 80,
-    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.10]),
+    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.05]),
   }));
 
   const widgetContainerStyle2 = useAnimatedStyle(() => ({
     paddingBottom: 0,
-    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.50]),
+    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.40]),
   }));
 
   useEffect(() => {
@@ -1785,7 +1785,7 @@ export default function ConsoleHome() {
                     setFocusIndex(0);
                   }}
                 >
-                  <View style={[styles.welcomeWidgetCard, { maxWidth: 347 }, (focusArea === 'welcome_widgets' && focusIndex === 10) && styles.welcomeWidgetCardFocused]}>
+                  <View style={[styles.welcomeWidgetCard, { maxWidth: 347 }, { bottom: 70 }, (focusArea === 'welcome_widgets' && focusIndex === 10) && styles.welcomeWidgetCardFocused]}>
                     {/* DEGRADADO */}
                     {Platform.OS === 'web' && (
                       <div
