@@ -918,7 +918,7 @@ export default function ConsoleHome() {
           soundService.playActivation();
           if (focusArea === 'library_grid') {
             const game = savedGames[libraryGridFocusIndex];
-            if (game) { handleLaunchApp(game); }
+            if (game) { setSelectedItem(game); setDetailVisible(true); }
             return;
           }
           if (focusArea === 'game_panel') {
@@ -1663,7 +1663,7 @@ export default function ConsoleHome() {
             games={savedGames}
             isFocused={focusArea === 'library_grid'}
             focusedIndex={libraryGridFocusIndex}
-            onItemPress={(index, game) => handleLaunchApp(game)}
+            onItemPress={(index, game) => { setSelectedItem(game); setDetailVisible(true); }}
           />
         )}
 

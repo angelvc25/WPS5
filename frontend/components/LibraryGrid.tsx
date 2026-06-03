@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
@@ -6,12 +6,17 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useEffect } from 'react';
+import GameDetailView from './GameDetailView';
 
 interface LibraryGridProps {
   games: ConsoleItem[];
   isFocused?: boolean;
   focusedIndex?: number;
   onItemPress?: (index: number, game: ConsoleItem) => void;
+  onLaunch?: (id: string, path: string) => void;
+  onRefresh?: () => void;
+  isLaunching?: boolean;
+  inputMode?: 'keyboard' | 'gamepad';
 }
 
 const COLUMNS = 5;
@@ -117,8 +122,14 @@ const SpinningBorder = ({ id }: { id: string }) => {
   );
 };
 
-export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0, onItemPress }: LibraryGridProps) {
+export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0, onItemPress, onLaunch, onRefresh, isLaunching = false, inputMode = 'keyboard' }: LibraryGridProps) {
   const { height: windowHeight } = useWindowDimensions();
+  const [selectedGame, setSelectedGame] = useState<ConsoleItem | null>(null);
+
+  const handleItemPress = (index: number, game: ConsoleItem) => {
+    setSelectedGame(game);
+    onItemPress?.(index, game);
+  };
 
   if (!games || games.length === 0) {
     return (
@@ -189,7 +200,7 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
                 <TouchableOpacity
                   key={game.id ?? index}
                   activeOpacity={0.8}
-                  onPress={() => onItemPress?.(index, game)}
+                  onPress={() => handleItemPress(index, game)}
                   style={[
                     styles.gameCardWrapper,
                     isItemFocused && styles.gameCardWrapperFocused,
@@ -227,6 +238,17 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
           </View>
         </Animated.View>
       </View>
+
+      {/* Game Detail View — abre al pulsar un juego en lugar de lanzarlo directamente */}
+      <GameDetailView
+        isVisible={selectedGame !== null}
+        item={selectedGame}
+        onClose={() => setSelectedGame(null)}
+        onLaunch={onLaunch}
+        onRefresh={onRefresh}
+        isLaunching={isLaunching}
+        inputMode={inputMode}
+      />
     </Animated.View>
   );
 }
