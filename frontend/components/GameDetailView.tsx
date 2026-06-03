@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Platform, TextInput, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Platform, TextInput, ScrollView, useWindowDimensions, Linking } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import YoutubePlayer from './YoutubePlayer';
 import ControlPrompt from './ControlPrompt';
 import { useUser } from '../contexts/UserContext';
+import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
+import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 
 interface GameDetailViewProps {
   isVisible: boolean;
@@ -21,17 +24,85 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
   const [isSyncing, setIsSyncing] = useState(false);
-  const [focusIndex, setFocusIndex] = useState(0); // 0: Inicio, 1: Editar, 2: Favorito
+  const [focusIndex, setFocusIndex] = useState(0); // 0:Jugar, 1:···, 2:Trofeos, 3:Amigos
   const [editModalFocusIndex, setEditModalFocusIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'basic' | 'path' | 'art'>('basic');
   const { activeUser } = useUser();
 
   const { width } = useWindowDimensions();
-  const isSmallScreen = width < 1100; // Handheld PC threshold
+  const isSmallScreen = width < 1100;
+
+  // focusIndex >= 2 → ocultar logo+botones (topPanel)
+  // focusIndex >= 4 → ocultar cards trofeos/amigos
+  const topPanelAnim = useSharedValue(1);   // 1=visible, 0=oculto
+  const infoCardsAnim = useSharedValue(1);  // 1=visible, 0=oculto
+
+  useEffect(() => {
+    topPanelAnim.value = withTiming(focusIndex >= 2 ? 0 : 1, { duration: 300 });
+  }, [focusIndex]);
+
+  useEffect(() => {
+    infoCardsAnim.value = withTiming(focusIndex >= 100 ? 0 : 1, { duration: 300 });
+  }, [focusIndex]);
+
+  // Auto-scroll horizontal rows when focus moves
+  useEffect(() => {
+    if (focusIndex >= 100 && focusIndex < 200) {
+      const idx = focusIndex - 100;
+      mediaScrollRef.current?.scrollTo({ x: idx * 516, animated: true });
+    } else if (focusIndex >= 200) {
+      const idx = focusIndex - 200;
+      newsScrollRef.current?.scrollTo({ x: idx * 336, animated: true });
+    }
+  }, [focusIndex]);
+
+  const topPanelStyle = useAnimatedStyle(() => ({
+    opacity: topPanelAnim.value,
+    transform: [{ translateY: interpolate(topPanelAnim.value, [0, 1], [-20, 0]) }],
+    maxHeight: interpolate(topPanelAnim.value, [0, 1], [0, 500]),
+    overflow: topPanelAnim.value < 0.99 ? 'hidden' : 'visible',
+  }));
+
+  const infoCardsStyle = useAnimatedStyle(() => ({
+    opacity: infoCardsAnim.value,
+    transform: [{ translateY: interpolate(infoCardsAnim.value, [0, 1], [20, 0]) }],
+    maxHeight: interpolate(infoCardsAnim.value, [0, 1], [0, 200]),
+    overflow: 'hidden',
+  }));
 
   const editTitleRef = React.useRef<TextInput>(null);
   const editDescRef = React.useRef<TextInput>(null);
   const editPathInputRef = React.useRef<TextInput>(null);
+
+  // Steam data
+  const [steamNews, setSteamNews] = useState<SteamNewsItem[]>([]);
+  const [steamMedia, setSteamMedia] = useState<SteamMediaItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const mediaScrollRef = React.useRef<ScrollView>(null);
+  const newsScrollRef = React.useRef<ScrollView>(null);
+
+  // Fetch steam data when item changes
+  useEffect(() => {
+    if (!item || !isVisible) return;
+    const title = item.title;
+    if (!title) return;
+    let cancelled = false;
+
+    setSteamMedia([]);
+    setMediaLoading(true);
+    fetchSteamMediaByName(title).then(({ items }) => {
+      if (!cancelled) { setSteamMedia(items); setMediaLoading(false); }
+    });
+
+    setSteamNews([]);
+    setNewsLoading(true);
+    fetchSteamNewsByName(title).then(news => {
+      if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
+    });
+
+    return () => { cancelled = true; };
+  }, [item?.id, isVisible]);
 
 
   useEffect(() => {
@@ -81,91 +152,91 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
         if (isEditModalVisible) {
           const isGame = (editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web';
-          
+
           if (e.key === 'ArrowDown') {
             if (editModalFocusIndex === 20) setEditModalFocusIndex(21);
             else if (editModalFocusIndex === 21) setEditModalFocusIndex(22);
-            else if (editModalFocusIndex === 22) {} // Tab end
-            
+            else if (editModalFocusIndex === 22) { } // Tab end
+
             // Tab 1: basic
             else if (editModalFocusIndex === 2) setEditModalFocusIndex(isGame ? 3 : 10);
             else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(10);
             else if (editModalFocusIndex === 10) setEditModalFocusIndex(16); // to Cancel
-            
+
             // Tab 2: path
             else if (editModalFocusIndex === 18) setEditModalFocusIndex(16); // to Cancel
-            
+
             // Tab 3: art
             else if (editModalFocusIndex === 0) setEditModalFocusIndex(11);
             else if (editModalFocusIndex === 11) setEditModalFocusIndex(13);
             else if (editModalFocusIndex === 12) setEditModalFocusIndex(14);
             else if (editModalFocusIndex === 13) setEditModalFocusIndex(16); // to Cancel
             else if (editModalFocusIndex === 14) setEditModalFocusIndex(17); // to Save
-            
+
             // Actions
-            else if (editModalFocusIndex >= 15 && editModalFocusIndex <= 17) {}
-          } 
-          
+            else if (editModalFocusIndex >= 15 && editModalFocusIndex <= 17) { }
+          }
+
           else if (e.key === 'ArrowUp') {
             if (editModalFocusIndex === 22) setEditModalFocusIndex(21);
             else if (editModalFocusIndex === 21) setEditModalFocusIndex(20);
-            else if (editModalFocusIndex === 20) {} // Tab start
-            
+            else if (editModalFocusIndex === 20) { } // Tab start
+
             // Tab 1: basic
             else if (editModalFocusIndex === 2) setEditModalFocusIndex(20); // Back to sidebar basic tab
             else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(2);
             else if (editModalFocusIndex === 10) setEditModalFocusIndex(isGame ? 3 : 2);
-            
+
             // Tab 2: path
             else if (editModalFocusIndex === 18) setEditModalFocusIndex(21); // Back to sidebar path tab
-            
+
             // Tab 3: art
             else if (editModalFocusIndex === 0) setEditModalFocusIndex(22); // Back to sidebar art tab
             else if (editModalFocusIndex === 11) setEditModalFocusIndex(0);
             else if (editModalFocusIndex === 12) setEditModalFocusIndex(0);
             else if (editModalFocusIndex === 13) setEditModalFocusIndex(11);
             else if (editModalFocusIndex === 14) setEditModalFocusIndex(12);
-            
+
             // Actions
             else if (editModalFocusIndex >= 15 && editModalFocusIndex <= 17) {
               if (activeTab === 'basic') setEditModalFocusIndex(10);
               else if (activeTab === 'path') setEditModalFocusIndex(18);
               else if (activeTab === 'art') setEditModalFocusIndex(editModalFocusIndex === 17 ? 14 : 13);
             }
-          } 
-          
+          }
+
           else if (e.key === 'ArrowRight') {
             // From tabs to content area
             if (editModalFocusIndex === 20) setEditModalFocusIndex(2); // Basic -> Title
             else if (editModalFocusIndex === 21) setEditModalFocusIndex(18); // Path -> Path selection
             else if (editModalFocusIndex === 22) setEditModalFocusIndex(0); // Art -> Sync
-            
+
             // Within content elements
             else if (editModalFocusIndex >= 3 && editModalFocusIndex < 9) setEditModalFocusIndex(prev => prev + 1);
             else if (editModalFocusIndex === 11) setEditModalFocusIndex(12);
             else if (editModalFocusIndex === 13) setEditModalFocusIndex(14);
-            
+
             // Actions
             else if (editModalFocusIndex >= 15 && editModalFocusIndex < 17) setEditModalFocusIndex(prev => prev + 1);
-          } 
-          
+          }
+
           else if (e.key === 'ArrowLeft') {
             // From content area to tabs sidebar
             if (editModalFocusIndex === 2) setEditModalFocusIndex(20);
             else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(20);
             else if (editModalFocusIndex === 10) setEditModalFocusIndex(20);
-            
+
             else if (editModalFocusIndex === 18) setEditModalFocusIndex(21);
-            
+
             else if (editModalFocusIndex === 0) setEditModalFocusIndex(22);
             else if (editModalFocusIndex === 11 || editModalFocusIndex === 13) setEditModalFocusIndex(22);
             else if (editModalFocusIndex === 12) setEditModalFocusIndex(11);
             else if (editModalFocusIndex === 14) setEditModalFocusIndex(13);
-            
+
             // Actions
             else if (editModalFocusIndex > 15 && editModalFocusIndex <= 17) setEditModalFocusIndex(prev => prev - 1);
-          } 
-          
+          }
+
           else if (e.key === 'Enter') {
             if (editModalFocusIndex === 20) setActiveTab('basic');
             else if (editModalFocusIndex === 21) setActiveTab('path');
@@ -177,8 +248,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               else handleSelectPath();
             }
             else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) {
-               const platforms = ['PC', 'PS5', 'Xbox', 'Switch', 'Steam', 'EA', 'Epic'];
-               setEditData({ ...editData, platform: platforms[editModalFocusIndex - 3] });
+              const platforms = ['PC', 'PS5', 'Xbox', 'Switch', 'Steam', 'EA', 'Epic'];
+              setEditData({ ...editData, platform: platforms[editModalFocusIndex - 3] });
             }
             else if (editModalFocusIndex === 10) editDescRef.current?.focus();
             else if (editModalFocusIndex === 11) handleSelectImage('image');
@@ -188,8 +259,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 15) handleDeleteApp();
             else if (editModalFocusIndex === 16) setEditModalVisible(false);
             else if (editModalFocusIndex === 17) handleSaveEdit();
-          } 
-          
+          }
+
           else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
             setEditModalVisible(false);
           }
@@ -197,20 +268,46 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         }
 
         if (e.key === 'ArrowRight') {
-          setFocusIndex((prev) => Math.min(prev + 1, 2));
+          if (focusIndex === 0) setFocusIndex(1);
+          else if (focusIndex === 2) setFocusIndex(3);
+          // En row de capturas: avanzar item
+          else if (focusIndex >= 100 && focusIndex < 100 + steamMedia.length - 1) setFocusIndex(prev => prev + 1);
+          // En row de noticias: avanzar item
+          else if (focusIndex >= 200 && focusIndex < 200 + steamNews.length - 1) setFocusIndex(prev => prev + 1);
         } else if (e.key === 'ArrowLeft') {
-          setFocusIndex((prev) => Math.max(prev - 1, 0));
+          if (focusIndex === 1) setFocusIndex(0);
+          else if (focusIndex === 3) setFocusIndex(2);
+          // En row de capturas: retroceder item (mínimo 100)
+          else if (focusIndex > 100) setFocusIndex(prev => prev - 1);
+          else if (focusIndex === 100) { } // ya en el primero
+          // En row de noticias: retroceder item (mínimo 200)
+          else if (focusIndex > 200) setFocusIndex(prev => prev - 1);
+          else if (focusIndex === 200) { } // ya en el primero
+        } else if (e.key === 'ArrowDown') {
+          if (focusIndex <= 1) setFocusIndex(2);                          // botones → trofeos
+          else if (focusIndex <= 3) setFocusIndex(steamMedia.length > 0 ? 100 : 200); // cards → capturas
+          else if (focusIndex >= 100 && focusIndex < 200) setFocusIndex(steamNews.length > 0 ? 200 : 100); // capturas → noticias
+          // noticias: no hay más abajo
+        } else if (e.key === 'ArrowUp') {
+          if (focusIndex >= 200) setFocusIndex(steamMedia.length > 0 ? 100 : 2); // noticias → capturas
+          else if (focusIndex >= 100) setFocusIndex(2);                   // capturas → trofeos
+          else if (focusIndex >= 2) setFocusIndex(0);                     // trofeos → botones
+          // 0/1: no hace nada, no sale
         } else if (e.key === 'Enter') {
           if (focusIndex === 0) {
-            // Launch app
             if (item?.path) {
               if (onLaunch) onLaunch(item.id, item.path);
               else if ((window as any).electronAPI) (window as any).electronAPI.launchApp(item.id, item.path);
             }
           } else if (focusIndex === 1) {
             setEditModalVisible(true);
-          } else if (focusIndex === 2) {
-            handleToggleFavorite();
+          } else if (focusIndex >= 100 && focusIndex < 200) {
+            const media = steamMedia[focusIndex - 100];
+            if (media?.type === 'movie' && media.mp4_url) Linking.openURL(media.mp4_url);
+            else if (media?.full) Linking.openURL(media.full);
+          } else if (focusIndex >= 200) {
+            const news = steamNews[focusIndex - 200];
+            if (news?.url) Linking.openURL(news.url);
           }
         } else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
           onClose();
@@ -219,7 +316,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isVisible, isEditModalVisible, focusIndex, editModalFocusIndex, item, onLaunch, onClose, editData]);
+  }, [isVisible, isEditModalVisible, focusIndex, editModalFocusIndex, item, onLaunch, onClose, editData, steamMedia, steamNews]);
 
   if (!item) return null;
 
@@ -350,188 +447,226 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   return (
     <Modal visible={isVisible} transparent={false} animationType="fade" onRequestClose={onClose}>
       <View style={styles.detailContainer}>
+
         {/* FULLSCREEN BACKGROUND */}
         {(editData.backgroundImage || item.backgroundImage) ? (
-          <Image 
-            source={editData.backgroundImage ? (editData.backgroundImage.startsWith('http') ? { uri: editData.backgroundImage } : { uri: `local-file:///${editData.backgroundImage}` }) : item.backgroundImage} 
-            style={styles.detailBg} 
+          <Image
+            source={editData.backgroundImage ? (editData.backgroundImage.startsWith('http') ? { uri: editData.backgroundImage } : { uri: `local-file:///${editData.backgroundImage}` }) : item.backgroundImage}
+            style={styles.detailBg}
           />
-        ) : (
-          (editData.image || item.image) && (
-            <Image 
-              source={editData.image ? (editData.image.startsWith('http') ? { uri: editData.image } : { uri: `local-file:///${editData.image}` }) : item.image} 
-              style={styles.detailBg} 
-            />
-          )
+        ) : (editData.image || item.image) ? (
+          <Image
+            source={editData.image ? (editData.image.startsWith('http') ? { uri: editData.image } : { uri: `local-file:///${editData.image}` }) : item.image}
+            style={styles.detailBg}
+          />
+        ) : null}
+
+        {/* BOTTOM GRADIENT */}
+        {Platform.OS === 'web' && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 1,
+            background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.0) 65%)',
+            pointerEvents: 'none',
+          } as any} />
         )}
 
-        <View style={styles.detailOverlay}>
-          {/* NAVIGATION BUTTONS */}
-          <TouchableOpacity 
-            style={styles.detailBack} 
-            onPress={onClose}
-            accessible={false}
-          >
-            <ControlPrompt btn="Back" label="" inputMode={inputMode} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.favoriteButton, 
-              item.isFavorite && styles.favoriteButtonActive,
-              focusIndex === 2 && styles.buttonFocused,
-              isSmallScreen && { right: '43%' }
-            ]}
-            onPress={() => {
-              setFocusIndex(2);
-              handleToggleFavorite();
-            }}
-          >
-            <Ionicons name={item.isFavorite ? "heart" : "heart-outline"} size={26} color={item.isFavorite ? "#FF2D55" : "#FFF"} />
-          </TouchableOpacity>
-
-          <View style={styles.detailContent}>
-            {!isSmallScreen && (
-              <View style={styles.detailLeft}>
-                {(editData.logo || item.logo) ? (
-                  <Image 
-                    source={editData.logo ? (editData.logo.startsWith('http') ? { uri: editData.logo } : { uri: `local-file:///${editData.logo}` }) : item.logo} 
-                    style={styles.detailLogo} 
-                  />
-                ) : (
-                  (editData.image || item.image) && (
-                    <Image 
-                      source={editData.image ? (editData.image.startsWith('http') ? { uri: editData.image } : { uri: `local-file:///${editData.image}` }) : item.image} 
-                      style={styles.detailCover} 
-                    />
-                  )
-                )}
-              </View>
-            )}
-
-            {/* RIGHT: BLURRED INFO PANEL */}
-            <View style={styles.detailRight}>
-              <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-              
-              <View style={styles.infoPanel}>
-                {(editData.logo || item.logo) ? (
-  <Image 
-    source={editData.logo ? (editData.logo.startsWith('http') ? { uri: editData.logo } : { uri: `local-file:///${editData.logo}` }) : item.logo} 
-    style={[styles.detailLogo, { width: '100%', height: 120, marginBottom: 20 }]} 
-  />
-) : (
-  <Text style={styles.detailTitle} numberOfLines={2}>{item.title}</Text>
-)}
-
-{(item.platform) && (() => {
-  const platformIcons: Record<string, string> = {
-    'PC': 'microsoft-windows',
-    'PS5': 'sony-playstation',
-    'Xbox': 'microsoft-xbox',
-    'Switch': 'nintendo-switch',
-    'Steam': 'steam',
-    'EA': 'alpha-e-box',
-    'Epic': 'alpha-e-circle',
-  };
-  const iconName = item.platform ? platformIcons[item.platform] : undefined;
-  return (
-    <View style={styles.platformBadge}>
-      {iconName && <MaterialCommunityIcons name={iconName as any} size={14} color="#00FFFF" style={{ marginRight: 6 }} />}
-      <Text style={styles.platformText}>{item.platform}</Text>
-    </View>
-  );
-})()}
-                
-                <View style={styles.ratingContainer}>
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Ionicons 
-                      key={s} 
-                      name={s <= (item.rating ?? 5) ? "star" : "star-outline"} 
-                      size={18} 
-                      color="#FFD700" 
-                      style={{ marginRight: 4 }}
-                    />
-                  ))}
-                  <Text style={styles.ratingText}>{item.rating?.toFixed(1) ?? '5.0'}</Text>
-                </View>
-
-                <View style={styles.detailActions}>
-                  <TouchableOpacity
-                    style={[
-                      styles.playButton, 
-                      focusIndex === 0 && styles.buttonFocused
-                    ]}
-                    onPress={() => {
-                      setFocusIndex(0);
-                      if (item.path) {
-                        if (onLaunch) {
-                          onLaunch(item.id, item.path);
-                        } else if (Platform.OS === 'web' && (window as any).electronAPI) {
-                          (window as any).electronAPI.launchApp(item.id, item.path);
-                        }
-                      }
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Ionicons name="play" size={24} color="#FFF" />
-                      <Text style={[styles.playButtonText, { marginLeft: 10 }]}>JUGAR</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.optionsButton, 
-                      focusIndex === 1 && styles.buttonFocused
-                    ]}
-                    onPress={() => {
-                      setFocusIndex(1);
-                      setEditModalVisible(true);
-                    }}
-                  >
-                    <Ionicons name="ellipsis-vertical" size={24} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView 
-                  style={styles.detailScrollView} 
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingBottom: 40 }}
-                >
-                  <Text style={styles.detailDescription}>
-                    {item.description ?? 'Disfruta de esta increíble experiencia de juego en tu WConsole.'}
-                  </Text>
-
-                  <View style={styles.mediaContainer}>
-                    {item.youtubeId ? (
-                      <YoutubePlayer
-                        height={200}
-                        play={isVisible}
-                        videoId={item.youtubeId}
-                      />
-                    ) : item.video ? (
-                      <View style={styles.videoWrapper}>
-                        <video
-                          key={item.video.uri}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
-                          preload="auto"
-                        >
-                          <source src={item.video.uri} />
-                        </video>
-                      </View>
-                    ) : (
-                      item.image && <Image source={item.image} style={styles.detailScreenshot} />
-                    )}
-                  </View>
-                </ScrollView>
-              </View>
-            </View>
-          </View>
+        {/* TOP LEFT: game cover + title (replaces back/escape button) */}
+        <View style={styles.topHeader}>
+          {(item.image) && (
+            <Image
+              source={item.image}
+              style={styles.topHeaderImage}
+              resizeMode="cover"
+            />
+          )}
+          <Text style={styles.topHeaderTitle} numberOfLines={1}>{item.title}</Text>
         </View>
 
+        {/* BOTTOM INFO PANEL — scrollable */}
+        <ScrollView
+          style={styles.ps5BottomPanel}
+          contentContainerStyle={{ paddingTop: 60, paddingBottom: 80 }}
+          showsVerticalScrollIndicator={false}
+        >
+
+          {/* Logo/título + botones — se ocultan al bajar a trofeos */}
+          <Animated.View style={topPanelStyle}>
+            {(editData.logo || item.logo) ? (
+              <Image
+                source={editData.logo ? (editData.logo.startsWith('http') ? { uri: editData.logo } : { uri: `local-file:///${editData.logo}` }) : item.logo}
+                style={styles.ps5Logo}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text style={styles.ps5Title} numberOfLines={2}>{item.title}</Text>
+            )}
+
+            <View style={styles.ps5ActionButtons}>
+              <TouchableOpacity
+                style={[styles.ps5PlayBtn, focusIndex === 0 && styles.ps5PlayBtnFocused]}
+                activeOpacity={0.85}
+                onPress={() => {
+                  setFocusIndex(0);
+                  if (item.path) {
+                    if (onLaunch) onLaunch(item.id, item.path);
+                    else if (Platform.OS === 'web' && (window as any).electronAPI)
+                      (window as any).electronAPI.launchApp(item.id, item.path);
+                  }
+                }}
+              >
+                <Text style={[styles.ps5PlayBtnText, focusIndex === 0 && styles.ps5PlayBtnTextFocused]}>Jugar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.ps5MoreBtn, focusIndex === 1 && styles.ps5MoreBtnFocused]}
+                activeOpacity={0.8}
+                onPress={() => { setFocusIndex(1); setEditModalVisible(true); }}
+              >
+                <Text style={[styles.ps5MoreBtnText, focusIndex === 1 && styles.ps5MoreBtnTextFocused]}>···</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+
+          {/* INFO CARDS: Trofeos + Amigos — se ocultan al bajar a capturas */}
+          <Animated.View style={[styles.infoCardsRow, infoCardsStyle]}>
+            {/* Trofeos */}
+            <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 2 && styles.infoCardFocused]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
+                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
+                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
+                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
+                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
+                </View>
+              </View>
+              <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
+              <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
+            </BlurView>
+
+            {/* Amigos */}
+            <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 3 && styles.infoCardFocused]}>
+              <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                {[1, 2, 3, 4, 5].map((_, i) => (
+                  <View key={i} style={{
+                    width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
+                    borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
+                    alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <Ionicons name="person" size={16} color="#AAA" />
+                  </View>
+                ))}
+              </View>
+              <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
+              <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
+            </BlurView>
+          </Animated.View>
+
+          {/* CAPTURAS Y TRAILERS */}
+          <View style={[styles.newsSectionWrapper]}>
+            <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Capturas y trailers</Text>
+            {mediaLoading ? (
+              <View style={styles.newsLoadingRow}>
+                <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
+              </View>
+            ) : steamMedia.length === 0 ? (
+              <View style={styles.newsLoadingRow}>
+                <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
+                <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
+              </View>
+            ) : (
+              <ScrollView
+                ref={mediaScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[styles.newsScrollContent, { paddingRight: 50 }]}
+              >
+                {steamMedia.map((media, idx) => {
+                  const isMediaFocused = focusIndex === 100 + idx;
+                  return (
+                    <TouchableOpacity
+                      key={media.id}
+                      style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        if (media.type === 'movie' && media.mp4_url) Linking.openURL(media.mp4_url);
+                        else if (media.full) Linking.openURL(media.full);
+                      }}
+                    >
+                      <View style={styles.newsCardThumbnail}>
+                        <Image source={{ uri: media.thumbnail }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        {media.type === 'movie' && (
+                          <View style={styles.mediaPlayBadge}>
+                            <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+
+          {/* ÚLTIMAS NOTICIAS */}
+          <View style={[styles.newsSectionWrapper]}>
+            <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Últimas noticias</Text>
+            {newsLoading ? (
+              <View style={styles.newsLoadingRow}>
+                <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
+              </View>
+            ) : steamNews.length === 0 ? (
+              <View style={styles.newsLoadingRow}>
+                <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
+                <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
+              </View>
+            ) : (
+              <ScrollView
+                ref={newsScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[styles.newsScrollContent, { paddingRight: 50 }]}
+              >
+                {steamNews.slice(0, 8).map((news, idx) => {
+                  const isNewsFocused = focusIndex === 200 + idx;
+                  return (
+                    <TouchableOpacity
+                      key={news.gid}
+                      style={[styles.newsCard2, isNewsFocused && styles.newsCardFocused]}
+                      activeOpacity={0.8}
+                      onPress={() => { if (news.url) Linking.openURL(news.url); }}
+                    >
+                      <View style={styles.newsCardThumbnail}>
+                        {news.image_url ? (
+                          <Image source={{ uri: news.image_url }} style={{ width: '100%', height: '120%' }} resizeMode="cover" />
+                        ) : (
+                          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
+                            <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.newsCardContent}>
+                        <Text style={styles.newsCardTitle} numberOfLines={1}>{news.title}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+
+        </ScrollView>
 
         {isLaunching && (
           <BlurView intensity={90} tint="dark" style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
@@ -551,7 +686,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               {/* SIDEBAR TABS */}
               <View style={styles.sidebar}>
                 <Text style={styles.sidebarTitle}>Ajustes</Text>
-                
+
                 {[
                   { id: 'basic', label: 'Datos Básicos', icon: 'information-circle-outline', index: 20 },
                   { id: 'path', label: 'Ruta del Juego', icon: 'folder-open-outline', index: 21 },
@@ -559,7 +694,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 ].map((tab) => {
                   const isTabActive = activeTab === tab.id;
                   const isTabFocused = editModalFocusIndex === tab.index;
-                  
+
                   return (
                     <TouchableOpacity
                       key={tab.id}
@@ -573,14 +708,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         setActiveTab(tab.id as any);
                       }}
                     >
-                      <Ionicons 
-                        name={tab.icon as any} 
-                        size={20} 
-                        color={isTabActive ? '#00FFFF' : '#8E8E93'} 
+                      <Ionicons
+                        name={tab.icon as any}
+                        size={20}
+                        color={isTabActive ? '#00FFFF' : '#8E8E93'}
                         style={{ marginRight: 10 }}
                       />
                       <Text style={[
-                        styles.tabButtonText, 
+                        styles.tabButtonText,
                         isTabActive && styles.tabButtonTextActive
                       ]}>
                         {tab.label}
@@ -619,8 +754,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                   { id: 'EA', icon: 'alpha-e-box' },
                                   { id: 'Epic', icon: 'alpha-e-circle' }
                                 ].map((plat, idx) => {
-                                   const focusIdx = 3 + idx;
-                                   return (
+                                  const focusIdx = 3 + idx;
+                                  return (
                                     <TouchableOpacity
                                       key={plat.id}
                                       style={[
@@ -633,7 +768,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                       <MaterialCommunityIcons name={plat.icon as any} size={20} color={editData.platform === plat.id ? '#000' : '#FFF'} />
                                       <Text style={[styles.platformBtnText, editData.platform === plat.id && styles.platformBtnTextActive]}>{plat.id}</Text>
                                     </TouchableOpacity>
-                                   );
+                                  );
                                 })}
                               </ScrollView>
                             </View>
@@ -691,8 +826,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       <ScrollView showsVerticalScrollIndicator={false}>
                         <Text style={styles.label}>Sincronización Inteligente</Text>
                         <View style={styles.syncRow}>
-                          <TouchableOpacity 
-                            style={[styles.syncBtnUnified, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.buttonFocused]} 
+                          <TouchableOpacity
+                            style={[styles.syncBtnUnified, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.buttonFocused]}
                             onPress={handleUnifiedSync}
                             disabled={isSyncing}
                           >
@@ -703,8 +838,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                         <Text style={styles.label}>Archivos Locales</Text>
                         <View style={styles.artGrid}>
-                          <TouchableOpacity 
-                            style={[styles.artFileBtn, editModalFocusIndex === 11 && styles.buttonFocused]} 
+                          <TouchableOpacity
+                            style={[styles.artFileBtn, editModalFocusIndex === 11 && styles.buttonFocused]}
                             onPress={() => handleSelectImage('image')}
                           >
                             <Ionicons name="image" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
@@ -712,8 +847,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             <Text style={styles.artFileBtnSub}>Imagen vertical</Text>
                           </TouchableOpacity>
 
-                          <TouchableOpacity 
-                            style={[styles.artFileBtn, editModalFocusIndex === 12 && styles.buttonFocused]} 
+                          <TouchableOpacity
+                            style={[styles.artFileBtn, editModalFocusIndex === 12 && styles.buttonFocused]}
                             onPress={() => handleSelectImage('logo')}
                           >
                             <Ionicons name="color-palette" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
@@ -721,8 +856,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             <Text style={styles.artFileBtnSub}>Transparente</Text>
                           </TouchableOpacity>
 
-                          <TouchableOpacity 
-                            style={[styles.artFileBtn, editModalFocusIndex === 13 && styles.buttonFocused]} 
+                          <TouchableOpacity
+                            style={[styles.artFileBtn, editModalFocusIndex === 13 && styles.buttonFocused]}
                             onPress={() => handleSelectImage('backgroundImage')}
                           >
                             <Ionicons name="images" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
@@ -730,8 +865,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             <Text style={styles.artFileBtnSub}>Horizontal</Text>
                           </TouchableOpacity>
 
-                          <TouchableOpacity 
-                            style={[styles.artFileBtn, editModalFocusIndex === 14 && styles.buttonFocused]} 
+                          <TouchableOpacity
+                            style={[styles.artFileBtn, editModalFocusIndex === 14 && styles.buttonFocused]}
                             onPress={handleSelectVideo}
                           >
                             <Ionicons name="videocam" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
@@ -747,22 +882,22 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 {/* MODAL ACTIONS FOOTER */}
                 <View style={styles.modalDivider} />
                 <View style={styles.modalActions}>
-                  <TouchableOpacity 
-                    style={[styles.deleteBtn, editModalFocusIndex === 15 && styles.buttonFocused]} 
+                  <TouchableOpacity
+                    style={[styles.deleteBtn, editModalFocusIndex === 15 && styles.buttonFocused]}
                     onPress={handleDeleteApp}
                   >
                     <Ionicons name="trash-outline" size={20} color="#FF2D55" />
                   </TouchableOpacity>
-                  
+
                   <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end' }}>
-                    <TouchableOpacity 
-                      style={[styles.cancelBtn, editModalFocusIndex === 16 && styles.buttonFocused]} 
+                    <TouchableOpacity
+                      style={[styles.cancelBtn, editModalFocusIndex === 16 && styles.buttonFocused]}
                       onPress={() => setEditModalVisible(false)}
                     >
                       <Text style={styles.cancelBtnText}>Cancelar</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.saveBtn, editModalFocusIndex === 17 && styles.buttonFocused]} 
+                    <TouchableOpacity
+                      style={[styles.saveBtn, editModalFocusIndex === 17 && styles.buttonFocused]}
                       onPress={handleSaveEdit}
                     >
                       <Text style={styles.saveBtnText}>Guardar</Text>
@@ -779,82 +914,269 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 };
 
 const styles = StyleSheet.create({
-  detailContainer: { 
-    flex: 1, 
-    backgroundColor: '#000' 
+  detailContainer: {
+    flex: 1,
+    backgroundColor: '#000'
   },
-  detailBg: { 
-    position: 'absolute', 
-    width: '100%', 
-    height: '100%', 
+  detailBg: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
     resizeMode: 'cover',
-    opacity: 0.6 
+    opacity: 0.6
   },
-  detailOverlay: { 
-    flex: 1, 
-    flexDirection: 'row' 
+  detailOverlay: {
+    flex: 1,
+    flexDirection: 'row'
   },
-  detailBack: { 
-    position: 'absolute', 
-    top: 40, 
-    left: 40, 
-    zIndex: 30, 
-    width: 50, 
-    height: 50, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    backgroundColor: 'rgba(255,255,255,0.1)', 
+
+  // === PS5-STYLE BOTTOM PANEL ===
+  ps5BottomPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 150,
+    right: 0,
+    top: '45%',
+    zIndex: 10,
+  },
+  ps5Logo: {
+    width: 450,
+    height: 160,
+    marginBottom: 28,
+  },
+  ps5Title: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    fontWeight: '300',
+    marginBottom: 28,
+    letterSpacing: 0.3,
+  },
+  ps5ActionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  ps5PlayBtn: {
+    backgroundColor: '#9999991c',
+    paddingHorizontal: 52,
+    paddingVertical: 14,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 280,
+  },
+  ps5PlayBtnFocused: {
+    backgroundColor: '#FFFFFF',
+    outlineStyle: 'solid',
+    outlineWidth: 2,
+    outlineColor: '#FFFFFF',
+    outlineOffset: 1,
+  } as any,
+  ps5PlayBtnText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  ps5PlayBtnTextFocused: {
+    color: '#111111',
+  },
+  ps5MoreBtn: {
+    backgroundColor: '#9999991c',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ps5MoreBtnFocused: {
+    backgroundColor: '#FFFFFF',
+    outlineStyle: 'solid',
+    outlineWidth: 2,
+    outlineColor: '#FFFFFF',
+    outlineOffset: 1,
+  } as any,
+  ps5MoreBtnText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginTop: -4,
+  },
+  ps5MoreBtnTextFocused: {
+    color: '#111111',
+  },
+
+  // === TOP HEADER (game image + title, replaces back button) ===
+  topHeader: {
+    position: 'absolute',
+    top: 40,
+    left: 40,
+    zIndex: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  topHeaderImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  topHeaderTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: 0.3,
+    maxWidth: 300,
+    opacity: 0.9,
+  },
+
+  // === STEAM MEDIA / NEWS ===
+  newsSectionWrapper: {
+    marginTop: 30,
+  },
+  newsScrollContent: {
+    gap: 16,
+  },
+  newsCard: {
+    width: 500,
+    height: 250,
+    borderRadius: 8,
+    backgroundColor: 'rgba(20,20,30,0.4)',
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  } as any,
+  newsCard2: {
+    width: 320,
+    borderRadius: 8,
+    backgroundColor: 'rgba(20,20,30,0.4)',
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  } as any,
+  newsCardFocused: {
+    borderColor: 'rgba(255,255,255,0.85)',
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(35,35,45,0.6)',
+    transform: [{ scale: 1.03 }],
+  } as any,
+  newsCardThumbnail: {
+    width: '100%',
+    height: 281,
+    backgroundColor: '#333',
+    position: 'relative',
+  },
+  newsCardContent: {
+    padding: 12,
+  },
+  newsCardTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  newsLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+  },
+  newsEmptyText: {
+    color: 'rgba(255,255,255,0.25)',
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  mediaPlayBadge: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  infoCardsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 20,
+  },
+  infoCard: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(30,30,40,0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    minWidth: 280,
+    justifyContent: 'center',
+  } as any,
+  infoCardFocused: {
+    borderColor: 'rgba(255,255,255,0.75)',
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(40,40,50,0.6)',
+    transform: [{ scale: 1.02 }],
+  } as any,
+  detailBack: {
+    position: 'absolute',
+    top: 40,
+    left: 40,
+    zIndex: 30,
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 25,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)'
   },
-  favoriteButton: { 
-    position: 'absolute', 
-    top: 40, 
+  favoriteButton: {
+    position: 'absolute',
+    top: 40,
     right: 520, // Adjusted to be outside the info panel or inside it? Let's put it inside info panel or top right of the whole screen.
-    zIndex: 30, 
-    width: 50, 
-    height: 50, 
-    borderRadius: 25, 
-    backgroundColor: 'rgba(255,255,255,0.1)', 
-    alignItems: 'center', 
+    zIndex: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)'
   },
-  favoriteButtonActive: { 
-    backgroundColor: 'rgba(255, 45, 85, 0.2)', 
-    borderColor: 'rgba(255, 45, 85, 0.5)' 
+  favoriteButtonActive: {
+    backgroundColor: 'rgba(255, 45, 85, 0.2)',
+    borderColor: 'rgba(255, 45, 85, 0.5)'
   },
-  detailContent: { 
-    flex: 1, 
+  detailContent: {
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'flex-end'
   },
-  detailLeft: { 
-    flex: 1, 
-    justifyContent: 'flex-end', 
-    paddingLeft: 80, 
-    paddingBottom: 100 
+  detailLeft: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingLeft: 80,
+    paddingBottom: 100
   },
-  detailLogo: { 
-    width: 450, 
-    height: 220, 
-    resizeMode: 'contain' 
+  detailLogo: {
+    width: 450,
+    height: 220,
+    resizeMode: 'contain'
   },
-  detailCover: { 
-    width: 320, 
-    height: 190, 
-    borderRadius: 18, 
-    resizeMode: 'cover', 
-    borderWidth: 3, 
+  detailCover: {
+    width: 320,
+    height: 190,
+    borderRadius: 18,
+    resizeMode: 'cover',
+    borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.2)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 15,
   },
-  detailRight: { 
+  detailRight: {
     width: '40%', // Fixed width usually better, but let's make it responsive
     maxWidth: 480,
     minWidth: 380,
@@ -866,12 +1188,12 @@ const styles = StyleSheet.create({
     padding: 50,
     paddingTop: 120,
   },
-  detailTitle: { 
-    color: '#FFF', 
-    fontSize: 34, 
-    fontWeight: '800', 
-    marginBottom: 8, 
-    letterSpacing: 0.5 
+  detailTitle: {
+    color: '#FFF',
+    fontSize: 34,
+    fontWeight: '800',
+    marginBottom: 8,
+    letterSpacing: 0.5
   },
   platformBadge: {
     flexDirection: 'row',
@@ -892,71 +1214,71 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1
   },
-  ratingContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginBottom: 30 
-  },
-  ratingText: { 
-    color: '#FFD700', 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    marginLeft: 8 
-  },
-  detailActions: { 
+  ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 40 
+    marginBottom: 30
   },
-  playButton: { 
+  ratingText: {
+    color: '#FFD700',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 8
+  },
+  detailActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 40
+  },
+  playButton: {
     flex: 1,
-    flexDirection: 'row', 
-    alignItems: 'center', 
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#00BD10', 
-    paddingHorizontal: 30, 
-    paddingVertical: 15, 
-    borderRadius: 14, 
+    backgroundColor: '#00BD10',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 14,
     marginRight: 12,
     shadowColor: '#00BD10',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
   },
-  playButtonText: { 
-    color: '#FFF', 
-    fontSize: 16, 
-    fontWeight: '800', 
-    letterSpacing: 1 
+  playButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 1
   },
-  optionsButton: { 
+  optionsButton: {
     width: 54,
     height: 54,
-    flexDirection: 'row', 
-    alignItems: 'center', 
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)', 
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)'
   },
-  detailScrollView: { 
-    flex: 1 
+  detailScrollView: {
+    flex: 1
   },
-  detailDescription: { 
-    color: 'rgba(255,255,255,0.75)', 
-    fontSize: 15, 
-    lineHeight: 24, 
+  detailDescription: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 15,
+    lineHeight: 24,
     marginBottom: 30,
     fontWeight: '400'
   },
-  mediaContainer: { 
-    width: '100%', 
-    height: 200, 
-    borderRadius: 16, 
-    overflow: 'hidden', 
-    backgroundColor: '#000', 
-    borderWidth: 1, 
+  mediaContainer: {
+    width: '100%',
+    height: 200,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     marginTop: 10,
     shadowColor: '#000',
