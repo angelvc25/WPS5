@@ -36,9 +36,17 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   // focusIndex >= 4 → ocultar cards trofeos/amigos
   const topPanelAnim = useSharedValue(1);   // 1=visible, 0=oculto
   const infoCardsAnim = useSharedValue(1);  // 1=visible, 0=oculto
+  const panelLiftAnim = useSharedValue(0);  // 0=normal, 1=levantado (focusIndex >= 2)
+  const darkOverlayAnim = useSharedValue(0); // 0=normal, 1=más oscuro
 
   useEffect(() => {
     topPanelAnim.value = withTiming(focusIndex >= 2 ? 0 : 1, { duration: 300 });
+  }, [focusIndex]);
+
+  useEffect(() => {
+    const isElevated = focusIndex >= 2; // cards, capturas y noticias
+    panelLiftAnim.value = withTiming(isElevated ? 1 : 0, { duration: 350 });
+    darkOverlayAnim.value = withTiming(isElevated ? 1 : 0, { duration: 350 });
   }, [focusIndex]);
 
   useEffect(() => {
@@ -68,6 +76,18 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     transform: [{ translateY: interpolate(infoCardsAnim.value, [0, 1], [20, 0]) }],
     maxHeight: interpolate(infoCardsAnim.value, [0, 1], [0, 200]),
     overflow: 'hidden',
+  }));
+
+  // panelLiftStyle vacio - el lift se hace animando paddingTop del ScrollView
+  const panelLiftStyle = useAnimatedStyle(() => ({}));
+
+  const scrollPaddingStyle = useAnimatedStyle(() => ({
+    paddingTop: interpolate(panelLiftAnim.value, [0, 1], [380, 60]),
+    paddingBottom: 80,
+  }));
+
+  const darkOverlayStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(darkOverlayAnim.value, [0, 1], [0, 0.5]),
   }));
 
   const editTitleRef = React.useRef<TextInput>(null);
@@ -482,189 +502,201 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           <Text style={styles.topHeaderTitle} numberOfLines={1}>{item.title}</Text>
         </View>
 
+        {/* DARK OVERLAY — se oscurece al enfocar cards */}
+        {Platform.OS === 'web' && (
+          <Animated.View style={[{
+            position: 'absolute', inset: 0, zIndex: 2,
+            backgroundColor: '#000',
+            pointerEvents: 'none',
+          } as any, darkOverlayStyle]} />
+        )}
+
         {/* BOTTOM INFO PANEL — scrollable */}
         <ScrollView
           style={styles.ps5BottomPanel}
-          contentContainerStyle={{ paddingTop: 60, paddingBottom: 80 }}
+          contentContainerStyle={{ paddingBottom: 80 }}
           showsVerticalScrollIndicator={false}
         >
+          <Animated.View style={scrollPaddingStyle}>
 
-          {/* Logo/título + botones — se ocultan al bajar a trofeos */}
-          <Animated.View style={topPanelStyle}>
-            {(editData.logo || item.logo) ? (
-              <Image
-                source={editData.logo ? (editData.logo.startsWith('http') ? { uri: editData.logo } : { uri: `local-file:///${editData.logo}` }) : item.logo}
-                style={styles.ps5Logo}
-                resizeMode="contain"
-              />
-            ) : (
-              <Text style={styles.ps5Title} numberOfLines={2}>{item.title}</Text>
-            )}
+            {/* Logo/título + botones — se ocultan al bajar a trofeos */}
+            <Animated.View style={topPanelStyle}>
+              {(editData.logo || item.logo) ? (
+                <Image
+                  source={editData.logo ? (editData.logo.startsWith('http') ? { uri: editData.logo } : { uri: `local-file:///${editData.logo}` }) : item.logo}
+                  style={styles.ps5Logo}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text style={styles.ps5Title} numberOfLines={2}>{item.title}</Text>
+              )}
 
-            <View style={styles.ps5ActionButtons}>
-              <TouchableOpacity
-                style={[styles.ps5PlayBtn, focusIndex === 0 && styles.ps5PlayBtnFocused]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  setFocusIndex(0);
-                  if (item.path) {
-                    if (onLaunch) onLaunch(item.id, item.path);
-                    else if (Platform.OS === 'web' && (window as any).electronAPI)
-                      (window as any).electronAPI.launchApp(item.id, item.path);
-                  }
-                }}
-              >
-                <Text style={[styles.ps5PlayBtnText, focusIndex === 0 && styles.ps5PlayBtnTextFocused]}>Jugar</Text>
-              </TouchableOpacity>
+              <View style={styles.ps5ActionButtons}>
+                <TouchableOpacity
+                  style={[styles.ps5PlayBtn, focusIndex === 0 && styles.ps5PlayBtnFocused]}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    setFocusIndex(0);
+                    if (item.path) {
+                      if (onLaunch) onLaunch(item.id, item.path);
+                      else if (Platform.OS === 'web' && (window as any).electronAPI)
+                        (window as any).electronAPI.launchApp(item.id, item.path);
+                    }
+                  }}
+                >
+                  <Text style={[styles.ps5PlayBtnText, focusIndex === 0 && styles.ps5PlayBtnTextFocused]}>Jugar</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.ps5MoreBtn, focusIndex === 1 && styles.ps5MoreBtnFocused]}
-                activeOpacity={0.8}
-                onPress={() => { setFocusIndex(1); setEditModalVisible(true); }}
-              >
-                <Text style={[styles.ps5MoreBtnText, focusIndex === 1 && styles.ps5MoreBtnTextFocused]}>···</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-
-          {/* INFO CARDS: Trofeos + Amigos — se ocultan al bajar a capturas */}
-          <Animated.View style={[styles.infoCardsRow, infoCardsStyle]}>
-            {/* Trofeos */}
-            <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 2 && styles.infoCardFocused]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
-                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
-                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
-                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
-                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
-                </View>
+                <TouchableOpacity
+                  style={[styles.ps5MoreBtn, focusIndex === 1 && styles.ps5MoreBtnFocused]}
+                  activeOpacity={0.8}
+                  onPress={() => { setFocusIndex(1); setEditModalVisible(true); }}
+                >
+                  <Text style={[styles.ps5MoreBtnText, focusIndex === 1 && styles.ps5MoreBtnTextFocused]}>···</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
-              <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
-            </BlurView>
+            </Animated.View>
 
-            {/* Amigos */}
-            <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 3 && styles.infoCardFocused]}>
-              <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-                {[1, 2, 3, 4, 5].map((_, i) => (
-                  <View key={i} style={{
-                    width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
-                    borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
-                    alignItems: 'center', justifyContent: 'center'
-                  }}>
-                    <Ionicons name="person" size={16} color="#AAA" />
+            {/* INFO CARDS: Trofeos + Amigos — se ocultan al bajar a capturas */}
+            <Animated.View style={[styles.infoCardsRow, infoCardsStyle]}>
+              {/* Trofeos */}
+              <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 2 && styles.infoCardFocused]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
+                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
                   </View>
-                ))}
-              </View>
-              <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
-              <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
-            </BlurView>
-          </Animated.View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
+                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
+                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
+                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
+                  </View>
+                </View>
+                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
+                <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
+              </BlurView>
 
-          {/* CAPTURAS Y TRAILERS */}
-          <View style={[styles.newsSectionWrapper]}>
-            <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Capturas y trailers</Text>
-            {mediaLoading ? (
-              <View style={styles.newsLoadingRow}>
-                <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-                <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
-              </View>
-            ) : steamMedia.length === 0 ? (
-              <View style={styles.newsLoadingRow}>
-                <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
-                <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
-              </View>
-            ) : (
-              <ScrollView
-                ref={mediaScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={[styles.newsScrollContent, { paddingRight: 50 }]}
-              >
-                {steamMedia.map((media, idx) => {
-                  const isMediaFocused = focusIndex === 100 + idx;
-                  return (
-                    <TouchableOpacity
-                      key={media.id}
-                      style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        if (media.type === 'movie' && media.mp4_url) Linking.openURL(media.mp4_url);
-                        else if (media.full) Linking.openURL(media.full);
-                      }}
-                    >
-                      <View style={styles.newsCardThumbnail}>
-                        <Image source={{ uri: media.thumbnail }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                        {media.type === 'movie' && (
-                          <View style={styles.mediaPlayBadge}>
-                            <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
-                          </View>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
-          </View>
+              {/* Amigos */}
+              <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 3 && styles.infoCardFocused]}>
+                <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                  {[1, 2, 3, 4, 5].map((_, i) => (
+                    <View key={i} style={{
+                      width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
+                      borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
+                      alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <Ionicons name="person" size={16} color="#AAA" />
+                    </View>
+                  ))}
+                </View>
+                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
+                <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
+              </BlurView>
+            </Animated.View>
 
-          {/* ÚLTIMAS NOTICIAS */}
-          <View style={[styles.newsSectionWrapper]}>
-            <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Últimas noticias</Text>
-            {newsLoading ? (
-              <View style={styles.newsLoadingRow}>
-                <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-                <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
-              </View>
-            ) : steamNews.length === 0 ? (
-              <View style={styles.newsLoadingRow}>
-                <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
-                <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
-              </View>
-            ) : (
-              <ScrollView
-                ref={newsScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={[styles.newsScrollContent, { paddingRight: 50 }]}
-              >
-                {steamNews.slice(0, 8).map((news, idx) => {
-                  const isNewsFocused = focusIndex === 200 + idx;
-                  return (
-                    <TouchableOpacity
-                      key={news.gid}
-                      style={[styles.newsCard2, isNewsFocused && styles.newsCardFocused]}
-                      activeOpacity={0.8}
-                      onPress={() => { if (news.url) Linking.openURL(news.url); }}
-                    >
-                      <View style={styles.newsCardThumbnail}>
-                        {news.image_url ? (
-                          <Image source={{ uri: news.image_url }} style={{ width: '100%', height: '120%' }} resizeMode="cover" />
-                        ) : (
-                          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
-                            <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.newsCardContent}>
-                        <Text style={styles.newsCardTitle} numberOfLines={1}>{news.title}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
-          </View>
+            {/* CAPTURAS Y TRAILERS */}
+            <View style={[styles.newsSectionWrapper]}>
+              <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Capturas y trailers</Text>
+              {mediaLoading ? (
+                <View style={styles.newsLoadingRow}>
+                  <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                  <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
+                </View>
+              ) : steamMedia.length === 0 ? (
+                <View style={styles.newsLoadingRow}>
+                  <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
+                  <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
+                </View>
+              ) : (
+                <ScrollView
+                  ref={mediaScrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={[styles.newsScrollContent, { paddingRight: 50 }]}
+                >
+                  {steamMedia.map((media, idx) => {
+                    const isMediaFocused = focusIndex === 100 + idx;
+                    return (
+                      <TouchableOpacity
+                        key={media.id}
+                        style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          if (media.type === 'movie' && media.mp4_url) Linking.openURL(media.mp4_url);
+                          else if (media.full) Linking.openURL(media.full);
+                        }}
+                      >
+                        <View style={styles.newsCardThumbnail}>
+                          <Image source={{ uri: media.thumbnail }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                          {media.type === 'movie' && (
+                            <View style={styles.mediaPlayBadge}>
+                              <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
+                            </View>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* ÚLTIMAS NOTICIAS */}
+            <View style={[styles.newsSectionWrapper]}>
+              <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Últimas noticias</Text>
+              {newsLoading ? (
+                <View style={styles.newsLoadingRow}>
+                  <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                  <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
+                </View>
+              ) : steamNews.length === 0 ? (
+                <View style={styles.newsLoadingRow}>
+                  <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
+                  <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
+                </View>
+              ) : (
+                <ScrollView
+                  ref={newsScrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={[styles.newsScrollContent, { paddingRight: 50 }]}
+                >
+                  {steamNews.slice(0, 8).map((news, idx) => {
+                    const isNewsFocused = focusIndex === 200 + idx;
+                    return (
+                      <TouchableOpacity
+                        key={news.gid}
+                        style={[styles.newsCard2, isNewsFocused && styles.newsCardFocused]}
+                        activeOpacity={0.8}
+                        onPress={() => { if (news.url) Linking.openURL(news.url); }}
+                      >
+                        <View style={styles.newsCardThumbnail}>
+                          {news.image_url ? (
+                            <Image source={{ uri: news.image_url }} style={{ width: '100%', height: '120%' }} resizeMode="cover" />
+                          ) : (
+                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
+                              <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.newsCardContent}>
+                          <Text style={styles.newsCardTitle} numberOfLines={1}>{news.title}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+
+          </Animated.View>{/* end content */}
 
         </ScrollView>
 
@@ -936,7 +968,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 150,
     right: 0,
-    top: '45%',
+    top: '10%',
     zIndex: 10,
   },
   ps5Logo: {
