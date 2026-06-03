@@ -1775,8 +1775,8 @@ export default function ConsoleHome() {
             }
           `}</style>
 
-            <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={widgetContainerStyle2}>
-              {activeItem?.id === '1' && (
+            {activeItem?.id === '1' && (
+              <Animated.View key="ea-sports-widget" entering={FadeInDown.duration(400).delay(60)} style={widgetContainerStyle2}>
                 <TouchableOpacity
                   activeOpacity={0.85}
                   style={{ flex: 1 }}
@@ -1838,10 +1838,10 @@ export default function ConsoleHome() {
                     </View>
                   </View>
                 </TouchableOpacity>
-              )}
-            </Animated.View>
+              </Animated.View>
+            )}
 
-            <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={widgetContainerStyle}>
+            <Animated.View key="welcome-widgets" entering={FadeInDown.duration(400).delay(60)} style={widgetContainerStyle}>
               {/* === WELCOME WIDGETS (only when Welcome card is active) === */}
               {/* <PS5WidgetRow /> */}
               {activeItem?.id === '1' && (
