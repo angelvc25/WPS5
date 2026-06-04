@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  Image as RNImage,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserProfile } from './UserSelectScreen';
@@ -77,7 +78,7 @@ export default function ProfileDropdownMenu({
   const options = [
     {
       label: 'Estado online',
-      icon: 'person-outline' as const,
+      icon: 'person' as const,
       rightComponent: (
         <View style={styles.statusContainer}>
           <View style={[styles.statusDot, { backgroundColor: isOnline ? '#4CD964' : '#8E8E93' }]} />
@@ -87,21 +88,15 @@ export default function ProfileDropdownMenu({
     },
     {
       label: 'Perfil',
-      icon: 'happy-outline' as const,
+      image: require('@/assets/images/ProfilePicture.png'),
     },
     {
       label: 'Trofeos',
-      icon: 'trophy-outline' as const,
-      rightComponent: (
-        <View style={styles.trophyBadge}>
-          <Ionicons name="trophy" size={10} color="#FFF" style={{ marginRight: 3 }} />
-          <Text style={styles.trophyBadgeText}>128</Text>
-        </View>
-      ),
+      image: require('@/assets/images/logo-trophy.png'),
     },
     {
       label: 'Cambiar usuario',
-      icon: 'people-outline' as const,
+      icon: 'person' as const,
     },
     {
       label: 'Salir',
@@ -164,12 +159,20 @@ export default function ProfileDropdownMenu({
               )}
 
               <View style={styles.itemLeft}>
-                <Ionicons
-                  name={opt.icon}
-                  size={18}
-                  color={isFocused ? '#e8ffff' : '#cacaca'}
-                  style={{ marginRight: 12 }}
-                />
+                {opt.image ? (
+                  <RNImage
+                    source={opt.image}
+                    style={{ width: 22, height: 22, marginRight: 12 }}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Ionicons
+                    name={opt.icon!}
+                    size={22}
+                    color={isFocused ? '#e8ffff' : '#cacaca'}
+                    style={{ marginRight: 12 }}
+                  />
+                )}
                 <Text
                   style={[
                     styles.label,
@@ -221,7 +224,7 @@ const styles = StyleSheet.create({
   usernameText: {
     fontSize: 14,
     color: '#FFF',
-    fontWeight: '700',
+    fontWeight: '300',
     letterSpacing: 0.5,
   },
   divider: {
@@ -247,7 +250,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   itemFocused: {
-    backgroundColor: 'rgba(120,255,255,0.06)',
+    //backgroundColor: 'rgba(120,255,255,0.06)',
     borderWidth: 1,
     borderColor: 'rgba(120,255,255,0.3)',
   },
@@ -267,14 +270,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    fontSize: 13,
-    color: '#cacacaff',
-    fontWeight: '500',
+    fontSize: 15,
+    color: '#e8ffff',
+    fontWeight: '300',
     letterSpacing: 0.3,
   },
   labelFocused: {
     color: '#e8ffff',
-    fontWeight: '600',
+    //fontWeight: '600',
   },
   statusContainer: {
     flexDirection: 'row',
