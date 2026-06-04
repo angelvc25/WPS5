@@ -196,9 +196,9 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     overflow: 'hidden',
     position: 'relative',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(26,26,26,1)',
+    //borderWidth: 1,
+    //borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(23, 23, 30, 1)',
     padding: 6,
 
     shadowColor: '#000',
