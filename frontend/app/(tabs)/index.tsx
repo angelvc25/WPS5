@@ -172,6 +172,8 @@ export default function ConsoleHome() {
   const [libraryGridFocusIndex, setLibraryGridFocusIndex] = useState(0);
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
+  const activeCardRef = useRef<View>(null);
+  const [contextMenuCoords, setContextMenuCoords] = useState({ top: 250, left: 335 });
   const [isDetailVisible, setDetailVisible] = useState(false);
 
   const [isOnline, setIsOnline] = useState(true);
@@ -462,6 +464,31 @@ export default function ConsoleHome() {
     }
   }, []);
 
+  const openContextMenu = () => {
+    const item = currentData[activeIndex];
+    if (!item || item.id === 'more_library') return;
+
+    if (activeCardRef.current) {
+      activeCardRef.current.measureInWindow((x, y, width, height) => {
+        setContextMenuCoords({
+          left: x,
+          top: y,
+        });
+        setIsContextMenuOpen(true);
+        setContextMenuFocusIndex(0);
+        soundService.playNavigation();
+      });
+    } else {
+      setContextMenuCoords({
+        left: 335,
+        top: 250,
+      });
+      setIsContextMenuOpen(true);
+      setContextMenuFocusIndex(0);
+      soundService.playNavigation();
+    }
+  };
+
   const handleContextMenuAction = async (idx: number) => {
     setIsContextMenuOpen(false);
     const item = currentData[activeIndex];
@@ -746,9 +773,7 @@ export default function ConsoleHome() {
           if (focusArea === 'main_carousel') {
             const item = currentData[activeIndex];
             if (item && item.id !== 'more_library') {
-              setIsContextMenuOpen(true);
-              setContextMenuFocusIndex(0);
-              soundService.playNavigation();
+              openContextMenu();
             }
           }
           return;
@@ -1461,6 +1486,39 @@ export default function ConsoleHome() {
       <View style={styles.gradientOverlay} pointerEvents="none" />
       <View style={styles.gradientOverlayTop} pointerEvents="none" />
 
+      {/* === CONTEXT MENU BACKGROUND DIM === */}
+      {Platform.OS === 'web' && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.55)',
+            opacity: isContextMenuOpen ? 1 : 0,
+            transition: 'opacity 280ms cubic-bezier(0.22, 1, 0.36, 1)',
+            pointerEvents: isContextMenuOpen ? 'auto' : 'none',
+            zIndex: 9990,
+          }}
+          onClick={() => setIsContextMenuOpen(false)}
+        />
+      )}
+
+      {/* Absolutely positioned context menu rendered at root level */}
+      {isContextMenuOpen && (
+        <View
+          style={{
+            position: 'absolute',
+            left: contextMenuCoords.left,
+            top: contextMenuCoords.top,
+            zIndex: 9999,
+          }}
+        >
+          <GameContextMenu
+            focusedIndex={contextMenuFocusIndex}
+            onPressItem={handleContextMenuAction}
+          />
+        </View>
+      )}
+
       {/* MINI HEADER FOR GAME PANEL FOCUS */}
       <Animated.View style={[styles.miniHeader, topBarMiniStyle]} pointerEvents="none">
         {focusArea === 'library_grid' ? (
@@ -1706,7 +1764,11 @@ export default function ConsoleHome() {
                 }
 
                 return (
-                  <View key={item.id} style={{ position: 'relative', overflow: 'visible', zIndex: isActive ? 10 : 1, opacity: customOpacity }}>
+                  <View
+                    ref={isActive ? activeCardRef : null}
+                    key={item.id}
+                    style={{ position: 'relative', overflow: 'visible', zIndex: isActive ? 10 : 1, opacity: customOpacity }}
+                  >
                     {cardContent}
                     {isActive && item.id !== 'more_library' && (
                       <View style={styles.activeLabelContainer}>
@@ -1724,21 +1786,16 @@ export default function ConsoleHome() {
                           activeOpacity={0.7}
                           style={{ marginLeft: 6, paddingHorizontal: 4, display: 'none' }}
                           onPress={() => {
-                            setIsContextMenuOpen(prev => !prev);
-                            setContextMenuFocusIndex(0);
+                            if (isContextMenuOpen) {
+                              setIsContextMenuOpen(false);
+                            } else {
+                              openContextMenu();
+                            }
                           }}
                         >
                           <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
                         </TouchableOpacity>
                       </View>
-                    )}
-
-                    {/* Absolutely positioned context menu */}
-                    {isActive && item.id !== 'more_library' && isContextMenuOpen && (
-                      <GameContextMenu
-                        focusedIndex={contextMenuFocusIndex}
-                        onPressItem={handleContextMenuAction}
-                      />
                     )}
                   </View>
                 );
@@ -2623,7 +2680,7 @@ export default function ConsoleHome() {
                   </View>
                 </ScrollView>
               )}
-              )}
+            </Animated.View>
 
               {/* Trophies & Friends Cards — animadas al ocultarse cuando se enfoca capturas */}
               {canPlay && (
@@ -2799,7 +2856,6 @@ export default function ConsoleHome() {
                   )}
                 </View>
               )}
-            </Animated.View>
           </Animated.View >
         )
         }

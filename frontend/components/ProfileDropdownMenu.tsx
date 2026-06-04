@@ -114,9 +114,9 @@ export default function ProfileDropdownMenu({
             background: `
               linear-gradient(
                 45deg,
-                rgba(232, 249, 255, 0.08) 0%,
-                rgba(120,220,255,0.03) 25%,
-                rgba(255,255,255,0.01) 50%,
+                rgba(232, 249, 255, 0.17) 0%,
+                rgba(120,220,255,0.03) 40%,
+                rgba(255,255,255,0.01) 60%,
                 rgba(0,0,0,0.00) 100%
               )
             `,
@@ -127,7 +127,7 @@ export default function ProfileDropdownMenu({
       )}
 
       {/* SHIMMER OVERLAY */}
-      <ShimmerOverlay />
+      {/* <ShimmerOverlay /> */}
 
       {/* USER HEADER */}
       <View style={styles.header}>
@@ -155,15 +155,23 @@ export default function ProfileDropdownMenu({
             >
               {/* Glow focus border/background */}
               {isFocused && (
-                <View style={styles.focusGlow} pointerEvents="none" />
+                <>
+                  <View style={styles.focusGlow} pointerEvents="none" />
+                  <ShimmerOverlay />
+                </>
               )}
 
               <View style={styles.itemLeft}>
                 {opt.image ? (
                   <RNImage
                     source={opt.image}
-                    style={{ width: 22, height: 22, marginRight: 12 }}
-                    resizeMode="contain"
+                    style={{
+                      width: 22,
+                      height: 22,
+                      marginRight: 12,
+                      borderRadius: 11,
+                    }}
+                    resizeMode="cover"
                   />
                 ) : (
                   <Ionicons
@@ -173,6 +181,7 @@ export default function ProfileDropdownMenu({
                     style={{ marginRight: 12 }}
                   />
                 )}
+
                 <Text
                   style={[
                     styles.label,
@@ -188,6 +197,11 @@ export default function ProfileDropdownMenu({
                   {opt.rightComponent}
                 </View>
               )}
+
+              {/* Divider */}
+              {idx !== options.length - 1 && (
+                <View style={styles.divider} />
+              )}
             </TouchableOpacity>
           );
         })}
@@ -199,10 +213,10 @@ export default function ProfileDropdownMenu({
 const styles = StyleSheet.create({
   container: {
     width: 320,
-    backgroundColor: 'rgba(23, 23, 30, 0.96)',
+    backgroundColor: 'rgba(23, 23, 30, 1)',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    //borderWidth: 1,
+    //borderColor: 'rgba(255, 255, 255, 0.12)',
     overflow: 'hidden',
     position: 'relative',
     padding: 6,
@@ -228,10 +242,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   divider: {
+    position: 'absolute',
+    bottom: 0,
+    left: 45,
+    right: 16,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginHorizontal: 8,
-    marginBottom: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   optionsList: {
     paddingVertical: 4,
@@ -242,22 +258,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 0,
     marginVertical: 1,
     height: 48,
     backgroundColor: 'transparent',
     overflow: 'hidden',
     position: 'relative',
+    //borderTopWidth: 1,
+    //borderTopColor: 'rgba(255, 255, 255, 0.12)',
   },
   itemFocused: {
     //backgroundColor: 'rgba(120,255,255,0.06)',
-    borderWidth: 1,
+    borderWidth: 0,
     borderColor: 'rgba(120,255,255,0.3)',
   },
   focusGlow: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 3,
+    borderWidth: 2,
     borderColor: 'rgba(180,255,255,0.45)',
     backgroundColor: 'rgba(180,255,255,0.02)',
   },

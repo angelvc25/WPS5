@@ -77,6 +77,7 @@ interface GameContextMenuProps {
 
 const MENU_WIDTH = 250;
 const ITEM_HEIGHT = 50;
+const GLOW_DURATION = 180;
 
 export default function GameContextMenu({
   focusedIndex,
@@ -87,6 +88,32 @@ export default function GameContextMenu({
     { label: 'Ubicación del juego' },
     { label: 'Eliminar' },
   ];
+
+  // ─── Animated opacity per item for smooth focus glow transition ───────────
+  const glowAnims = useRef(
+    [0, 1, 2].map(i => new Animated.Value(i === focusedIndex ? 1 : 0))
+  ).current;
+  const prevFocusRef = useRef(focusedIndex);
+
+  useEffect(() => {
+    const prev = prevFocusRef.current;
+    if (prev === focusedIndex) return;
+    prevFocusRef.current = focusedIndex;
+
+    // Fade out old item
+    Animated.timing(glowAnims[prev], {
+      toValue: 0,
+      duration: GLOW_DURATION,
+      useNativeDriver: true,
+    }).start();
+
+    // Fade in new item
+    Animated.timing(glowAnims[focusedIndex], {
+      toValue: 1,
+      duration: GLOW_DURATION,
+      useNativeDriver: true,
+    }).start();
+  }, [focusedIndex]);
 
   return (
     <View style={styles.absoluteWrapper}>
@@ -99,14 +126,13 @@ export default function GameContextMenu({
               inset: 0,
 
               background: `
-        linear-gradient(
-          45deg,
-          rgba(232, 249, 255, 0.14) 0%,
-          rgba(120,220,255,0.06) 18%,
-          rgba(255,255,255,0.02) 35%,
-          rgba(255,255,255,0.00) 58%,
-          rgba(0,0,0,0.00) 100%
-        )
+              linear-gradient(
+                45deg,
+                rgba(232, 249, 255, 0.17) 0%,
+                rgba(120,220,255,0.03) 40%,
+                rgba(255,255,255,0.01) 60%,
+                rgba(0,0,0,0.00) 100%
+              )
       `,
 
               pointerEvents: 'none',
@@ -116,7 +142,7 @@ export default function GameContextMenu({
         )}
 
         {/* SHIMMER DEL CONTENEDOR */}
-        <ShimmerOverlay />
+        {/* <ShimmerOverlay /> */}
 
         {options.map((opt, idx) => {
           const isFocused = idx === focusedIndex;
@@ -131,10 +157,13 @@ export default function GameContextMenu({
                 isFocused && styles.itemFocused,
               ]}
             >
-              {/* Glow focus */}
-              {isFocused && (
-                <View style={styles.focusGlow} pointerEvents="none" />
-              )}
+              {/* Animated glow focus — fades between items */}
+              <Animated.View
+                style={[styles.focusGlow, { opacity: glowAnims[idx] }]}
+                pointerEvents="none"
+              />
+              {isFocused && <ShimmerOverlay />}
+
 
               <Text
                 style={[
@@ -202,7 +231,7 @@ const styles = StyleSheet.create({
   },
 
   itemFocused: {
-    backgroundColor: 'rgba(120,255,255,0.05)',
+    //backgroundColor: 'rgba(120,255,255,0.05)',
 
     borderWidth: 1,
     borderColor: 'rgba(120,255,255,0.35)',
