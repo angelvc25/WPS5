@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Platform, TextInput, ScrollView, useWindowDimensions, Linking } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { Video, ResizeMode } from 'expo-av';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import YoutubePlayer from './YoutubePlayer';
@@ -711,14 +712,28 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       </View>
 
       {/* EDIT MODAL */}
-      <Modal visible={isEditModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.modalContentExpanded]}>
-            <View style={styles.modalBodyRow}>
-              {/* SIDEBAR TABS */}
-              <View style={styles.sidebar}>
-                <Text style={styles.sidebarTitle}>Ajustes</Text>
+      <Modal visible={isEditModalVisible} transparent animationType="fade">
+        <View style={styles.editViewContainer}>
+          {/* background video */}
+          <Video
+            source={require('../assets/video/waves_ajustes.mp4')}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay
+            isLooping
+            isMuted
+          />
+          {/* subtle dark overlay */}
+          <View style={styles.editOverlayDark} />
 
+          <View style={styles.editContentContainer}>
+            {/* Title Header */}
+            <Text style={styles.editMainTitleLarge}>Editar Datos</Text>
+
+            {/* Two Column Layout */}
+            <View style={styles.editTwoColumns}>
+              {/* SIDEBAR TABS */}
+              <View style={styles.editSidebar}>
                 {[
                   { id: 'basic', label: 'Datos Básicos', icon: 'information-circle-outline', index: 20 },
                   { id: 'path', label: 'Ruta del Juego', icon: 'folder-open-outline', index: 21 },
@@ -731,9 +746,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                     <TouchableOpacity
                       key={tab.id}
                       style={[
-                        styles.tabButton,
-                        isTabActive && styles.tabButtonActive,
-                        isTabFocused && styles.buttonFocused
+                        styles.editTab,
+                        isTabActive && styles.editTabActive,
+                        isTabFocused && styles.editTabFocused
                       ]}
                       onPress={() => {
                         setEditModalFocusIndex(tab.index);
@@ -742,13 +757,12 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                     >
                       <Ionicons
                         name={tab.icon as any}
-                        size={20}
-                        color={isTabActive ? '#00FFFF' : '#8E8E93'}
-                        style={{ marginRight: 10 }}
+                        size={22}
+                        color={isTabActive ? '#FFF' : 'rgba(255, 255, 255, 0.6)'}
                       />
                       <Text style={[
-                        styles.tabButtonText,
-                        isTabActive && styles.tabButtonTextActive
+                        styles.editTabText,
+                        isTabActive && styles.editTabTextActive
                       ]}>
                         {tab.label}
                       </Text>
@@ -758,24 +772,24 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               </View>
 
               {/* RIGHT CONTENT AREA */}
-              <View style={styles.contentArea}>
+              <View style={styles.editMainContent}>
                 <View style={{ flex: 1 }}>
                   {activeTab === 'basic' && (
                     <>
-                      <Text style={styles.sectionTitle}>Datos Básicos</Text>
-                      <ScrollView showsVerticalScrollIndicator={false}>
-                        <Text style={styles.label}>Título</Text>
+                      <Text style={styles.editSectionTitle}>Datos Básicos</Text>
+                      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                        <Text style={styles.editLabel}>Título</Text>
                         <TextInput
                           ref={editTitleRef}
-                          style={[styles.input, editModalFocusIndex === 2 && styles.inputFocused]}
+                          style={[styles.editInput, editModalFocusIndex === 2 && styles.editInputFocused]}
                           value={editData.title}
                           onChangeText={(text) => setEditData({ ...editData, title: text })}
                         />
 
                         {((editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web') && (
                           <>
-                            <Text style={styles.label}>Plataforma</Text>
-                            <View style={{ marginBottom: 20 }}>
+                            <Text style={styles.editLabel}>Plataforma</Text>
+                            <View style={{ marginBottom: 25 }}>
                               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
                                 {[
                                   { id: 'PC', icon: 'microsoft-windows' },
@@ -787,18 +801,29 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                   { id: 'Epic', icon: 'alpha-e-circle' }
                                 ].map((plat, idx) => {
                                   const focusIdx = 3 + idx;
+                                  const isActive = editData.platform === plat.id;
+                                  const isFocused = editModalFocusIndex === focusIdx;
                                   return (
                                     <TouchableOpacity
                                       key={plat.id}
                                       style={[
-                                        styles.platformBtn,
-                                        editData.platform === plat.id && styles.platformBtnActive,
-                                        editModalFocusIndex === focusIdx && styles.buttonFocused
+                                        styles.platformBtnNew,
+                                        isActive && styles.platformBtnActiveNew,
+                                        isFocused && styles.platformBtnFocusedNew
                                       ]}
                                       onPress={() => setEditData({ ...editData, platform: plat.id })}
                                     >
-                                      <MaterialCommunityIcons name={plat.icon as any} size={20} color={editData.platform === plat.id ? '#000' : '#FFF'} />
-                                      <Text style={[styles.platformBtnText, editData.platform === plat.id && styles.platformBtnTextActive]}>{plat.id}</Text>
+                                      <MaterialCommunityIcons 
+                                        name={plat.icon as any} 
+                                        size={20} 
+                                        color={isActive ? '#000' : '#FFF'} 
+                                      />
+                                      <Text style={[
+                                        styles.platformBtnTextNew, 
+                                        isActive && styles.platformBtnTextActiveNew
+                                      ]}>
+                                        {plat.id}
+                                      </Text>
                                     </TouchableOpacity>
                                   );
                                 })}
@@ -807,10 +832,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           </>
                         )}
 
-                        <Text style={styles.label}>Descripción</Text>
+                        <Text style={styles.editLabel}>Descripción</Text>
                         <TextInput
                           ref={editDescRef}
-                          style={[styles.input, { height: 120, textAlignVertical: 'top' }, editModalFocusIndex === 10 && styles.inputFocused]}
+                          style={[styles.editInput, { height: 140, textAlignVertical: 'top' }, editModalFocusIndex === 10 && styles.editInputFocused]}
                           multiline
                           value={editData.description}
                           onChangeText={(text) => setEditData({ ...editData, description: text })}
@@ -821,13 +846,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                   {activeTab === 'path' && (
                     <>
-                      <Text style={styles.sectionTitle}>Ruta del Juego</Text>
+                      <Text style={styles.editSectionTitle}>Ruta del Juego</Text>
                       <ScrollView showsVerticalScrollIndicator={false}>
-                        <Text style={styles.label}>Ubicación del ejecutable o enlace</Text>
+                        <Text style={styles.editLabel}>Ubicación del ejecutable o enlace</Text>
                         {((editData.type || item?.type) === 'web') ? (
                           <TextInput
                             ref={editPathInputRef}
-                            style={[styles.input, editModalFocusIndex === 18 && styles.inputFocused]}
+                            style={[styles.editInput, editModalFocusIndex === 18 && styles.editInputFocused]}
                             placeholder="URL (https://...)"
                             placeholderTextColor="#888"
                             value={editData.path}
@@ -836,11 +861,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         ) : (
                           <>
                             <TouchableOpacity
-                              style={[styles.fileBtn, { marginBottom: 15 }, editModalFocusIndex === 18 && styles.buttonFocused]}
+                              style={[styles.editSecondaryBtn, editModalFocusIndex === 18 && styles.editSecondaryBtnFocused]}
                               onPress={handleSelectPath}
                             >
-                              <Ionicons name="folder-open" size={20} color="#FFF" />
-                              <Text style={styles.fileBtnText}>Seleccionar nuevo ejecutable (.exe)</Text>
+                              <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                              <Text style={styles.editSecondaryBtnText}>Seleccionar nuevo ejecutable (.exe)</Text>
                             </TouchableOpacity>
                             <View style={styles.pathDisplayBox}>
                               <Text style={styles.pathDisplayTextHeader}>Ruta actual del juego:</Text>
@@ -854,54 +879,54 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                   {activeTab === 'art' && (
                     <>
-                      <Text style={styles.sectionTitle}>Arte y Multimedia</Text>
+                      <Text style={styles.editSectionTitle}>Arte y Multimedia</Text>
                       <ScrollView showsVerticalScrollIndicator={false}>
-                        <Text style={styles.label}>Sincronización Inteligente</Text>
+                        <Text style={styles.editLabel}>Sincronización Inteligente</Text>
                         <View style={styles.syncRow}>
                           <TouchableOpacity
-                            style={[styles.syncBtnUnified, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.buttonFocused]}
+                            style={[styles.editSyncBtnUnified, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.editSyncBtnUnifiedFocused]}
                             onPress={handleUnifiedSync}
                             disabled={isSyncing}
                           >
-                            <Ionicons name="sync" size={18} color="#000" />
-                            <Text style={styles.syncBtnTextCompact}>{isSyncing ? 'Sincronizando...' : 'Sincronizar Datos (Auto)'}</Text>
+                            <Ionicons name="sync-outline" size={18} color="#000" />
+                            <Text style={styles.editSyncBtnUnifiedText}>{isSyncing ? 'Sincronizando...' : 'Sincronizar Datos (Auto)'}</Text>
                           </TouchableOpacity>
                         </View>
 
-                        <Text style={styles.label}>Archivos Locales</Text>
+                        <Text style={styles.editLabel}>Archivos Locales</Text>
                         <View style={styles.artGrid}>
                           <TouchableOpacity
-                            style={[styles.artFileBtn, editModalFocusIndex === 11 && styles.buttonFocused]}
+                            style={[styles.editArtFileBtn, editModalFocusIndex === 11 && styles.editArtFileBtnFocused]}
                             onPress={() => handleSelectImage('image')}
                           >
-                            <Ionicons name="image" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
+                            <Ionicons name="image-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>Portada</Text>
                             <Text style={styles.artFileBtnSub}>Imagen vertical</Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            style={[styles.artFileBtn, editModalFocusIndex === 12 && styles.buttonFocused]}
+                            style={[styles.editArtFileBtn, editModalFocusIndex === 12 && styles.editArtFileBtnFocused]}
                             onPress={() => handleSelectImage('logo')}
                           >
-                            <Ionicons name="color-palette" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
+                            <Ionicons name="color-palette-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>Logo PNG</Text>
                             <Text style={styles.artFileBtnSub}>Transparente</Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            style={[styles.artFileBtn, editModalFocusIndex === 13 && styles.buttonFocused]}
+                            style={[styles.editArtFileBtn, editModalFocusIndex === 13 && styles.editArtFileBtnFocused]}
                             onPress={() => handleSelectImage('backgroundImage')}
                           >
-                            <Ionicons name="images" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
+                            <Ionicons name="images-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>Fondo</Text>
                             <Text style={styles.artFileBtnSub}>Horizontal</Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            style={[styles.artFileBtn, editModalFocusIndex === 14 && styles.buttonFocused]}
+                            style={[styles.editArtFileBtn, editModalFocusIndex === 14 && styles.editArtFileBtnFocused]}
                             onPress={handleSelectVideo}
                           >
-                            <Ionicons name="videocam" size={22} color="#00FFFF" style={{ marginBottom: 4 }} />
+                            <Ionicons name="videocam-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>Video</Text>
                             <Text style={styles.artFileBtnSub}>Trailer/Gameplay</Text>
                           </TouchableOpacity>
@@ -915,24 +940,24 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 <View style={styles.modalDivider} />
                 <View style={styles.modalActions}>
                   <TouchableOpacity
-                    style={[styles.deleteBtn, editModalFocusIndex === 15 && styles.buttonFocused]}
+                    style={[styles.editDeleteBtn, editModalFocusIndex === 15 && styles.editDeleteBtnFocused]}
                     onPress={handleDeleteApp}
                   >
-                    <Ionicons name="trash-outline" size={20} color="#FF2D55" />
+                    <Ionicons name="trash-outline" size={20} color={editModalFocusIndex === 15 ? '#FFF' : '#FF3B30'} />
                   </TouchableOpacity>
 
-                  <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end' }}>
+                  <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 15 }}>
                     <TouchableOpacity
-                      style={[styles.cancelBtn, editModalFocusIndex === 16 && styles.buttonFocused]}
+                      style={[styles.editSecondaryBtn, { paddingVertical: 14, paddingHorizontal: 24 }, editModalFocusIndex === 16 && styles.editSecondaryBtnFocused]}
                       onPress={() => setEditModalVisible(false)}
                     >
-                      <Text style={styles.cancelBtnText}>Cancelar</Text>
+                      <Text style={styles.editSecondaryBtnText}>Cancelar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[styles.saveBtn, editModalFocusIndex === 17 && styles.buttonFocused]}
+                      style={[styles.editPrimaryBtn, editModalFocusIndex === 17 && styles.editPrimaryBtnFocused]}
                       onPress={handleSaveEdit}
                     >
-                      <Text style={styles.saveBtnText}>Guardar</Text>
+                      <Text style={styles.editPrimaryBtnText}>Guardar</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1400,6 +1425,221 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 255, 255, 0.6)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 20,
+  },
+
+  // === NEW FULL SCREEN EDIT VIEW ===
+  editViewContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    zIndex: 1000,
+  },
+  editOverlayDark: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(7, 8, 12, 0.45)',
+  },
+  editContentContainer: {
+    flex: 1,
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 80,
+  },
+  editMainTitleLarge: {
+    color: '#FFF',
+    fontSize: 40,
+    fontWeight: '200',
+    letterSpacing: 0.5,
+    marginBottom: 30,
+  },
+  editTwoColumns: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 60,
+  },
+  editSidebar: {
+    width: 320,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255, 255, 255, 0.08)',
+    paddingRight: 40,
+    justifyContent: 'flex-start',
+  },
+  editTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    gap: 15,
+  },
+  editTabActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  editTabFocused: {
+    borderColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    borderRadius: 5,
+  },
+  editTabText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 18,
+    fontWeight: '400',
+  },
+  editTabTextActive: {
+    color: '#FFF',
+    fontWeight: '600',
+  },
+  editMainContent: {
+    flex: 1,
+    paddingHorizontal: 40,
+    paddingVertical: 20,
+  },
+  editSectionTitle: {
+    color: '#FFF',
+    fontSize: 26,
+    fontWeight: '300',
+    marginBottom: 30,
+  },
+  editLabel: {
+    color: '#8E8E93',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 15,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  editInput: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    color: '#FFF',
+    padding: 16,
+    borderRadius: 14,
+    fontSize: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 20,
+  },
+  editInputFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  editSecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 16,
+    borderRadius: 14,
+    gap: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  editSecondaryBtnFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  editSecondaryBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  editPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  editPrimaryBtnFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+  },
+  editPrimaryBtnText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  editDeleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 45, 85, 0.1)',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 45, 85, 0.3)',
+  },
+  editDeleteBtnFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 45, 85, 0.3)',
+  },
+  platformBtnNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  platformBtnActiveNew: {
+    backgroundColor: '#FFF',
+    borderColor: '#FFF',
+  },
+  platformBtnTextNew: {
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  platformBtnTextActiveNew: {
+    color: '#000',
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  platformBtnFocusedNew: {
+    borderColor: '#FFFFFF',
+  },
+  editArtFileBtn: {
+    width: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: 20,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editArtFileBtnFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  editSyncBtnUnified: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  editSyncBtnUnifiedFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+  },
+  editSyncBtnUnifiedText: {
+    color: '#000',
+    fontWeight: '700',
+    marginLeft: 8,
+    fontSize: 15,
   },
 
 });
