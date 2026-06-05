@@ -1451,10 +1451,19 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         const cardWidthPercent = `${100 / Math.round(sliderValue) - 1.5}%`;
                         
                         let cardAspectRatio = 2/3;
-                        if (assetSelectorTab === 'capsule_wide') cardAspectRatio = 16/7.5;
-                        else if (assetSelectorTab === 'hero') cardAspectRatio = 16/9;
-                        else if (assetSelectorTab === 'logo') cardAspectRatio = 16/10;
-                        else if (assetSelectorTab === 'icon') cardAspectRatio = 1;
+                        if (assetSelectorTab === 'capsule' || assetSelectorTab === 'capsule_wide') {
+                          if (asset.width > 0 && asset.height > 0) {
+                            cardAspectRatio = asset.width / asset.height;
+                          } else {
+                            cardAspectRatio = assetSelectorTab === 'capsule_wide' ? 16/7.5 : 2/3;
+                          }
+                        } else if (assetSelectorTab === 'hero') {
+                          cardAspectRatio = 16/9;
+                        } else if (assetSelectorTab === 'logo') {
+                          cardAspectRatio = 16/10;
+                        } else if (assetSelectorTab === 'icon') {
+                          cardAspectRatio = 1;
+                        }
 
                         return (
                           <TouchableOpacity
