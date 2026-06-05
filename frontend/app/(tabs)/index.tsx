@@ -3349,12 +3349,6 @@ export default function ConsoleHome() {
                   </View>
                 </View>
 
-                {/* Spotify Now Playing Card — solo visible cuando el item activo es Spotify */}
-                {(activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) && (
-                  <SpotifyNowPlayingCard
-                    isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 3}
-                  />
-                )}
 
                 {/* Friends Playing Card */}
                 <View
@@ -3471,6 +3465,12 @@ export default function ConsoleHome() {
                     </Text>
                   </View>
                 </View>
+                {/* Spotify Now Playing Card — solo visible cuando el item activo es Spotify */}
+                {(activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) && (
+                  <SpotifyNowPlayingCard
+                    isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 4}
+                  />
+                )}
               </Animated.View>
             )}
 
