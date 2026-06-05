@@ -1916,9 +1916,10 @@ export default function ConsoleHome() {
                     {isActive && item.id !== 'more_library' && (
                       <Animated.View style={styles.activeLabelContainer} entering={FadeIn.delay(350).duration(450)}>
                         <View style={styles.platformBadge}>
-                          <Text style={styles.platformBadgeText}>
-                            {item.isFolder || item.isGrid ? 'FAVS' : (item.platform || 'PS5')}
-                          </Text>
+                          <Image source={require('@/assets/images/PS5.png')}
+                            style={{ width: 60, height: 60 }}
+                            resizeMode="contain"
+                          />
                         </View>
                         <Text style={styles.activeGameTitle} numberOfLines={1}>
                           {item.isLastPlayed ? (lastPlayedGame?.title || 'Último Jugado') : item.title}
@@ -4112,11 +4113,11 @@ const styles = StyleSheet.create({
     minWidth: 500,
   },
   platformBadge: {
-    backgroundColor: '#FFFFFF',
+    //backgroundColor: '#FFFFFF',
     paddingHorizontal: 9,
     paddingVertical: 2,
-    borderRadius: 4,
-    marginRight: 8,
+    //borderRadius: 4,
+    marginRight: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

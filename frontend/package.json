@@ -72,7 +72,13 @@
       "main": "electron/main.js"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "assets/images/logo/ps5.ico"
+    },
+    "nsis": {
+      "installerIcon": "assets/images/logo/ps5.ico",
+      "uninstallerIcon": "assets/images/logo/ps5.ico",
+      "installerHeaderIcon": "assets/images/logo/ps5.ico"
     }
   }
 }

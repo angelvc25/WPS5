@@ -38,6 +38,7 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
+    icon: path.join(__dirname, '../assets/images/ps5.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: false, // Permitir carga de assets locales y externos sin restricciones de CORS/CSP en este entorno de consola
