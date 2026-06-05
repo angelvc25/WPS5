@@ -3978,7 +3978,7 @@ const styles = StyleSheet.create({
   },
   settingsMainNew: {
     flex: 1,
-    backgroundColor: 'rgba(20, 20, 30, 0.15)',
+    // backgroundColor: 'rgba(20, 20, 30, 0.15)',
     borderRadius: 0,
     paddingHorizontal: 40,
     paddingVertical: 20,
