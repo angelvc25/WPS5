@@ -109,6 +109,203 @@ const AnimatedCardWrapper = React.memo(({
   );
 });
 
+// ─── Spotify Now Playing Widget ────────────────────────────────────────────
+const SPOTIFY_MOCK_TRACKS = [
+  { title: 'Blinding Lights', artist: 'The Weeknd', album: 'After Hours', duration: 200, color: '#e40d60' },
+  { title: 'As It Was', artist: 'Harry Styles', album: "Harry's House", duration: 167, color: '#6a5acd' },
+  { title: 'Flowers', artist: 'Miley Cyrus', album: 'Endless Summer Vacation', duration: 200, color: '#1db954' },
+  { title: 'Anti-Hero', artist: 'Taylor Swift', album: 'Midnights', duration: 200, color: '#c0392b' },
+];
+
+const SpotifyNowPlayingCard = React.memo(({ isFocused }: { isFocused: boolean }) => {
+  const [trackIndex, setTrackIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+
+  const track = SPOTIFY_MOCK_TRACKS[trackIndex];
+
+  // Simula el progreso de reproducción
+  useEffect(() => {
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      setElapsed(prev => {
+        if (prev >= track.duration) {
+          // Avanzar a la siguiente canción
+          setTrackIndex(i => (i + 1) % SPOTIFY_MOCK_TRACKS.length);
+          setProgress(0);
+          return 0;
+        }
+        const next = prev + 1;
+        setProgress(next / track.duration);
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isPlaying, track.duration]);
+
+  // Resetea el progreso al cambiar de canción
+  useEffect(() => {
+    setProgress(0);
+    setElapsed(0);
+  }, [trackIndex]);
+
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+  const barAnim = useSharedValue(1);
+  useEffect(() => {
+    if (isPlaying) {
+      barAnim.value = withRepeat(
+        withTiming(0.4, { duration: 500, easing: Easing.inOut(Easing.ease) }),
+        -1, true
+      );
+    } else {
+      barAnim.value = withTiming(0.4, { duration: 200 });
+    }
+  }, [isPlaying]);
+
+  const bar1 = useAnimatedStyle(() => ({ height: interpolate(barAnim.value, [0.4, 1], [4, 14]) }));
+  const bar2 = useAnimatedStyle(() => ({ height: interpolate(barAnim.value, [0.4, 1], [14, 4]) }));
+  const bar3 = useAnimatedStyle(() => ({ height: interpolate(barAnim.value, [0.4, 1], [8, 16]) }));
+
+  return (
+    <View
+      style={[
+        {
+          padding: 16,
+          borderRadius: 12,
+          backgroundColor: 'rgb(38 41 47)',
+          borderWidth: isFocused ? 1.5 : 1,
+          borderColor: isFocused ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.05)',
+          minWidth: 280,
+          maxWidth: 310,
+          justifyContent: 'space-between',
+          overflow: 'hidden',
+          position: 'relative',
+        } as any,
+      ]}
+    >
+      {/* Glow de fondo con el color de la canción */}
+      {Platform.OS === 'web' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: `radial-gradient(ellipse at 20% 50%, ${track.color}22 0%, transparent 65%)`,
+            pointerEvents: 'none',
+            zIndex: 0,
+            transition: 'background 800ms ease',
+          }}
+        />
+      )}
+
+      {/* Shimmer al enfocar */}
+      {Platform.OS === 'web' && isFocused && (
+        <div className="widget-shimmer-line" style={{ animationDuration: '7s', opacity: 0.8 }} />
+      )}
+
+      {/* Header: logo Spotify + título */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, zIndex: 1 }}>
+        {/* Ícono Spotify verde */}
+        <View
+          style={{
+            width: 28, height: 28, borderRadius: 14,
+            backgroundColor: '#1DB954',
+            alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="musical-notes" size={14} color="#000" />
+        </View>
+        <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase' }}>
+          Spotify · En reproducción
+        </Text>
+      </View>
+
+      {/* Info de la canción + visualizador */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12, zIndex: 1 }}>
+        {/* Album color swatch */}
+        <View
+          style={{
+            width: 42, height: 42, borderRadius: 6,
+            backgroundColor: track.color,
+            alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          <Ionicons name="musical-note" size={20} color="rgba(255,255,255,0.8)" />
+        </View>
+
+        {/* Título y artista */}
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '700' }} numberOfLines={1}>
+            {track.title}
+          </Text>
+          <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }} numberOfLines={1}>
+            {track.artist}
+          </Text>
+        </View>
+
+        {/* Visualizador de barras animadas */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 18 }}>
+          <Animated.View style={[{ width: 3, backgroundColor: '#1DB954', borderRadius: 2 }, bar1]} />
+          <Animated.View style={[{ width: 3, backgroundColor: '#1DB954', borderRadius: 2 }, bar2]} />
+          <Animated.View style={[{ width: 3, backgroundColor: '#1DB954', borderRadius: 2 }, bar3]} />
+        </View>
+      </View>
+
+      {/* Barra de progreso */}
+      <View style={{ zIndex: 1, marginBottom: 8 }}>
+        <View
+          style={{
+            height: 3, backgroundColor: 'rgba(255,255,255,0.12)',
+            borderRadius: 2, overflow: 'hidden',
+          }}
+        >
+          <View
+            style={{
+              height: '100%',
+              width: `${progress * 100}%` as any,
+              backgroundColor: '#1DB954',
+              borderRadius: 2,
+            }}
+          />
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>{formatTime(elapsed)}</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>{formatTime(track.duration)}</Text>
+        </View>
+      </View>
+
+      {/* Controles */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, zIndex: 1 }}>
+        <TouchableOpacity
+          onPress={() => setTrackIndex(i => (i - 1 + SPOTIFY_MOCK_TRACKS.length) % SPOTIFY_MOCK_TRACKS.length)}
+        >
+          <Ionicons name="play-skip-back" size={18} color="rgba(255,255,255,0.7)" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setIsPlaying(p => !p)}
+          style={{
+            width: 36, height: 36, borderRadius: 18,
+            backgroundColor: '#1DB954',
+            alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <Ionicons name={isPlaying ? 'pause' : 'play'} size={16} color="#000" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setTrackIndex(i => (i + 1) % SPOTIFY_MOCK_TRACKS.length)}
+        >
+          <Ionicons name="play-skip-forward" size={18} color="rgba(255,255,255,0.7)" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+// ────────────────────────────────────────────────────────────────────────────
+
 export default function ConsoleHome() {
   const { activeUser, changeUser, updateUser } = useUser();
   const [activeTab, setActiveTab] = useState('Games');
@@ -3151,6 +3348,13 @@ export default function ConsoleHome() {
                     </Text>
                   </View>
                 </View>
+
+                {/* Spotify Now Playing Card — solo visible cuando el item activo es Spotify */}
+                {(activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) && (
+                  <SpotifyNowPlayingCard
+                    isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 3}
+                  />
+                )}
 
                 {/* Friends Playing Card */}
                 <View
