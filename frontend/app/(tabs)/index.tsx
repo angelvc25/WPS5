@@ -2783,28 +2783,12 @@ export default function ConsoleHome() {
               )}
             </Animated.View>
 
-            {canPlay && ((activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) ? (
-              <Animated.View key={`spotify-widget-${activeIndex}`} entering={FadeInDown.duration(400).delay(120)} style={[infoCardsStyle, { marginTop: 20, paddingHorizontal: 50, width: '100%' }]}>
-                <BlurView intensity={40} tint="dark" style={{ padding: 24, borderRadius: 16, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', maxWidth: 600, alignSelf: 'flex-start' }}>
-                  <MaterialCommunityIcons name="spotify" size={64} color="#1DB954" style={{ marginBottom: 12 }} />
-                  <Text style={{ color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>Reproductor de Música</Text>
-                  <Text style={{ color: '#AAA', fontSize: 14, textAlign: 'center', marginBottom: 16 }}>Para que este widget funcione el usuario debe iniciar sesión con Spotify.</Text>
-                  <TouchableOpacity
-                    style={{ backgroundColor: '#1DB954', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 }}
-                    onPress={() => {
-                      if (Platform.OS === 'web') {
-                        window.open('https://accounts.spotify.com/login', 'Spotify Login', 'width=600,height=800');
-                      } else {
-                        Linking.openURL('https://accounts.spotify.com/login');
-                      }
-                    }}
-                  >
-                    <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>Iniciar Sesión con Spotify</Text>
-                  </TouchableOpacity>
-                </BlurView>
-              </Animated.View>
-            ) : (
-              <Animated.View key={`cards-${activeIndex}`} entering={FadeInDown.duration(400).delay(120)} style={[styles.infoCardsRow, infoCardsStyle]}>
+            {canPlay && (
+              <Animated.View
+                key={`cards-${activeIndex}`}
+                entering={FadeInDown.duration(400).delay(120)}
+                style={[styles.infoCardsRow, infoCardsStyle]}
+              >
                 {/* Trophies Card */}
                 <BlurView intensity={28} tint="dark" style={[
                   styles.infoCard,
@@ -2856,7 +2840,20 @@ export default function ConsoleHome() {
                   </View>
                 </BlurView>
               </Animated.View>
-            ))}
+            )}
+
+            {/* Frase para items de tipo media/spotify */}
+            {canPlay && (activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) && (
+              <Animated.View
+                key={`phrase-${activeIndex}`}
+                entering={FadeInDown.duration(400).delay(120)}
+                style={{ marginTop: 20, paddingHorizontal: 50, alignItems: 'flex-start' }}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontStyle: 'italic' }}>
+                  La música es el fondo perfecto para cada aventura.
+                </Text>
+              </Animated.View>
+            )}
 
             {canPlay && !(activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) && (
               <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>

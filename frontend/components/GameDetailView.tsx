@@ -105,13 +105,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
 
     if (selectedDimensionFilter === '2:3') {
-      return list.filter((g: any) => Math.abs(g.width / g.height - 2/3) < 0.05);
+      return list.filter((g: any) => Math.abs(g.width / g.height - 2 / 3) < 0.05);
     } else if (selectedDimensionFilter === '22:31') {
-      return list.filter((g: any) => Math.abs(g.width / g.height - 22/31) < 0.05);
+      return list.filter((g: any) => Math.abs(g.width / g.height - 22 / 31) < 0.05);
     } else if (selectedDimensionFilter === '1:1') {
       return list.filter((g: any) => g.width === g.height);
     } else if (selectedDimensionFilter === '92:43') {
-      return list.filter((g: any) => Math.abs(g.width / g.height - 92/43) < 0.05);
+      return list.filter((g: any) => Math.abs(g.width / g.height - 92 / 43) < 0.05);
     }
 
     return list;
@@ -125,7 +125,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     let nextIdx = currentIdx + direction;
     if (nextIdx < 0) nextIdx = tabIndices.length - 1;
     if (nextIdx >= tabIndices.length) nextIdx = 0;
-    
+
     setAssetSelectorTab(tabIndices[nextIdx]);
     setSelectedDimensionFilter('all');
     setGridFocusIndex(0);
@@ -138,7 +138,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setAssetSelectorFocusArea('tabs');
     setGridFocusIndex(0);
     setFilterFocusIndex(0);
-    
+
     setIsLoadingAssets(true);
     try {
       const result = await fetchSteamGridAssetsService(editData.title || '');
@@ -257,7 +257,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         setFilterFocusIndex(0);
       }
     }
-    
+
     else if (assetSelectorFocusArea === 'filters') {
       const showAdjust = assetSelectorTab === 'logo' || assetSelectorTab === 'hero';
 
@@ -886,119 +886,105 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               </View>
             </Animated.View>
 
-            {/* INFO CARDS: Trofeos + Amigos / O Spotify Widget */}
-            {(item.type === 'media' || item.title?.toLowerCase().includes('spotify')) ? (
-              <Animated.View style={[infoCardsStyle, { marginTop: 20 }]}>
-                <BlurView intensity={40} tint="dark" style={{ padding: 24, borderRadius: 16, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                  <MaterialCommunityIcons name="spotify" size={64} color="#1DB954" style={{ marginBottom: 12 }} />
-                  <Text style={{ color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>Reproductor de Música</Text>
-                  <Text style={{ color: '#AAA', fontSize: 14, textAlign: 'center', marginBottom: 16 }}>Para que este widget funcione el usuario debe iniciar sesión con Spotify.</Text>
-                  <TouchableOpacity
-                    style={{ backgroundColor: '#1DB954', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 }}
-                    onPress={() => {
-                      if (Platform.OS === 'web') {
-                        window.open('https://accounts.spotify.com/login', 'Spotify Login', 'width=600,height=800');
-                      } else {
-                        Linking.openURL('https://accounts.spotify.com/login');
-                      }
-                    }}
-                  >
-                    <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>Iniciar Sesión con Spotify</Text>
-                  </TouchableOpacity>
-                </BlurView>
-              </Animated.View>
-            ) : (
-              <Animated.View style={[styles.infoCardsRow, infoCardsStyle]}>
-                {/* Trofeos */}
-                <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 2 && styles.infoCardFocused]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
-                    </View>
+            <Animated.View style={[styles.infoCardsRow, infoCardsStyle]}>
+              {/* Trofeos */}
+              <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 2 && styles.infoCardFocused]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
+                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
                   </View>
-                  <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
-                  <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
-                </BlurView>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
+                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
+                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
+                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
+                  </View>
+                </View>
+                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
+                <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
+              </BlurView>
 
-                {/* Amigos */}
-                <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 3 && styles.infoCardFocused]}>
-                  <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-                    {[1, 2, 3, 4, 5].map((_, i) => (
-                      <View key={i} style={{
-                        width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
-                        borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
-                        alignItems: 'center', justifyContent: 'center'
-                      }}>
-                        <Ionicons name="person" size={16} color="#AAA" />
-                      </View>
-                    ))}
-                  </View>
-                  <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
-                  <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
-                </BlurView>
+              {/* Amigos */}
+              <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 3 && styles.infoCardFocused]}>
+                <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                  {[1, 2, 3, 4, 5].map((_, i) => (
+                    <View key={i} style={{
+                      width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
+                      borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
+                      alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <Ionicons name="person" size={16} color="#AAA" />
+                    </View>
+                  ))}
+                </View>
+                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
+                <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
+              </BlurView>
+            </Animated.View>
+
+            {/* Frase */}
+            {(item.type === 'media' || item.title?.toLowerCase().includes('spotify')) && (
+              <Animated.View style={[infoCardsStyle, { marginTop: 20, alignItems: 'center', paddingHorizontal: 24 }]}>
+                <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontStyle: 'italic', textAlign: 'center' }}>
+                  La música es el fondo perfecto para cada aventura.
+                </Text>
               </Animated.View>
             )}
 
             {/* CAPTURAS Y TRAILERS */}
             {!(item.type === 'media' || item.title?.toLowerCase().includes('spotify')) && (
               <View style={[styles.newsSectionWrapper]}>
-              <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Capturas y trailers</Text>
-              {mediaLoading ? (
-                <View style={styles.newsLoadingRow}>
-                  <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-                  <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
-                </View>
-              ) : steamMedia.length === 0 ? (
-                <View style={styles.newsLoadingRow}>
-                  <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
-                  <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
-                </View>
-              ) : (
-                <ScrollView
-                  ref={mediaScrollRef}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={[styles.newsScrollContent, { paddingRight: 50 }]}
-                >
-                  {steamMedia.map((media, idx) => {
-                    const isMediaFocused = focusIndex === 100 + idx;
-                    return (
-                      <TouchableOpacity
-                        key={media.id}
-                        style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          if (media.type === 'movie' && media.mp4_url) Linking.openURL(media.mp4_url);
-                          else if (media.full) Linking.openURL(media.full);
-                        }}
-                      >
-                        <View style={styles.newsCardThumbnail}>
-                          <Image source={{ uri: media.thumbnail }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-                          {media.type === 'movie' && (
-                            <View style={styles.mediaPlayBadge}>
-                              <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
-                            </View>
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              )}
-            </View>
+                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Capturas y trailers</Text>
+                {mediaLoading ? (
+                  <View style={styles.newsLoadingRow}>
+                    <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                    <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
+                  </View>
+                ) : steamMedia.length === 0 ? (
+                  <View style={styles.newsLoadingRow}>
+                    <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
+                    <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    ref={mediaScrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[styles.newsScrollContent, { paddingRight: 50 }]}
+                  >
+                    {steamMedia.map((media, idx) => {
+                      const isMediaFocused = focusIndex === 100 + idx;
+                      return (
+                        <TouchableOpacity
+                          key={media.id}
+                          style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            if (media.type === 'movie' && media.mp4_url) Linking.openURL(media.mp4_url);
+                            else if (media.full) Linking.openURL(media.full);
+                          }}
+                        >
+                          <View style={styles.newsCardThumbnail}>
+                            <Image source={{ uri: media.thumbnail }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                            {media.type === 'movie' && (
+                              <View style={styles.mediaPlayBadge}>
+                                <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
+                              </View>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </View>
             )}
 
             {/* ÚLTIMAS NOTICIAS */}
@@ -1165,13 +1151,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                       ]}
                                       onPress={() => setEditData({ ...editData, platform: plat.id })}
                                     >
-                                      <MaterialCommunityIcons 
-                                        name={plat.icon as any} 
-                                        size={20} 
-                                        color={isActive ? '#000' : '#FFF'} 
+                                      <MaterialCommunityIcons
+                                        name={plat.icon as any}
+                                        size={20}
+                                        color={isActive ? '#000' : '#FFF'}
                                       />
                                       <Text style={[
-                                        styles.platformBtnTextNew, 
+                                        styles.platformBtnTextNew,
                                         isActive && styles.platformBtnTextActiveNew
                                       ]}>
                                         {plat.id}
@@ -1335,7 +1321,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 {/* Header */}
                 <View style={styles.assetHeader}>
                   <Text style={styles.editMainTitleLarge}>Seleccionar Imagen</Text>
-                  
+
                   {/* Tabs */}
                   <View style={styles.assetHeaderTabs}>
                     {[
@@ -1430,7 +1416,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 </View>
 
                 {/* GRID OF ASSETS */}
-                <ScrollView 
+                <ScrollView
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={{ flexGrow: 1 }}
                 >
@@ -1460,10 +1446,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               ]}
                               onPress={() => handleManageAction(act.index)}
                             >
-                              <Ionicons 
-                                name={act.icon as any} 
-                                size={40} 
-                                color={act.isDelete ? '#FF3B30' : '#FFF'} 
+                              <Ionicons
+                                name={act.icon as any}
+                                size={40}
+                                color={act.isDelete ? '#FF3B30' : '#FFF'}
                                 style={{ marginBottom: 12 }}
                               />
                               <Text style={styles.manageCardTitle}>{act.title}</Text>
@@ -1483,18 +1469,18 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       {getActiveTabList().map((asset, idx) => {
                         const isFocused = assetSelectorFocusArea === 'grid' && gridFocusIndex === idx;
                         const cardWidthPercent = `${100 / Math.round(sliderValue) - 1.5}%`;
-                        
-                        let cardAspectRatio = 2/3;
+
+                        let cardAspectRatio = 2 / 3;
                         if (assetSelectorTab === 'capsule' || assetSelectorTab === 'capsule_wide') {
                           if (asset.width > 0 && asset.height > 0) {
                             cardAspectRatio = asset.width / asset.height;
                           } else {
-                            cardAspectRatio = assetSelectorTab === 'capsule_wide' ? 16/7.5 : 2/3;
+                            cardAspectRatio = assetSelectorTab === 'capsule_wide' ? 16 / 7.5 : 2 / 3;
                           }
                         } else if (assetSelectorTab === 'hero') {
-                          cardAspectRatio = 16/9;
+                          cardAspectRatio = 16 / 9;
                         } else if (assetSelectorTab === 'logo') {
-                          cardAspectRatio = 16/10;
+                          cardAspectRatio = 16 / 10;
                         } else if (assetSelectorTab === 'icon') {
                           cardAspectRatio = 1;
                         }
