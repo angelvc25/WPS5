@@ -89,7 +89,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         list = (assetsData.grids || []).filter((g: any) => g.width < g.height || (selectedDimensionFilter === '1:1' && g.width === g.height));
         break;
       case 'capsule_wide':
-        list = (assetsData.grids || []).filter((g: any) => g.width > g.height || (selectedDimensionFilter === '1:1' && g.width === g.height) || (selectedDimensionFilter === 'all' && g.width === g.height));
+        list = (assetsData.grids || []).filter((g: any) => g.width > g.height || (selectedDimensionFilter === '1:1' && g.width === g.height));
         break;
       case 'hero':
         list = assetsData.heroes || [];

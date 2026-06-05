@@ -165,6 +165,7 @@ export default function ConsoleHome() {
   const [settingsTab, setSettingsTab] = useState<'profile' | 'home' | 'sync'>('profile');
   const [homeBackground, setHomeBackground] = useState<any>(null);
   const [isLaunching, setIsLaunching] = useState(false);
+  const [launchingItem, setLaunchingItem] = useState<ConsoleItem | null>(null);
   const [isRandomSelectorVisible, setRandomSelectorVisible] = useState(false);
 
   // States for new UI features (WPS5 UI Expansion)
@@ -1217,10 +1218,14 @@ export default function ConsoleHome() {
       return;
     }
     if (Platform.OS === 'web' && (window as any).electronAPI) {
+      setLaunchingItem(targetItem);
       setIsLaunching(true);
       (window as any).electronAPI.launchApp(targetItem.id, targetItem.path).then(() => {
         loadApps();
-        setTimeout(() => setIsLaunching(false), 4000);
+        setTimeout(() => {
+          setIsLaunching(false);
+          setLaunchingItem(null);
+        }, 10000);
       });
     }
   };
@@ -2931,13 +2936,7 @@ export default function ConsoleHome() {
         inputMode={inputMode}
         favorites={currentData[activeIndex]?.isGrid ? media.filter(m => m.isFavorite) : games.filter(g => g.isFavorite)}
         onClose={() => setFavoritesVisible(false)}
-        onLaunch={(item) => {
-          if (item.path?.startsWith('http')) { Linking.openURL(item.path); return; }
-          if (item.path && Platform.OS === 'web' && (window as any).electronAPI) {
-            setIsLaunching(true);
-            (window as any).electronAPI.launchApp(item.id, item.path).then(() => { loadApps(); setTimeout(() => setIsLaunching(false), 4000); });
-          }
-        }}
+        onLaunch={handleLaunchApp}
       />
 
       <RandomSelectorView
@@ -2947,11 +2946,7 @@ export default function ConsoleHome() {
         onClose={() => setRandomSelectorVisible(false)}
         onLaunch={(item) => {
           setRandomSelectorVisible(false);
-          if (item.path?.startsWith('http')) { Linking.openURL(item.path); return; }
-          if (item.path && Platform.OS === 'web' && (window as any).electronAPI) {
-            setIsLaunching(true);
-            (window as any).electronAPI.launchApp(item.id, item.path).then(() => { loadApps(); setTimeout(() => setIsLaunching(false), 4000); });
-          }
+          handleLaunchApp(item);
         }}
       />
 
@@ -3328,12 +3323,56 @@ export default function ConsoleHome() {
 
       {/* LAUNCHING OVERLAY */}
       <Modal visible={isLaunching} transparent animationType="fade">
-        <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill}>
-          <View style={styles.launchingOverlay}>
-            <MaterialCommunityIcons name="controller-classic" size={100} color="#FFF" />
-            <Text style={styles.launchingText}>Ejecutándose...</Text>
-          </View>
-        </BlurView>
+        {launchingItem ? (
+          <Animated.View
+            style={[StyleSheet.absoluteFill, { zIndex: 1000, backgroundColor: '#000' }]}
+            entering={FadeIn.duration(800)}
+            exiting={FadeOut.duration(800)}
+          >
+            {/* Background image of the game */}
+            {launchingItem.backgroundImage ? (
+              <Image
+                source={launchingItem.backgroundImage}
+                style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}
+                contentFit="cover"
+              />
+            ) : launchingItem.image ? (
+              <Image
+                source={launchingItem.image}
+                style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}
+                contentFit="cover"
+              />
+            ) : null}
+
+            {/* Dark background gradient overlay */}
+            {Platform.OS === 'web' && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.3) 100%)',
+                pointerEvents: 'none',
+              } as any} />
+            )}
+
+            <View style={styles.launchingOverlay}>
+              <Animated.View style={{ alignItems: 'center', marginBottom: 40 }} entering={FadeInDown.delay(300).duration(800)}>
+                {launchingItem.logo ? (
+                  <Image
+                    source={launchingItem.logo}
+                    style={{ width: 450, height: 180, marginBottom: 20 }}
+                    contentFit="contain"
+                  />
+                ) : (
+                  <Text style={[styles.ps5Title, { fontSize: 42, textAlign: 'center', marginBottom: 20, fontWeight: '200' }]} numberOfLines={1}>
+                    {launchingItem.title}
+                  </Text>
+                )}
+              </Animated.View>
+            </View>
+          </Animated.View>
+        ) : (
+          <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill}>
+          </BlurView>
+        )}
       </Modal>
 
       {/* PROFILE DROPDOWN MENU & BACKDROP */}
