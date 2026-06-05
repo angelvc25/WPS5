@@ -11,10 +11,12 @@
     "lint": "expo lint",
     "electron:start": "electron electron/main.js",
     "electron:dev": "concurrently \"npm run electron:start\"",
-    "electron:build": "expo export -p web && electron-builder"
+    "electron:build": "expo export -p web && electron-builder",
+    "sync-music": "node scripts/sync-music.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
@@ -23,6 +25,7 @@
     "expo-av": "~16.0.8",
     "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.13",
+    "expo-document-picker": "~14.0.8",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
@@ -53,6 +56,7 @@
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "graceful-fs": "^4.2.11",
+    "music-metadata": "^11.12.3",
     "typescript": "~5.9.2",
     "wait-on": "^9.0.5"
   },
