@@ -3641,7 +3641,7 @@ const styles = StyleSheet.create({
   gameTitle: {
     color: '#FFFFFF',
     fontSize: 38,
-    fontWeight: '800',
+    fontWeight: '300',
     letterSpacing: -0.5,
     marginBottom: 10,
     textShadowColor: 'rgba(0,0,0,0.8)',
