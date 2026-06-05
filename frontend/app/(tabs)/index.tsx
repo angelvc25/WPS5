@@ -873,10 +873,19 @@ export default function ConsoleHome() {
           if (focusArea === 'library_grid') {
             setLibraryGridFocusIndex(prev => Math.min(prev + 1, savedGames.length - 1));
           }
+          else if (focusArea === 'header_avatar') {
+            if (focusIndex < 2) setFocusIndex(prev => prev + 1);
+          }
           else if (focusArea === 'main_carousel') { const nextIdx = Math.min(activeIndex + 1, currentData.length - 1); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
           else if (focusArea === 'header_tabs') {
-            const nextIdx = Math.min(focusIndex + 1, TABS.length - 1);
-            setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
+            if (focusIndex < TABS.length - 1) {
+              const nextIdx = focusIndex + 1;
+              setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
+            } else {
+              // Último tab → pasar a los iconos de la derecha (buscar)
+              setFocusArea('header_avatar');
+              setFocusIndex(0);
+            }
           }
           else if (focusArea === 'game_panel') {
             if (gamePanelFocusIndex === 0) {
@@ -906,8 +915,12 @@ export default function ConsoleHome() {
             setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
           }
           else if (focusArea === 'header_avatar') {
-            setFocusArea('header_tabs');
-            setFocusIndex(TABS.indexOf(activeTab));
+            if (focusIndex > 0) {
+              setFocusIndex(prev => prev - 1);
+            } else {
+              setFocusArea('header_tabs');
+              setFocusIndex(TABS.indexOf(activeTab));
+            }
           }
           else if (focusArea === 'game_panel') {
             if (gamePanelFocusIndex === 1) {
@@ -931,7 +944,14 @@ export default function ConsoleHome() {
           if (focusArea === 'library_grid') {
             setLibraryGridFocusIndex(prev => Math.min(prev + 5, savedGames.length - 1));
           }
-          else if (focusArea === 'header_user' || focusArea === 'header_tabs' || focusArea === 'header_avatar') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
+          else if (focusArea === 'header_avatar') {
+            // Bajar desde los iconos globales siempre regresa a Games (inicio)
+            setActiveTab('Games');
+            setActiveIndex(0);
+            setFocusArea('main_carousel');
+            setFocusIndex(0);
+          }
+          else if (focusArea === 'header_user' || focusArea === 'header_tabs') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
           else if (focusArea === 'main_carousel') {
             if (activeItem?.id === 'more_library') {
               setFocusArea('library_grid');
@@ -1009,8 +1029,15 @@ export default function ConsoleHome() {
         if (e.key === 'Enter') {
           soundService.playActivation();
           if (focusArea === 'header_avatar') {
-            setIsProfileMenuOpen(true);
-            setProfileMenuFocusIndex(0);
+            if (focusIndex === 0) {
+              // Buscar — sin acción por ahora
+            } else if (focusIndex === 1) {
+              setUserModalVisible(false);
+              setSettingsVisible(true);
+            } else if (focusIndex === 2) {
+              setIsProfileMenuOpen(true);
+              setProfileMenuFocusIndex(0);
+            }
             return;
           }
           if (focusArea === 'library_grid') {
@@ -1571,43 +1598,58 @@ export default function ConsoleHome() {
 
         {/* Right: Icons + Avatar + Clock */}
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerIconBtn} activeOpacity={0.7}>
-            <Ionicons name="search" size={25} color="rgba(255,255,255,0.85)" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.headerIconBtn}
-            activeOpacity={0.7}
-            onPress={() => { setUserModalVisible(false); setSettingsVisible(true); }}
-          >
-            <Ionicons name="settings-sharp" size={25} color="#fff" />
-          </TouchableOpacity>
 
-          <View style={{ position: 'relative' }}>
+          {/* Search Icon — RadarFocusWrapper */}
+          <RadarFocusWrapper id="hdr-search" isFocused={focusArea === 'header_avatar' && focusIndex === 0} size={48} innerSize={36} borderRadius="50%">
             <TouchableOpacity
-              id="avatar-btn"
-              onPress={() => {
-                setIsProfileMenuOpen(true);
-                setProfileMenuFocusIndex(0);
-                soundService.playNavigation();
-              }}
-              style={[
-                styles.avatarContainer,
-                activeUser ? { borderColor: activeUser.color } : {},
-                focusArea === 'header_avatar' && styles.avatarFocused
-              ]}
-              activeOpacity={0.75}
+              style={styles.headerIconBtn}
+              activeOpacity={0.7}
+              onPress={() => { setFocusArea('header_avatar'); setFocusIndex(0); }}
             >
-              {activeUser?.avatar ? (
-                <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.avatar} />
-              ) : (
-                <View style={styles.defaultAvatarHeader}>
-                  <Ionicons name="person" size={18} color="#FFF" />
-                </View>
-              )}
+              <Ionicons name="search" size={22} color="rgba(255,255,255,0.85)" />
             </TouchableOpacity>
+          </RadarFocusWrapper>
+
+          {/* Settings Icon — RadarFocusWrapper */}
+          <RadarFocusWrapper id="hdr-settings" isFocused={focusArea === 'header_avatar' && focusIndex === 1} size={48} innerSize={36} borderRadius="50%">
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              activeOpacity={0.7}
+              onPress={() => { setUserModalVisible(false); setSettingsVisible(true); }}
+            >
+              <Ionicons name="settings-sharp" size={22} color="#fff" />
+            </TouchableOpacity>
+          </RadarFocusWrapper>
+
+          {/* Avatar / Profile — RadarFocusWrapper */}
+          <View style={{ position: 'relative' }}>
+            <RadarFocusWrapper id="hdr-avatar" isFocused={focusArea === 'header_avatar' && focusIndex === 2} size={52} innerSize={36} borderRadius="50%">
+              <TouchableOpacity
+                id="avatar-btn"
+                onPress={() => {
+                  setIsProfileMenuOpen(true);
+                  setProfileMenuFocusIndex(0);
+                  soundService.playNavigation();
+                }}
+                style={[
+                  styles.avatarContainer,
+                  activeUser ? { borderColor: activeUser.color } : {},
+                ]}
+                activeOpacity={0.75}
+              >
+                {activeUser?.avatar ? (
+                  <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.defaultAvatarHeader}>
+                    <Ionicons name="person" size={18} color="#FFF" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            </RadarFocusWrapper>
+            {/* Status dot — posicionado sobre la esquina inferior-derecha del avatar (36px), dentro del wrapper de 52px, offset = (52-36)/2 = 8px */}
             <View style={[
               styles.activeStatusDot,
-              { backgroundColor: isOnline ? '#4CD964' : '#8E8E93' }
+              { backgroundColor: isOnline ? '#4CD964' : '#8E8E93', bottom: 7, right: 7 }
             ]} />
           </View>
 
@@ -3400,6 +3442,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    // Sin fondo cuando no tiene focus — el RadarFocusWrapper maneja el efecto visual
   },
   timeText: {
     color: 'rgba(255,255,255,0.9)',
