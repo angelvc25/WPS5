@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Platform, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity, useWindowDimensions, Image as RNImage } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useEffect } from 'react';
 import GameDetailView from './GameDetailView';
@@ -122,6 +122,95 @@ const SpinningBorder = ({ id }: { id: string }) => {
   );
 };
 
+const SlidingGameTitle = ({
+  title,
+  focused,
+}: {
+  title: string;
+  focused: boolean;
+}) => {
+  const shouldScroll = title.length > 18;
+
+  const translateX = useSharedValue(0);
+
+  useEffect(() => {
+    if (!shouldScroll) return;
+
+    if (focused) {
+      translateX.value = 0;
+
+      translateX.value = withDelay(
+        2000,
+        withTiming(-300, {
+          duration: 8000,
+        })
+      );
+    } else {
+      translateX.value = withTiming(0, {
+        duration: 250,
+      });
+    }
+  }, [focused, shouldScroll]);
+
+  useEffect(() => {
+    if (!focused || !shouldScroll) return;
+
+    const interval = setInterval(() => {
+      translateX.value = 0;
+
+      translateX.value = withDelay(
+        100,
+        withTiming(-300, {
+          duration: 8000,
+        })
+      );
+    }, 8100);
+
+    return () => clearInterval(interval);
+  }, [focused, shouldScroll]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  // ─── Texto corto: normal ─────────────────────────────
+  if (!shouldScroll) {
+    return (
+      <View style={styles.gameTitleWrapper}>
+        <Text
+          numberOfLines={1}
+          style={styles.gameTitleCentered}
+        >
+          {title}
+        </Text>
+      </View>
+    );
+  }
+
+  // ─── Texto largo: marquee infinito ──────────────────
+  return (
+    <View style={styles.gameTitleWrapper}>
+      <Animated.View
+        style={[
+          {
+            flexDirection: 'row',
+            width: 1000,
+          },
+          animatedStyle,
+        ]}
+      >
+        <Text style={styles.gameTitleMarquee}>
+          {title}
+        </Text>
+
+        <Text style={styles.gameTitleMarquee}>
+          {title}
+        </Text>
+      </Animated.View>
+    </View>
+  );
+};
+
 export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0, onItemPress, onLaunch, onRefresh, isLaunching = false, inputMode = 'keyboard' }: LibraryGridProps) {
   const { height: windowHeight } = useWindowDimensions();
   const [selectedGame, setSelectedGame] = useState<ConsoleItem | null>(null);
@@ -223,6 +312,26 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
                       ) : (
                         <View style={styles.placeholderImage}>
                           <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
+                        </View>
+                      )}
+
+                      {/* Overlay degradado + nombre SOLO cuando está enfocado */}
+                      {isItemFocused && (
+                        <View style={styles.focusedOverlay}>
+                          <View style={styles.gradientOverlay} />
+
+                          <View style={styles.gameInfoContainer}>
+                            <RNImage
+                              source={require('@/assets/images/PS5.png')}
+                              style={styles.platformLogo}
+                              resizeMode="contain"
+                            />
+
+                            <SlidingGameTitle
+                              title={game.title || game.title || 'Juego'}
+                              focused={isItemFocused}
+                            />
+                          </View>
                         </View>
                       )}
 
@@ -335,10 +444,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // unfocusedOverlay: {
-  //   ...StyleSheet.absoluteFillObject,
-  //   backgroundColor: 'rgba(0,0,0,0.38)',
-  // },
+  unfocusedOverlay: {
+    //...StyleSheet.absoluteFillObject,
+    //backgroundColor: 'rgba(0,0,0,0.38)',
+  },
   emptyContainer: {
     width: '100%',
     height: 200,
@@ -354,5 +463,78 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     fontSize: 18,
     marginTop: 15,
+  },
+  focusedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    zIndex: 20,
+  },
+
+  gradientOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '55%',
+
+    ...Platform.select({
+      web: {
+        backgroundImage:
+          'linear-gradient(to top, rgba(0,0,0,0.95) 15%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0.0) 100%)',
+      } as any,
+      default: {
+        backgroundColor: 'rgba(0,0,0,0.55)',
+      },
+    }),
+  },
+
+  gameTitle: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '600',
+    //paddingHorizontal: 16,
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+
+    // importante para que el texto pueda deslizarse
+    minWidth: '140%',
+  },
+  gameTitleWrapper: {
+    overflow: 'hidden',
+    width: '100%',
+    //paddingBottom: 14,
+  },
+  gameTitleMarquee: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '300',
+    paddingHorizontal: 10,
+
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+  },
+  gameTitleCentered: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '300',
+    //paddingHorizontal: 16,
+    textAlign: 'left',
+
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+  },
+  gameInfoContainer: {
+    width: '100%',
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+
+  platformLogo: {
+    width: 52,
+    height: 22,
+    marginBottom: 8,
   },
 });
