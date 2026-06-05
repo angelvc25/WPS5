@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Platform,
+  Animated,
   Image as RNImage,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -69,6 +70,8 @@ interface ProfileDropdownMenuProps {
   isOnline: boolean;
 }
 
+const GLOW_DURATION = 180;
+
 export default function ProfileDropdownMenu({
   focusedIndex,
   onPressItem,
@@ -103,6 +106,32 @@ export default function ProfileDropdownMenu({
       icon: 'log-out-outline' as const,
     },
   ];
+
+  // ─── Animated opacity per item for smooth focus glow transition ───────────
+  const glowAnims = useRef(
+    options.map((_, i) => new Animated.Value(i === focusedIndex ? 1 : 0))
+  ).current;
+  const prevFocusRef = useRef(focusedIndex);
+
+  useEffect(() => {
+    const prev = prevFocusRef.current;
+    if (prev === focusedIndex) return;
+    prevFocusRef.current = focusedIndex;
+
+    // Fade out old item
+    Animated.timing(glowAnims[prev], {
+      toValue: 0,
+      duration: GLOW_DURATION,
+      useNativeDriver: true,
+    }).start();
+
+    // Fade in new item
+    Animated.timing(glowAnims[focusedIndex], {
+      toValue: 1,
+      duration: GLOW_DURATION,
+      useNativeDriver: true,
+    }).start();
+  }, [focusedIndex]);
 
   return (
     <View style={styles.container}>
@@ -153,13 +182,12 @@ export default function ProfileDropdownMenu({
                 isFocused && styles.itemFocused,
               ]}
             >
-              {/* Glow focus border/background */}
-              {isFocused && (
-                <>
-                  <View style={styles.focusGlow} pointerEvents="none" />
-                  <ShimmerOverlay />
-                </>
-              )}
+              {/* Animated glow focus — fades between items */}
+              <Animated.View
+                style={[styles.focusGlow, { opacity: glowAnims[idx] }]}
+                pointerEvents="none"
+              />
+              {isFocused && <ShimmerOverlay />}
 
               <View style={styles.itemLeft}>
                 {opt.image ? (
