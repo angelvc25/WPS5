@@ -3281,11 +3281,23 @@ export default function ConsoleHome() {
                           {/* Thumbnail area */}
                           <View style={styles.newsCardThumbnail}>
                             {item.image_url ? (
-                              <Image source={{ uri: item.image_url }} style={[{ width: '100%', height: '120%' }]} contentFit="cover" />
+                              <View style={[{ width: '100%', height: '120%' }]}>
+                                {/* <Image
+                                  source={activeItem?.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image}
+                                  style={[{ width: '100%', height: '120%', zIndex: 15 }]}
+                                  contentFit="cover"
+                                  blurRadius={2}
+                                /> */}
+                                <Image
+                                  source={activeItem?.isLastPlayed ? (lastPlayedGame?.logo ?? activeItem.logo) : activeItem.logo}
+                                  style={[{ width: '70%', height: '70%', margin: 'auto', marginTop: '5%' }]}
+                                  contentFit="contain"
+                                />
+                              </View>
                             ) : (
                               <Image
-                                source={activeItem?.backgroundImage ?? activeItem?.image ?? require('@/assets/images/FondoDefault2.jpg')}
-                                style={{ width: '100%', height: '100%', opacity: 0.5 }}
+                                source={activeItem?.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image}
+                                style={[{ width: '100%', height: '120%' }]}
                                 contentFit="cover"
                               />
                             )}
