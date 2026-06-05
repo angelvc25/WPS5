@@ -211,7 +211,7 @@ export default function ConsoleHome() {
       const timer = setTimeout(() => { setShowTrailer(true); }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [activeIndex, activeTab, activeUser?.settings?.autoPlayVideo]);
+  }, [activeIndex, currentRenderedTab, activeUser?.settings?.autoPlayVideo]);
 
   useEffect(() => {
     // Fade out old content
@@ -289,7 +289,7 @@ export default function ConsoleHome() {
   });
 
   const spacerStyle = useAnimatedStyle(() => {
-    const isWelcome = (activeTab === 'Games' ? games : media)[activeIndex]?.id === '1';
+    const isWelcome = (currentRenderedTab === 'Games' ? games : media)[activeIndex]?.id === '1';
     const trophyHeight = 320;
     const deepHeight = interpolate(deepSectionFocusAnim.value, [0, 1], [trophyHeight, 80]);
     const targetMinHeight = interpolate(
@@ -3492,8 +3492,7 @@ const styles = StyleSheet.create({
     gap: 35,
   },
   tabTouchable: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    // Padding removed — navItem holds its own constant padding to prevent layout shifts on focus
   },
   navItem: {
     color: 'rgba(255,255,255,0.5)',
