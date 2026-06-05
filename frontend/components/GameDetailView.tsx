@@ -854,16 +854,26 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 <TouchableOpacity
                   style={[styles.ps5PlayBtn, focusIndex === 0 && styles.ps5PlayBtnFocused]}
                   activeOpacity={0.85}
-                  onPress={() => {
+                  onPress={async () => {
                     setFocusIndex(0);
                     if (item.path) {
                       if (onLaunch) onLaunch(item.id, item.path);
                       else if (Platform.OS === 'web' && (window as any).electronAPI)
                         (window as any).electronAPI.launchApp(item.id, item.path);
+                    } else if (item.type === 'media' || item.title?.toLowerCase().includes('spotify')) {
+                      if ((window as any).electronAPI) {
+                        const p = await (window as any).electronAPI.selectFile();
+                        if (p) {
+                          await (window as any).electronAPI.updateApp({ id: item.id, path: p });
+                          if (onRefresh) onRefresh();
+                        }
+                      }
                     }
                   }}
                 >
-                  <Text style={[styles.ps5PlayBtnText, focusIndex === 0 && styles.ps5PlayBtnTextFocused]}>Jugar</Text>
+                  <Text style={[styles.ps5PlayBtnText, focusIndex === 0 && styles.ps5PlayBtnTextFocused]}>
+                    {(item.type === 'media' || item.title?.toLowerCase().includes('spotify')) ? 'Entrar' : 'Jugar'}
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -876,52 +886,75 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               </View>
             </Animated.View>
 
-            {/* INFO CARDS: Trofeos + Amigos — se ocultan al bajar a capturas */}
-            <Animated.View style={[styles.infoCardsRow, infoCardsStyle]}>
-              {/* Trofeos */}
-              <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 2 && styles.infoCardFocused]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
-                  </View>
-                </View>
-                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
-                <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
-              </BlurView>
-
-              {/* Amigos */}
-              <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 3 && styles.infoCardFocused]}>
-                <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-                  {[1, 2, 3, 4, 5].map((_, i) => (
-                    <View key={i} style={{
-                      width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
-                      borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
-                      alignItems: 'center', justifyContent: 'center'
-                    }}>
-                      <Ionicons name="person" size={16} color="#AAA" />
+            {/* INFO CARDS: Trofeos + Amigos / O Spotify Widget */}
+            {(item.type === 'media' || item.title?.toLowerCase().includes('spotify')) ? (
+              <Animated.View style={[infoCardsStyle, { marginTop: 20 }]}>
+                <BlurView intensity={40} tint="dark" style={{ padding: 24, borderRadius: 16, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                  <MaterialCommunityIcons name="spotify" size={64} color="#1DB954" style={{ marginBottom: 12 }} />
+                  <Text style={{ color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>Reproductor de Música</Text>
+                  <Text style={{ color: '#AAA', fontSize: 14, textAlign: 'center', marginBottom: 16 }}>Para que este widget funcione el usuario debe iniciar sesión con Spotify.</Text>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#1DB954', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 }}
+                    onPress={() => {
+                      if (Platform.OS === 'web') {
+                        window.open('https://accounts.spotify.com/login', 'Spotify Login', 'width=600,height=800');
+                      } else {
+                        Linking.openURL('https://accounts.spotify.com/login');
+                      }
+                    }}
+                  >
+                    <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>Iniciar Sesión con Spotify</Text>
+                  </TouchableOpacity>
+                </BlurView>
+              </Animated.View>
+            ) : (
+              <Animated.View style={[styles.infoCardsRow, infoCardsStyle]}>
+                {/* Trofeos */}
+                <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 2 && styles.infoCardFocused]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
                     </View>
-                  ))}
-                </View>
-                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
-                <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
-              </BlurView>
-            </Animated.View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
+                    </View>
+                  </View>
+                  <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
+                  <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
+                </BlurView>
+
+                {/* Amigos */}
+                <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 3 && styles.infoCardFocused]}>
+                  <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                    {[1, 2, 3, 4, 5].map((_, i) => (
+                      <View key={i} style={{
+                        width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
+                        borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
+                        alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <Ionicons name="person" size={16} color="#AAA" />
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
+                  <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
+                </BlurView>
+              </Animated.View>
+            )}
 
             {/* CAPTURAS Y TRAILERS */}
-            <View style={[styles.newsSectionWrapper]}>
+            {!(item.type === 'media' || item.title?.toLowerCase().includes('spotify')) && (
+              <View style={[styles.newsSectionWrapper]}>
               <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Capturas y trailers</Text>
               {mediaLoading ? (
                 <View style={styles.newsLoadingRow}>
@@ -966,6 +999,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 </ScrollView>
               )}
             </View>
+            )}
 
             {/* ÚLTIMAS NOTICIAS */}
             <View style={[styles.newsSectionWrapper]}>
