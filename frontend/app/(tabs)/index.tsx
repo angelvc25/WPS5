@@ -2682,180 +2682,180 @@ export default function ConsoleHome() {
               )}
             </Animated.View>
 
-              {/* Trophies & Friends Cards — animadas al ocultarse cuando se enfoca capturas */}
-              {canPlay && (
-                <Animated.View key={`cards-${activeIndex}`} entering={FadeInDown.duration(400).delay(120)} style={[styles.infoCardsRow, infoCardsStyle]}>
-                  {/* Trophies Card */}
-                  <BlurView intensity={28} tint="dark" style={[
-                    styles.infoCard,
-                    focusArea === 'game_panel' && gamePanelFocusIndex === 2 && styles.infoCardFocused
-                  ]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
-                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
-                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
-                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
-                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
-                      </View>
+            {/* Trophies & Friends Cards — animadas al ocultarse cuando se enfoca capturas */}
+            {canPlay && (
+              <Animated.View key={`cards-${activeIndex}`} entering={FadeInDown.duration(400).delay(120)} style={[styles.infoCardsRow, infoCardsStyle]}>
+                {/* Trophies Card */}
+                <BlurView intensity={28} tint="dark" style={[
+                  styles.infoCard,
+                  focusArea === 'game_panel' && gamePanelFocusIndex === 2 && styles.infoCardFocused
+                ]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
                     </View>
-                    <View>
-                      <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
-                      <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
                     </View>
-                  </BlurView>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
+                    </View>
+                  </View>
+                  <View>
+                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
+                    <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
+                  </View>
+                </BlurView>
 
-                  {/* Friends Playing Card */}
-                  <BlurView intensity={28} tint="dark" style={[
-                    styles.infoCard,
-                    focusArea === 'game_panel' && gamePanelFocusIndex === 3 && styles.infoCardFocused
-                  ]}>
-                    <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-                      {[1, 2, 3, 4, 5].map((_, i) => (
-                        <View key={i} style={{
-                          width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
-                          borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
-                          alignItems: 'center', justifyContent: 'center'
-                        }}>
-                          <Ionicons name="person" size={16} color="#AAA" />
-                        </View>
-                      ))}
-                    </View>
-                    <View>
-                      <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
-                      <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
-                    </View>
-                  </BlurView>
-                </Animated.View>
-              )}
-              {canPlay && (
-                <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-                  <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Capturas y trailers</Text>
+                {/* Friends Playing Card */}
+                <BlurView intensity={28} tint="dark" style={[
+                  styles.infoCard,
+                  focusArea === 'game_panel' && gamePanelFocusIndex === 3 && styles.infoCardFocused
+                ]}>
+                  <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                    {[1, 2, 3, 4, 5].map((_, i) => (
+                      <View key={i} style={{
+                        width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
+                        borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
+                        alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <Ionicons name="person" size={16} color="#AAA" />
+                      </View>
+                    ))}
+                  </View>
+                  <View>
+                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
+                    <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
+                  </View>
+                </BlurView>
+              </Animated.View>
+            )}
+            {canPlay && (
+              <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
+                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Capturas y trailers</Text>
 
-                  {mediaLoading ? (
-                    <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
-                      <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-                      <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
-                    </View>
-                  ) : steamMedia.length === 0 ? (
-                    <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
-                      <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
-                      <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
-                    </View>
-                  ) : (
-                    <ScrollView
-                      ref={mediaScrollRef}
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
-                    >
-                      {steamMedia.map((item, idx) => {
-                        const isMediaFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx;
-                        return (
-                          <TouchableOpacity
-                            key={item.id}
-                            style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
-                            activeOpacity={0.8}
-                            onPress={() => {
-                              setGamePanelFocusIndex(100 + idx);
-                              if (item.type === 'movie' && item.mp4_url) {
-                                Linking.openURL(item.mp4_url);
-                              } else if (item.full) {
-                                Linking.openURL(item.full);
-                              }
-                            }}
-                          >
-                            {/* Thumbnail */}
-                            <View style={styles.newsCardThumbnail}>
-                              <Image
-                                source={{ uri: item.thumbnail }}
-                                style={{ width: '100%', height: '100%' }}
-                                contentFit="cover"
-                              />
-                              {/* Play badge para trailers */}
-                              {item.type === 'movie' && (
-                                <View style={styles.mediaPlayBadge}>
-                                  <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
-                                </View>
-                              )}
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  )}
-                </View>
-              )}
+                {mediaLoading ? (
+                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+                    <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                    <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
+                  </View>
+                ) : steamMedia.length === 0 ? (
+                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+                    <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
+                    <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    ref={mediaScrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
+                  >
+                    {steamMedia.map((item, idx) => {
+                      const isMediaFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx;
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            setGamePanelFocusIndex(100 + idx);
+                            if (item.type === 'movie' && item.mp4_url) {
+                              Linking.openURL(item.mp4_url);
+                            } else if (item.full) {
+                              Linking.openURL(item.full);
+                            }
+                          }}
+                        >
+                          {/* Thumbnail */}
+                          <View style={styles.newsCardThumbnail}>
+                            <Image
+                              source={{ uri: item.thumbnail }}
+                              style={{ width: '100%', height: '100%' }}
+                              contentFit="cover"
+                            />
+                            {/* Play badge para trailers */}
+                            {item.type === 'movie' && (
+                              <View style={styles.mediaPlayBadge}>
+                                <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
+                              </View>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </View>
+            )}
 
-              {/* === NOTICIAS OFICIALES (for games, not Welcome) === */}
-              {canPlay && (
-                <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-                  <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Últimas noticias</Text>
+            {/* === NOTICIAS OFICIALES (for games, not Welcome) === */}
+            {canPlay && (
+              <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
+                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Últimas noticias</Text>
 
-                  {newsLoading ? (
-                    <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
-                      <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-                      <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
-                    </View>
-                  ) : steamNews.length === 0 ? (
-                    <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
-                      <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
-                      <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
-                    </View>
-                  ) : (
-                    <ScrollView
-                      ref={newsScrollRef}
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
-                    >
-                      {steamNews.slice(0, 8).map((item, idx) => {
-                        const isNewsFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx;
-                        return (
-                          <TouchableOpacity
-                            key={item.gid}
-                            style={[
-                              styles.newsCard2,
-                              isNewsFocused && styles.newsCardFocused
-                            ]}
-                            activeOpacity={0.8}
-                            onPress={() => { if (item.url) Linking.openURL(item.url); }}
-                          >
-                            {/* Thumbnail area */}
-                            <View style={styles.newsCardThumbnail}>
-                              {item.image_url ? (
-                                <Image source={{ uri: item.image_url }} style={[{ width: '100%', height: '120%' }]} contentFit="cover" />
-                              ) : (
-                                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
-                                  <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
-                                </View>
-                              )}
-                            </View>
-                            {/* Text area */}
-                            <View style={styles.newsCardContent}>
-                              <Text style={[styles.newsCardTitle]} numberOfLines={1}>
-                                {item.title}
-                              </Text>
-                              {/* <Text style={styles.newsCardFooterText} numberOfLines={1}>
+                {newsLoading ? (
+                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+                    <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
+                    <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
+                  </View>
+                ) : steamNews.length === 0 ? (
+                  <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+                    <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
+                    <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    ref={newsScrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
+                  >
+                    {steamNews.slice(0, 8).map((item, idx) => {
+                      const isNewsFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx;
+                      return (
+                        <TouchableOpacity
+                          key={item.gid}
+                          style={[
+                            styles.newsCard2,
+                            isNewsFocused && styles.newsCardFocused
+                          ]}
+                          activeOpacity={0.8}
+                          onPress={() => { if (item.url) Linking.openURL(item.url); }}
+                        >
+                          {/* Thumbnail area */}
+                          <View style={styles.newsCardThumbnail}>
+                            {item.image_url ? (
+                              <Image source={{ uri: item.image_url }} style={[{ width: '100%', height: '120%' }]} contentFit="cover" />
+                            ) : (
+                              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
+                                <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
+                              </View>
+                            )}
+                          </View>
+                          {/* Text area */}
+                          <View style={styles.newsCardContent}>
+                            <Text style={[styles.newsCardTitle]} numberOfLines={1}>
+                              {item.title}
+                            </Text>
+                            {/* <Text style={styles.newsCardFooterText} numberOfLines={1}>
                                 {(item.feedlabel || item.feedname || 'Steam')} | {formatSteamDate(item.date)}
                               </Text> */}
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  )}
-                </View>
-              )}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </View>
+            )}
           </Animated.View >
         )
         }
@@ -3387,8 +3387,11 @@ const styles = StyleSheet.create({
   },
   tabFocused: {
     color: '#FFFFFF',
-    textDecorationLine: 'underline',
-    textDecorationColor: 'rgba(255,255,255,0.8)',
+    //textDecorationLine: 'underline',
+    borderWidth: 2,
+    borderColor: "#a8a8a8ff",
+    borderStyle: 'solid',
+    //textDecorationColor: 'rgba(255,255,255,0.8)',
   },
   headerRight: {
     flexDirection: 'row',
