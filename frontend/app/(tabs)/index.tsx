@@ -524,7 +524,17 @@ export default function ConsoleHome() {
       setDetailVisible(true);
     } else if (idx === 1) {
       // Ubicación
-      alert(`Ubicación de la aplicación:\n\n${item.path || 'No seleccionada'}`);
+      if (Platform.OS === 'web' && (window as any).electronAPI) {
+        if (item.path) {
+          const result = await (window as any).electronAPI.openGameLocation(item.path);
+
+          if (!result.success) {
+            alert('Error: ' + result.error);
+          }
+        } else {
+          alert('La aplicación no tiene ruta asignada.');
+        }
+      }
     } else if (idx === 2) {
       // Eliminar
       const confirmed = window.confirm(`¿Estás seguro de que quieres eliminar "${item.title}"? Esta acción no se puede deshacer.`);
@@ -4363,5 +4373,15 @@ const styles = StyleSheet.create({
   platformBtnTextActiveNew: {
     color: '#000',
     fontWeight: '700',
+  },
+  ps5Title: {
+    //fontSize: 30,
+    //color: '#ffffff',
+    //fontWeight: 'bold',
+    //letterSpacing: 1,
+    //marginBottom: 12,
+    //textShadowColor: '#000',
+    //textShadowOffset: { width: 2, height: 2 },
+    //textShadowRadius: 5,
   },
 });

@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchSteamGridAssets: (title) => ipcRenderer.invoke('fetch-steamgrid-assets', title),
   getStorageInfo: () => ipcRenderer.invoke('get-storage-info'),
   openScreenshots: () => ipcRenderer.invoke('open-screenshots'),
+  openGameLocation: (path) => ipcRenderer.invoke('open-game-location', path),
   deleteApp: (id) => ipcRenderer.invoke('delete-app', id),
   fetchNews: () => ipcRenderer.invoke('fetch-news'),
 });

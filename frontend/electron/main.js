@@ -125,7 +125,7 @@ app.whenReady().then(() => {
 
   // IPC: Obtener noticias (desde el Proceso Principal para evitar bloqueos de red en el renderer)
   ipcMain.handle('fetch-news', async () => {
-    const API_KEY = '84b43625d92547c89d24fab37f0543af'; 
+    const API_KEY = '84b43625d92547c89d24fab37f0543af';
     const BASE_URL = 'https://newsapi.org/v2';
     try {
       const response = await fetch(
@@ -501,6 +501,33 @@ app.whenReady().then(() => {
     }
     shell.openPath(screenshotsPath);
     return { success: true };
+  });
+
+  // IPC: Abrir ubicación del juego
+  ipcMain.handle('open-game-location', async (event, gamePath) => {
+    try {
+      if (!gamePath) {
+        return { success: false, error: 'Ruta inválida' };
+      }
+
+      // Si es un archivo (.exe) muestra el archivo en el explorador
+      if (fs.existsSync(gamePath)) {
+        shell.showItemInFolder(gamePath);
+        return { success: true };
+      }
+
+      return {
+        success: false,
+        error: 'La ruta no existe'
+      };
+    } catch (error) {
+      console.error('Error abriendo ubicación:', error);
+
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   });
 
   createWindow();
