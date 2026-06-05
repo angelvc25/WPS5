@@ -21,9 +21,11 @@ const tracks: Track[] = [
   {
     id: "1",
     title: "sería, incluso más fácil",
-    artist: "Desconocido",
+    artist: "ROBI",
+    album: "Sorry si soy GRRRIS",
     source: require('../assets/music/sería, incluso más fácil.mp3'),
-    color: "#1DB954",
+    artwork: require('../assets/music/covers/sería incluso más fácil.png'),
+    color: "#b93c1dff",
   },
 ];
 
