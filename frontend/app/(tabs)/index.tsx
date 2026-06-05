@@ -1714,24 +1714,50 @@ export default function ConsoleHome() {
         <View style={styles.headerRight}>
 
           {/* Search Icon — RadarFocusWrapper */}
-          <RadarFocusWrapper id="hdr-search" isFocused={focusArea === 'header_avatar' && focusIndex === 0} size={48} innerSize={36} borderRadius="50%">
+          <RadarFocusWrapper id="hdr-search" isFocused={focusArea === 'header_avatar' && focusIndex === 0} size={50} innerSize={40} borderRadius="50%">
             <TouchableOpacity
-              style={styles.headerIconBtn}
+              style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 0 && styles.headerIconBtnFocused]}
               activeOpacity={0.7}
               onPress={() => { setFocusArea('header_avatar'); setFocusIndex(0); }}
             >
-              <Ionicons name="search" size={22} color="rgba(255,255,255,0.85)" />
+              {/* <Ionicons name="search" size={22} color="rgba(255,255,255,0.85)" /> */}
+              <Image
+                source={require('@/assets/images/PS5_SearchIcon.png')}
+                style={{
+                  width: 30,
+                  height: 30,
+                  resizeMode: 'contain',
+                }}
+                tintColor={
+                  focusArea === 'header_avatar' && focusIndex === 0
+                    ? '#000'
+                    : '#FFF'
+                }
+              />
             </TouchableOpacity>
           </RadarFocusWrapper>
 
           {/* Settings Icon — RadarFocusWrapper */}
-          <RadarFocusWrapper id="hdr-settings" isFocused={focusArea === 'header_avatar' && focusIndex === 1} size={48} innerSize={36} borderRadius="50%">
+          <RadarFocusWrapper id="hdr-settings" isFocused={focusArea === 'header_avatar' && focusIndex === 1} size={50} innerSize={40} borderRadius="50%">
             <TouchableOpacity
-              style={styles.headerIconBtn}
+              style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 1 && styles.headerIconBtnFocused]}
               activeOpacity={0.7}
               onPress={() => { setUserModalVisible(false); setSettingsVisible(true); }}
             >
-              <Ionicons name="settings-sharp" size={22} color="#fff" />
+              {/* <Ionicons name="settings-sharp" size={30} color="#fff" /> */}
+              <Image
+                source={require('@/assets/images/settings.png')}
+                style={{
+                  width: 30,
+                  height: 30,
+                  resizeMode: 'contain',
+                }}
+                tintColor={
+                  focusArea === 'header_avatar' && focusIndex === 1
+                    ? '#000'
+                    : '#FFF'
+                }
+              />
             </TouchableOpacity>
           </RadarFocusWrapper>
 
@@ -1755,7 +1781,15 @@ export default function ConsoleHome() {
                   <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.avatar} />
                 ) : (
                   <View style={styles.defaultAvatarHeader}>
-                    <Ionicons name="person" size={18} color="#FFF" />
+                    {/* <Ionicons name="person" size={18} color="#FFF" /> */}
+                    <Image
+                      source={require('@/assets/images/ProfilePicture.png')}
+                      style={{
+                        width: 35,
+                        height: 35,
+                        resizeMode: 'contain',
+                      }}
+                    />
                   </View>
                 )}
               </TouchableOpacity>
@@ -2152,9 +2186,10 @@ export default function ConsoleHome() {
                       />
                     )}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <Ionicons name="battery-full" size={11} color="#fff" />
+                      {/* <Ionicons name="battery-full" size={11} color="#fff" /> */}
+                      <Image source={require('@/assets/images/psplus.png')} style={{ width: 13, height: 13, resizeMode: 'contain' }} />
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.widgetTitle} numberOfLines={1}>
+                        <Text style={styles.widgetTitle2} numberOfLines={1}>
                           Obtenén EA Sports FC 26 con PlayStation Plus
                         </Text>
                       </View>
@@ -2227,7 +2262,8 @@ export default function ConsoleHome() {
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <View style={[styles.widgetIconWrap, { width: 80, height: 80, borderRadius: 50, border: "5px solid #4CD964" }]}>
                             <Text style={{ color: "#FFF" }}>1</Text>
-                            <MaterialCommunityIcons name="gamepad-variant" size={20} color="#FFF" />
+                            {/* <MaterialCommunityIcons name="gamepad-variant" size={20} color="#FFF" /> */}
+                            <Image source={require('@/assets/images/controller.png')} style={{ width: 25, height: 25, resizeMode: 'contain', tintColor: "#FFF" }} />
                             <Ionicons name="battery-full" size={11} color="#fff" />
                           </View>
                           <View style={{ flex: 1 }}>
@@ -2296,23 +2332,127 @@ export default function ConsoleHome() {
                         )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                            <MaterialCommunityIcons name="trophy" size={14} color="#FFD700" />
+                            <Image source={require('@/assets/images/logo-trophy.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
                             <Text style={styles.widgetTitle}>Trofeos</Text>
                           </View>
-                          <Text style={styles.widgetBadge}>457</Text>
+                          <Text style={styles.widgetBadge}>Total: 457</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          {[
-                            { color: '#B8D4E8', count: 0 },
-                            { color: '#FFD700', count: 13 },
-                            { color: '#C0C0C0', count: 45 },
-                            { color: '#CD7F32', count: 399 },
-                          ].map((t, i) => (
-                            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                              <MaterialCommunityIcons name="trophy" size={11} color={t.color} />
-                              <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }}>{t.count}</Text>
-                            </View>
-                          ))}
+                          {/* PLATINO */}
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Image
+                              source={require('@/assets/images/platino.png')}
+                              style={{
+                                width: 25,
+                                height: 25,
+                                resizeMode: 'contain',
+                              }}
+                            />
+
+                            <Text
+                              style={{
+                                color: '#FFF',
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                                marginTop: 15,
+                              }}
+                            >
+                              1
+                            </Text>
+                          </View>
+
+                          {/* ORO */}
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Image
+                              source={require('@/assets/images/oro.png')}
+                              style={{
+                                width: 25,
+                                height: 25,
+                                resizeMode: 'contain',
+                              }}
+                            />
+
+                            <Text
+                              style={{
+                                color: '#FFF',
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                                marginTop: 15,
+                              }}
+                            >
+                              3
+                            </Text>
+                          </View>
+
+                          {/* PLATA */}
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Image
+                              source={require('@/assets/images/plata.png')}
+                              style={{
+                                width: 25,
+                                height: 25,
+                                resizeMode: 'contain',
+                              }}
+                            />
+
+                            <Text
+                              style={{
+                                color: '#FFF',
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                                marginTop: 15,
+                              }}
+                            >
+                              16
+                            </Text>
+                          </View>
+
+                          {/* BRONCE */}
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Image
+                              source={require('@/assets/images/bronce.png')}
+                              style={{
+                                width: 25,
+                                height: 25,
+                                resizeMode: 'contain',
+                              }}
+                            />
+
+                            <Text
+                              style={{
+                                color: '#FFF',
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                                marginTop: 15,
+                              }}
+                            >
+                              17
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -2529,15 +2669,16 @@ export default function ConsoleHome() {
                         )}
                         <View style={{ flexDirection: 'column', alignItems: 'start', gap: 5, marginBottom: 6, maxWidth: 160 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                            <Ionicons name="game-controller" size={13} color="rgba(255,255,255,0.8)" />
+                            {/* <Ionicons name="game-controller" size={13} color="rgba(255,255,255,0.8)" /> */}
+                            <Image source={require('@/assets/images/controller.png')} style={{ width: 13, height: 13, resizeMode: 'contain', tintColor: "#FFF" }} />
                             <Text style={styles.widgetTitle}>Jugados recientemente</Text>
                           </View>
-                          <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : 'Sin juegos recientes'}</Text>
+                          <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '400', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : 'Sin juegos recientes'}</Text>
                           <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600', flex: 1 }}><MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />2 horas</Text>
                         </View>
                         {lastPlayedGame ? (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Image source={lastPlayedGame.image} style={{ width: 70, height: 70, borderRadius: 6 }} contentFit="cover" />
+                            <Image source={lastPlayedGame.image} style={{ width: 70, height: 70, borderRadius: 0 }} contentFit="cover" />
                           </View>
                         ) : (
                           <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontStyle: 'italic' }}>Sin juegos recientes</Text>
@@ -2598,12 +2739,14 @@ export default function ConsoleHome() {
                           />
                         )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                          <Ionicons name="chatbubble" size={13} style={{ marginBottom: 9 }} color="rgba(255,255,255,0.8)" />
+                          {/* <Ionicons name="chatbubble" size={13} style={{ marginBottom: 9 }} color="rgba(255,255,255,0.8)" /> */}
+                          <Image source={require('@/assets/images/mensajess.png')} style={{ width: 30, height: 30, resizeMode: 'contain' }} />
                           <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>Mensajes</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                           <View style={{ width: 36, height: 36, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                            <Ionicons name="person" size={13} color="rgba(255,255,255,0.5)" />
+                            {/* <Ionicons name="person" size={13} color="rgba(255,255,255,0.5)" /> */}
+                            <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.avatarMensajes} />
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }} numberOfLines={1}>{activeUser?.name || 'Usuario'}</Text>
@@ -2684,7 +2827,7 @@ export default function ConsoleHome() {
                         </View>
 
                         {/* Barra multicolor */}
-                        <View style={{ height: 9, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', flexDirection: 'row' }}>
+                        <View style={{ height: 3, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', flexDirection: 'row' }}>
                           {/* Segmento usado — azul */}
                           <View style={{
                             height: '100%',
@@ -2767,7 +2910,7 @@ export default function ConsoleHome() {
                           />
                         )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-                          <Ionicons name="heart" size={13} color="#FF6B6B" />
+                          <Ionicons name="heart" size={17} color="#ffffffff" />
                           <Text style={styles.widgetTitle}>Lista de deseos</Text>
                         </View>
                         <Text style={styles.widgetSubtitle}>Ver tu lista de deseos</Text>
@@ -2925,6 +3068,7 @@ export default function ConsoleHome() {
                         style={{
                           width: 28,
                           height: 28,
+                          resizeMode: 'contain',
                         }}
                       />
                       <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
@@ -2943,6 +3087,7 @@ export default function ConsoleHome() {
                         style={{
                           width: 28,
                           height: 28,
+                          resizeMode: 'contain',
                         }}
                       />
                       <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
@@ -2961,6 +3106,7 @@ export default function ConsoleHome() {
                         style={{
                           width: 28,
                           height: 28,
+                          resizeMode: 'contain',
                         }}
                       />
                       <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
@@ -2979,6 +3125,7 @@ export default function ConsoleHome() {
                         style={{
                           width: 28,
                           height: 28,
+                          resizeMode: 'contain',
                         }}
                       />
                       <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
@@ -3097,6 +3244,7 @@ export default function ConsoleHome() {
                       style={{
                         width: 35,
                         height: 35,
+                        resizeMode: 'contain',
                         //borderRadius: 14,
                       }}
                     />
@@ -3904,6 +4052,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     // Sin fondo cuando no tiene focus — el RadarFocusWrapper maneja el efecto visual
   },
+  headerIconBtnFocused: {
+    backgroundColor: 'rgba(255, 255, 255, 1)',
+  },
   timeText: {
     color: 'rgba(255,255,255,0.9)',
     fontSize: 16,
@@ -3934,6 +4085,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  avatarMensajes: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 100,
+  },
   defaultAvatarHeader: {
     flex: 1,
     alignItems: 'center',
@@ -3944,12 +4100,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 13,
+    height: 13,
+    borderRadius: 10,
     backgroundColor: '#4CD964',
-    borderWidth: 2,
-    borderColor: '#000',
+    borderWidth: 1,
+    borderColor: '#308a3fa2',
     zIndex: 10,
   },
 
@@ -3992,22 +4148,28 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.85)',
     borderWidth: 1.7,
     //backgroundColor: 'rgba(25, 50, 72, 0.95)',
-    transform: [{ scale: 1.02 }],
+    //transform: [{ scale: 1.02 }],
   } as any,
   widgetTitle: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.1,
   } as any,
+  widgetTitle2: {
+    color: '#fffc5dff',
+    fontSize: 13,
+    fontWeight: '300',
+    letterSpacing: 0.1,
+  } as any,
   widgetSubtitle: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
+    color: 'rgba(255, 255, 255, 1)',
+    fontSize: 11,
     marginTop: 1,
   } as any,
   widgetBadge: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.81)',
+    fontSize: 13,
     fontWeight: '500',
   } as any,
   widgetIconWrap: {

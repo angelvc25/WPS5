@@ -197,9 +197,8 @@ export default function ProfileDropdownMenu({
                       width: 22,
                       height: 22,
                       marginRight: 12,
-                      borderRadius: 11,
                     }}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 ) : (
                   <Ionicons

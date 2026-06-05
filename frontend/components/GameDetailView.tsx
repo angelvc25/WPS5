@@ -956,6 +956,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       style={{
                         width: 28,
                         height: 28,
+                        resizeMode: 'contain',
                       }}
                     />
 
@@ -984,6 +985,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       style={{
                         width: 28,
                         height: 28,
+                        resizeMode: 'contain',
                       }}
                     />
 
@@ -1012,6 +1014,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       style={{
                         width: 28,
                         height: 28,
+                        resizeMode: 'contain',
                       }}
                     />
 
@@ -1040,6 +1043,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       style={{
                         width: 28,
                         height: 28,
+                        resizeMode: 'contain',
                       }}
                     />
 
@@ -1162,6 +1166,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                     style={{
                       width: 35,
                       height: 35,
+                      resizeMode: 'contain',
                       //borderRadius: 14,
                     }}
                   />
