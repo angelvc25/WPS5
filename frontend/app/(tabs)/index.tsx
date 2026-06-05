@@ -386,7 +386,7 @@ export default function ConsoleHome() {
   useEffect(() => {
     const currentItem = currentData[activeIndex];
     setIsLibraryFocused(
-      (focusArea === 'main_carousel' && currentItem?.id === 'more_library') ||
+      currentItem?.id === 'more_library' ||
       focusArea === 'library_grid'
     );
   }, [activeIndex, focusArea, currentData]);
@@ -1345,7 +1345,7 @@ export default function ConsoleHome() {
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : 'Último Jugado') : activeItem?.title;
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
   const displayDesc = activeItem?.isLastPlayed ? (lastPlayedGame?.description || '') : (activeItem?.description || '');
-  const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1';
+  const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
 
 
   // Spinning border component — rotating conic-gradient halo around the active card
@@ -1862,7 +1862,7 @@ export default function ConsoleHome() {
         )}
 
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
-        {focusArea !== 'library_grid' && (
+        {!isLibraryFocused && (
           <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
             <Animated.View style={spacerStyle}>
               <Animated.View style={topPanelStyle}>
