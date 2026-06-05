@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeApp: () => ipcRenderer.invoke('close-app'),
   fetchGameData: (title) => ipcRenderer.invoke('fetch-game-data', title),
   fetchSteamGridData: (title) => ipcRenderer.invoke('fetch-steamgrid-data', title),
+  fetchSteamGridAssets: (title) => ipcRenderer.invoke('fetch-steamgrid-assets', title),
   getStorageInfo: () => ipcRenderer.invoke('get-storage-info'),
   openScreenshots: () => ipcRenderer.invoke('open-screenshots'),
   deleteApp: (id) => ipcRenderer.invoke('delete-app', id),

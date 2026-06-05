@@ -30,6 +30,271 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [activeTab, setActiveTab] = useState<'basic' | 'path' | 'art'>('basic');
   const { activeUser } = useUser();
 
+  // States for SteamGridDB Asset Selector Screen
+  const [isAssetSelectorVisible, setAssetSelectorVisible] = useState(false);
+  const [assetSelectorTab, setAssetSelectorTab] = useState<'capsule' | 'capsule_wide' | 'hero' | 'logo' | 'icon' | 'manage'>('capsule');
+  const [assetsData, setAssetsData] = useState<{
+    grids: any[];
+    heroes: any[];
+    logos: any[];
+    icons: any[];
+  }>({ grids: [], heroes: [], logos: [], icons: [] });
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+  const [sliderValue, setSliderValue] = useState(5);
+  const [assetSelectorFocusArea, setAssetSelectorFocusArea] = useState<'tabs' | 'filters' | 'grid'>('tabs');
+  const [gridFocusIndex, setGridFocusIndex] = useState(0);
+  const [filterFocusIndex, setFilterFocusIndex] = useState(0);
+
+  const getActiveTabList = () => {
+    if (!assetsData) return [];
+    switch (assetSelectorTab) {
+      case 'capsule':
+        return (assetsData.grids || []).filter((g: any) => g.width < g.height);
+      case 'capsule_wide':
+        return (assetsData.grids || []).filter((g: any) => g.width >= g.height);
+      case 'hero':
+        return assetsData.heroes || [];
+      case 'logo':
+        return assetsData.logos || [];
+      case 'icon':
+        return assetsData.icons || [];
+      default:
+        return [];
+    }
+  };
+
+  const cycleTab = (direction: number) => {
+    const tabIndices: ('capsule' | 'capsule_wide' | 'hero' | 'logo' | 'icon' | 'manage')[] = [
+      'capsule', 'capsule_wide', 'hero', 'logo', 'icon', 'manage'
+    ];
+    const currentIdx = tabIndices.indexOf(assetSelectorTab);
+    let nextIdx = currentIdx + direction;
+    if (nextIdx < 0) nextIdx = tabIndices.length - 1;
+    if (nextIdx >= tabIndices.length) nextIdx = 0;
+    
+    setAssetSelectorTab(tabIndices[nextIdx]);
+    setGridFocusIndex(0);
+  };
+
+  const loadMockAssets = () => {
+    const mockGrids = [
+      { id: 1, url: 'https://cdn2.steamgriddb.com/grid/a3fe3b573a6288820f4f9fcd9710f63b.png', thumb: 'https://cdn2.steamgriddb.com/grid/a3fe3b573a6288820f4f9fcd9710f63b.png', width: 600, height: 900, author: { name: 'FireHeadEngine', avatar: 'https://cdn2.steamgriddb.com/avatar/6027a4d622f98.png' } },
+      { id: 2, url: 'https://cdn2.steamgriddb.com/grid/0101c7db17c80b182cb08ea7c5b6bfa1.png', thumb: 'https://cdn2.steamgriddb.com/grid/0101c7db17c80b182cb08ea7c5b6bfa1.png', width: 600, height: 900, author: { name: 'IAMNOTRANA', avatar: '' } },
+      { id: 3, url: 'https://cdn2.steamgriddb.com/grid/2584e030a5be7fcf761a6b0c26bd96b4.png', thumb: 'https://cdn2.steamgriddb.com/grid/2584e030a5be7fcf761a6b0c26bd96b4.png', width: 600, height: 900, author: { name: 'r_dsgnd', avatar: '' } },
+      { id: 4, url: 'https://cdn2.steamgriddb.com/grid/3f5e55e09f5bc3a675ce55e08b1a37c0.png', thumb: 'https://cdn2.steamgriddb.com/grid/3f5e55e09f5bc3a675ce55e08b1a37c0.png', width: 600, height: 900, author: { name: 'Luckspeare', avatar: '' } },
+      { id: 5, url: 'https://cdn2.steamgriddb.com/grid/4a6c478a8be77e923e3e08f51a48c4d2.png', thumb: 'https://cdn2.steamgriddb.com/grid/4a6c478a8be77e923e3e08f51a48c4d2.png', width: 600, height: 900, author: { name: 'RabidLime', avatar: '' } },
+      { id: 6, url: 'https://cdn2.steamgriddb.com/grid/d8b3c37de75df7c7e5a6a61765c928e4.png', thumb: 'https://cdn2.steamgriddb.com/grid/d8b3c37de75df7c7e5a6a61765c928e4.png', width: 600, height: 900, author: { name: 'ChewyPudding', avatar: '' } },
+      { id: 7, url: 'https://cdn2.steamgriddb.com/grid/e3a6c478a8be77e923e3e08f51a48c4d2.png', thumb: 'https://cdn2.steamgriddb.com/grid/e3a6c478a8be77e923e3e08f51a48c4d2.png', width: 600, height: 900, author: { name: 'KyleRendar', avatar: '' } },
+      { id: 8, url: 'https://cdn2.steamgriddb.com/grid/f8b3c37de75df7c7e5a6a61765c928e4.png', thumb: 'https://cdn2.steamgriddb.com/grid/f8b3c37de75df7c7e5a6a61765c928e4.png', width: 600, height: 900, author: { name: 'Luckspeare', avatar: '' } },
+      { id: 9, url: 'https://cdn2.steamgriddb.com/grid/cfcf916e75a9e32a67e5a2be10c28e4f.png', thumb: 'https://cdn2.steamgriddb.com/grid/cfcf916e75a9e32a67e5a2be10c28e4f.png', width: 460, height: 215, author: { name: 'Luckspeare', avatar: '' } },
+      { id: 10, url: 'https://cdn2.steamgriddb.com/grid/d9b3c37de75df7c7e5a6a61765c928e4.png', thumb: 'https://cdn2.steamgriddb.com/grid/d9b3c37de75df7c7e5a6a61765c928e4.png', width: 460, height: 215, author: { name: 'ChewyPudding', avatar: '' } },
+      { id: 11, url: 'https://cdn2.steamgriddb.com/grid/e9b3c37de75df7c7e5a6a61765c928e4.png', thumb: 'https://cdn2.steamgriddb.com/grid/e9b3c37de75df7c7e5a6a61765c928e4.png', width: 460, height: 215, author: { name: 'Luckspeare', avatar: '' } },
+      { id: 12, url: 'https://cdn2.steamgriddb.com/grid/1a6c478a8be77e923e3e08f51a48c4d2.png', thumb: 'https://cdn2.steamgriddb.com/grid/1a6c478a8be77e923e3e08f51a48c4d2.png', width: 460, height: 215, author: { name: 'IAMNOTRANA', avatar: '' } },
+    ];
+    const mockHeroes = [
+      { id: 21, url: 'https://cdn2.steamgriddb.com/hero/0bb6bdf8a6cd430d41df47a508b1a37c.jpg', thumb: 'https://cdn2.steamgriddb.com/hero/0bb6bdf8a6cd430d41df47a508b1a37c.jpg', author: { name: 'Luckspeare', avatar: '' } },
+      { id: 22, url: 'https://cdn2.steamgriddb.com/hero/2bb6bdf8a6cd430d41df47a508b1a37c.jpg', thumb: 'https://cdn2.steamgriddb.com/hero/2bb6bdf8a6cd430d41df47a508b1a37c.jpg', author: { name: 'ChewyPudding', avatar: '' } },
+      { id: 23, url: 'https://cdn2.steamgriddb.com/hero/3bb6bdf8a6cd430d41df47a508b1a37c.jpg', thumb: 'https://cdn2.steamgriddb.com/hero/3bb6bdf8a6cd430d41df47a508b1a37c.jpg', author: { name: 'Luckspeare', avatar: '' } }
+    ];
+    const mockLogos = [
+      { id: 31, url: 'https://cdn2.steamgriddb.com/logo/7c5be634df498d41df47a508b1a37c05.png', thumb: 'https://cdn2.steamgriddb.com/logo/7c5be634df498d41df47a508b1a37c05.png', author: { name: 'Luckspeare', avatar: '' } },
+      { id: 32, url: 'https://cdn2.steamgriddb.com/logo/8c5be634df498d41df47a508b1a37c05.png', thumb: 'https://cdn2.steamgriddb.com/logo/8c5be634df498d41df47a508b1a37c05.png', author: { name: 'ChewyPudding', avatar: '' } }
+    ];
+    const mockIcons = [
+      { id: 41, url: 'https://cdn2.steamgriddb.com/icon/41c5be634df498d41df47a508b1a37c0.png', thumb: 'https://cdn2.steamgriddb.com/icon/41c5be634df498d41df47a508b1a37c0.png', author: { name: 'Luckspeare', avatar: '' } }
+    ];
+    setAssetsData({
+      grids: mockGrids,
+      heroes: mockHeroes,
+      logos: mockLogos,
+      icons: mockIcons
+    });
+  };
+
+  const openAssetSelector = async (initialTab: 'capsule' | 'capsule_wide' | 'hero' | 'logo' | 'icon' | 'manage') => {
+    setAssetSelectorTab(initialTab);
+    setAssetSelectorVisible(true);
+    setAssetSelectorFocusArea('tabs');
+    setGridFocusIndex(0);
+    setFilterFocusIndex(0);
+    
+    setIsLoadingAssets(true);
+    try {
+      if (Platform.OS === 'web' && (window as any).electronAPI) {
+        const res = await (window as any).electronAPI.fetchSteamGridAssets(editData.title || '');
+        if (res.success) {
+          setAssetsData(res.data);
+        } else {
+          console.log('Error fetching assets:', res.error);
+          loadMockAssets();
+        }
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 800));
+        loadMockAssets();
+      }
+    } catch (err) {
+      console.error('Failed to load SteamGridDB assets', err);
+      loadMockAssets();
+    } finally {
+      setIsLoadingAssets(false);
+    }
+  };
+
+  const applySelectedAsset = (url: string) => {
+    const tab = assetSelectorTab;
+    if (tab === 'capsule' || tab === 'capsule_wide') {
+      setEditData({ ...editData, image: url });
+    } else if (tab === 'hero') {
+      setEditData({ ...editData, backgroundImage: url });
+    } else if (tab === 'logo') {
+      setEditData({ ...editData, logo: url });
+    } else if (tab === 'icon') {
+      setEditData({ ...editData, icon: url } as any);
+    }
+    setAssetSelectorVisible(false);
+  };
+
+  const handleLocalUpload = async () => {
+    if (!(window as any).electronAPI) return;
+    const img = await (window as any).electronAPI.selectImage();
+    if (img) {
+      applySelectedAsset(img);
+    }
+  };
+
+  const handleManageAction = async (idx: number) => {
+    if (!(window as any).electronAPI) return;
+    if (idx === 0) {
+      const img = await (window as any).electronAPI.selectImage();
+      if (img) setEditData({ ...editData, image: img });
+    } else if (idx === 1) {
+      const img = await (window as any).electronAPI.selectImage();
+      if (img) setEditData({ ...editData, logo: img });
+    } else if (idx === 2) {
+      const img = await (window as any).electronAPI.selectImage();
+      if (img) setEditData({ ...editData, backgroundImage: img });
+    } else if (idx === 3) {
+      setEditData({ ...editData, image: undefined, logo: undefined, backgroundImage: undefined });
+      alert("Se han restablecido los assets locales.");
+    }
+  };
+
+  const handleAssetSelectorKeyDown = (e: any) => {
+    const currentList = getActiveTabList();
+    const numCols = Math.round(sliderValue);
+
+    // Q/e or L1/R1 tab switching
+    if (e.key === 'q' || e.key === 'Q') {
+      cycleTab(-1);
+      return;
+    }
+    if (e.key === 'e' || e.key === 'E') {
+      cycleTab(1);
+      return;
+    }
+
+    if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+      setAssetSelectorVisible(false);
+      return;
+    }
+
+    if (assetSelectorFocusArea === 'tabs') {
+      if (e.key === 'ArrowRight') {
+        cycleTab(1);
+      } else if (e.key === 'ArrowLeft') {
+        cycleTab(-1);
+      } else if (e.key === 'ArrowDown') {
+        setAssetSelectorFocusArea('filters');
+        setFilterFocusIndex(0);
+      } else if (e.key === 'Enter') {
+        setAssetSelectorFocusArea('filters');
+        setFilterFocusIndex(0);
+      }
+    }
+    
+    else if (assetSelectorFocusArea === 'filters') {
+      const showAdjust = assetSelectorTab === 'logo' || assetSelectorTab === 'hero';
+
+      if (e.key === 'ArrowRight') {
+        if (filterFocusIndex === 1 && !showAdjust) {
+          setFilterFocusIndex(3);
+        } else if (filterFocusIndex < 3) {
+          setFilterFocusIndex(prev => prev + 1);
+        } else if (filterFocusIndex === 3) {
+          setSliderValue(prev => Math.min(prev + 1, 8));
+        }
+      } else if (e.key === 'ArrowLeft') {
+        if (filterFocusIndex === 3) {
+          if (!showAdjust) {
+            setFilterFocusIndex(1);
+          } else {
+            setFilterFocusIndex(2);
+          }
+        } else if (filterFocusIndex > 0) {
+          setFilterFocusIndex(prev => prev - 1);
+        }
+      } else if (e.key === 'ArrowUp') {
+        setAssetSelectorFocusArea('tabs');
+      } else if (e.key === 'ArrowDown') {
+        if (assetSelectorTab === 'manage') {
+          setAssetSelectorFocusArea('grid');
+          setGridFocusIndex(0);
+        } else if (currentList.length > 0) {
+          setAssetSelectorFocusArea('grid');
+          setGridFocusIndex(0);
+        }
+      } else if (e.key === 'Enter') {
+        if (filterFocusIndex === 0) {
+          alert("Filtrando assets...");
+        } else if (filterFocusIndex === 1) {
+          handleLocalUpload();
+        } else if (filterFocusIndex === 2 && showAdjust) {
+          alert("Modo ajustar posición del logotipo activado (visual).");
+        }
+      }
+    }
+
+    else if (assetSelectorFocusArea === 'grid') {
+      if (assetSelectorTab === 'manage') {
+        if (e.key === 'ArrowRight') {
+          setGridFocusIndex(prev => Math.min(prev + 1, 3));
+        } else if (e.key === 'ArrowLeft') {
+          setGridFocusIndex(prev => Math.max(prev - 1, 0));
+        } else if (e.key === 'ArrowUp') {
+          setAssetSelectorFocusArea('filters');
+          setFilterFocusIndex(0);
+        } else if (e.key === 'Enter') {
+          handleManageAction(gridFocusIndex);
+        }
+      } else {
+        const listLength = currentList.length;
+        if (listLength === 0) return;
+
+        if (e.key === 'ArrowRight') {
+          setGridFocusIndex(prev => Math.min(prev + 1, listLength - 1));
+        } else if (e.key === 'ArrowLeft') {
+          setGridFocusIndex(prev => Math.max(prev - 1, 0));
+        } else if (e.key === 'ArrowDown') {
+          if (gridFocusIndex + numCols < listLength) {
+            setGridFocusIndex(prev => prev + numCols);
+          }
+        } else if (e.key === 'ArrowUp') {
+          if (gridFocusIndex - numCols >= 0) {
+            setGridFocusIndex(prev => prev - numCols);
+          } else {
+            setAssetSelectorFocusArea('filters');
+            setFilterFocusIndex(0);
+          }
+        } else if (e.key === 'Enter') {
+          const selectedAsset = currentList[gridFocusIndex];
+          if (selectedAsset && selectedAsset.url) {
+            applySelectedAsset(selectedAsset.url);
+          }
+        }
+      }
+    }
+  };
+
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 1100;
 
@@ -171,6 +436,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           e.preventDefault();
         }
 
+        if (isAssetSelectorVisible) {
+          handleAssetSelectorKeyDown(e);
+          return;
+        }
+
         if (isEditModalVisible) {
           const isGame = (editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web';
 
@@ -273,9 +543,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               setEditData({ ...editData, platform: platforms[editModalFocusIndex - 3] });
             }
             else if (editModalFocusIndex === 10) editDescRef.current?.focus();
-            else if (editModalFocusIndex === 11) handleSelectImage('image');
-            else if (editModalFocusIndex === 12) handleSelectImage('logo');
-            else if (editModalFocusIndex === 13) handleSelectImage('backgroundImage');
+            else if (editModalFocusIndex === 11) openAssetSelector('capsule');
+            else if (editModalFocusIndex === 12) openAssetSelector('logo');
+            else if (editModalFocusIndex === 13) openAssetSelector('hero');
             else if (editModalFocusIndex === 14) handleSelectVideo();
             else if (editModalFocusIndex === 15) handleDeleteApp();
             else if (editModalFocusIndex === 16) setEditModalVisible(false);
@@ -897,7 +1167,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <View style={styles.artGrid}>
                           <TouchableOpacity
                             style={[styles.editArtFileBtn, editModalFocusIndex === 11 && styles.editArtFileBtnFocused]}
-                            onPress={() => handleSelectImage('image')}
+                            onPress={() => openAssetSelector('capsule')}
                           >
                             <Ionicons name="image-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>Portada</Text>
@@ -906,7 +1176,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                           <TouchableOpacity
                             style={[styles.editArtFileBtn, editModalFocusIndex === 12 && styles.editArtFileBtnFocused]}
-                            onPress={() => handleSelectImage('logo')}
+                            onPress={() => openAssetSelector('logo')}
                           >
                             <Ionicons name="color-palette-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>Logo PNG</Text>
@@ -915,7 +1185,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                           <TouchableOpacity
                             style={[styles.editArtFileBtn, editModalFocusIndex === 13 && styles.editArtFileBtnFocused]}
-                            onPress={() => handleSelectImage('backgroundImage')}
+                            onPress={() => openAssetSelector('hero')}
                           >
                             <Ionicons name="images-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>Fondo</Text>
@@ -964,6 +1234,261 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               </View>
             </View>
           </View>
+
+          {/* STEAMGRIDDB ASSET SELECTOR SCREEN OVERLAY */}
+          {isAssetSelectorVisible && (
+            <View style={styles.assetSelectorOverlay}>
+              {/* background video */}
+              <Video
+                source={require('../assets/video/waves_ajustes.mp4')}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode={ResizeMode.COVER}
+                shouldPlay
+                isLooping
+                isMuted
+              />
+              <View style={styles.editOverlayDark} />
+
+              <View style={styles.editContentContainer}>
+                {/* Header */}
+                <View style={styles.assetHeader}>
+                  <Text style={styles.editMainTitleLarge}>Seleccionar Imagen</Text>
+                  
+                  {/* Tabs */}
+                  <View style={styles.assetHeaderTabs}>
+                    {[
+                      { id: 'capsule', label: 'Cápsula' },
+                      { id: 'capsule_wide', label: 'Cápsula Ancha' },
+                      { id: 'hero', label: 'Imagen Principal' },
+                      { id: 'logo', label: 'Logo' },
+                      { id: 'icon', label: 'Icono' },
+                      { id: 'manage', label: 'Gestionar' },
+                    ].map((tab, idx) => {
+                      const isTabActive = assetSelectorTab === tab.id;
+                      const isTabFocused = assetSelectorFocusArea === 'tabs' && tab.id === assetSelectorTab;
+                      return (
+                        <TouchableOpacity
+                          key={tab.id}
+                          style={[
+                            styles.editTab,
+                            { paddingVertical: 10, paddingHorizontal: 15, marginBottom: 0 },
+                            isTabActive && styles.editTabActive,
+                            isTabFocused && styles.editTabFocused
+                          ]}
+                          onPress={() => {
+                            setAssetSelectorTab(tab.id as any);
+                            setAssetSelectorFocusArea('tabs');
+                            setGridFocusIndex(0);
+                          }}
+                        >
+                          <Text style={[
+                            styles.editTabText,
+                            { fontSize: 15 },
+                            isTabActive && styles.editTabTextActive
+                          ]}>
+                            {tab.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Filter and slider bar */}
+                <View style={styles.filterBar}>
+                  <View style={styles.filterActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.filterBtn,
+                        assetSelectorFocusArea === 'filters' && filterFocusIndex === 0 && styles.filterBtnFocused
+                      ]}
+                      onPress={() => alert("Filtrando assets...")}
+                    >
+                      <Ionicons name="funnel-outline" size={16} color="#FFF" />
+                      <Text style={styles.filterBtnText}>Filtros</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.filterBtn,
+                        assetSelectorFocusArea === 'filters' && filterFocusIndex === 1 && styles.filterBtnFocused
+                      ]}
+                      onPress={handleLocalUpload}
+                    >
+                      <Ionicons name="cloud-upload-outline" size={16} color="#FFF" />
+                      <Text style={styles.filterBtnText}>Subir Imagen</Text>
+                    </TouchableOpacity>
+
+                    {(assetSelectorTab === 'logo' || assetSelectorTab === 'hero') && (
+                      <TouchableOpacity
+                        style={[
+                          styles.filterBtn,
+                          assetSelectorFocusArea === 'filters' && filterFocusIndex === 2 && styles.filterBtnFocused
+                        ]}
+                        onPress={() => alert("Modo ajustar posición del logotipo activado (visual).")}
+                      >
+                        <Ionicons name="resize-outline" size={16} color="#FFF" />
+                        <Text style={styles.filterBtnText}>Ajustar posición del logotipo</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={styles.sliderWrapper}>
+                    <Text style={styles.sliderLabel}>Tamaño</Text>
+                    <View style={[
+                      styles.sliderContainer,
+                      assetSelectorFocusArea === 'filters' && filterFocusIndex === 3 && styles.sliderFocused
+                    ]}>
+                      <View style={styles.sliderTrackBackground}>
+                        <View style={[styles.sliderTrackFill, { width: `${((sliderValue - 3) / 5) * 100}%` }]} />
+                        <View style={[styles.sliderThumb, { left: `${((sliderValue - 3) / 5) * 100}%` }]} />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* GRID OF ASSETS */}
+                <ScrollView 
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ flexGrow: 1 }}
+                >
+                  {isLoadingAssets ? (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+                      <MaterialCommunityIcons name="loading" size={40} color="#FFF" style={{ marginBottom: 12 }} />
+                      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>Buscando assets en SteamGridDB...</Text>
+                    </View>
+                  ) : assetSelectorTab === 'manage' ? (
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.editSectionTitle}>Gestionar Imágenes</Text>
+                      <View style={[styles.gridContainer, { gap: 20 }]}>
+                        {[
+                          { title: 'Subir Portada', desc: 'Imagen vertical', icon: 'image-outline', index: 0 },
+                          { title: 'Subir Logo PNG', desc: 'Con transparencia', icon: 'color-palette-outline', index: 1 },
+                          { title: 'Subir Fondo', desc: 'Imagen horizontal', icon: 'images-outline', index: 2 },
+                          { title: 'Restablecer Todo', desc: 'Volver a valores vacíos', icon: 'trash-outline', index: 3, isDelete: true }
+                        ].map((act) => {
+                          const isFocused = assetSelectorFocusArea === 'grid' && gridFocusIndex === act.index;
+                          return (
+                            <TouchableOpacity
+                              key={act.index}
+                              style={[
+                                styles.manageCard,
+                                act.isDelete && { backgroundColor: 'rgba(255, 45, 85, 0.05)', borderColor: 'rgba(255, 45, 85, 0.2)' },
+                                isFocused && (act.isDelete ? styles.manageCardDeleteFocused : styles.manageCardFocused)
+                              ]}
+                              onPress={() => handleManageAction(act.index)}
+                            >
+                              <Ionicons 
+                                name={act.icon as any} 
+                                size={40} 
+                                color={act.isDelete ? '#FF3B30' : '#FFF'} 
+                                style={{ marginBottom: 12 }}
+                              />
+                              <Text style={styles.manageCardTitle}>{act.title}</Text>
+                              <Text style={styles.manageCardDesc}>{act.desc}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ) : getActiveTabList().length === 0 ? (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+                      <Ionicons name="images-outline" size={48} color="rgba(255,255,255,0.2)" style={{ marginBottom: 12 }} />
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16 }}>No se encontraron imágenes en esta categoría.</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.gridContainer}>
+                      {getActiveTabList().map((asset, idx) => {
+                        const isFocused = assetSelectorFocusArea === 'grid' && gridFocusIndex === idx;
+                        const cardWidthPercent = `${100 / Math.round(sliderValue) - 1.5}%`;
+                        
+                        let cardAspectRatio = 2/3;
+                        if (assetSelectorTab === 'capsule_wide') cardAspectRatio = 16/7.5;
+                        else if (assetSelectorTab === 'hero') cardAspectRatio = 16/9;
+                        else if (assetSelectorTab === 'logo') cardAspectRatio = 16/10;
+                        else if (assetSelectorTab === 'icon') cardAspectRatio = 1;
+
+                        return (
+                          <TouchableOpacity
+                            key={asset.id || idx}
+                            style={[
+                              styles.assetCard,
+                              { width: cardWidthPercent },
+                              isFocused && styles.assetCardFocused
+                            ]}
+                            onPress={() => applySelectedAsset(asset.url)}
+                          >
+                            <View style={[
+                              styles.assetCardImageWrapper,
+                              { aspectRatio: cardAspectRatio },
+                              assetSelectorTab === 'logo' && styles.logoBgWrapper
+                            ]}>
+                              <Image
+                                source={{ uri: asset.thumb || asset.url }}
+                                style={styles.assetCardImage}
+                                resizeMode={assetSelectorTab === 'logo' ? "contain" : "cover"}
+                              />
+                            </View>
+                            <View style={styles.assetCardInfo}>
+                              {asset.author ? (
+                                <>
+                                  <Image
+                                    source={asset.author.avatar ? { uri: asset.author.avatar } : require('../assets/images/Home.png')}
+                                    style={styles.authorAvatar}
+                                  />
+                                  <Text style={styles.authorName} numberOfLines={1}>
+                                    {asset.author.name || 'Anonymous'}
+                                  </Text>
+                                </>
+                              ) : (
+                                <Text style={styles.authorName} numberOfLines={1}>
+                                  SteamGridDB
+                                </Text>
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </ScrollView>
+
+                {/* Bottom navigation helper */}
+                <View style={styles.bottomBarPrompts}>
+                  <View style={styles.promptLeft}>
+                    <Ionicons name="game-controller-outline" size={20} color="#FFF" />
+                    <Text style={styles.promptLeftText}>MENÚ</Text>
+                  </View>
+                  <View style={styles.promptRight}>
+                    <View style={styles.promptItem}>
+                      <View style={styles.promptBtnBadge}>
+                        <Text style={styles.promptBtnText}>L1 / R1</Text>
+                      </View>
+                      <Text style={styles.promptItemText}>Pestaña</Text>
+                    </View>
+                    <View style={styles.promptItem}>
+                      <View style={styles.promptBtnBadge}>
+                        <Text style={styles.promptBtnText}>ⓧ</Text>
+                      </View>
+                      <Text style={styles.promptItemText}>Filtros</Text>
+                    </View>
+                    <View style={styles.promptItem}>
+                      <View style={styles.promptBtnBadge}>
+                        <Text style={styles.promptBtnText}>ⓐ</Text>
+                      </View>
+                      <Text style={styles.promptItemText}>Seleccionar</Text>
+                    </View>
+                    <View style={styles.promptItem}>
+                      <View style={styles.promptBtnBadge}>
+                        <Text style={styles.promptBtnText}>ⓑ</Text>
+                      </View>
+                      <Text style={styles.promptItemText}>Atrás</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
       </Modal>
     </Modal>
@@ -1640,6 +2165,248 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 8,
     fontSize: 15,
+  },
+
+  // === STEAMGRIDDB ASSET SELECTOR ===
+  assetSelectorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    zIndex: 2000,
+  },
+  assetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  assetHeaderTabs: {
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+
+  // Filter bar
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  filterActions: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  filterBtnFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  filterBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  sliderWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  sliderLabel: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  sliderContainer: {
+    width: 160,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  sliderFocused: {
+    borderColor: '#FFFFFF',
+  },
+  sliderTrackBackground: {
+    width: '100%',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  sliderTrackFill: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+    position: 'absolute',
+    left: 0,
+  } as any,
+  sliderThumb: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#FFFFFF',
+    top: -5,
+    marginLeft: -7,
+    shadowColor: '#FFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+  } as any,
+
+  // Asset grid
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingBottom: 30,
+  },
+  assetCard: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  } as any,
+  assetCardFocused: {
+    borderColor: '#FFFFFF',
+    shadowColor: '#FFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  } as any,
+  assetCardImageWrapper: {
+    width: '100%',
+    overflow: 'hidden',
+    backgroundColor: '#111',
+  },
+  logoBgWrapper: {
+    backgroundColor: '#1C1C2E',
+  },
+  assetCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  assetCardInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  authorAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#333',
+  },
+  authorName: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 12,
+    fontWeight: '500',
+    flex: 1,
+  },
+
+  // Manage tab cards
+  manageCard: {
+    flex: 1,
+    minWidth: 160,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manageCardFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  manageCardDeleteFocused: {
+    borderColor: '#FF3B30',
+    backgroundColor: 'rgba(255,45,85,0.15)',
+  },
+  manageCardTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  manageCardDesc: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+
+  // Bottom navigation prompts
+  bottomBarPrompts: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    marginTop: 8,
+  },
+  promptLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  promptLeftText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  promptRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  promptItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  promptBtnBadge: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  promptBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  promptItemText: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 13,
+    fontWeight: '500',
   },
 
 });

@@ -399,6 +399,57 @@ app.whenReady().then(() => {
     }
   });
 
+  // IPC: Buscar todos los assets disponibles de un juego en SteamGridDB
+  ipcMain.handle('fetch-steamgrid-assets', async (event, title) => {
+    if (!STEAMGRID_API_KEY || STEAMGRID_API_KEY.includes('TU_')) {
+      return { success: false, error: 'Configuración pendiente: Pon tu API Key en la línea 17 de main.js' };
+    }
+
+    console.log('Buscando todos los assets en SteamGridDB para:', title);
+
+    try {
+      // 1. Buscar el juego para obtener el ID
+      const searchRes = await fetch(`https://www.steamgriddb.com/api/v2/search/autocomplete/${encodeURIComponent(title)}`, {
+        headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` }
+      });
+      const searchData = await searchRes.json();
+
+      if (!searchData.success || !searchData.data || searchData.data.length === 0) {
+        return { success: false, error: 'Juego no encontrado en SteamGridDB' };
+      }
+
+      const gameId = searchData.data[0].id;
+
+      // 2. Buscar Grids, Heroes, Logos e Iconos en paralelo
+      const [gridsRes, heroesRes, logosRes, iconsRes] = await Promise.all([
+        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
+        fetch(`https://www.steamgriddb.com/api/v2/heroes/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
+        fetch(`https://www.steamgriddb.com/api/v2/logos/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
+        fetch(`https://www.steamgriddb.com/api/v2/icons/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } })
+      ]);
+
+      const [grids, heroes, logos, icons] = await Promise.all([
+        gridsRes.json(),
+        heroesRes.json(),
+        logosRes.json(),
+        iconsRes.json()
+      ]);
+
+      return {
+        success: true,
+        data: {
+          grids: grids.success ? grids.data : [],
+          heroes: heroes.success ? heroes.data : [],
+          logos: logos.success ? logos.data : [],
+          icons: icons.success ? icons.data : []
+        }
+      };
+    } catch (error) {
+      console.error('Error buscando todos los assets en SteamGridDB:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // IPC: Cerrar la aplicación
 
 
