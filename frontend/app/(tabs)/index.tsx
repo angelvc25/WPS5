@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Pla
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, interpolate, Easing, FadeInDown } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, interpolate, Easing, FadeInDown, FadeIn, FadeOut } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import FavoritesView from '@/components/FavoritesView';
@@ -2934,113 +2934,240 @@ export default function ConsoleHome() {
         </View>
       </Modal>
 
-      {/* SETTINGS MODAL */}
-      <Modal visible={isSettingsVisible} transparent animationType="slide">
-        <View style={styles.settingsOverlay}>
-          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={styles.settingsContainer}>
-            <View style={styles.settingsSidebar}>
-              <Text style={styles.settingsSidebarTitle}>Ajustes</Text>
-              <TouchableOpacity style={[styles.settingsTab, settingsTab === 'profile' && styles.settingsTabActive, (settingsFocusArea === 'sidebar' && settingsFocusIndex === 0) && styles.buttonFocused]} onPress={() => setSettingsTab('profile')}>
-                <Ionicons name="person-outline" size={20} color={settingsTab === 'profile' ? '#FFF' : '#AAA'} />
-                <Text style={[styles.settingsTabText, settingsTab === 'profile' && styles.settingsTabTextActive]}>Perfil</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.settingsTab, settingsTab === 'home' && styles.settingsTabActive, (settingsFocusArea === 'sidebar' && settingsFocusIndex === 1) && styles.buttonFocused]} onPress={() => setSettingsTab('home')}>
-                <Ionicons name="home-outline" size={20} color={settingsTab === 'home' ? '#FFF' : '#AAA'} />
-                <Text style={[styles.settingsTabText, settingsTab === 'home' && styles.settingsTabTextActive]}>Inicio</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.settingsTab, settingsTab === 'sync' && styles.settingsTabActive, (settingsFocusArea === 'sidebar' && settingsFocusIndex === 2) && styles.buttonFocused]} onPress={() => setSettingsTab('sync')}>
-                <Ionicons name="sync-circle-outline" size={20} color={settingsTab === 'sync' ? '#FFF' : '#AAA'} />
-                <Text style={[styles.settingsTabText, settingsTab === 'sync' && styles.settingsTabTextActive]}>Sincronización</Text>
-              </TouchableOpacity>
-              <View style={{ flex: 1 }} />
-              <TouchableOpacity style={[styles.settingsSidebarClose, (settingsFocusArea === 'sidebar' && settingsFocusIndex === 3) && styles.buttonFocused]} onPress={() => { setSettingsVisible(false); setFocusArea('header_user'); }}>
-                <Ionicons name="arrow-back" size={20} color="#AAA" />
-                <Text style={styles.settingsSidebarCloseText}>Volver</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.settingsMain}>
-              {settingsTab === 'profile' ? (
-                <ScrollView contentContainerStyle={styles.settingsScrollContentInner}>
-                  <Text style={styles.settingsMainTitle}>Configuración de Perfil</Text>
-                  <View style={styles.settingsSection}>
-                    <Text style={styles.settingsLabel}>Foto de Perfil</Text>
-                    <TouchableOpacity onPress={handleSelectAvatar} style={[styles.settingsAvatarContainer, { borderColor: activeUser?.color || '#FFFFFF' }, (settingsFocusArea === 'content' && settingsFocusIndex === 0) && styles.buttonFocused]}>
-                      {activeUser?.avatar ? (
-                        <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.settingsAvatar} />
-                      ) : (
-                        <View style={styles.defaultAvatarContainer}><Ionicons name="person" size={60} color="rgba(255,255,255,0.4)" /></View>
-                      )}
-                      <View style={styles.settingsAvatarEditBadge}><Ionicons name="camera" size={20} color="#FFF" /></View>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.settingsSection}>
-                    <Text style={styles.settingsLabel}>Nombre de Usuario</Text>
-                    <TextInput ref={settingsNameRef} style={[styles.settingsInput, (settingsFocusArea === 'content' && settingsFocusIndex === 1) && styles.inputFocused]} value={activeUser?.name || ''} onChangeText={(text) => updateUser({ name: text })} placeholder="Ingresa tu nombre" placeholderTextColor="#666" />
-                  </View>
-                  <View style={styles.settingsSection}>
-                    <Text style={styles.settingsLabel}>Color de Perfil</Text>
-                    <View style={styles.colorPickerContainer}>
-                      {['#FF3B30', '#00D4FF', '#FFCC00', '#4CD964', '#AF52DE', '#FF9500'].map((color) => (
-                        <TouchableOpacity key={color} style={[styles.colorCircle, { backgroundColor: color }, activeUser?.color === color && styles.colorCircleActive]} onPress={() => updateUser({ color })} />
-                      ))}
-                      <TouchableOpacity style={[styles.colorCircle, { backgroundColor: activeUser?.color }]} onPress={() => { const el = document.getElementById('colorPicker') as any; if (el) el.click(); }}>
-                        <input id="colorPicker" type="color" value={activeUser?.color} onChange={(e) => updateUser({ color: e.target.value })} style={{ display: 'none' }} />
+      {/* SETTINGS VIEW */}
+      {isSettingsVisible && (
+        <Animated.View style={styles.settingsViewContainer} entering={FadeIn.duration(300)} exiting={FadeOut.duration(300)}>
+          {/* background video */}
+          <Video
+            source={require('@/assets/video/waves_ajustes.mp4')}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay
+            isLooping
+            isMuted
+          />
+          {/* subtle dark overlay */}
+          <View style={styles.settingsOverlayDark} />
+
+          <View style={styles.settingsContentContainer}>
+            {/* Title Header */}
+            <Text style={styles.settingsMainTitleLarge}>Ajustes</Text>
+
+            {/* Two Column Layout */}
+            <View style={styles.settingsTwoColumns}>
+              {/* Sidebar */}
+              <View style={styles.settingsSidebarNew}>
+                <TouchableOpacity
+                  style={[
+                    styles.settingsTabNew,
+                    settingsTab === 'profile' && styles.settingsTabActiveNew,
+                    (settingsFocusArea === 'sidebar' && settingsFocusIndex === 0) && styles.settingsTabFocusedNew
+                  ]}
+                  onPress={() => setSettingsTab('profile')}
+                >
+                  <Ionicons name="person-outline" size={24} color={settingsTab === 'profile' ? '#FFF' : '#AAA'} />
+                  <Text style={[styles.settingsTabTextNew, settingsTab === 'profile' && styles.settingsTabTextActiveNew]}>Perfil</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.settingsTabNew,
+                    settingsTab === 'home' && styles.settingsTabActiveNew,
+                    (settingsFocusArea === 'sidebar' && settingsFocusIndex === 1) && styles.settingsTabFocusedNew
+                  ]}
+                  onPress={() => setSettingsTab('home')}
+                >
+                  <Ionicons name="home-outline" size={24} color={settingsTab === 'home' ? '#FFF' : '#AAA'} />
+                  <Text style={[styles.settingsTabTextNew, settingsTab === 'home' && styles.settingsTabTextActiveNew]}>Inicio</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.settingsTabNew,
+                    settingsTab === 'sync' && styles.settingsTabActiveNew,
+                    (settingsFocusArea === 'sidebar' && settingsFocusIndex === 2) && styles.settingsTabFocusedNew
+                  ]}
+                  onPress={() => setSettingsTab('sync')}
+                >
+                  <Ionicons name="sync-circle-outline" size={24} color={settingsTab === 'sync' ? '#FFF' : '#AAA'} />
+                  <Text style={[styles.settingsTabTextNew, settingsTab === 'sync' && styles.settingsTabTextActiveNew]}>Sincronización</Text>
+                </TouchableOpacity>
+
+                <View style={{ flex: 1 }} />
+
+              </View>
+
+              {/* Main Content Area */}
+              <View style={styles.settingsMainNew}>
+                {settingsTab === 'profile' ? (
+                  <ScrollView contentContainerStyle={styles.settingsScrollContentInnerNew} showsVerticalScrollIndicator={false}>
+                    <Text style={styles.settingsSectionTitleNew}>Configuración de Perfil</Text>
+
+                    <View style={styles.settingsSectionNew}>
+                      <Text style={styles.settingsLabelNew}>Foto de Perfil</Text>
+                      <TouchableOpacity
+                        onPress={handleSelectAvatar}
+                        style={[
+                          styles.settingsAvatarContainerNew,
+                          { borderColor: activeUser?.color || '#FFFFFF' },
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 0) && styles.settingsElementFocusedNew
+                        ]}
+                      >
+                        {activeUser?.avatar ? (
+                          <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.settingsAvatarNew} />
+                        ) : (
+                          <View style={styles.defaultAvatarContainerNew}>
+                            <Ionicons name="person" size={60} color="rgba(255,255,255,0.4)" />
+                          </View>
+                        )}
+                        <View style={styles.settingsAvatarEditBadgeNew}>
+                          <Ionicons name="camera" size={20} color="#FFF" />
+                        </View>
                       </TouchableOpacity>
                     </View>
-                  </View>
-                </ScrollView>
-              ) : settingsTab === 'home' ? (
-                <ScrollView contentContainerStyle={styles.settingsScrollContentInner}>
-                  <Text style={styles.settingsMainTitle}>Configuración de Inicio</Text>
-                  <View style={styles.settingsOptionRow}>
-                    <View style={styles.settingsOptionInfo}>
-                      <Text style={styles.settingsOptionLabel}>Reproducción automática de video</Text>
-                      <Text style={styles.settingsOptionDesc}>Reproduce trailers de juegos automáticamente cuando seleccionas un juego en el carrusel principal.</Text>
+
+                    <View style={styles.settingsSectionNew}>
+                      <Text style={styles.settingsLabelNew}>Nombre de Usuario</Text>
+                      <TextInput
+                        ref={settingsNameRef}
+                        style={[
+                          styles.settingsInputNew,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 1) && styles.settingsInputFocusedNew
+                        ]}
+                        value={activeUser?.name || ''}
+                        onChangeText={(text) => updateUser({ name: text })}
+                        placeholder="Ingresa tu nombre"
+                        placeholderTextColor="#666"
+                      />
                     </View>
-                    <TouchableOpacity onPress={() => updateUser({ settings: { ...activeUser?.settings, autoPlayVideo: !(activeUser?.settings?.autoPlayVideo !== false) } })} style={[styles.toggleContainer, (activeUser?.settings?.autoPlayVideo !== false) && styles.toggleContainerActive, (settingsFocusArea === 'content' && settingsFocusIndex === 0) && styles.buttonFocused]}>
-                      <View style={[styles.toggleCircle, (activeUser?.settings?.autoPlayVideo !== false) && styles.toggleCircleActive]} />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.settingsSection}>
-                    <Text style={styles.settingsLabel}>Fondo de Pantalla</Text>
-                    <TouchableOpacity style={[styles.settingsSecondaryBtn, (settingsFocusArea === 'content' && settingsFocusIndex === 1) && styles.buttonFocused]} onPress={() => { setSettingsVisible(false); setHomeBgModalVisible(true); }}>
-                      <Ionicons name="image-outline" size={20} color="#FFF" />
-                      <Text style={styles.settingsSecondaryBtnText}>Cambiar Imagen de Fondo</Text>
-                    </TouchableOpacity>
-                  </View>
-                </ScrollView>
-              ) : settingsTab === 'sync' ? (
-                <ScrollView contentContainerStyle={styles.settingsScrollContentInner}>
-                  <Text style={styles.settingsMainTitle}>Sincronización Inteligente</Text>
-                  <Text style={[styles.settingsOptionDesc, { marginBottom: 20, color: '#888' }]}>Elige la fuente de datos predeterminada para cada tipo de contenido cuando uses el botón "Sincronizar Datos".</Text>
-                  {[
-                    { key: 'ratingAndSummary', label: 'Resumen y Rating', options: [{ id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
-                    { key: 'cover', label: 'Portada (Cover)', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
-                    { key: 'background', label: 'Fondo (Background)', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
-                    { key: 'logo', label: 'Logo', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'none', label: 'Ninguno' }] }
-                  ].map((pref, index) => {
-                    const currentSync = activeUser?.settings?.syncPreferences || { ratingAndSummary: 'igdb', cover: 'steamgrid', background: 'steamgrid', logo: 'steamgrid' };
-                    const currentValue = (currentSync as any)[pref.key];
-                    return (
-                      <View key={pref.key} style={[styles.settingsSection, (settingsFocusArea === 'content' && settingsFocusIndex === index) && styles.buttonFocused]}>
-                        <Text style={styles.settingsLabel}>{pref.label}</Text>
-                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                          {pref.options.map(opt => (
-                            <TouchableOpacity key={opt.id} style={[styles.platformBtn, currentValue === opt.id && styles.platformBtnActive]} onPress={() => updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, [pref.key]: opt.id } as any } })}>
-                              <Text style={[styles.platformBtnText, currentValue === opt.id && styles.platformBtnTextActive]}>{opt.label}</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
+
+                    <View style={styles.settingsSectionNew}>
+                      <Text style={styles.settingsLabelNew}>Color de Perfil</Text>
+                      <View style={styles.colorPickerContainerNew}>
+                        {['#FF3B30', '#00D4FF', '#FFCC00', '#4CD964', '#AF52DE', '#FF9500'].map((color) => (
+                          <TouchableOpacity
+                            key={color}
+                            style={[
+                              styles.colorCircleNew,
+                              { backgroundColor: color },
+                              activeUser?.color === color && styles.colorCircleActiveNew
+                            ]}
+                            onPress={() => updateUser({ color })}
+                          />
+                        ))}
+                        <TouchableOpacity
+                          style={[
+                            styles.colorCircleNew,
+                            { backgroundColor: activeUser?.color }
+                          ]}
+                          onPress={() => {
+                            const el = document.getElementById('colorPicker') as any;
+                            if (el) el.click();
+                          }}
+                        >
+                          <input
+                            id="colorPicker"
+                            type="color"
+                            value={activeUser?.color}
+                            onChange={(e) => updateUser({ color: e.target.value })}
+                            style={{ display: 'none' }}
+                          />
+                        </TouchableOpacity>
                       </View>
-                    );
-                  })}
-                </ScrollView>
-              ) : null}
+                    </View>
+                  </ScrollView>
+                ) : settingsTab === 'home' ? (
+                  <ScrollView contentContainerStyle={styles.settingsScrollContentInnerNew} showsVerticalScrollIndicator={false}>
+                    <Text style={styles.settingsSectionTitleNew}>Configuración de Inicio</Text>
+
+                    <View style={styles.settingsOptionRowNew}>
+                      <View style={styles.settingsOptionInfoNew}>
+                        <Text style={styles.settingsOptionLabelNew}>Reproducción automática de video</Text>
+                        <Text style={styles.settingsOptionDescNew}>Reproduce trailers de juegos automáticamente cuando seleccionas un juego en el carrusel principal.</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => updateUser({ settings: { ...activeUser?.settings, autoPlayVideo: !(activeUser?.settings?.autoPlayVideo !== false) } })}
+                        style={[
+                          styles.toggleContainerNew,
+                          (activeUser?.settings?.autoPlayVideo !== false) && styles.toggleContainerActiveNew,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 0) && styles.settingsElementFocusedNew
+                        ]}
+                      >
+                        <View style={[styles.toggleCircleNew, (activeUser?.settings?.autoPlayVideo !== false) && styles.toggleCircleActiveNew]} />
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.settingsSectionNew}>
+                      <Text style={styles.settingsLabelNew}>Fondo de Pantalla</Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.settingsSecondaryBtnNew,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 1) && styles.settingsElementFocusedNew
+                        ]}
+                        onPress={() => {
+                          setSettingsVisible(false);
+                          setHomeBgModalVisible(true);
+                        }}
+                      >
+                        <Ionicons name="image-outline" size={20} color="#FFF" />
+                        <Text style={styles.settingsSecondaryBtnTextNew}>Cambiar Imagen de Fondo</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </ScrollView>
+                ) : settingsTab === 'sync' ? (
+                  <ScrollView contentContainerStyle={styles.settingsScrollContentInnerNew} showsVerticalScrollIndicator={false}>
+                    <Text style={styles.settingsSectionTitleNew}>Sincronización Inteligente</Text>
+                    <Text style={[styles.settingsOptionDescNew, { marginBottom: 20, color: '#888' }]}>Elige la fuente de datos predeterminada para cada tipo de contenido cuando uses el botón "Sincronizar Datos".</Text>
+
+                    {[
+                      { key: 'ratingAndSummary', label: 'Resumen y Rating', options: [{ id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
+                      { key: 'cover', label: 'Portada (Cover)', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
+                      { key: 'background', label: 'Fondo (Background)', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
+                      { key: 'logo', label: 'Logo', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'none', label: 'Ninguno' }] }
+                    ].map((pref, index) => {
+                      const currentSync = activeUser?.settings?.syncPreferences || { ratingAndSummary: 'igdb', cover: 'steamgrid', background: 'steamgrid', logo: 'steamgrid' };
+                      const currentValue = (currentSync as any)[pref.key];
+                      return (
+                        <View
+                          key={pref.key}
+                          style={[
+                            styles.settingsSectionNew,
+                            (settingsFocusArea === 'content' && settingsFocusIndex === index) && styles.settingsElementFocusedNew,
+                            { padding: 10, borderRadius: 12 }
+                          ]}
+                        >
+                          <Text style={styles.settingsLabelNew}>{pref.label}</Text>
+                          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                            {pref.options.map(opt => (
+                              <TouchableOpacity
+                                key={opt.id}
+                                style={[
+                                  styles.platformBtnNew,
+                                  currentValue === opt.id && styles.platformBtnActiveNew
+                                ]}
+                                onPress={() => updateUser({
+                                  settings: {
+                                    autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true,
+                                    syncPreferences: { ...currentSync, [pref.key]: opt.id } as any
+                                  }
+                                })}
+                              >
+                                <Text style={[styles.platformBtnTextNew, currentValue === opt.id && styles.platformBtnTextActiveNew]}>
+                                  {opt.label}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                ) : null}
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Animated.View>
+      )}
 
       {/* USER/POWER MODAL */}
       <Modal visible={isUserModalVisible} transparent animationType="fade">
@@ -3753,5 +3880,258 @@ const styles = StyleSheet.create({
     top: 90,
     right: 175,
     zIndex: 9999,
+  },
+
+  // === NEW FULL SCREEN SETTINGS VIEW ===
+  settingsViewContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    zIndex: 999,
+  },
+  settingsOverlayDark: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(7, 8, 12, 0.45)',
+  },
+  settingsContentContainer: {
+    flex: 1,
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 80,
+  },
+  settingsMainTitleLarge: {
+    color: '#FFF',
+    fontSize: 40,
+    fontWeight: '200',
+    letterSpacing: 0.5,
+    marginBottom: 30,
+  },
+  settingsTwoColumns: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 60,
+  },
+  settingsSidebarNew: {
+    width: 320,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255, 255, 255, 0.08)',
+    paddingRight: 40,
+    justifyContent: 'flex-start',
+  },
+  settingsTabNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    // borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    gap: 15,
+    // backgroundColor: 'rgba(255, 255, 255, 0.02)',
+  },
+  settingsTabActiveNew: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  settingsTabFocusedNew: {
+    borderColor: '#FFFFFF',
+    // backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    // shadowColor: '#FFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    borderRadius: 5,
+  },
+  settingsTabTextNew: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 18,
+    fontWeight: '400',
+  },
+  settingsTabTextActiveNew: {
+    color: '#FFF',
+    fontWeight: '600',
+  },
+  settingsSidebarCloseNew: {
+    marginTop: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.01)',
+  },
+  settingsSidebarCloseTextNew: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 18,
+    fontWeight: '400',
+  },
+  settingsMainNew: {
+    flex: 1,
+    backgroundColor: 'rgba(20, 20, 30, 0.15)',
+    borderRadius: 0,
+    paddingHorizontal: 40,
+    paddingVertical: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0)',
+  },
+  settingsSectionTitleNew: {
+    color: '#FFF',
+    fontSize: 26,
+    fontWeight: '300',
+    marginBottom: 30,
+  },
+  settingsScrollContentInnerNew: {
+    paddingBottom: 40,
+  },
+  settingsSectionNew: {
+    marginBottom: 35,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  settingsLabelNew: {
+    color: '#8E8E93',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 15,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  settingsAvatarContainerNew: {
+    position: 'relative',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  settingsAvatarNew: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 70,
+  },
+  settingsAvatarEditBadgeNew: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    height: '30%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  defaultAvatarContainerNew: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  settingsInputNew: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    color: '#FFF',
+    padding: 16,
+    borderRadius: 14,
+    fontSize: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  settingsInputFocusedNew: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  colorPickerContainerNew: {
+    flexDirection: 'row',
+    gap: 15,
+    alignItems: 'center',
+  },
+  colorCircleNew: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  colorCircleActiveNew: {
+    borderColor: '#FFF',
+    transform: [{ scale: 1.15 }],
+  },
+  settingsOptionRowNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 35,
+    paddingBottom: 25,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  settingsOptionInfoNew: {
+    flex: 1,
+    marginRight: 30,
+  },
+  settingsOptionLabelNew: {
+    color: '#E0E0FF',
+    fontSize: 18,
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  settingsOptionDescNew: {
+    color: '#8A8A8F',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  toggleContainerNew: {
+    width: 60,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 3,
+    justifyContent: 'center',
+  },
+  toggleContainerActiveNew: {
+    backgroundColor: '#FFFFFF',
+  },
+  toggleCircleNew: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1C1C1E',
+  },
+  toggleCircleActiveNew: {
+    transform: [{ translateX: 26 }],
+    backgroundColor: '#000',
+  },
+  settingsSecondaryBtnNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 16,
+    borderRadius: 14,
+    gap: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  settingsSecondaryBtnTextNew: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  settingsElementFocusedNew: {
+    borderColor: '#FFFFFF',
+    borderWidth: 2,
+  },
+  platformBtnNew: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  platformBtnActiveNew: {
+    backgroundColor: '#FFF',
+  },
+  platformBtnTextNew: {
+    color: '#8E8E93',
+    fontWeight: '600',
+  },
+  platformBtnTextActiveNew: {
+    color: '#000',
+    fontWeight: '700',
   },
 });
