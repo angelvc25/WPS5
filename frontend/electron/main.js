@@ -195,7 +195,21 @@ app.whenReady().then(() => {
     };
 
     if (!updateInList(data.games || []) && !updateInList(data.media || [])) {
-      return { success: false, error: 'App not found' };
+      if (updatedApp.id === 'spotify_default') {
+        data.media = data.media || [];
+        const filteredUpdate = Object.fromEntries(
+          Object.entries(updatedApp).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+        );
+        data.media.push({
+          id: 'spotify_default',
+          title: 'Spotify',
+          type: 'media',
+          platform: 'Spotify',
+          ...filteredUpdate
+        });
+      } else {
+        return { success: false, error: 'App not found' };
+      }
     }
 
     fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
@@ -254,11 +268,26 @@ app.whenReady().then(() => {
     }
 
     // Ejecutar la ruta proporcionada
-    exec(`"${executablePath}"`, (error, stdout, stderr) => {
-      if (error) {
-        console.error('Error al ejecutar la aplicación:', error);
-      }
-    });
+    const lowerPath = executablePath.toLowerCase();
+    if (lowerPath.endsWith('.lnk') || lowerPath.endsWith('.url')) {
+      shell.openPath(executablePath).then((errMsg) => {
+        if (errMsg) {
+          console.error('Error al abrir shortcut:', errMsg);
+        }
+      }).catch((err) => {
+        console.error('Exception opening shortcut:', err);
+      });
+    } else if (executablePath.startsWith('http://') || executablePath.startsWith('https://')) {
+      shell.openExternal(executablePath).catch((err) => {
+        console.error('Error al abrir URL externa:', err);
+      });
+    } else {
+      exec(`"${executablePath}"`, (error, stdout, stderr) => {
+        if (error) {
+          console.error('Error al ejecutar la aplicación:', error);
+        }
+      });
+    }
 
     return { success: true };
   });
@@ -266,8 +295,11 @@ app.whenReady().then(() => {
   // IPC: Abrir diálogo para seleccionar ejecutable
   ipcMain.handle('select-file', async () => {
     const result = await dialog.showOpenDialog({
-      properties: ['openFile'],
-      filters: [{ name: 'Ejecutables', extensions: ['exe', 'bat', 'lnk', 'url'] }]
+      properties: ['openFile', 'noResolveAliases'],
+      filters: [
+        { name: 'Ejecutables', extensions: ['exe', 'bat', 'lnk', 'url'] },
+        { name: 'Todos los archivos', extensions: ['*'] }
+      ]
     });
     if (!result.canceled && result.filePaths.length > 0) {
       return result.filePaths[0];

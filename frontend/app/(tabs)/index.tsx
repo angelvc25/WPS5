@@ -438,18 +438,18 @@ export default function ConsoleHome() {
             ? { uri: app.imageBase64 }
             : (app.image
               ? (app.image.startsWith('http') ? { uri: app.image } : { uri: `local-file:///${app.image.replace(/\\/g, '/')}` })
-              : (app.type === 'web' ? require('@/assets/images/web_default.jpg') : require('@/assets/images/Home.gif'))
+              : (app.id === 'spotify_default' ? require('@/assets/images/spotify_portada.png') : (app.type === 'web' ? require('@/assets/images/web_default.jpg') : require('@/assets/images/Home.gif')))
             ),
-          logo: app.logoBase64 ? { uri: app.logoBase64 } : (app.logo ? (app.logo.startsWith('http') ? { uri: app.logo } : { uri: `local-file:///${app.logo.replace(/\\/g, '/')}` }) : null),
+          logo: app.logoBase64 ? { uri: app.logoBase64 } : (app.logo ? (app.logo.startsWith('http') ? { uri: app.logo } : { uri: `local-file:///${app.logo.replace(/\\/g, '/')}` }) : (app.id === 'spotify_default' ? require('@/assets/images/spotify_logo.png') : null)),
           backgroundImage: app.backgroundImageBase64
             ? { uri: app.backgroundImageBase64 }
             : (app.backgroundImage
               ? (app.backgroundImage.startsWith('http') ? { uri: app.backgroundImage } : { uri: `local-file:///${app.backgroundImage.replace(/\\/g, '/')}` })
-              : require('@/assets/images/FondoDefault2.jpg')
+              : (app.id === 'spotify_default' ? require('@/assets/images/spotify_fondo.png') : require('@/assets/images/FondoDefault2.jpg'))
             ),
           video: app.video ? (app.video.startsWith('http') ? { uri: app.video } : { uri: `local-file:///${app.video.replace(/\\/g, '/')}` }) : null,
           path: app.path,
-          description: app.description,
+          description: app.description || (app.id === 'spotify_default' ? 'Reproductor de Música. Inicia sesión para escuchar tus canciones favoritas.' : ''),
           rating: app.rating,
           isFavorite: app.isFavorite,
           lastPlayed: app.lastPlayed,
@@ -468,7 +468,11 @@ export default function ConsoleHome() {
 
         const baseItems = [ps5store, home, lastPlayed, favGames, favMedia].filter(Boolean) as ConsoleItem[];
         setGames([...baseItems, ...gamesList.reverse()]);
-        setMedia([...DATA_MEDIA, ...mediaList.reverse()]);
+
+        const filteredDataMedia = DATA_MEDIA.filter((defaultItem: any) => 
+          !mediaList.some((userItem: any) => userItem.id === defaultItem.id)
+        );
+        setMedia([...filteredDataMedia, ...mediaList.reverse()]);
 
         const allFormatted = [...gamesList, ...mediaList];
         const latest = allFormatted.filter(i => i.lastPlayed).sort((a: any, b: any) => b.lastPlayed - a.lastPlayed)[0];
@@ -1260,11 +1264,15 @@ export default function ConsoleHome() {
       scrollRef.current.scrollTo({ x: scrollX, animated: true });
     }
   }, [activeIndex, currentRenderedTab, ITEM_WIDTH]);
-
   const handleLaunchApp = (item: ConsoleItem) => {
     if (!item) return;
     const targetItem = item.isLastPlayed ? (lastPlayedGame || item) : item;
-    if (!targetItem || !targetItem.path) return;
+    if (!targetItem) return;
+    if (!targetItem.path) {
+      setSelectedItem(targetItem);
+      setDetailVisible(true);
+      return;
+    }
     if (targetItem.path.startsWith('http')) {
       Linking.openURL(targetItem.path);
       return;
@@ -1968,7 +1976,13 @@ export default function ConsoleHome() {
                       <Text style={[
                         styles.playBtnText,
                         focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
-                      ]}>{(activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) ? 'Entrar' : 'Jugar'}</Text>
+                      ]}>
+                        {!activeItem?.path
+                          ? 'Asignar ruta'
+                          : (activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify'))
+                            ? 'Reproducir'
+                            : 'Jugar'}
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       id="more-btn"

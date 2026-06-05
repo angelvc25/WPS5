@@ -860,19 +860,18 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       if (onLaunch) onLaunch(item.id, item.path);
                       else if (Platform.OS === 'web' && (window as any).electronAPI)
                         (window as any).electronAPI.launchApp(item.id, item.path);
-                    } else if (item.type === 'media' || item.title?.toLowerCase().includes('spotify')) {
-                      if ((window as any).electronAPI) {
-                        const p = await (window as any).electronAPI.selectFile();
-                        if (p) {
-                          await (window as any).electronAPI.updateApp({ id: item.id, path: p });
-                          if (onRefresh) onRefresh();
-                        }
-                      }
+                    } else {
+                      setActiveTab('path');
+                      setEditModalVisible(true);
                     }
                   }}
                 >
                   <Text style={[styles.ps5PlayBtnText, focusIndex === 0 && styles.ps5PlayBtnTextFocused]}>
-                    {(item.type === 'media' || item.title?.toLowerCase().includes('spotify')) ? 'Entrar' : 'Jugar'}
+                    {!item.path
+                      ? 'Asignar ruta'
+                      : (item.type === 'media' || item.title?.toLowerCase().includes('spotify'))
+                        ? 'Entrar'
+                        : 'Jugar'}
                   </Text>
                 </TouchableOpacity>
 
