@@ -1234,6 +1234,31 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             else if (media.full) Linking.openURL(media.full);
                           }}
                         >
+                          {/* DEGRADADO NEGRO (al estar enfocadas) */}
+                          {Platform.OS === 'web' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
+                                pointerEvents: 'none',
+                                zIndex: 1,
+                                opacity: isMediaFocused ? 1 : 0,
+                                transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                              }}
+                            />
+                          )}
+
+                          {/* SHIMMER (al estar enfocadas) */}
+                          {Platform.OS === 'web' && isMediaFocused && (
+                            <div
+                              className="widget-shimmer-line"
+                              style={{
+                                animationDuration: '7s',
+                                opacity: 0.8,
+                              }}
+                            />
+                          )}
                           <View style={styles.newsCardThumbnail}>
                             <Image source={{ uri: media.thumbnail }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                             {media.type === 'movie' && (
@@ -1279,6 +1304,31 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         activeOpacity={0.8}
                         onPress={() => { if (news.url) Linking.openURL(news.url); }}
                       >
+                        {/* DEGRADADO NEGRO (al estar enfocadas) */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
+                              pointerEvents: 'none',
+                              zIndex: 1,
+                              opacity: isNewsFocused ? 1 : 0,
+                              transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
+
+                        {/* SHIMMER (al estar enfocadas) */}
+                        {Platform.OS === 'web' && isNewsFocused && (
+                          <div
+                            className="widget-shimmer-line"
+                            style={{
+                              animationDuration: '7s',
+                              opacity: 0.8,
+                            }}
+                          />
+                        )}
                         <View style={styles.newsCardThumbnail}>
                           {news.image_url ? (
                             <Image source={{ uri: news.image_url }} style={{ width: '100%', height: '120%' }} contentFit="cover" />
@@ -1977,6 +2027,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1.5,
     borderColor: 'transparent',
+    position: 'relative',
   } as any,
   newsCard2: {
     width: 320,
@@ -1985,6 +2036,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1.5,
     borderColor: 'transparent',
+    position: 'relative',
   } as any,
   newsCardFocused: {
     borderColor: 'rgba(255,255,255,0.85)',
@@ -2000,6 +2052,7 @@ const styles = StyleSheet.create({
   },
   newsCardContent: {
     padding: 12,
+    zIndex: 2,
   },
   newsCardTitle: {
     color: '#FFF',
@@ -2025,6 +2078,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.35)',
+    zIndex: 2,
   },
   infoCardsRow: {
     flexDirection: 'row',

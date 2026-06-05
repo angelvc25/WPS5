@@ -3159,6 +3159,31 @@ export default function ConsoleHome() {
                             }
                           }}
                         >
+                          {/* DEGRADADO NEGRO (al estar enfocadas) */}
+                          {Platform.OS === 'web' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
+                                pointerEvents: 'none',
+                                zIndex: 1,
+                                opacity: isMediaFocused ? 1 : 0,
+                                transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                              }}
+                            />
+                          )}
+
+                          {/* SHIMMER (al estar enfocadas) */}
+                          {Platform.OS === 'web' && isMediaFocused && (
+                            <div
+                              className="widget-shimmer-line"
+                              style={{
+                                animationDuration: '7s',
+                                opacity: 0.8,
+                              }}
+                            />
+                          )}
                           {/* Thumbnail */}
                           <View style={styles.newsCardThumbnail}>
                             <Image
@@ -3215,6 +3240,31 @@ export default function ConsoleHome() {
                           activeOpacity={0.8}
                           onPress={() => { if (item.url) Linking.openURL(item.url); }}
                         >
+                          {/* DEGRADADO NEGRO (al estar enfocadas) */}
+                          {Platform.OS === 'web' && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
+                                pointerEvents: 'none',
+                                zIndex: 1,
+                                opacity: isNewsFocused ? 1 : 0,
+                                transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                              }}
+                            />
+                          )}
+
+                          {/* SHIMMER (al estar enfocadas) */}
+                          {Platform.OS === 'web' && isNewsFocused && (
+                            <div
+                              className="widget-shimmer-line"
+                              style={{
+                                animationDuration: '7s',
+                                opacity: 0.8,
+                              }}
+                            />
+                          )}
                           {/* Thumbnail area */}
                           <View style={styles.newsCardThumbnail}>
                             {item.image_url ? (
@@ -4133,11 +4183,12 @@ const styles = StyleSheet.create({
     width: 500,
     height: 250,
     borderRadius: 8,
-    backgroundColor: 'rgba(20,20,30,0.4)',
+    backgroundColor: 'rgba(20, 20, 30, 0.04)',
     overflow: 'hidden',
     borderWidth: 1.5,
     borderColor: 'transparent',
-    objectFit: ''
+    objectFit: '',
+    position: 'relative',
   } as any,
   newsCard2: {
     width: 320,
@@ -4146,10 +4197,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1.5,
     borderColor: 'transparent',
+    position: 'relative',
   } as any,
   newsCardFocused: {
-    borderColor: 'rgba(255,255,255,0.85)',
-    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.49)',
+    borderWidth: 2,
     backgroundColor: 'rgba(35,35,45,0.6)',
     //transform: [{ scale: 1.03 }],
   } as any,
@@ -4186,6 +4238,7 @@ const styles = StyleSheet.create({
   },
   newsCardContent: {
     padding: 12,
+    zIndex: 2,
   },
   newsCardTitle: {
     color: '#FFF',
@@ -4368,6 +4421,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.35)',
+    zIndex: 2,
   },
   profileMenuBackdrop: {
     ...StyleSheet.absoluteFillObject,
