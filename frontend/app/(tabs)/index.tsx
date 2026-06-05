@@ -403,7 +403,7 @@ export default function ConsoleHome() {
 
   // Filter out system utility cards from the saved games list
   const savedGames = games.filter(
-    item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && !item.isFolder && !item.isGrid
+    item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && item.id !== '5' && !item.isFolder && !item.isGrid
   );
 
   useEffect(() => {
@@ -469,7 +469,7 @@ export default function ConsoleHome() {
         const baseItems = [ps5store, home, lastPlayed, favGames, favMedia].filter(Boolean) as ConsoleItem[];
         setGames([...baseItems, ...gamesList.reverse()]);
 
-        const filteredDataMedia = DATA_MEDIA.filter((defaultItem: any) => 
+        const filteredDataMedia = DATA_MEDIA.filter((defaultItem: any) =>
           !mediaList.some((userItem: any) => userItem.id === defaultItem.id)
         );
         setMedia([...filteredDataMedia, ...mediaList.reverse()]);
@@ -1266,7 +1266,11 @@ export default function ConsoleHome() {
   }, [activeIndex, currentRenderedTab, ITEM_WIDTH]);
   const handleLaunchApp = (item: ConsoleItem) => {
     if (!item) return;
-    const targetItem = item.isLastPlayed ? (lastPlayedGame || item) : item;
+    if (item.isLastPlayed && !lastPlayedGame) {
+      alert('Aún no has jugado a ningún juego.');
+      return;
+    }
+    const targetItem = item.isLastPlayed ? lastPlayedGame! : item;
     if (!targetItem) return;
     if (!targetItem.path) {
       setSelectedItem(targetItem);
@@ -1421,6 +1425,23 @@ export default function ConsoleHome() {
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
   const displayDesc = activeItem?.isLastPlayed ? (lastPlayedGame?.description || '') : (activeItem?.description || '');
   const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
+  const isSpotify =
+    activeItem?.title?.toLowerCase()?.includes('spotify');
+
+  const buttonLabel =
+    activeItem?.isLastPlayed
+      ? (
+        isSpotify || activeItem?.type === 'media'
+          ? 'Reproducir'
+          : 'Jugar'
+      )
+      : !activeItem?.path
+        ? 'Asignar ruta'
+        : (
+          isSpotify || activeItem?.type === 'media'
+        )
+          ? 'Reproducir'
+          : 'Jugar';
 
 
   // Spinning border component — rotating conic-gradient halo around the active card
@@ -1977,11 +1998,7 @@ export default function ConsoleHome() {
                         styles.playBtnText,
                         focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
                       ]}>
-                        {!activeItem?.path
-                          ? 'Asignar ruta'
-                          : (activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify'))
-                            ? 'Reproducir'
-                            : 'Jugar'}
+                        {buttonLabel}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -1993,8 +2010,13 @@ export default function ConsoleHome() {
                       activeOpacity={0.8}
                       onPress={() => {
                         if (activeItem) {
-                          setSelectedItem(activeItem);
-                          setDetailVisible(true);
+                          const target = activeItem.isLastPlayed ? lastPlayedGame : activeItem;
+                          if (target) {
+                            setSelectedItem(target);
+                            setDetailVisible(true);
+                          } else {
+                            alert('Aún no has jugado a ningún juego.');
+                          }
                         }
                       }}
                     >
