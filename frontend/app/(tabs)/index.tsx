@@ -3385,6 +3385,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#a8a8a8ff",
     borderStyle: 'solid',
+    borderRadius: 5,
+    padding: 7,
     //textDecorationColor: 'rgba(255,255,255,0.8)',
   },
   headerRight: {
