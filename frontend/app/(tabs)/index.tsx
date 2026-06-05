@@ -123,6 +123,7 @@ export default function ConsoleHome() {
   const newsScrollRef = useRef<ScrollView>(null);
   const mediaScrollRef = useRef<ScrollView>(null);
   const widgetScrollRef = useRef<ScrollView>(null);
+  const lastNavTime = useRef<number>(0);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   // PS5-style card sizing: smaller, square cards like the real PS5
@@ -669,6 +670,15 @@ export default function ConsoleHome() {
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
         if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
 
+        // Throttle rapid arrow key inputs (key repeats/fast tapping)
+        if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+          const now = Date.now();
+          if (now - lastNavTime.current < 130) {
+            return;
+          }
+          lastNavTime.current = now;
+        }
+
         // Profile Dropdown Menu Keyboard Navigation
         if (isProfileMenuOpen) {
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
@@ -1112,7 +1122,7 @@ export default function ConsoleHome() {
     }
   }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, isProfileMenuOpen, profileMenuFocusIndex, isOnline]);
 
-  // Fetch Steam news when the active item changes
+  // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
     const item = currentData[activeIndex];
     const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
@@ -1122,13 +1132,18 @@ export default function ConsoleHome() {
     setNewsLoading(true);
     setSteamNews([]);
     let cancelled = false;
-    fetchSteamNewsByName(title).then(news => {
-      if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
-    });
-    return () => { cancelled = true; };
+    const timer = setTimeout(() => {
+      fetchSteamNewsByName(title).then(news => {
+        if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
+      });
+    }, 400); // 400ms debounce
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [activeIndex, activeTab, lastPlayedGame?.id]);
 
-  // Fetch Steam screenshots & trailers when the active item changes
+  // Fetch Steam screenshots & trailers when the active item changes (debounced)
   useEffect(() => {
     const item = currentData[activeIndex];
     const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
@@ -1138,10 +1153,15 @@ export default function ConsoleHome() {
     setMediaLoading(true);
     setSteamMedia([]);
     let cancelled = false;
-    fetchSteamMediaByName(title).then(({ items }) => {
-      if (!cancelled) { setSteamMedia(items); setMediaLoading(false); }
-    });
-    return () => { cancelled = true; };
+    const timer = setTimeout(() => {
+      fetchSteamMediaByName(title).then(({ items }) => {
+        if (!cancelled) { setSteamMedia(items); setMediaLoading(false); }
+      });
+    }, 400); // 400ms debounce
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [activeIndex, activeTab, lastPlayedGame?.id]);
 
   // Auto-scroll main vertical scrollview when focus moves to lower sections
@@ -1314,19 +1334,34 @@ export default function ConsoleHome() {
       ? currentData[activeIndex]?.backgroundVideo
       : null;
   useEffect(() => {
-    if (activeLayer === 'A') {
-      if (currentBg !== bgA) {
-        setBgB(currentBg);
-        setActiveLayer('B');
-        fade.value = withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) });
-      }
-    } else {
-      if (currentBg !== bgB) {
-        setBgA(currentBg);
-        setActiveLayer('A');
-        fade.value = withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.quad) });
-      }
+    // If it's the very first time setting the background, do it immediately without delay
+    if (!bgA && !bgB) {
+      setBgA(currentBg);
+      return;
     }
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+      if (activeLayer === 'A') {
+        if (currentBg !== bgA) {
+          setBgB(currentBg);
+          setActiveLayer('B');
+          fade.value = withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) });
+        }
+      } else {
+        if (currentBg !== bgB) {
+          setBgA(currentBg);
+          setActiveLayer('A');
+          fade.value = withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.quad) });
+        }
+      }
+    }, 250); // 250ms debounce for background changes
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [currentBg]);
 
   useEffect(() => { if (currentBg && !bgA && !bgB) setBgA(currentBg); }, []);
