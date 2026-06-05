@@ -58,8 +58,8 @@
   },
   "private": true,
   "build": {
-    "appId": "com.wconsole.app",
-    "productName": "WConsole",
+    "appId": "com.ps5xperience.app",
+    "productName": "PS5 Xperience",
     "directories": {
       "output": "dist-electron"
     },

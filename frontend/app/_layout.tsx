@@ -24,6 +24,7 @@ export default function RootLayout() {
           * {
             scrollbar-width: none;
             -ms-overflow-style: none;
+            outline: none;
           }
           *::-webkit-scrollbar {
             display: none;
@@ -63,6 +64,7 @@ export default function RootLayout() {
         * {
           scrollbar-width: none;
           -ms-overflow-style: none;
+          outline: none;
         }
         *::-webkit-scrollbar {
           display: none;

@@ -38,6 +38,7 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
+    fullscreen: true,
     icon: path.join(__dirname, '../assets/images/ps5.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

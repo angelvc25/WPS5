@@ -2837,55 +2837,275 @@ export default function ConsoleHome() {
                 style={[styles.infoCardsRow, infoCardsStyle]}
               >
                 {/* Trophies Card */}
-                <BlurView intensity={28} tint="dark" style={[
-                  styles.infoCard,
-                  focusArea === 'game_panel' && gamePanelFocusIndex === 2 && styles.infoCardFocused
-                ]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+                <View
+                  style={[
+                    styles.infoCard,
+                    focusArea === 'game_panel' &&
+                    gamePanelFocusIndex === 2 &&
+                    styles.infoCardFocused,
+                  ]}
+                >
+                  {/* DEGRADADO */}
+                  {Platform.OS === 'web' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+
+                        background: `
+                          linear-gradient(
+                            90deg,
+                            rgba(172, 233, 255, 0.15) 5%,
+                            rgba(120,220,255,0.06) 25%,
+                            rgba(255,255,255,0.02) 40%,
+                            rgba(255,255,255,0.00) 60%,
+                            rgba(0,0,0,0.00) 100%
+                          )
+                        `,
+
+                        pointerEvents: 'none',
+                        zIndex: 1,
+
+                        opacity:
+                          focusArea === 'game_panel' &&
+                            gamePanelFocusIndex === 2
+                            ? 1
+                            : 0,
+
+                        transition:
+                          'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                      }}
+                    />
+                  )}
+
+                  {/* SHIMMER */}
+                  {Platform.OS === 'web' &&
+                    focusArea === 'game_panel' &&
+                    gamePanelFocusIndex === 2 && (
+                      <div
+                        className="widget-shimmer-line"
+                        style={{
+                          animationDuration: '7s',
+                          opacity: 0.8,
+                        }}
+                      />
+                    )}
+
+                  {/* CONTENIDO */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginBottom: 12,
+                      gap: 25,
+                      zIndex: 2,
+                    }}
+                  >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
+                      {/* <MaterialCommunityIcons
+                        name="trophy"
+                        size={20}
+                        color="#B0B0FF"
+                      /> */}
+                      <Image
+                        source={require('@/assets/images/platino.png')}
+                        style={{
+                          width: 28,
+                          height: 28,
+                        }}
+                      />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
+                        1
+                      </Text>
                     </View>
+
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
+                      {/* <MaterialCommunityIcons
+                        name="circle"
+                        size={12}
+                        color="#FFD700"
+                      /> */}
+                      <Image
+                        source={require('@/assets/images/oro.png')}
+                        style={{
+                          width: 28,
+                          height: 28,
+                        }}
+                      />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
+                        3
+                      </Text>
                     </View>
+
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
+                      {/* <MaterialCommunityIcons
+                        name="circle"
+                        size={12}
+                        color="#C0C0C0"
+                      /> */}
+                      <Image
+                        source={require('@/assets/images/plata.png')}
+                        style={{
+                          width: 28,
+                          height: 28,
+                        }}
+                      />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
+                        16
+                      </Text>
                     </View>
+
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
+                      {/* <MaterialCommunityIcons
+                        name="circle"
+                        size={12}
+                        color="#CD7F32"
+                      /> */}
+                      <Image
+                        source={require('@/assets/images/bronce.png')}
+                        style={{
+                          width: 28,
+                          height: 28,
+                        }}
+                      />
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
+                        17
+                      </Text>
                     </View>
                   </View>
-                  <View>
-                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
-                    <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
+
+                  <View style={{ zIndex: 2 }}>
+                    <Text
+                      style={{
+                        color: '#FFF',
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                        marginBottom: 4,
+                      }}
+                    >
+                      Trofeos
+                    </Text>
+
+                    <Text style={{ color: '#ddddddff', fontSize: 17 }}>
+                      37 conseguidos
+                    </Text>
                   </View>
-                </BlurView>
+                </View>
 
                 {/* Friends Playing Card */}
-                <BlurView intensity={28} tint="dark" style={[
-                  styles.infoCard,
-                  focusArea === 'game_panel' && gamePanelFocusIndex === 3 && styles.infoCardFocused
-                ]}>
-                  <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-                    {[1, 2, 3, 4, 5].map((_, i) => (
-                      <View key={i} style={{
-                        width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
-                        borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
-                        alignItems: 'center', justifyContent: 'center'
-                      }}>
-                        <Ionicons name="person" size={16} color="#AAA" />
+                <View
+                  style={[
+                    styles.infoCard,
+                    focusArea === 'game_panel' &&
+                    gamePanelFocusIndex === 3 &&
+                    styles.infoCardFocused,
+                  ]}
+                >
+                  {/* DEGRADADO */}
+                  {Platform.OS === 'web' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+
+                        background: `
+                          linear-gradient(
+                            90deg,
+                            rgba(172, 233, 255, 0.15) 5%,
+                            rgba(120,220,255,0.06) 25%,
+                            rgba(255,255,255,0.02) 40%,
+                            rgba(255,255,255,0.00) 60%,
+                            rgba(0,0,0,0.00) 100%
+                          )
+                        `,
+
+                        pointerEvents: 'none',
+                        zIndex: 1,
+
+                        opacity:
+                          focusArea === 'game_panel' &&
+                            gamePanelFocusIndex === 3
+                            ? 1
+                            : 0,
+
+                        transition:
+                          'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+
+                        backdropFilter: 'blur(2px)',
+                      }}
+                    />
+                  )}
+
+                  {/* SHIMMER */}
+                  {Platform.OS === 'web' &&
+                    focusArea === 'game_panel' &&
+                    gamePanelFocusIndex === 3 && (
+                      <div
+                        className="widget-shimmer-line"
+                        style={{
+                          animationDuration: '7s',
+                          opacity: 0.8,
+                        }}
+                      />
+                    )}
+
+                  {/* CONTENIDO */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      marginBottom: 12,
+                      zIndex: 2,
+                    }}
+                  >
+                    {/* {[1, 2, 3, 4, 5].map((_, i) => (
+                      <View
+                        key={i}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 14,
+                          backgroundColor: '#555',
+                          borderWidth: 2,
+                          borderColor: '#111',
+                          marginLeft: i === 0 ? 0 : -10,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Ionicons
+                          name="person"
+                          size={16}
+                          color="#AAA"
+                        />
                       </View>
-                    ))}
+                    ))} */}
+                    <Image
+                      source={require('@/assets/images/amigos.png')}
+                      style={{
+                        width: 35,
+                        height: 35,
+                        //borderRadius: 14,
+                      }}
+                    />
                   </View>
-                  <View>
-                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
-                    <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
+
+                  <View style={{ zIndex: 2 }}>
+                    <Text
+                      style={{
+                        color: '#FFF',
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                        marginBottom: 4,
+                      }}
+                    >
+                      Amigos que juegan
+                    </Text>
+
+                    <Text style={{ color: '#ddddddff', fontSize: 17 }}>
+                      5 amigos tienen este juego
+                    </Text>
                   </View>
-                </BlurView>
+                </View>
               </Animated.View>
             )}
 
@@ -3886,17 +4106,19 @@ const styles = StyleSheet.create({
   infoCard: {
     padding: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(30,30,40,0.4)',
+    backgroundColor: 'rgb(38 41 47)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
-    minWidth: 280,
+    minWidth: 350,
     justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
   } as any,
   infoCardFocused: {
     borderColor: 'rgba(255,255,255,0.75)',
     borderWidth: 1.5,
-    backgroundColor: 'rgba(40,40,50,0.6)',
-    transform: [{ scale: 1.02 }],
+    //backgroundColor: 'rgba(40,40,50,0.6)',
+    //transform: [{ scale: 1.02 }],
   } as any,
 
   // === STEAM NEWS SECTION ===
@@ -3929,7 +4151,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.85)',
     borderWidth: 1.5,
     backgroundColor: 'rgba(35,35,45,0.6)',
-    transform: [{ scale: 1.03 }],
+    //transform: [{ scale: 1.03 }],
   } as any,
   newsCardThumbnail: {
     width: '100%',

@@ -887,45 +887,309 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
             <Animated.View style={[styles.infoCardsRow, infoCardsStyle]}>
               {/* Trofeos */}
-              <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 2 && styles.infoCardFocused]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <MaterialCommunityIcons name="trophy" size={20} color="#B0B0FF" />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>1</Text>
+              <View
+                style={[
+                  styles.infoCard,
+                  focusIndex === 2 && styles.infoCardFocused
+                ]}
+              >
+                {/* DEGRADADO */}
+                {Platform.OS === 'web' && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+
+                      background: `
+                        linear-gradient(
+                          90deg,
+                          rgba(172, 233, 255, 0.15) 5%,
+                          rgba(120,220,255,0.06) 25%,
+                          rgba(255,255,255,0.02) 40%,
+                          rgba(255,255,255,0.00) 60%,
+                          rgba(0,0,0,0.00) 100%
+                        )
+                      `,
+
+                      pointerEvents: 'none',
+                      zIndex: 1,
+
+                      opacity: focusIndex === 2 ? 1 : 0,
+
+                      transition:
+                        'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                    }}
+                  />
+                )}
+
+                {/* SHIMMER */}
+                {Platform.OS === 'web' && focusIndex === 2 && (
+                  <div
+                    className="widget-shimmer-line"
+                    style={{
+                      animationDuration: '7s',
+                      opacity: 0.8,
+                    }}
+                  />
+                )}
+
+                {/* CONTENIDO */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                    gap: 25,
+                    zIndex: 2,
+                  }}
+                >
+                  {/* PLATINO */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Image
+                      source={require('@/assets/images/platino.png')}
+                      style={{
+                        width: 28,
+                        height: 28,
+                      }}
+                    />
+
+                    <Text
+                      style={{
+                        color: '#FFF',
+                        fontSize: 14,
+                        fontWeight: 'bold',
+                        marginTop: 15,
+                      }}
+                    >
+                      1
+                    </Text>
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <MaterialCommunityIcons name="circle" size={12} color="#FFD700" />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>3</Text>
+
+                  {/* ORO */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Image
+                      source={require('@/assets/images/oro.png')}
+                      style={{
+                        width: 28,
+                        height: 28,
+                      }}
+                    />
+
+                    <Text
+                      style={{
+                        color: '#FFF',
+                        fontSize: 14,
+                        fontWeight: 'bold',
+                        marginTop: 15,
+                      }}
+                    >
+                      3
+                    </Text>
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <MaterialCommunityIcons name="circle" size={12} color="#C0C0C0" />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>16</Text>
+
+                  {/* PLATA */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Image
+                      source={require('@/assets/images/plata.png')}
+                      style={{
+                        width: 28,
+                        height: 28,
+                      }}
+                    />
+
+                    <Text
+                      style={{
+                        color: '#FFF',
+                        fontSize: 14,
+                        fontWeight: 'bold',
+                        marginTop: 15,
+                      }}
+                    >
+                      16
+                    </Text>
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <MaterialCommunityIcons name="circle" size={12} color="#CD7F32" />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>17</Text>
+
+                  {/* BRONCE */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Image
+                      source={require('@/assets/images/bronce.png')}
+                      style={{
+                        width: 28,
+                        height: 28,
+                      }}
+                    />
+
+                    <Text
+                      style={{
+                        color: '#FFF',
+                        fontSize: 14,
+                        fontWeight: 'bold',
+                        marginTop: 15,
+                      }}
+                    >
+                      17
+                    </Text>
                   </View>
                 </View>
-                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Trofeos</Text>
-                <Text style={{ color: '#888', fontSize: 13 }}>37 conseguidos</Text>
-              </BlurView>
+
+                <View style={{ zIndex: 2 }}>
+                  <Text
+                    style={{
+                      color: '#FFF',
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                      marginBottom: 4,
+                    }}
+                  >
+                    Trofeos
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: '#ddddddff',
+                      fontSize: 17,
+                    }}
+                  >
+                    37 conseguidos
+                  </Text>
+                </View>
+              </View>
 
               {/* Amigos */}
-              <BlurView intensity={28} tint="dark" style={[styles.infoCard, focusIndex === 3 && styles.infoCardFocused]}>
-                <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-                  {[1, 2, 3, 4, 5].map((_, i) => (
-                    <View key={i} style={{
-                      width: 28, height: 28, borderRadius: 14, backgroundColor: '#555',
-                      borderWidth: 2, borderColor: '#111', marginLeft: i === 0 ? 0 : -10,
-                      alignItems: 'center', justifyContent: 'center'
-                    }}>
-                      <Ionicons name="person" size={16} color="#AAA" />
+              <View
+                style={[
+                  styles.infoCard,
+                  focusIndex === 3 && styles.infoCardFocused
+                ]}
+              >
+                {/* DEGRADADO */}
+                {Platform.OS === 'web' && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+
+                      background: `
+                      linear-gradient(
+                        90deg,
+                        rgba(172, 233, 255, 0.15) 5%,
+                        rgba(120,220,255,0.06) 25%,
+                        rgba(255,255,255,0.02) 40%,
+                        rgba(255,255,255,0.00) 60%,
+                        rgba(0,0,0,0.00) 100%
+                      )
+                    `,
+
+                      pointerEvents: 'none',
+                      zIndex: 1,
+
+                      opacity: focusIndex === 3 ? 1 : 0,
+
+                      transition:
+                        'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                    }}
+                  />
+                )}
+
+                {/* SHIMMER */}
+                {Platform.OS === 'web' && focusIndex === 3 && (
+                  <div
+                    className="widget-shimmer-line"
+                    style={{
+                      animationDuration: '7s',
+                      opacity: 0.8,
+                    }}
+                  />
+                )}
+
+                {/* AVATARES */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    marginBottom: 12,
+                    zIndex: 2,
+                  }}
+                >
+                  {/* {[1, 2, 3, 4, 5].map((_, i) => (
+                    <View
+                      key={i}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: 'rgba(255,255,255,0.08)',
+                        borderWidth: 2,
+                        borderColor: 'rgba(255,255,255,0.12)',
+                        marginLeft: i === 0 ? 0 : -10,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Ionicons
+                        name="person"
+                        size={16}
+                        color="#D5DFFF"
+                      />
                     </View>
-                  ))}
+                  ))} */}
+                  <Image
+                    source={require('@/assets/images/amigos.png')}
+                    style={{
+                      width: 35,
+                      height: 35,
+                      //borderRadius: 14,
+                    }}
+                  />
                 </View>
-                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Amigos que juegan</Text>
-                <Text style={{ color: '#888', fontSize: 13 }}>5 amigos tienen este juego</Text>
-              </BlurView>
+
+                {/* TEXTO */}
+                <View style={{ zIndex: 2 }}>
+                  <Text
+                    style={{
+                      color: '#FFF',
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                      marginBottom: 4,
+                    }}
+                  >
+                    Amigos que juegan
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: '#ddddddff',
+                      fontSize: 17,
+                    }}
+                  >
+                    5 amigos tienen este juego
+                  </Text>
+                </View>
+              </View>
             </Animated.View>
 
             {/* Frase */}
@@ -1580,8 +1844,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 const styles = StyleSheet.create({
   detailContainer: {
     flex: 1,
-    backgroundColor: '#000'
-  },
+    backgroundColor: '#000',
+    outlineStyle: 'none',
+  } as any,
   detailBg: {
     position: 'absolute',
     width: '100%',
@@ -1769,17 +2034,17 @@ const styles = StyleSheet.create({
   infoCard: {
     padding: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(30,30,40,0.4)',
+    backgroundColor: 'rgb(38 41 47)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    minWidth: 280,
+    borderColor: 'rgb(38 41 47)',
+    minWidth: 350,
     justifyContent: 'center',
   } as any,
   infoCardFocused: {
     borderColor: 'rgba(255,255,255,0.75)',
     borderWidth: 1.5,
-    backgroundColor: 'rgba(40,40,50,0.6)',
-    transform: [{ scale: 0.99 }],
+    //backgroundColor: 'rgba(40,40,50,0.6)',
+    //transform: [{ scale: 0.99 }],
   } as any,
   detailBack: {
     position: 'absolute',
@@ -2039,7 +2304,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#000',
     zIndex: 1000,
-  },
+    outlineStyle: 'none',
+  } as any,
   editOverlayDark: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(7, 8, 12, 0.45)',
