@@ -41,28 +41,80 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     logos: any[];
     icons: any[];
   }>({ grids: [], heroes: [], logos: [], icons: [] });
+  const [selectedDimensionFilter, setSelectedDimensionFilter] = useState<'all' | '2:3' | '22:31' | '1:1' | '92:43'>('all');
   const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const [sliderValue, setSliderValue] = useState(5);
   const [assetSelectorFocusArea, setAssetSelectorFocusArea] = useState<'tabs' | 'filters' | 'grid'>('tabs');
   const [gridFocusIndex, setGridFocusIndex] = useState(0);
   const [filterFocusIndex, setFilterFocusIndex] = useState(0);
 
+  const getAvailableDimensionFilters = (): ('all' | '2:3' | '22:31' | '1:1' | '92:43')[] => {
+    if (assetSelectorTab === 'capsule') {
+      return ['all', '2:3', '22:31', '1:1'];
+    }
+    if (assetSelectorTab === 'capsule_wide') {
+      return ['all', '92:43', '1:1'];
+    }
+    return ['all'];
+  };
+
+  const getDimensionFilterLabel = (filter: string) => {
+    if (assetSelectorTab !== 'capsule' && assetSelectorTab !== 'capsule_wide') {
+      return 'Filtros';
+    }
+    switch (filter) {
+      case 'all': return 'Dimensiones: Todas';
+      case '2:3': return 'Dimensiones: Vertical 2:3';
+      case '22:31': return 'Dimensiones: Galaxy 22:31';
+      case '92:43': return 'Dimensiones: Horizontal 92:43';
+      case '1:1': return 'Dimensiones: Cuadrada 1:1';
+      default: return 'Dimensiones';
+    }
+  };
+
+  const cycleDimensionFilter = () => {
+    const available = getAvailableDimensionFilters();
+    const currentIdx = available.indexOf(selectedDimensionFilter);
+    let nextIdx = currentIdx + 1;
+    if (nextIdx >= available.length) nextIdx = 0;
+    setSelectedDimensionFilter(available[nextIdx]);
+    setGridFocusIndex(0);
+  };
+
   const getActiveTabList = () => {
     if (!assetsData) return [];
+    let list: any[] = [];
     switch (assetSelectorTab) {
       case 'capsule':
-        return (assetsData.grids || []).filter((g: any) => g.width < g.height);
+        list = (assetsData.grids || []).filter((g: any) => g.width < g.height || (selectedDimensionFilter === '1:1' && g.width === g.height));
+        break;
       case 'capsule_wide':
-        return (assetsData.grids || []).filter((g: any) => g.width >= g.height);
+        list = (assetsData.grids || []).filter((g: any) => g.width > g.height || (selectedDimensionFilter === '1:1' && g.width === g.height) || (selectedDimensionFilter === 'all' && g.width === g.height));
+        break;
       case 'hero':
-        return assetsData.heroes || [];
+        list = assetsData.heroes || [];
+        break;
       case 'logo':
-        return assetsData.logos || [];
+        list = assetsData.logos || [];
+        break;
       case 'icon':
-        return assetsData.icons || [];
+        list = assetsData.icons || [];
+        break;
       default:
         return [];
     }
+
+    if (selectedDimensionFilter === '2:3') {
+      return list.filter((g: any) => Math.abs(g.width / g.height - 2/3) < 0.05);
+    } else if (selectedDimensionFilter === '22:31') {
+      return list.filter((g: any) => Math.abs(g.width / g.height - 22/31) < 0.05);
+    } else if (selectedDimensionFilter === '1:1') {
+      return list.filter((g: any) => g.width === g.height);
+    } else if (selectedDimensionFilter === '92:43') {
+      return list.filter((g: any) => Math.abs(g.width / g.height - 92/43) < 0.05);
+    }
+
+    return list;
   };
 
   const cycleTab = (direction: number) => {
@@ -75,11 +127,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     if (nextIdx >= tabIndices.length) nextIdx = 0;
     
     setAssetSelectorTab(tabIndices[nextIdx]);
+    setSelectedDimensionFilter('all');
     setGridFocusIndex(0);
   };
 
   const openAssetSelector = async (initialTab: 'capsule' | 'capsule_wide' | 'hero' | 'logo' | 'icon' | 'manage') => {
     setAssetSelectorTab(initialTab);
+    setSelectedDimensionFilter('all');
     setAssetSelectorVisible(true);
     setAssetSelectorFocusArea('tabs');
     setGridFocusIndex(0);
@@ -237,7 +291,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         }
       } else if (e.key === 'Enter') {
         if (filterFocusIndex === 0) {
-          alert("Filtrando assets...");
+          cycleDimensionFilter();
         } else if (filterFocusIndex === 1) {
           handleLocalUpload();
         } else if (filterFocusIndex === 2 && showAdjust) {
@@ -1296,10 +1350,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         styles.filterBtn,
                         assetSelectorFocusArea === 'filters' && filterFocusIndex === 0 && styles.filterBtnFocused
                       ]}
-                      onPress={() => alert("Filtrando assets...")}
+                      onPress={cycleDimensionFilter}
                     >
                       <Ionicons name="funnel-outline" size={16} color="#FFF" />
-                      <Text style={styles.filterBtnText}>Filtros</Text>
+                      <Text style={styles.filterBtnText}>{getDimensionFilterLabel(selectedDimensionFilter)}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -1422,6 +1476,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                 style={styles.assetCardImage}
                                 contentFit={assetSelectorTab === 'logo' ? "contain" : "cover"}
                               />
+                              {(asset.width > 0 && asset.height > 0) ? (
+                                <View style={styles.resolutionBadge}>
+                                  <Text style={styles.resolutionText}>{asset.width}x{asset.height}</Text>
+                                </View>
+                              ) : null}
                             </View>
                             <View style={styles.assetCardInfo}>
                               {asset.author ? (
@@ -2403,7 +2462,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-
+  resolutionBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    zIndex: 10,
+  },
+  resolutionText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+  },
 });
 
 

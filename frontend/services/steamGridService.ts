@@ -101,22 +101,29 @@ export async function fetchSteamGridAssets(
     const gameId = await searchGame(title);
     if (!gameId) return empty;
 
-    const [gridsRes, heroesRes, logosRes, iconsRes] = await Promise.all([
+    const [gridsRes, squaresRes, heroesRes, logosRes, iconsRes] = await Promise.all([
       fetch(`${BASE}/grids/game/${gameId}`, { headers }),
+      fetch(`${BASE}/grids/game/${gameId}?dimensions=512x512,1024x1024`, { headers }),
       fetch(`${BASE}/heroes/game/${gameId}`, { headers }),
       fetch(`${BASE}/logos/game/${gameId}`, { headers }),
       fetch(`${BASE}/icons/game/${gameId}`, { headers }),
     ]);
 
-    const [grids, heroes, logos, icons] = await Promise.all([
+    const [grids, squares, heroes, logos, icons] = await Promise.all([
       gridsRes.ok ? gridsRes.json() : { success: false, data: [] },
+      squaresRes.ok ? squaresRes.json() : { success: false, data: [] },
       heroesRes.ok ? heroesRes.json() : { success: false, data: [] },
       logosRes.ok ? logosRes.json() : { success: false, data: [] },
       iconsRes.ok ? iconsRes.json() : { success: false, data: [] },
     ]);
 
+    const mergedGrids = [
+      ...(grids.success ? grids.data : []),
+      ...(squares.success ? squares.data : [])
+    ];
+
     return {
-      grids: (grids.success ? grids.data : []).map(mapAsset),
+      grids: mergedGrids.map(mapAsset),
       heroes: (heroes.success ? heroes.data : []).map(mapAsset),
       logos: (logos.success ? logos.data : []).map(mapAsset),
       icons: (icons.success ? icons.data : []).map(mapAsset),

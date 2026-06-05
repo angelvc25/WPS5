@@ -420,25 +420,32 @@ app.whenReady().then(() => {
 
       const gameId = searchData.data[0].id;
 
-      // 2. Buscar Grids, Heroes, Logos e Iconos en paralelo
-      const [gridsRes, heroesRes, logosRes, iconsRes] = await Promise.all([
+      // 2. Buscar Grids, Squares, Heroes, Logos e Iconos en paralelo
+      const [gridsRes, squaresRes, heroesRes, logosRes, iconsRes] = await Promise.all([
         fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
+        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}?dimensions=512x512,1024x1024`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
         fetch(`https://www.steamgriddb.com/api/v2/heroes/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
         fetch(`https://www.steamgriddb.com/api/v2/logos/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
         fetch(`https://www.steamgriddb.com/api/v2/icons/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } })
       ]);
 
-      const [grids, heroes, logos, icons] = await Promise.all([
+      const [grids, squares, heroes, logos, icons] = await Promise.all([
         gridsRes.json(),
+        squaresRes.json(),
         heroesRes.json(),
         logosRes.json(),
         iconsRes.json()
       ]);
 
+      const mergedGrids = [
+        ...(grids.success ? grids.data : []),
+        ...(squares.success ? squares.data : [])
+      ];
+
       return {
         success: true,
         data: {
-          grids: grids.success ? grids.data : [],
+          grids: mergedGrids,
           heroes: heroes.success ? heroes.data : [],
           logos: logos.success ? logos.data : [],
           icons: icons.success ? icons.data : []
