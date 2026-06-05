@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Platform, TextInput, ScrollView, useWindowDimensions, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, TextInput, ScrollView, useWindowDimensions, Linking } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
@@ -10,6 +11,7 @@ import ControlPrompt from './ControlPrompt';
 import { useUser } from '../contexts/UserContext';
 import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
+import { fetchSteamGridAssets as fetchSteamGridAssetsService } from '../services/steamGridService';
 
 interface GameDetailViewProps {
   isVisible: boolean;
@@ -76,41 +78,6 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setGridFocusIndex(0);
   };
 
-  const loadMockAssets = () => {
-    const mockGrids = [
-      { id: 1, url: 'https://cdn2.steamgriddb.com/grid/a3fe3b573a6288820f4f9fcd9710f63b.png', thumb: 'https://cdn2.steamgriddb.com/grid/a3fe3b573a6288820f4f9fcd9710f63b.png', width: 600, height: 900, author: { name: 'FireHeadEngine', avatar: 'https://cdn2.steamgriddb.com/avatar/6027a4d622f98.png' } },
-      { id: 2, url: 'https://cdn2.steamgriddb.com/grid/0101c7db17c80b182cb08ea7c5b6bfa1.png', thumb: 'https://cdn2.steamgriddb.com/grid/0101c7db17c80b182cb08ea7c5b6bfa1.png', width: 600, height: 900, author: { name: 'IAMNOTRANA', avatar: '' } },
-      { id: 3, url: 'https://cdn2.steamgriddb.com/grid/2584e030a5be7fcf761a6b0c26bd96b4.png', thumb: 'https://cdn2.steamgriddb.com/grid/2584e030a5be7fcf761a6b0c26bd96b4.png', width: 600, height: 900, author: { name: 'r_dsgnd', avatar: '' } },
-      { id: 4, url: 'https://cdn2.steamgriddb.com/grid/3f5e55e09f5bc3a675ce55e08b1a37c0.png', thumb: 'https://cdn2.steamgriddb.com/grid/3f5e55e09f5bc3a675ce55e08b1a37c0.png', width: 600, height: 900, author: { name: 'Luckspeare', avatar: '' } },
-      { id: 5, url: 'https://cdn2.steamgriddb.com/grid/4a6c478a8be77e923e3e08f51a48c4d2.png', thumb: 'https://cdn2.steamgriddb.com/grid/4a6c478a8be77e923e3e08f51a48c4d2.png', width: 600, height: 900, author: { name: 'RabidLime', avatar: '' } },
-      { id: 6, url: 'https://cdn2.steamgriddb.com/grid/d8b3c37de75df7c7e5a6a61765c928e4.png', thumb: 'https://cdn2.steamgriddb.com/grid/d8b3c37de75df7c7e5a6a61765c928e4.png', width: 600, height: 900, author: { name: 'ChewyPudding', avatar: '' } },
-      { id: 7, url: 'https://cdn2.steamgriddb.com/grid/e3a6c478a8be77e923e3e08f51a48c4d2.png', thumb: 'https://cdn2.steamgriddb.com/grid/e3a6c478a8be77e923e3e08f51a48c4d2.png', width: 600, height: 900, author: { name: 'KyleRendar', avatar: '' } },
-      { id: 8, url: 'https://cdn2.steamgriddb.com/grid/f8b3c37de75df7c7e5a6a61765c928e4.png', thumb: 'https://cdn2.steamgriddb.com/grid/f8b3c37de75df7c7e5a6a61765c928e4.png', width: 600, height: 900, author: { name: 'Luckspeare', avatar: '' } },
-      { id: 9, url: 'https://cdn2.steamgriddb.com/grid/cfcf916e75a9e32a67e5a2be10c28e4f.png', thumb: 'https://cdn2.steamgriddb.com/grid/cfcf916e75a9e32a67e5a2be10c28e4f.png', width: 460, height: 215, author: { name: 'Luckspeare', avatar: '' } },
-      { id: 10, url: 'https://cdn2.steamgriddb.com/grid/d9b3c37de75df7c7e5a6a61765c928e4.png', thumb: 'https://cdn2.steamgriddb.com/grid/d9b3c37de75df7c7e5a6a61765c928e4.png', width: 460, height: 215, author: { name: 'ChewyPudding', avatar: '' } },
-      { id: 11, url: 'https://cdn2.steamgriddb.com/grid/e9b3c37de75df7c7e5a6a61765c928e4.png', thumb: 'https://cdn2.steamgriddb.com/grid/e9b3c37de75df7c7e5a6a61765c928e4.png', width: 460, height: 215, author: { name: 'Luckspeare', avatar: '' } },
-      { id: 12, url: 'https://cdn2.steamgriddb.com/grid/1a6c478a8be77e923e3e08f51a48c4d2.png', thumb: 'https://cdn2.steamgriddb.com/grid/1a6c478a8be77e923e3e08f51a48c4d2.png', width: 460, height: 215, author: { name: 'IAMNOTRANA', avatar: '' } },
-    ];
-    const mockHeroes = [
-      { id: 21, url: 'https://cdn2.steamgriddb.com/hero/0bb6bdf8a6cd430d41df47a508b1a37c.jpg', thumb: 'https://cdn2.steamgriddb.com/hero/0bb6bdf8a6cd430d41df47a508b1a37c.jpg', author: { name: 'Luckspeare', avatar: '' } },
-      { id: 22, url: 'https://cdn2.steamgriddb.com/hero/2bb6bdf8a6cd430d41df47a508b1a37c.jpg', thumb: 'https://cdn2.steamgriddb.com/hero/2bb6bdf8a6cd430d41df47a508b1a37c.jpg', author: { name: 'ChewyPudding', avatar: '' } },
-      { id: 23, url: 'https://cdn2.steamgriddb.com/hero/3bb6bdf8a6cd430d41df47a508b1a37c.jpg', thumb: 'https://cdn2.steamgriddb.com/hero/3bb6bdf8a6cd430d41df47a508b1a37c.jpg', author: { name: 'Luckspeare', avatar: '' } }
-    ];
-    const mockLogos = [
-      { id: 31, url: 'https://cdn2.steamgriddb.com/logo/7c5be634df498d41df47a508b1a37c05.png', thumb: 'https://cdn2.steamgriddb.com/logo/7c5be634df498d41df47a508b1a37c05.png', author: { name: 'Luckspeare', avatar: '' } },
-      { id: 32, url: 'https://cdn2.steamgriddb.com/logo/8c5be634df498d41df47a508b1a37c05.png', thumb: 'https://cdn2.steamgriddb.com/logo/8c5be634df498d41df47a508b1a37c05.png', author: { name: 'ChewyPudding', avatar: '' } }
-    ];
-    const mockIcons = [
-      { id: 41, url: 'https://cdn2.steamgriddb.com/icon/41c5be634df498d41df47a508b1a37c0.png', thumb: 'https://cdn2.steamgriddb.com/icon/41c5be634df498d41df47a508b1a37c0.png', author: { name: 'Luckspeare', avatar: '' } }
-    ];
-    setAssetsData({
-      grids: mockGrids,
-      heroes: mockHeroes,
-      logos: mockLogos,
-      icons: mockIcons
-    });
-  };
-
   const openAssetSelector = async (initialTab: 'capsule' | 'capsule_wide' | 'hero' | 'logo' | 'icon' | 'manage') => {
     setAssetSelectorTab(initialTab);
     setAssetSelectorVisible(true);
@@ -120,38 +87,43 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     
     setIsLoadingAssets(true);
     try {
-      if (Platform.OS === 'web' && (window as any).electronAPI) {
-        const res = await (window as any).electronAPI.fetchSteamGridAssets(editData.title || '');
-        if (res.success) {
-          setAssetsData(res.data);
-        } else {
-          console.log('Error fetching assets:', res.error);
-          loadMockAssets();
-        }
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        loadMockAssets();
-      }
+      const result = await fetchSteamGridAssetsService(editData.title || '');
+      setAssetsData(result);
     } catch (err) {
       console.error('Failed to load SteamGridDB assets', err);
-      loadMockAssets();
+      setAssetsData({ grids: [], heroes: [], logos: [], icons: [] });
     } finally {
       setIsLoadingAssets(false);
     }
   };
 
-  const applySelectedAsset = (url: string) => {
+  const applySelectedAsset = async (url: string) => {
     const tab = assetSelectorTab;
+    let updatedData = { ...editData };
+
     if (tab === 'capsule' || tab === 'capsule_wide') {
-      setEditData({ ...editData, image: url });
+      updatedData.image = url;
     } else if (tab === 'hero') {
-      setEditData({ ...editData, backgroundImage: url });
+      updatedData.backgroundImage = url;
     } else if (tab === 'logo') {
-      setEditData({ ...editData, logo: url });
+      updatedData.logo = url;
     } else if (tab === 'icon') {
-      setEditData({ ...editData, icon: url } as any);
+      (updatedData as any).icon = url;
     }
+
+    setEditData(updatedData);
     setAssetSelectorVisible(false);
+
+    // Auto-save to database
+    if (Platform.OS === 'web' && (window as any).electronAPI && updatedData.id) {
+      const cleanData = Object.fromEntries(
+        Object.entries(updatedData).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+      );
+      const result = await (window as any).electronAPI.updateApp(cleanData);
+      if (result.success) {
+        if (onRefresh) onRefresh();
+      }
+    }
   };
 
   const handleLocalUpload = async () => {
@@ -164,18 +136,38 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
   const handleManageAction = async (idx: number) => {
     if (!(window as any).electronAPI) return;
+    let updatedData = { ...editData };
+
     if (idx === 0) {
       const img = await (window as any).electronAPI.selectImage();
-      if (img) setEditData({ ...editData, image: img });
+      if (img) updatedData.image = img;
+      else return;
     } else if (idx === 1) {
       const img = await (window as any).electronAPI.selectImage();
-      if (img) setEditData({ ...editData, logo: img });
+      if (img) updatedData.logo = img;
+      else return;
     } else if (idx === 2) {
       const img = await (window as any).electronAPI.selectImage();
-      if (img) setEditData({ ...editData, backgroundImage: img });
+      if (img) updatedData.backgroundImage = img;
+      else return;
     } else if (idx === 3) {
-      setEditData({ ...editData, image: undefined, logo: undefined, backgroundImage: undefined });
-      alert("Se han restablecido los assets locales.");
+      updatedData.image = undefined;
+      updatedData.logo = undefined;
+      updatedData.backgroundImage = undefined;
+    }
+
+    setEditData(updatedData);
+
+    // Auto-save to database
+    if (updatedData.id) {
+      const cleanData = Object.fromEntries(
+        Object.entries(updatedData).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+      );
+      const result = await (window as any).electronAPI.updateApp(cleanData);
+      if (result.success) {
+        if (onRefresh) onRefresh();
+        if (idx === 3) alert("Se han restablecido los assets locales.");
+      }
     }
   };
 
@@ -744,11 +736,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           <Image
             source={editData.backgroundImage ? (editData.backgroundImage.startsWith('http') ? { uri: editData.backgroundImage } : { uri: `local-file:///${editData.backgroundImage}` }) : item.backgroundImage}
             style={styles.detailBg}
+            contentFit="cover"
           />
         ) : (editData.image || item.image) ? (
           <Image
             source={editData.image ? (editData.image.startsWith('http') ? { uri: editData.image } : { uri: `local-file:///${editData.image}` }) : item.image}
             style={styles.detailBg}
+            contentFit="cover"
           />
         ) : null}
 
@@ -767,7 +761,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             <Image
               source={item.image}
               style={styles.topHeaderImage}
-              resizeMode="cover"
+              contentFit="cover"
             />
           )}
           <Text style={styles.topHeaderTitle} numberOfLines={1}>{item.title}</Text>
@@ -796,7 +790,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 <Image
                   source={editData.logo ? (editData.logo.startsWith('http') ? { uri: editData.logo } : { uri: `local-file:///${editData.logo}` }) : item.logo}
                   style={styles.ps5Logo}
-                  resizeMode="contain"
+                  contentFit="contain"
                 />
               ) : (
                 <Text style={styles.ps5Title} numberOfLines={2}>{item.title}</Text>
@@ -905,7 +899,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         }}
                       >
                         <View style={styles.newsCardThumbnail}>
-                          <Image source={{ uri: media.thumbnail }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                          <Image source={{ uri: media.thumbnail }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                           {media.type === 'movie' && (
                             <View style={styles.mediaPlayBadge}>
                               <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
@@ -950,7 +944,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       >
                         <View style={styles.newsCardThumbnail}>
                           {news.image_url ? (
-                            <Image source={{ uri: news.image_url }} style={{ width: '100%', height: '120%' }} resizeMode="cover" />
+                            <Image source={{ uri: news.image_url }} style={{ width: '100%', height: '120%' }} contentFit="cover" />
                           ) : (
                             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
                               <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
@@ -1426,7 +1420,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               <Image
                                 source={{ uri: asset.thumb || asset.url }}
                                 style={styles.assetCardImage}
-                                resizeMode={assetSelectorTab === 'logo' ? "contain" : "cover"}
+                                contentFit={assetSelectorTab === 'logo' ? "contain" : "cover"}
                               />
                             </View>
                             <View style={styles.assetCardInfo}>
@@ -1435,6 +1429,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                   <Image
                                     source={asset.author.avatar ? { uri: asset.author.avatar } : require('../assets/images/Home.png')}
                                     style={styles.authorAvatar}
+                                    contentFit="cover"
                                   />
                                   <Text style={styles.authorName} numberOfLines={1}>
                                     {asset.author.name || 'Anonymous'}
