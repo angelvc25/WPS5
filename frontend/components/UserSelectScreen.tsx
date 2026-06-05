@@ -339,7 +339,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
       {/* TITLE */}
       <View style={styles.titleArea}>
-        <Text style={styles.title}>Welcome Back to WConsole</Text>
+        <Text style={styles.title}>Welcome to PS5 Xperience</Text>
         <Text style={styles.subtitle}>Who's playing today?</Text>
       </View>
 
