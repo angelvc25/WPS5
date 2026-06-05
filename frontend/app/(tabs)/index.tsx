@@ -25,6 +25,7 @@ import FloatingSystemNav from '@/components/FloatingSystemNav';
 import OverlayTab from '@/components/OverlayTab';
 import GameContextMenu from '@/components/GameContextMenu';
 import GameDetailView from '@/components/GameDetailView';
+import ProfileDropdownMenu from '@/components/ProfileDropdownMenu';
 
 const TABS = ['Games', 'Media'];
 
@@ -102,7 +103,7 @@ export default function ConsoleHome() {
   const [activeIndex, setActiveIndex] = useState(1);
 
   // Focus management
-  type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'game_panel' | 'footer' | 'welcome_widgets' | 'library_grid';
+  type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'game_panel' | 'footer' | 'welcome_widgets' | 'library_grid' | 'header_avatar';
   const [focusArea, setFocusArea] = useState<FocusArea>('main_carousel');
   const [focusIndex, setFocusIndex] = useState(0);
   // game_panel focus: 0=Play, 1=More, 2=Trophies, 3=Friends
@@ -171,6 +172,10 @@ export default function ConsoleHome() {
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
   const [isDetailVisible, setDetailVisible] = useState(false);
+
+  const [isOnline, setIsOnline] = useState(true);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [profileMenuFocusIndex, setProfileMenuFocusIndex] = useState(0);
 
   const [systemNavLevel, setSystemNavLevel] = useState(0); // 0 = menu, 1 = cards
   const [systemNavCardIndex, setSystemNavCardIndex] = useState(0);
@@ -502,6 +507,34 @@ export default function ConsoleHome() {
     }
   };
 
+  const handleProfileMenuAction = (idx: number) => {
+    setIsProfileMenuOpen(false);
+    if (idx === 0) {
+      // Toggle Estado Online
+      setIsOnline(prev => !prev);
+      soundService.playNavigation();
+    } else if (idx === 1) {
+      // Perfil (Abre Configuración -> Perfil)
+      setSettingsTab('profile');
+      setSettingsVisible(true);
+      soundService.playActivation?.();
+    } else if (idx === 2) {
+      // Trofeos
+      soundService.playActivation?.();
+      alert(`🏆 Trofeos de ${activeUser?.name || 'Usuario'}\n\nTotal: 457\n🥇 Oro: 13 | 🥈 Plata: 45 | 🥉 Bronce: 399`);
+    } else if (idx === 3) {
+      // Cambiar usuario
+      changeUser();
+    } else if (idx === 4) {
+      // Salir
+      if (Platform.OS === 'web' && (window as any).electronAPI) {
+        (window as any).electronAPI.closeApp();
+      } else {
+        alert("Cerrando la consola WPS5...");
+      }
+    }
+  };
+
   // Gamepad state refs
   const prevButtonsRef = useRef(new Array(16).fill(false));
   const prevAxesRef = useRef([0, 0, 0, 0]);
@@ -606,6 +639,35 @@ export default function ConsoleHome() {
         if (isLaunching) return;
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
         if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+
+        // Profile Dropdown Menu Keyboard Navigation
+        if (isProfileMenuOpen) {
+          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+            setIsProfileMenuOpen(false);
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowDown') {
+            setProfileMenuFocusIndex(prev => Math.min(prev + 1, 4));
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowUp') {
+            setProfileMenuFocusIndex(prev => Math.max(prev - 1, 0));
+            soundService.playNavigation();
+          } else if (e.key === 'Enter') {
+            handleProfileMenuAction(profileMenuFocusIndex);
+          }
+          return;
+        }
+
+        // Toggle Control Center via Home key
+        if (e.key === 'Home') {
+          if (focusArea === 'header_user') {
+            setFocusArea('main_carousel');
+          } else {
+            setFocusArea('header_user');
+            setModalSelectedIndex(0);
+          }
+          soundService.playNavigation();
+          return;
+        }
 
         if (e.key === 'o' || e.key === 'O') {
           if (!isLaunching) {
@@ -817,6 +879,10 @@ export default function ConsoleHome() {
             const nextIdx = Math.max(focusIndex - 1, 0);
             setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
           }
+          else if (focusArea === 'header_avatar') {
+            setFocusArea('header_tabs');
+            setFocusIndex(TABS.indexOf(activeTab));
+          }
           else if (focusArea === 'game_panel') {
             if (gamePanelFocusIndex === 1) {
               setGamePanelFocusIndex(0);
@@ -839,7 +905,7 @@ export default function ConsoleHome() {
           if (focusArea === 'library_grid') {
             setLibraryGridFocusIndex(prev => Math.min(prev + 5, savedGames.length - 1));
           }
-          else if (focusArea === 'header_user' || focusArea === 'header_tabs') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
+          else if (focusArea === 'header_user' || focusArea === 'header_tabs' || focusArea === 'header_avatar') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
           else if (focusArea === 'main_carousel') {
             if (activeItem?.id === 'more_library') {
               setFocusArea('library_grid');
@@ -903,7 +969,7 @@ export default function ConsoleHome() {
             }
           }
           else if (focusArea === 'main_carousel') { setFocusArea('header_tabs'); setFocusIndex(TABS.indexOf(activeTab)); }
-          else if (focusArea === 'header_tabs') { setFocusArea('header_user'); setFocusIndex(0); }
+          else if (focusArea === 'header_tabs') { setFocusArea('header_avatar'); setFocusIndex(0); }
           else if (focusArea === 'welcome_widgets') {
             if (focusIndex >= 5) {
               setFocusIndex(prev => prev - 5);
@@ -916,6 +982,11 @@ export default function ConsoleHome() {
         }
         if (e.key === 'Enter') {
           soundService.playActivation();
+          if (focusArea === 'header_avatar') {
+            setIsProfileMenuOpen(true);
+            setProfileMenuFocusIndex(0);
+            return;
+          }
           if (focusArea === 'library_grid') {
             const game = savedGames[libraryGridFocusIndex];
             if (game) { setSelectedItem(game); setDetailVisible(true); }
@@ -985,7 +1056,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, isProfileMenuOpen, profileMenuFocusIndex, isOnline]);
 
   // Fetch Steam news when the active item changes
   useEffect(() => {
@@ -1444,11 +1515,15 @@ export default function ConsoleHome() {
           <View style={{ position: 'relative' }}>
             <TouchableOpacity
               id="avatar-btn"
-              onPress={() => { setFocusArea('header_user'); }}
+              onPress={() => {
+                setIsProfileMenuOpen(true);
+                setProfileMenuFocusIndex(0);
+                soundService.playNavigation();
+              }}
               style={[
                 styles.avatarContainer,
                 activeUser ? { borderColor: activeUser.color } : {},
-                focusArea === 'header_user' && styles.avatarFocused
+                focusArea === 'header_avatar' && styles.avatarFocused
               ]}
               activeOpacity={0.75}
             >
@@ -1460,7 +1535,10 @@ export default function ConsoleHome() {
                 </View>
               )}
             </TouchableOpacity>
-            <View style={styles.activeStatusDot} />
+            <View style={[
+              styles.activeStatusDot,
+              { backgroundColor: isOnline ? '#4CD964' : '#8E8E93' }
+            ]} />
           </View>
 
           <Text style={styles.timeText2}>{currentTime}</Text>
@@ -3022,6 +3100,27 @@ export default function ConsoleHome() {
         </BlurView>
       </Modal>
 
+      {/* PROFILE DROPDOWN MENU & BACKDROP */}
+      {isProfileMenuOpen && (
+        <View style={StyleSheet.absoluteFill}>
+          {/* Backdrop for partially darkening background */}
+          <TouchableOpacity
+            style={styles.profileMenuBackdrop}
+            activeOpacity={1}
+            onPress={() => setIsProfileMenuOpen(false)}
+          />
+          {/* Dropdown Menu wrapper */}
+          <View style={styles.profileMenuDropdownWrapper}>
+            <ProfileDropdownMenu
+              focusedIndex={profileMenuFocusIndex}
+              onPressItem={handleProfileMenuAction}
+              activeUser={activeUser}
+              isOnline={isOnline}
+            />
+          </View>
+        </View>
+      )}
+
     </SafeAreaView >
   );
 }
@@ -3643,5 +3742,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  profileMenuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    zIndex: 9998,
+  },
+  profileMenuDropdownWrapper: {
+    position: 'absolute',
+    top: 90,
+    right: 175,
+    zIndex: 9999,
   },
 });
