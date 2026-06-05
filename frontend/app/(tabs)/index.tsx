@@ -1818,7 +1818,7 @@ export default function ConsoleHome() {
                   >
                     {cardContent}
                     {isActive && item.id !== 'more_library' && (
-                      <View style={styles.activeLabelContainer}>
+                      <Animated.View style={styles.activeLabelContainer} entering={FadeIn.delay(350).duration(450)}>
                         <View style={styles.platformBadge}>
                           <Text style={styles.platformBadgeText}>
                             {item.isFolder || item.isGrid ? 'FAVS' : (item.platform || 'PS5')}
@@ -1842,7 +1842,7 @@ export default function ConsoleHome() {
                         >
                           <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
                         </TouchableOpacity>
-                      </View>
+                      </Animated.View>
                     )}
                   </View>
                 );
