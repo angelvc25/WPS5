@@ -987,6 +987,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    marginLeft: 3,
   },
   ps5PlayBtn: {
     backgroundColor: '#9999991c',
@@ -1092,7 +1093,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.85)',
     borderWidth: 1.5,
     backgroundColor: 'rgba(35,35,45,0.6)',
-    transform: [{ scale: 1.03 }],
+    // transform: [{ scale: 1.03 }],
   } as any,
   newsCardThumbnail: {
     width: '100%',
@@ -1146,7 +1147,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.75)',
     borderWidth: 1.5,
     backgroundColor: 'rgba(40,40,50,0.6)',
-    transform: [{ scale: 1.02 }],
+    transform: [{ scale: 0.99 }],
   } as any,
   detailBack: {
     position: 'absolute',
