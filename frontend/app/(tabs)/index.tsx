@@ -288,6 +288,10 @@ export default function ConsoleHome() {
     transform: [{ translateY: interpolate(tabFade.value, [0, 1], [10, 0]) }]
   }));
 
+  const darkOverlayStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(lowerSectionFocusAnim.value, [0, 1], [0, 0.5]),
+  }));
+
   const topPanelStyle = useAnimatedStyle(() => {
     // Collapse both for game lower section AND for welcome widgets focus
     const collapseAnim = Math.max(lowerSectionFocusAnim.value, welcomeWidgetsFocusAnim.value);
@@ -1613,6 +1617,15 @@ export default function ConsoleHome() {
       {/* === GRADIENT OVERLAY (PS5 style: dark on left, transparent on right) === */}
       <View style={styles.gradientOverlay} pointerEvents="none" />
       <View style={styles.gradientOverlayTop} pointerEvents="none" />
+
+      {/* DARK OVERLAY — se oscurece al enfocar cards, capturas y noticias */}
+      {Platform.OS === 'web' && (
+        <Animated.View style={[{
+          position: 'absolute', inset: 0, zIndex: 1,
+          backgroundColor: '#000',
+          pointerEvents: 'none',
+        } as any, darkOverlayStyle]} />
+      )}
 
       {/* === CONTEXT MENU BACKGROUND DIM === */}
       {Platform.OS === 'web' && (
@@ -3825,6 +3838,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 50,
     paddingTop: 40,
     paddingBottom: 12,
+    zIndex: 5,
   },
   miniHeader: {
     position: 'absolute',
@@ -3929,6 +3943,7 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
     paddingTop: 0,
+    zIndex: 2,
   },
   mainScrollContent: {
     paddingTop: 10, // space for fixed header (reduced to move games higher)
