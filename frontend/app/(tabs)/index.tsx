@@ -3283,9 +3283,11 @@ export default function ConsoleHome() {
                             {item.image_url ? (
                               <Image source={{ uri: item.image_url }} style={[{ width: '100%', height: '120%' }]} contentFit="cover" />
                             ) : (
-                              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
-                                <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
-                              </View>
+                              <Image
+                                source={activeItem?.backgroundImage ?? activeItem?.image ?? require('@/assets/images/FondoDefault2.jpg')}
+                                style={{ width: '100%', height: '100%', opacity: 0.5 }}
+                                contentFit="cover"
+                              />
                             )}
                           </View>
                           {/* Text area */}

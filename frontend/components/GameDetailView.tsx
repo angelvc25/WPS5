@@ -1333,9 +1333,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           {news.image_url ? (
                             <Image source={{ uri: news.image_url }} style={{ width: '100%', height: '120%' }} contentFit="cover" />
                           ) : (
-                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333' }}>
-                              <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.2)" />
-                            </View>
+                            <Image
+                              source={item?.backgroundImage ?? item?.image ?? require('@/assets/images/FondoDefault2.jpg')}
+                              style={{ width: '100%', height: '100%', opacity: 0.5 }}
+                              contentFit="cover"
+                            />
                           )}
                         </View>
                         <View style={styles.newsCardContent}>
