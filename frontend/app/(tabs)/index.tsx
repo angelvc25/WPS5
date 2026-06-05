@@ -59,7 +59,19 @@ const DATA_GAMES: ConsoleItem[] = [
   { id: '5', title: 'PlayStation Store', time: 'Tienda', image: require('@/assets/images/Store.png'), backgroundImage: require('@/assets/images/StoreFondo.jpg') }
 ];
 
-const DATA_MEDIA: ConsoleItem[] = [];
+const DATA_MEDIA: ConsoleItem[] = [
+  {
+    id: 'spotify_default',
+    title: 'Spotify',
+    time: 'Música',
+    type: 'media',
+    platform: 'Spotify',
+    description: 'Reproductor de Música. Inicia sesión para escuchar tus canciones favoritas.',
+    image: require('@/assets/images/spotify_portada.png'),
+    logo: require('@/assets/images/spotify_logo.png'),
+    backgroundImage: require('@/assets/images/spotify_fondo.png')
+  }
+];
 
 // AnimatedCardWrapper — top-level component so each card owns its shared value.
 // This prevents the flicker caused by a single global shared value resetting on index change.
@@ -1946,7 +1958,7 @@ export default function ConsoleHome() {
                       <Text style={[
                         styles.playBtnText,
                         focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
-                      ]}>Jugar</Text>
+                      ]}>{(activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) ? 'Entrar' : 'Jugar'}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       id="more-btn"
@@ -1956,7 +1968,10 @@ export default function ConsoleHome() {
                       ]}
                       activeOpacity={0.8}
                       onPress={() => {
-                        if (activeItem) { handleLaunchApp(activeItem); }
+                        if (activeItem) {
+                          setSelectedItem(activeItem);
+                          setDetailVisible(true);
+                        }
                       }}
                     >
                       <Text style={[
@@ -2768,8 +2783,27 @@ export default function ConsoleHome() {
               )}
             </Animated.View>
 
-            {/* Trophies & Friends Cards — animadas al ocultarse cuando se enfoca capturas */}
-            {canPlay && (
+            {canPlay && ((activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) ? (
+              <Animated.View key={`spotify-widget-${activeIndex}`} entering={FadeInDown.duration(400).delay(120)} style={[infoCardsStyle, { marginTop: 20, paddingHorizontal: 50, width: '100%' }]}>
+                <BlurView intensity={40} tint="dark" style={{ padding: 24, borderRadius: 16, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', maxWidth: 600, alignSelf: 'flex-start' }}>
+                  <MaterialCommunityIcons name="spotify" size={64} color="#1DB954" style={{ marginBottom: 12 }} />
+                  <Text style={{ color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>Reproductor de Música</Text>
+                  <Text style={{ color: '#AAA', fontSize: 14, textAlign: 'center', marginBottom: 16 }}>Para que este widget funcione el usuario debe iniciar sesión con Spotify.</Text>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#1DB954', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 }}
+                    onPress={() => {
+                      if (Platform.OS === 'web') {
+                        window.open('https://accounts.spotify.com/login', 'Spotify Login', 'width=600,height=800');
+                      } else {
+                        Linking.openURL('https://accounts.spotify.com/login');
+                      }
+                    }}
+                  >
+                    <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>Iniciar Sesión con Spotify</Text>
+                  </TouchableOpacity>
+                </BlurView>
+              </Animated.View>
+            ) : (
               <Animated.View key={`cards-${activeIndex}`} entering={FadeInDown.duration(400).delay(120)} style={[styles.infoCardsRow, infoCardsStyle]}>
                 {/* Trophies Card */}
                 <BlurView intensity={28} tint="dark" style={[
@@ -2822,8 +2856,9 @@ export default function ConsoleHome() {
                   </View>
                 </BlurView>
               </Animated.View>
-            )}
-            {canPlay && (
+            ))}
+
+            {canPlay && !(activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) && (
               <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
                 <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Capturas y trailers</Text>
 
@@ -2883,7 +2918,7 @@ export default function ConsoleHome() {
             )}
 
             {/* === NOTICIAS OFICIALES (for games, not Welcome) === */}
-            {canPlay && (
+            {canPlay && !(activeItem?.type === 'media' || activeItem?.title?.toLowerCase().includes('spotify')) && (
               <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
                 <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Últimas noticias</Text>
 
