@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Pla
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, interpolate, Easing, FadeInDown, FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, interpolate, Easing, FadeInDown, FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import FavoritesView from '@/components/FavoritesView';
@@ -100,6 +100,7 @@ const AnimatedCardWrapper = React.memo(({
 export default function ConsoleHome() {
   const { activeUser, changeUser, updateUser } = useUser();
   const [activeTab, setActiveTab] = useState('Games');
+  const [currentRenderedTab, setCurrentRenderedTab] = useState('Games');
   const [activeIndex, setActiveIndex] = useState(1);
 
   // Focus management
@@ -213,9 +214,18 @@ export default function ConsoleHome() {
   }, [activeIndex, activeTab, activeUser?.settings?.autoPlayVideo]);
 
   useEffect(() => {
-    tabFade.value = 0;
-    tabFade.value = withTiming(1, { duration: 400 });
+    // Fade out old content
+    tabFade.value = withTiming(0, { duration: 150, easing: Easing.out(Easing.quad) }, (isFinished) => {
+      if (isFinished) {
+        runOnJS(setCurrentRenderedTab)(activeTab);
+      }
+    });
   }, [activeTab]);
+
+  useEffect(() => {
+    // Fade in new content once swap happens
+    tabFade.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.quad) });
+  }, [currentRenderedTab]);
 
   // Spinning border animation — continuous rotation for active card
   useEffect(() => {
@@ -367,9 +377,9 @@ export default function ConsoleHome() {
   }, []);
 
   const GAMES_LIMIT = 10;
-  let currentData = activeTab === 'Games' ? games : media;
+  let currentData = currentRenderedTab === 'Games' ? games : media;
 
-  if (activeTab === 'Games' && games.length > GAMES_LIMIT) {
+  if (currentRenderedTab === 'Games' && games.length > GAMES_LIMIT) {
     currentData = games.slice(0, GAMES_LIMIT);
     currentData.push({
       id: 'more_library',
@@ -1141,7 +1151,7 @@ export default function ConsoleHome() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [activeIndex, activeTab, lastPlayedGame?.id]);
+  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id]);
 
   // Fetch Steam screenshots & trailers when the active item changes (debounced)
   useEffect(() => {
@@ -1162,7 +1172,7 @@ export default function ConsoleHome() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [activeIndex, activeTab, lastPlayedGame?.id]);
+  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id]);
 
   // Auto-scroll main vertical scrollview when focus moves to lower sections
   useEffect(() => {
@@ -1227,7 +1237,7 @@ export default function ConsoleHome() {
       const scrollX = activeIndex * ITEM_WIDTH;
       scrollRef.current.scrollTo({ x: scrollX, animated: true });
     }
-  }, [activeIndex, activeTab, ITEM_WIDTH]);
+  }, [activeIndex, currentRenderedTab, ITEM_WIDTH]);
 
   const handleLaunchApp = (item: ConsoleItem) => {
     if (!item) return;
@@ -1326,11 +1336,11 @@ export default function ConsoleHome() {
     }
   };
 
-  const currentBg = (activeTab === 'Games' && activeIndex === 1)
+  const currentBg = (currentRenderedTab === 'Games' && activeIndex === 1)
     ? (homeBackground || require('@/assets/images/FondoDefault2.jpg'))
     : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg')));
   const currentBackgroundVideo =
-    activeTab === 'Games' && activeIndex === 0
+    currentRenderedTab === 'Games' && activeIndex === 0
       ? currentData[activeIndex]?.backgroundVideo
       : null;
   useEffect(() => {
@@ -3490,6 +3500,12 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '200',
     letterSpacing: 0.2,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderStyle: 'solid',
+    borderRadius: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   navItemActive: {
     color: '#FFFFFF',
@@ -3497,13 +3513,7 @@ const styles = StyleSheet.create({
   },
   tabFocused: {
     color: '#FFFFFF',
-    //textDecorationLine: 'underline',
-    borderWidth: 2,
     borderColor: "#a8a8a8ff",
-    borderStyle: 'solid',
-    borderRadius: 5,
-    padding: 7,
-    //textDecorationColor: 'rgba(255,255,255,0.8)',
   },
   headerRight: {
     flexDirection: 'row',
