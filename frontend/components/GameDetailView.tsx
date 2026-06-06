@@ -901,14 +901,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       inset: 0,
 
                       background: `
-                        linear-gradient(
-                          90deg,
-                          rgba(172, 233, 255, 0.15) 5%,
-                          rgba(120,220,255,0.06) 25%,
-                          rgba(255,255,255,0.02) 40%,
-                          rgba(255,255,255,0.00) 60%,
-                          rgba(0,0,0,0.00) 100%
-                        )
+                                linear-gradient(
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
+                                  )
                       `,
 
                       pointerEvents: 'none',
@@ -1098,14 +1098,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       inset: 0,
 
                       background: `
-                      linear-gradient(
-                        90deg,
-                        rgba(172, 233, 255, 0.15) 5%,
-                        rgba(120,220,255,0.06) 25%,
-                        rgba(255,255,255,0.02) 40%,
-                        rgba(255,255,255,0.00) 60%,
-                        rgba(0,0,0,0.00) 100%
-                      )
+                                linear-gradient(
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
+                                  )
                     `,
 
                       pointerEvents: 'none',

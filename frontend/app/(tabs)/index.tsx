@@ -383,7 +383,7 @@ export default function ConsoleHome() {
 
   const widgetContainerStyle2 = useAnimatedStyle(() => ({
     paddingBottom: 0,
-    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.40]),
+    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.60]),
   }));
 
   useEffect(() => {
@@ -396,7 +396,7 @@ export default function ConsoleHome() {
   const GAMES_LIMIT = 10;
   let currentData = currentRenderedTab === 'Games' ? games : media;
 
-  if (currentRenderedTab === 'Games' && games.length > GAMES_LIMIT) {
+  if (currentRenderedTab === 'Games') {
     currentData = games.slice(0, GAMES_LIMIT);
     currentData.push({
       id: 'more_library',
@@ -2143,7 +2143,7 @@ export default function ConsoleHome() {
                     setFocusIndex(0);
                   }}
                 >
-                  <View style={[styles.welcomeWidgetCard, { maxWidth: 347 }, { bottom: 70 }, (focusArea === 'welcome_widgets' && focusIndex === 10) && styles.welcomeWidgetCardFocused]}>
+                  <View style={[styles.welcomeWidgetCard2, { maxWidth: 347 }, { bottom: 70 }, (focusArea === 'welcome_widgets' && focusIndex === 10) && styles.welcomeWidgetCardFocused]}>
                     {/* DEGRADADO */}
                     {Platform.OS === 'web' && (
                       <div
@@ -2153,13 +2153,13 @@ export default function ConsoleHome() {
 
                           background: `
                               linear-gradient(
-                                45deg,
-                                rgba(120,220,255,0.14) 0%,
-                                rgba(120,220,255,0.06) 18%,
-                                rgba(255,255,255,0.02) 35%,
-                                rgba(255,255,255,0.00) 58%,
-                                rgba(0,0,0,0.00) 100%
-                              )
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
+                                  )
                             `,
 
                           pointerEvents: 'none',
@@ -2218,6 +2218,72 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 0) && styles.welcomeWidgetCardFocused]}>
+                        {/* SPINNING BORDER */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' &&
+                          focusIndex === 0 && (
+                            <>
+                              <style>
+                                {`
+                                  @keyframes spinBorder {
+                                  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                                  100% { transform: translate(-50%, -50%) rotate(360deg); }
+                                `}
+                              </style>
+
+                              {/* CONTENEDOR */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: -5,
+                                  borderRadius: 28,
+                                  pointerEvents: 'none',
+                                  overflow: 'hidden',
+                                  zIndex: 0,
+                                }}
+                              >
+                                {/* CAPA QUE GIRA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+
+                                    width: '500%',
+                                    height: '500%',
+
+                                    left: '50%',
+                                    top: '50%',
+
+                                    background: `
+                                    conic-gradient(
+                                      from 0deg,
+                                      rgba(255, 255, 255, 0.15) 0%,
+                                      rgba(255, 255, 255, 0.79) 30%,
+                                      rgba(180, 210, 255, 0.86) 33%,
+                                      rgba(220, 235, 255, 0.95) 48%,
+                                      rgba(255, 255, 255, 1.0) 50%,
+                                      rgba(223, 248, 182, 0.95) 52%,
+                                      rgba(180, 210, 255, 0.88) 57%,
+                                      rgba(255, 255, 255, 0.75) 62%,
+                                      rgba(255, 255, 255, 0.84) 100%
+                                    )
+                                  `,
+
+                                    animation: 'spinBorder 6.8s linear infinite',
+                                  }}
+                                />
+
+                                {/* MÁSCARA INTERNA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 7,
+                                    borderRadius: 12,
+                                    background: '#0d1015',
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         {/* DEGRADADO */}
                         {Platform.OS === 'web' && (
                           <div
@@ -2227,13 +2293,13 @@ export default function ConsoleHome() {
 
                               background: `
                                 linear-gradient(
-                                  45deg,
-                                  rgba(120,220,255,0.14) 0%,
-                                  rgba(120,220,255,0.06) 18%,
-                                  rgba(255,255,255,0.02) 35%,
-                                  rgba(255,255,255,0.00) 58%,
-                                  rgba(0,0,0,0.00) 100%
-                                )
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
+                                  )
                               `,
 
                               pointerEvents: 'none',
@@ -2289,6 +2355,72 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 1) && styles.welcomeWidgetCardFocused]}>
+                        {/* SPINNING BORDER */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' &&
+                          focusIndex === 1 && (
+                            <>
+                              <style>
+                                {`
+                                  @keyframes spinBorder {
+                                  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                                  100% { transform: translate(-50%, -50%) rotate(360deg); }
+                                `}
+                              </style>
+
+                              {/* CONTENEDOR */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: -5,
+                                  borderRadius: 28,
+                                  pointerEvents: 'none',
+                                  overflow: 'hidden',
+                                  zIndex: 0,
+                                }}
+                              >
+                                {/* CAPA QUE GIRA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+
+                                    width: '500%',
+                                    height: '500%',
+
+                                    left: '50%',
+                                    top: '50%',
+
+                                    background: `
+                                    conic-gradient(
+                                      from 0deg,
+                                      rgba(255, 255, 255, 0.15) 0%,
+                                      rgba(255, 255, 255, 0.79) 30%,
+                                      rgba(180, 210, 255, 0.86) 33%,
+                                      rgba(220, 235, 255, 0.95) 48%,
+                                      rgba(255, 255, 255, 1.0) 50%,
+                                      rgba(223, 248, 182, 0.95) 52%,
+                                      rgba(180, 210, 255, 0.88) 57%,
+                                      rgba(255, 255, 255, 0.75) 62%,
+                                      rgba(255, 255, 255, 0.84) 100%
+                                    )
+                                  `,
+
+                                    animation: 'spinBorder 6.8s linear infinite',
+                                  }}
+                                />
+
+                                {/* MÁSCARA INTERNA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 7,
+                                    borderRadius: 12,
+                                    background: '#0d1015',
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         {/* DEGRADADO */}
                         {Platform.OS === 'web' && (
                           <div
@@ -2298,13 +2430,13 @@ export default function ConsoleHome() {
 
                               background: `
                                 linear-gradient(
-                                  45deg,
-                                  rgba(120,220,255,0.14) 0%,
-                                  rgba(120,220,255,0.06) 18%,
-                                  rgba(255,255,255,0.02) 35%,
-                                  rgba(255,255,255,0.00) 58%,
-                                  rgba(0,0,0,0.00) 100%
-                                )
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
+                                  )
                               `,
 
                               pointerEvents: 'none',
@@ -2473,6 +2605,82 @@ export default function ConsoleHome() {
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                       }, (focusArea === 'welcome_widgets' && focusIndex === 2) && styles.welcomeWidgetCardFocused]}>
+                        {/* SPINNING BORDER */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' &&
+                          focusIndex === 2 && (
+                            <>
+                              <style>
+                                {`
+                                  @keyframes spinBorder {
+                                  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                                  100% { transform: translate(-50%, -50%) rotate(360deg); }
+                                `}
+                              </style>
+
+                              {/* CONTENEDOR */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: -5,
+                                  borderRadius: 28,
+                                  pointerEvents: 'none',
+                                  overflow: 'hidden',
+                                  zIndex: 0,
+                                }}
+                              >
+                                {/* CAPA QUE GIRA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+
+                                    width: '500%',
+                                    height: '500%',
+
+                                    left: '50%',
+                                    top: '50%',
+
+                                    background: `
+                                    conic-gradient(
+                                      from 0deg,
+                                      rgba(255, 255, 255, 0.15) 0%,
+                                      rgba(255, 255, 255, 0.79) 30%,
+                                      rgba(180, 210, 255, 0.86) 33%,
+                                      rgba(220, 235, 255, 0.95) 48%,
+                                      rgba(255, 255, 255, 1.0) 50%,
+                                      rgba(223, 248, 182, 0.95) 52%,
+                                      rgba(180, 210, 255, 0.88) 57%,
+                                      rgba(255, 255, 255, 0.75) 62%,
+                                      rgba(255, 255, 255, 0.84) 100%
+                                    )
+                                  `,
+
+                                    animation: 'spinBorder 6.8s linear infinite',
+                                  }}
+                                />
+
+                                {/* IMAGEN / MÁSCARA SUPERIOR */}
+                                <Image
+                                  source={require('@/assets/images/Trophies.png')}
+                                  style={{
+                                    position: 'absolute',
+
+                                    top: 7,
+                                    left: 7,
+                                    right: 7,
+                                    bottom: 7,
+
+                                    borderRadius: 12,
+
+                                    width: 'auto',
+                                    height: 'auto',
+
+                                    zIndex: 1,
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                           <Ionicons name="bag-handle" size={13} color="#0070D1" />
                           <Text style={styles.widgetTitle}>PlayStation Store</Text>
@@ -2492,6 +2700,72 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
+                        {/* SPINNING BORDER */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' &&
+                          focusIndex === 3 && (
+                            <>
+                              <style>
+                                {`
+                                  @keyframes spinBorder {
+                                  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                                  100% { transform: translate(-50%, -50%) rotate(360deg); }
+                                `}
+                              </style>
+
+                              {/* CONTENEDOR */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: -5,
+                                  borderRadius: 28,
+                                  pointerEvents: 'none',
+                                  overflow: 'hidden',
+                                  zIndex: 0,
+                                }}
+                              >
+                                {/* CAPA QUE GIRA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+
+                                    width: '500%',
+                                    height: '500%',
+
+                                    left: '50%',
+                                    top: '50%',
+
+                                    background: `
+                                    conic-gradient(
+                                      from 0deg,
+                                      rgba(255, 255, 255, 0.15) 0%,
+                                      rgba(255, 255, 255, 0.79) 30%,
+                                      rgba(180, 210, 255, 0.86) 33%,
+                                      rgba(220, 235, 255, 0.95) 48%,
+                                      rgba(255, 255, 255, 1.0) 50%,
+                                      rgba(223, 248, 182, 0.95) 52%,
+                                      rgba(180, 210, 255, 0.88) 57%,
+                                      rgba(255, 255, 255, 0.75) 62%,
+                                      rgba(255, 255, 255, 0.84) 100%
+                                    )
+                                  `,
+
+                                    animation: 'spinBorder 6.8s linear infinite',
+                                  }}
+                                />
+
+                                {/* MÁSCARA INTERNA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 7,
+                                    borderRadius: 12,
+                                    background: '#0d1015',
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         {/* DEGRADADO */}
                         {Platform.OS === 'web' && (
                           <div
@@ -2501,12 +2775,12 @@ export default function ConsoleHome() {
 
                               background: `
                                   linear-gradient(
-                                    45deg,
-                                    rgba(120,220,255,0.14) 0%,
-                                    rgba(120,220,255,0.06) 18%,
-                                    rgba(255,255,255,0.02) 35%,
-                                    rgba(255,255,255,0.00) 58%,
-                                    rgba(0,0,0,0.00) 100%
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
                                   )
                                 `,
 
@@ -2557,6 +2831,72 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 4) && styles.welcomeWidgetCardFocused]}>
+                        {/* SPINNING BORDER */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' &&
+                          focusIndex === 4 && (
+                            <>
+                              <style>
+                                {`
+                                  @keyframes spinBorder {
+                                  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                                  100% { transform: translate(-50%, -50%) rotate(360deg); }
+                                `}
+                              </style>
+
+                              {/* CONTENEDOR */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: -5,
+                                  borderRadius: 28,
+                                  pointerEvents: 'none',
+                                  overflow: 'hidden',
+                                  zIndex: 0,
+                                }}
+                              >
+                                {/* CAPA QUE GIRA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+
+                                    width: '500%',
+                                    height: '500%',
+
+                                    left: '50%',
+                                    top: '50%',
+
+                                    background: `
+                                    conic-gradient(
+                                      from 0deg,
+                                      rgba(255, 255, 255, 0.15) 0%,
+                                      rgba(255, 255, 255, 0.79) 30%,
+                                      rgba(180, 210, 255, 0.86) 33%,
+                                      rgba(220, 235, 255, 0.95) 48%,
+                                      rgba(255, 255, 255, 1.0) 50%,
+                                      rgba(223, 248, 182, 0.95) 52%,
+                                      rgba(180, 210, 255, 0.88) 57%,
+                                      rgba(255, 255, 255, 0.75) 62%,
+                                      rgba(255, 255, 255, 0.84) 100%
+                                    )
+                                  `,
+
+                                    animation: 'spinBorder 6.8s linear infinite',
+                                  }}
+                                />
+
+                                {/* MÁSCARA INTERNA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 7,
+                                    borderRadius: 12,
+                                    background: '#0d1015',
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         {/* DEGRADADO */}
                         {Platform.OS === 'web' && (
                           <div
@@ -2566,12 +2906,12 @@ export default function ConsoleHome() {
 
                               background: `
                                   linear-gradient(
-                                    45deg,
-                                    rgba(120,220,255,0.14) 0%,
-                                    rgba(120,220,255,0.06) 18%,
-                                    rgba(255,255,255,0.02) 35%,
-                                    rgba(255,255,255,0.00) 58%,
-                                    rgba(0,0,0,0.00) 100%
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
                                   )
                                 `,
 
@@ -2626,6 +2966,72 @@ export default function ConsoleHome() {
                     >
                       {/* jugados recientemente */}
                       <View style={[styles.welcomeWidgetCard, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && focusIndex === 5) && styles.welcomeWidgetCardFocused]}>
+                        {/* SPINNING BORDER */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' &&
+                          focusIndex === 5 && (
+                            <>
+                              <style>
+                                {`
+                                  @keyframes spinBorder {
+                                  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                                  100% { transform: translate(-50%, -50%) rotate(360deg); }
+                                `}
+                              </style>
+
+                              {/* CONTENEDOR */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: -5,
+                                  borderRadius: 28,
+                                  pointerEvents: 'none',
+                                  overflow: 'hidden',
+                                  zIndex: 0,
+                                }}
+                              >
+                                {/* CAPA QUE GIRA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+
+                                    width: '500%',
+                                    height: '500%',
+
+                                    left: '50%',
+                                    top: '50%',
+
+                                    background: `
+                                    conic-gradient(
+                                      from 0deg,
+                                      rgba(255, 255, 255, 0.15) 0%,
+                                      rgba(255, 255, 255, 0.79) 30%,
+                                      rgba(180, 210, 255, 0.86) 33%,
+                                      rgba(220, 235, 255, 0.95) 48%,
+                                      rgba(255, 255, 255, 1.0) 50%,
+                                      rgba(223, 248, 182, 0.95) 52%,
+                                      rgba(180, 210, 255, 0.88) 57%,
+                                      rgba(255, 255, 255, 0.75) 62%,
+                                      rgba(255, 255, 255, 0.84) 100%
+                                    )
+                                  `,
+
+                                    animation: 'spinBorder 6.8s linear infinite',
+                                  }}
+                                />
+
+                                {/* MÁSCARA INTERNA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 7,
+                                    borderRadius: 12,
+                                    background: '#0d1015',
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         {/* DEGRADADO */}
                         {Platform.OS === 'web' && (
                           <div
@@ -2635,13 +3041,13 @@ export default function ConsoleHome() {
 
                               background: `
                                 linear-gradient(
-                                  45deg,
-                                  rgba(120,220,255,0.14) 0%,
-                                  rgba(120,220,255,0.06) 18%,
-                                  rgba(255,255,255,0.02) 35%,
-                                  rgba(255,255,255,0.00) 58%,
-                                  rgba(0,0,0,0.00) 100%
-                                )
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
+                                  )
                               `,
 
                               pointerEvents: 'none',
@@ -2697,6 +3103,72 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 6) && styles.welcomeWidgetCardFocused]}>
+                        {/* SPINNING BORDER */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' &&
+                          focusIndex === 6 && (
+                            <>
+                              <style>
+                                {`
+                                  @keyframes spinBorder {
+                                  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                                  100% { transform: translate(-50%, -50%) rotate(360deg); }
+                                `}
+                              </style>
+
+                              {/* CONTENEDOR */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: -5,
+                                  borderRadius: 28,
+                                  pointerEvents: 'none',
+                                  overflow: 'hidden',
+                                  zIndex: 0,
+                                }}
+                              >
+                                {/* CAPA QUE GIRA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+
+                                    width: '500%',
+                                    height: '500%',
+
+                                    left: '50%',
+                                    top: '50%',
+
+                                    background: `
+                                    conic-gradient(
+                                      from 0deg,
+                                      rgba(255, 255, 255, 0.15) 0%,
+                                      rgba(255, 255, 255, 0.79) 30%,
+                                      rgba(180, 210, 255, 0.86) 33%,
+                                      rgba(220, 235, 255, 0.95) 48%,
+                                      rgba(255, 255, 255, 1.0) 50%,
+                                      rgba(223, 248, 182, 0.95) 52%,
+                                      rgba(180, 210, 255, 0.88) 57%,
+                                      rgba(255, 255, 255, 0.75) 62%,
+                                      rgba(255, 255, 255, 0.84) 100%
+                                    )
+                                  `,
+
+                                    animation: 'spinBorder 6.8s linear infinite',
+                                  }}
+                                />
+
+                                {/* MÁSCARA INTERNA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 7,
+                                    borderRadius: 12,
+                                    background: '#0d1015',
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         {/* DEGRADADO */}
                         {Platform.OS === 'web' && (
                           <div
@@ -2706,12 +3178,12 @@ export default function ConsoleHome() {
 
                               background: `
                                   linear-gradient(
-                                    45deg,
-                                    rgba(120,220,255,0.14) 0%,
-                                    rgba(120,220,255,0.06) 18%,
-                                    rgba(255,255,255,0.02) 35%,
-                                    rgba(255,255,255,0.00) 58%,
-                                    rgba(0,0,0,0.00) 100%
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
                                   )
                                 `,
 
@@ -2767,6 +3239,72 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 7) && styles.welcomeWidgetCardFocused]}>
+                        {/* SPINNING BORDER */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' &&
+                          focusIndex === 7 && (
+                            <>
+                              <style>
+                                {`
+                                  @keyframes spinBorder {
+                                  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                                  100% { transform: translate(-50%, -50%) rotate(360deg); }
+                                `}
+                              </style>
+
+                              {/* CONTENEDOR */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: -5,
+                                  borderRadius: 28,
+                                  pointerEvents: 'none',
+                                  overflow: 'hidden',
+                                  zIndex: 0,
+                                }}
+                              >
+                                {/* CAPA QUE GIRA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+
+                                    width: '500%',
+                                    height: '500%',
+
+                                    left: '50%',
+                                    top: '50%',
+
+                                    background: `
+                                    conic-gradient(
+                                      from 0deg,
+                                      rgba(255, 255, 255, 0.15) 0%,
+                                      rgba(255, 255, 255, 0.79) 30%,
+                                      rgba(180, 210, 255, 0.86) 33%,
+                                      rgba(220, 235, 255, 0.95) 48%,
+                                      rgba(255, 255, 255, 1.0) 50%,
+                                      rgba(223, 248, 182, 0.95) 52%,
+                                      rgba(180, 210, 255, 0.88) 57%,
+                                      rgba(255, 255, 255, 0.75) 62%,
+                                      rgba(255, 255, 255, 0.84) 100%
+                                    )
+                                  `,
+
+                                    animation: 'spinBorder 6.8s linear infinite',
+                                  }}
+                                />
+
+                                {/* MÁSCARA INTERNA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 7,
+                                    borderRadius: 12,
+                                    background: '#0d1015',
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         {/* DEGRADADO */}
                         {Platform.OS === 'web' && (
                           <div
@@ -2776,12 +3314,12 @@ export default function ConsoleHome() {
 
                               background: `
                                   linear-gradient(
-                                    45deg,
-                                    rgba(120,220,255,0.14) 0%,
-                                    rgba(120,220,255,0.06) 18%,
-                                    rgba(255,255,255,0.02) 35%,
-                                    rgba(255,255,255,0.00) 58%,
-                                    rgba(0,0,0,0.00) 100%
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
                                   )
                                 `,
 
@@ -2828,23 +3366,26 @@ export default function ConsoleHome() {
                         </View>
 
                         {/* Barra multicolor */}
-                        <View style={{ height: 3, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', flexDirection: 'row' }}>
+                        <View style={{ height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', flexDirection: 'row' }}>
                           {/* Segmento usado — azul */}
                           <View style={{
                             height: '100%',
                             width: `${storageInfo.percent > 0 ? storageInfo.percent : 65}%`,
                             backgroundColor: '#0070D1',
+                            borderRadius: 5,
                           }} />
                           {/* Segmento adicional — morado oscuro, ocupa el resto hasta ~68% */}
                           <View style={{
                             height: '100%',
                             width: `${Math.max(0, (storageInfo.percent > 65 ? storageInfo.percent : 63) - (storageInfo.percent > 0 ? storageInfo.percent : 65))}%`,
                             backgroundColor: '#3c1afaff',
+                            borderRadius: 5,
                           }} />
                           <View style={{
                             height: '100%',
                             width: `${Math.max(0, (storageInfo.percent > 63 ? storageInfo.percent : 65) - (storageInfo.percent > 0 ? storageInfo.percent : 65))}%`,
                             backgroundColor: '#fa6c1aff',
+                            borderRadius: 5,
                           }} />
                           <View style={{
                             height: '100%',
@@ -2868,6 +3409,72 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 8) && styles.welcomeWidgetCardFocused]}>
+                        {/* SPINNING BORDER */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' &&
+                          focusIndex === 8 && (
+                            <>
+                              <style>
+                                {`
+                                  @keyframes spinBorder {
+                                  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                                  100% { transform: translate(-50%, -50%) rotate(360deg); }
+                                `}
+                              </style>
+
+                              {/* CONTENEDOR */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: -5,
+                                  borderRadius: 28,
+                                  pointerEvents: 'none',
+                                  overflow: 'hidden',
+                                  zIndex: 0,
+                                }}
+                              >
+                                {/* CAPA QUE GIRA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+
+                                    width: '500%',
+                                    height: '500%',
+
+                                    left: '50%',
+                                    top: '50%',
+
+                                    background: `
+                                    conic-gradient(
+                                      from 0deg,
+                                      rgba(255, 255, 255, 0.15) 0%,
+                                      rgba(255, 255, 255, 0.79) 30%,
+                                      rgba(180, 210, 255, 0.86) 33%,
+                                      rgba(220, 235, 255, 0.95) 48%,
+                                      rgba(255, 255, 255, 1.0) 50%,
+                                      rgba(223, 248, 182, 0.95) 52%,
+                                      rgba(180, 210, 255, 0.88) 57%,
+                                      rgba(255, 255, 255, 0.75) 62%,
+                                      rgba(255, 255, 255, 0.84) 100%
+                                    )
+                                  `,
+
+                                    animation: 'spinBorder 6.8s linear infinite',
+                                  }}
+                                />
+
+                                {/* MÁSCARA INTERNA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 7,
+                                    borderRadius: 12,
+                                    background: '#0d1015',
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         {/* DEGRADADO */}
                         {Platform.OS === 'web' && (
                           <div
@@ -2877,12 +3484,12 @@ export default function ConsoleHome() {
 
                               background: `
                                   linear-gradient(
-                                    45deg,
-                                    rgba(120,220,255,0.14) 0%,
-                                    rgba(120,220,255,0.06) 18%,
-                                    rgba(255,255,255,0.02) 35%,
-                                    rgba(255,255,255,0.00) 58%,
-                                    rgba(0,0,0,0.00) 100%
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
                                   )
                                 `,
 
@@ -2929,6 +3536,72 @@ export default function ConsoleHome() {
                       }}
                     >
                       <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 9) && styles.welcomeWidgetCardFocused]}>
+                        {/* SPINNING BORDER */}
+                        {Platform.OS === 'web' &&
+                          focusArea === 'welcome_widgets' &&
+                          focusIndex === 9 && (
+                            <>
+                              <style>
+                                {`
+                                  @keyframes spinBorder {
+                                  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                                  100% { transform: translate(-50%, -50%) rotate(360deg); }
+                                `}
+                              </style>
+
+                              {/* CONTENEDOR */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: -5,
+                                  borderRadius: 28,
+                                  pointerEvents: 'none',
+                                  overflow: 'hidden',
+                                  zIndex: 0,
+                                }}
+                              >
+                                {/* CAPA QUE GIRA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+
+                                    width: '500%',
+                                    height: '500%',
+
+                                    left: '50%',
+                                    top: '50%',
+
+                                    background: `
+                                    conic-gradient(
+                                      from 0deg,
+                                      rgba(255, 255, 255, 0.15) 0%,
+                                      rgba(255, 255, 255, 0.79) 30%,
+                                      rgba(180, 210, 255, 0.86) 33%,
+                                      rgba(220, 235, 255, 0.95) 48%,
+                                      rgba(255, 255, 255, 1.0) 50%,
+                                      rgba(223, 248, 182, 0.95) 52%,
+                                      rgba(180, 210, 255, 0.88) 57%,
+                                      rgba(255, 255, 255, 0.75) 62%,
+                                      rgba(255, 255, 255, 0.84) 100%
+                                    )
+                                  `,
+
+                                    animation: 'spinBorder 6.8s linear infinite',
+                                  }}
+                                />
+
+                                {/* MÁSCARA INTERNA */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 7,
+                                    borderRadius: 12,
+                                    background: '#0d1015',
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
                         {/* DEGRADADO */}
                         {Platform.OS === 'web' && (
                           <div
@@ -2938,12 +3611,12 @@ export default function ConsoleHome() {
 
                               background: `
                                   linear-gradient(
-                                    45deg,
-                                    rgba(120,220,255,0.14) 0%,
-                                    rgba(120,220,255,0.06) 18%,
-                                    rgba(255,255,255,0.02) 35%,
-                                    rgba(255,255,255,0.00) 58%,
-                                    rgba(0,0,0,0.00) 100%
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
                                   )
                                 `,
 
@@ -2973,7 +3646,8 @@ export default function ConsoleHome() {
                         )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <View style={styles.widgetIconWrap}>
-                            <Ionicons name="image-outline" size={17} color="#FFF" />
+                            {/* <Ionicons name="image-outline" size={17} color="#FFF" /> */}
+                            <Image source={require('@/assets/images/cambioFondo.png')} style={{ width: 30, height: 30, resizeMode: 'contain' }} />
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.widgetTitle}>Cambiar Fondo</Text>
@@ -3011,13 +3685,13 @@ export default function ConsoleHome() {
 
                         background: `
                           linear-gradient(
-                            90deg,
-                            rgba(172, 233, 255, 0.15) 5%,
-                            rgba(120,220,255,0.06) 25%,
-                            rgba(255,255,255,0.02) 40%,
-                            rgba(255,255,255,0.00) 60%,
-                            rgba(0,0,0,0.00) 100%
-                          )
+                                    90deg,
+                                    rgba(207, 241, 253, 0.14) 0%,
+                                    rgba(207, 240, 255, 0.06) 35%,
+                                    rgba(255,255,255,0.02) 50%,
+                                    rgba(255,255,255,0.00) 65%,
+                                    rgba(0, 0, 0, 0) 100%
+                                  )
                         `,
 
                         pointerEvents: 'none',
@@ -4145,16 +4819,29 @@ const styles = StyleSheet.create({
     height: 88,
     borderRadius: 10,
     padding: 13,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0)',
+    //borderWidth: 1,
+    //borderColor: 'rgba(255, 255, 255, 0)',
     overflow: 'hidden',
     position: 'relative',
     justifyContent: 'center',
     backgroundColor: '#0d1015',
   } as any,
+  welcomeWidgetCard2: {
+    flex: 1,
+    height: 88,
+    borderRadius: 20,
+    padding: 13,
+    borderWidth: 0,
+    borderColor: 'rgba(255, 255, 255, 0)',
+    overflow: 'hidden',
+    position: 'relative',
+    justifyContent: 'center',
+    backgroundColor: '#0d1015',
+    top: -70,
+  } as any,
   welcomeWidgetCardFocused: {
-    borderColor: 'rgba(255,255,255,0.85)',
-    borderWidth: 1.7,
+    //borderColor: 'rgba(255,255,255,0.85)',
+    //borderWidth: 1.7,
     //backgroundColor: 'rgba(25, 50, 72, 0.95)',
     //transform: [{ scale: 1.02 }],
   } as any,
