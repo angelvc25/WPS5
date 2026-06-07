@@ -4098,17 +4098,15 @@ export default function ConsoleHome() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
                   >
-                    {steamNews.slice(0, 8).map((item, idx) => {
+                    {steamNews.slice(0, 8).map((news, idx) => {
                       const isNewsFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx;
+                      const fallbackItem = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
                       return (
                         <TouchableOpacity
-                          key={item.gid}
-                          style={[
-                            styles.newsCard2,
-                            isNewsFocused && styles.newsCardFocused
-                          ]}
+                          key={news.gid}
+                          style={[styles.newsCard2, isNewsFocused && styles.newsCardFocused]}
                           activeOpacity={0.8}
-                          onPress={() => { if (item.url) Linking.openURL(item.url); }}
+                          onPress={() => { if (news.url) Linking.openURL(news.url); }}
                         >
                           {/* DEGRADADO NEGRO (al estar enfocadas) */}
                           {Platform.OS === 'web' && (
@@ -4135,38 +4133,26 @@ export default function ConsoleHome() {
                               }}
                             />
                           )}
-                          {/* Thumbnail area */}
                           <View style={styles.newsCardThumbnail}>
-                            {item.image_url ? (
-                              <View style={[{ width: '100%', height: '120%' }]}>
-                                {/* <Image
-                                  source={activeItem?.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image}
-                                  style={[{ width: '100%', height: '120%', zIndex: 15 }]}
-                                  contentFit="cover"
-                                  blurRadius={2}
-                                /> */}
-                                <Image
-                                  source={activeItem?.isLastPlayed ? (lastPlayedGame?.logo ?? activeItem.logo) : activeItem.logo}
-                                  style={[{ width: '70%', height: '70%', margin: 'auto', marginTop: '5%' }]}
-                                  contentFit="contain"
-                                />
-                              </View>
-                            ) : (
-                              <Image
-                                source={activeItem?.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image}
-                                style={[{ width: '100%', height: '120%' }]}
-                                contentFit="cover"
-                              />
-                            )}
+                            <Image
+                              source={
+                                news.image_url
+                                  ? { uri: news.image_url }
+                                  : (fallbackItem?.backgroundImage ?? fallbackItem?.image ?? require('@/assets/images/FondoDefault2.jpg'))
+                              }
+                              style={{ width: '100%', height: '100%', opacity: news.image_url ? 1 : 0.4 }}
+                              contentFit="cover"
+                              onError={() => {
+                                setSteamNews(prev =>
+                                  prev.map(n =>
+                                    n.gid === news.gid ? { ...n, image_url: undefined } : n
+                                  )
+                                );
+                              }}
+                            />
                           </View>
-                          {/* Text area */}
                           <View style={styles.newsCardContent}>
-                            <Text style={[styles.newsCardTitle]} numberOfLines={1}>
-                              {item.title}
-                            </Text>
-                            {/* <Text style={styles.newsCardFooterText} numberOfLines={1}>
-                                {(item.feedlabel || item.feedname || 'Steam')} | {formatSteamDate(item.date)}
-                              </Text> */}
+                            <Text style={styles.newsCardTitle} numberOfLines={1}>{news.title}</Text>
                           </View>
                         </TouchableOpacity>
                       );
