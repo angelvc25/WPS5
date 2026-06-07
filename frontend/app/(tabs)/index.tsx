@@ -1413,13 +1413,13 @@ export default function ConsoleHome() {
         if (currentBg !== bgA) {
           setBgB(currentBg);
           setActiveLayer('B');
-          fade.value = withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) });
+          fade.value = withTiming(1, { duration: 500, easing: Easing.inOut(Easing.quad) });
         }
       } else {
         if (currentBg !== bgB) {
           setBgA(currentBg);
           setActiveLayer('A');
-          fade.value = withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.quad) });
+          fade.value = withTiming(0, { duration: 500, easing: Easing.inOut(Easing.quad) });
         }
       }
     }, 250); // 250ms debounce for background changes
@@ -2693,7 +2693,7 @@ export default function ConsoleHome() {
 
                                 {/* IMAGEN / MÁSCARA SUPERIOR */}
                                 <Image
-                                  source={require('@/assets/images/Trophies.png')}
+                                  source={{ uri: 'https://clan.fastly.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
                                   style={{
                                     position: 'absolute',
 
