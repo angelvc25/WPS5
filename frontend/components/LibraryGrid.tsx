@@ -235,8 +235,13 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
   useEffect(() => {
     if (isFocused) {
       const row = Math.floor(focusedIndex / COLUMNS);
-      const rowHeight = Platform.OS === 'web' ? 250 : 180;
-      const targetY = row > 1 ? -(row - 1) * rowHeight : 0;
+      // rowHeight = card height (aspect ratio 1:1, aprox) + gap entre filas
+      const cardSize = Platform.OS === 'web' ? 254 : 160;
+      const gap = Platform.OS === 'web' ? 20 : 16;
+      const rowHeight = cardSize + gap;
+      // Mantener la fila enfocada siempre en la primera posición visible (row 0)
+      // Solo desplaza cuando el focus pasa de la primera fila
+      const targetY = row > 0 ? -(row * rowHeight) : 0;
       translateY.value = withTiming(targetY, { duration: 300 });
     } else {
       translateY.value = withTiming(0, { duration: 300 });
@@ -248,7 +253,7 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
   }));
 
   const currentRow = Math.floor(focusedIndex / COLUMNS);
-  const hasScrolled = currentRow > 1;
+  const hasScrolled = currentRow > 0;
 
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
@@ -279,7 +284,7 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
           />
         )}
         {/* Grid wrapper that translates up/down depending on focus */}
-        <Animated.View style={animatedGridStyle}>
+        <Animated.View style={[animatedGridStyle, { paddingBottom: 120 }]}>
           <View style={styles.grid}>
             {games.map((game, index) => {
               const isItemFocused = isFocused && focusedIndex === index;
