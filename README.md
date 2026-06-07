@@ -1,8 +1,13 @@
 
 # WPS5
 
-<img width="1919" height="1079" alt="Captura de pantalla 2026-06-02 072535" src="https://github.com/user-attachments/assets/bf60cf50-0f58-492f-8d54-4ccd753ed6c0" />
+<img width="1916" height="1078" alt="image" src="https://github.com/user-attachments/assets/72ca1cec-0d78-4bfc-a8d2-979fe10f4304" />
 
+<img width="1918" height="975" alt="image" src="https://github.com/user-attachments/assets/6efd997f-58b5-4df2-a4ca-c86f540969ad" />
+
+<img width="1916" height="1077" alt="image" src="https://github.com/user-attachments/assets/731bbea8-c63c-41e0-a889-7e80d955fff4" />
+
+<img width="1918" height="978" alt="image" src="https://github.com/user-attachments/assets/5dc22b35-0d5c-4855-b294-aea8d9c5d6f8" />
 
 # Guia de ejecución de proyecto.
 
