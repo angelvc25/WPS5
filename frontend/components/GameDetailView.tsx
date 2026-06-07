@@ -1358,15 +1358,23 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           />
                         )}
                         <View style={styles.newsCardThumbnail}>
-                          {news.image_url ? (
-                            <Image source={{ uri: news.image_url }} style={{ width: '100%', height: '120%' }} contentFit="cover" />
-                          ) : (
-                            <Image
-                              source={item?.backgroundImage ?? item?.image ?? require('@/assets/images/FondoDefault2.jpg')}
-                              style={{ width: '100%', height: '100%', opacity: 0.5 }}
-                              contentFit="cover"
-                            />
-                          )}
+                          <Image
+                            source={
+                              news.image_url
+                                ? { uri: news.image_url }
+                                : (item?.backgroundImage ?? item?.image ?? require('@/assets/images/FondoDefault2.jpg'))
+                            }
+                            style={{ width: '100%', height: '100%', opacity: news.image_url ? 1 : 0.4 }}
+                            contentFit="cover"
+                            onError={() => {
+                              // Si la URL falla, mutar el item para usar el fallback del juego
+                              setSteamNews(prev =>
+                                prev.map(n =>
+                                  n.gid === news.gid ? { ...n, image_url: undefined } : n
+                                )
+                              );
+                            }}
+                          />
                         </View>
                         <View style={styles.newsCardContent}>
                           <Text style={styles.newsCardTitle} numberOfLines={1}>{news.title}</Text>
