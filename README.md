@@ -9,7 +9,14 @@
 
 <img width="1918" height="978" alt="image" src="https://github.com/user-attachments/assets/5dc22b35-0d5c-4855-b294-aea8d9c5d6f8" />
 
+
+
+# RELEASES
+En el apartado de Release podras encontrar la version portable y el instalador para obtener el programa
+
+
 # Guia de ejecución de proyecto.
+Para desarrollo:
 
 1. **Instalar Node.js:** Asegurarse de tener Node.js instalado en su sistema. (v24.12.0 o superior)
 2. **Clonar/Descargar el repositorio:** Obtener el código fuente del proyecto.
