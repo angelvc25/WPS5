@@ -1619,6 +1619,21 @@ export default function ConsoleHome() {
       <View style={styles.gradientOverlay} pointerEvents="none" />
       <View style={styles.gradientOverlayTop} pointerEvents="none" />
 
+      {/* === BOTTOM-TO-TOP GRADIENT — visible when welcome_widgets is focused === */}
+      {Platform.OS === 'web' && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'linear-gradient(to top, rgba(0, 0, 0, 1) 10%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.15) 100%)',
+            opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+            transition: 'opacity 350ms cubic-bezier(0.22, 1, 0.36, 1)',
+            pointerEvents: 'none',
+            zIndex: 2,
+          }}
+        />
+      )}
+
       {/* DARK OVERLAY — se oscurece al enfocar cards, capturas y noticias */}
       {Platform.OS === 'web' && (
         <Animated.View style={[{
