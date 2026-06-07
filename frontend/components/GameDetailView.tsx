@@ -24,6 +24,17 @@ interface GameDetailViewProps {
   inputMode: 'keyboard' | 'gamepad';
 }
 
+// Normaliza un string de path/url de editData a un source { uri } válido.
+// Maneja: http(s) URLs, paths locales con o sin prefijo local-file://.
+const resolveEditSource = (val: string | undefined): { uri: string } | null => {
+  if (!val) return null;
+  if (val.startsWith('http')) return { uri: val };
+  // Quitar cualquier variante de local-file:// que ya venga en el string
+  const clean = val.replace(/^local-file:\/+/, '');
+  // Reconstruir siempre con local-file:///
+  return { uri: `local-file:///${clean}` };
+};
+
 const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode }) => {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
@@ -446,10 +457,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         title: item.title,
         description: item.description,
         rating: item.rating,
-        image: item.image?.uri?.startsWith('local-file://') ? item.image.uri.replace('local-file://', '') : (item.image?.uri?.startsWith('http') ? item.image.uri : undefined),
-        logo: item.logo?.uri?.startsWith('local-file://') ? item.logo.uri.replace('local-file://', '') : (item.logo?.uri?.startsWith('http') ? item.logo.uri : undefined),
-        backgroundImage: item.backgroundImage?.uri?.startsWith('local-file://') ? item.backgroundImage.uri.replace('local-file://', '') : (item.backgroundImage?.uri?.startsWith('http') ? item.backgroundImage.uri : undefined),
-        video: item.video?.uri?.startsWith('local-file://') ? item.video.uri.replace('local-file://', '') : (item.video?.uri?.startsWith('http') ? item.video.uri : undefined),
+        image: item.image?.uri?.startsWith('local-file://') ? item.image.uri.replace(/^local-file:\/+/, '') : (item.image?.uri?.startsWith('http') ? item.image.uri : undefined),
+        logo: item.logo?.uri?.startsWith('local-file://') ? item.logo.uri.replace(/^local-file:\/+/, '') : (item.logo?.uri?.startsWith('http') ? item.logo.uri : undefined),
+        backgroundImage: item.backgroundImage?.uri?.startsWith('local-file://') ? item.backgroundImage.uri.replace(/^local-file:\/+/, '') : (item.backgroundImage?.uri?.startsWith('http') ? item.backgroundImage.uri : undefined),
+        video: item.video?.uri?.startsWith('local-file://') ? item.video.uri.replace(/^local-file:\/+/, '') : (item.video?.uri?.startsWith('http') ? item.video.uri : undefined),
         youtubeId: item.youtubeId,
         platform: item.platform,
         path: item.path,
@@ -800,13 +811,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         {/* FULLSCREEN BACKGROUND */}
         {(editData.backgroundImage || item.backgroundImage) ? (
           <Image
-            source={editData.backgroundImage ? (editData.backgroundImage.startsWith('http') ? { uri: editData.backgroundImage } : { uri: `local-file:///${editData.backgroundImage}` }) : item.backgroundImage}
+            source={resolveEditSource(editData.backgroundImage) ?? item.backgroundImage}
             style={styles.detailBg}
             contentFit="cover"
           />
         ) : (editData.image || item.image) ? (
           <Image
-            source={editData.image ? (editData.image.startsWith('http') ? { uri: editData.image } : { uri: `local-file:///${editData.image}` }) : item.image}
+            source={resolveEditSource(editData.image) ?? item.image}
             style={styles.detailBg}
             contentFit="cover"
           />
@@ -825,7 +836,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         <View style={styles.topHeader}>
           {(editData.image || item.image) && (
             <Image
-              source={editData.image ? (editData.image.startsWith('http') ? { uri: editData.image } : { uri: `local-file:///${editData.image}` }) : item.image}
+              source={resolveEditSource(editData.image) ?? item.image}
               style={styles.topHeaderImage}
               contentFit="cover"
             />
@@ -854,7 +865,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             <Animated.View style={topPanelStyle}>
               {(editData.logo || item.logo) ? (
                 <Image
-                  source={editData.logo ? (editData.logo.startsWith('http') ? { uri: editData.logo } : { uri: `local-file:///${editData.logo}` }) : item.logo}
+                  source={resolveEditSource(editData.logo) ?? item.logo}
                   style={styles.ps5Logo}
                   contentFit="contain"
                 />
