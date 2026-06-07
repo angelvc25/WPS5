@@ -1409,28 +1409,19 @@ export default function ConsoleHome() {
       return;
     }
 
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      if (cancelled) return;
-      if (activeLayer === 'A') {
-        if (currentBg !== bgA) {
-          setBgB(currentBg);
-          setActiveLayer('B');
-          fade.value = withTiming(1, { duration: 500, easing: Easing.inOut(Easing.quad) });
-        }
-      } else {
-        if (currentBg !== bgB) {
-          setBgA(currentBg);
-          setActiveLayer('A');
-          fade.value = withTiming(0, { duration: 500, easing: Easing.inOut(Easing.quad) });
-        }
+    if (activeLayer === 'A') {
+      if (currentBg !== bgA) {
+        setBgB(currentBg);
+        setActiveLayer('B');
+        fade.value = withTiming(1, { duration: 500, easing: Easing.inOut(Easing.quad) });
       }
-    }, 250); // 250ms debounce for background changes
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
+    } else {
+      if (currentBg !== bgB) {
+        setBgA(currentBg);
+        setActiveLayer('A');
+        fade.value = withTiming(0, { duration: 500, easing: Easing.inOut(Easing.quad) });
+      }
+    }
   }, [currentBg]);
 
   useEffect(() => { if (currentBg && !bgA && !bgB) setBgA(currentBg); }, []);
