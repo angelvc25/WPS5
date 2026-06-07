@@ -698,6 +698,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
       const result = await (window as any).electronAPI.updateApp(cleanData);
       if (result.success) {
+        setEditData(prev => ({ ...prev, ...cleanData }));
         setEditModalVisible(false);
         if (onRefresh) onRefresh();
       } else {
@@ -822,14 +823,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
         {/* TOP LEFT: game cover + title (replaces back/escape button) */}
         <View style={styles.topHeader}>
-          {(item.image) && (
+          {(editData.image || item.image) && (
             <Image
-              source={item.image}
+              source={editData.image ? (editData.image.startsWith('http') ? { uri: editData.image } : { uri: `local-file:///${editData.image}` }) : item.image}
               style={styles.topHeaderImage}
               contentFit="cover"
             />
           )}
-          <Text style={styles.topHeaderTitle} numberOfLines={1}>{item.title}</Text>
+          <Text style={styles.topHeaderTitle} numberOfLines={1}>{editData.title || item.title}</Text>
         </View>
 
         {/* DARK OVERLAY — se oscurece al enfocar cards */}
@@ -858,7 +859,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   contentFit="contain"
                 />
               ) : (
-                <Text style={styles.ps5Title} numberOfLines={2}>{item.title}</Text>
+                <Text style={styles.ps5Title} numberOfLines={2}>{editData.title || item.title}</Text>
               )}
 
               <View style={styles.ps5ActionButtons}>
