@@ -472,16 +472,33 @@ export default function ConsoleHome() {
         const ps5store = DATA_GAMES.find(g => g.id === '5');
 
         const baseItems = [ps5store, home, lastPlayed, favGames, favMedia].filter(Boolean) as ConsoleItem[];
-        setGames([...baseItems, ...gamesList.reverse()]);
+
+        // Find the most recently played game/media to show in last_played card
+        const allFormatted = [...gamesList, ...mediaList];
+        const sortedByLastPlayed = allFormatted
+          .filter((i: any) => i.lastPlayed)
+          .sort((a: any, b: any) => b.lastPlayed - a.lastPlayed);
+        const latestGame = sortedByLastPlayed[0] || null;
+
+        // Exclude last played game from the row to avoid duplication.
+        // Sort remaining games: most recently played first, then unplayed in original order.
+        const gamesWithoutLastPlayed = latestGame
+          ? gamesList.filter((g: any) => g.id !== latestGame.id)
+          : gamesList;
+        const gamesWithHistory = gamesWithoutLastPlayed
+          .filter((g: any) => g.lastPlayed)
+          .sort((a: any, b: any) => b.lastPlayed - a.lastPlayed);
+        const gamesWithoutHistory = gamesWithoutLastPlayed.filter((g: any) => !g.lastPlayed);
+        const sortedGames = [...gamesWithHistory, ...gamesWithoutHistory];
+
+        setGames([...baseItems, ...sortedGames]);
 
         const filteredDataMedia = DATA_MEDIA.filter((defaultItem: any) =>
           !mediaList.some((userItem: any) => userItem.id === defaultItem.id)
         );
         setMedia([...filteredDataMedia, ...mediaList.reverse()]);
 
-        const allFormatted = [...gamesList, ...mediaList];
-        const latest = allFormatted.filter(i => i.lastPlayed).sort((a: any, b: any) => b.lastPlayed - a.lastPlayed)[0];
-        if (latest) setLastPlayedGame(latest);
+        if (latestGame) setLastPlayedGame(latestGame);
       });
     }
   };
