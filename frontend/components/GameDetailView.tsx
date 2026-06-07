@@ -12,6 +12,7 @@ import { useUser } from '../contexts/UserContext';
 import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService } from '../services/steamGridService';
+import { soundService } from '../services/soundService';
 
 interface GameDetailViewProps {
   isVisible: boolean;
@@ -491,6 +492,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           const isGame = (editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web';
 
           if (e.key === 'ArrowDown') {
+            soundService.playNavigation();
             if (editModalFocusIndex === 20) setEditModalFocusIndex(21);
             else if (editModalFocusIndex === 21) setEditModalFocusIndex(22);
             else if (editModalFocusIndex === 22) { } // Tab end
@@ -515,6 +517,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           }
 
           else if (e.key === 'ArrowUp') {
+            soundService.playNavigation();
             if (editModalFocusIndex === 22) setEditModalFocusIndex(21);
             else if (editModalFocusIndex === 21) setEditModalFocusIndex(20);
             else if (editModalFocusIndex === 20) { } // Tab start
@@ -543,6 +546,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           }
 
           else if (e.key === 'ArrowRight') {
+            soundService.playNavigation();
             // From tabs to content area
             if (editModalFocusIndex === 20) setEditModalFocusIndex(2); // Basic -> Title
             else if (editModalFocusIndex === 21) setEditModalFocusIndex(18); // Path -> Path selection
@@ -558,6 +562,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           }
 
           else if (e.key === 'ArrowLeft') {
+            soundService.playNavigation();
             // From content area to tabs sidebar
             if (editModalFocusIndex === 2) setEditModalFocusIndex(20);
             else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(20);
@@ -575,6 +580,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           }
 
           else if (e.key === 'Enter') {
+            soundService.playActivation?.();
             if (editModalFocusIndex === 20) setActiveTab('basic');
             else if (editModalFocusIndex === 21) setActiveTab('path');
             else if (editModalFocusIndex === 22) setActiveTab('art');
@@ -605,6 +611,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         }
 
         if (e.key === 'ArrowRight') {
+          soundService.playNavigation();
           if (focusIndex === 0) setFocusIndex(1);
           else if (focusIndex === 2) setFocusIndex(3);
           // En row de capturas: avanzar item
@@ -612,6 +619,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           // En row de noticias: avanzar item
           else if (focusIndex >= 200 && focusIndex < 200 + steamNews.length - 1) setFocusIndex(prev => prev + 1);
         } else if (e.key === 'ArrowLeft') {
+          soundService.playNavigation();
           if (focusIndex === 1) setFocusIndex(0);
           else if (focusIndex === 3) setFocusIndex(2);
           // En row de capturas: retroceder item (mínimo 100)
@@ -621,16 +629,19 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           else if (focusIndex > 200) setFocusIndex(prev => prev - 1);
           else if (focusIndex === 200) { } // ya en el primero
         } else if (e.key === 'ArrowDown') {
+          soundService.playNavigation();
           if (focusIndex <= 1) setFocusIndex(2);                          // botones → trofeos
           else if (focusIndex <= 3) setFocusIndex(steamMedia.length > 0 ? 100 : 200); // cards → capturas
           else if (focusIndex >= 100 && focusIndex < 200) setFocusIndex(steamNews.length > 0 ? 200 : 100); // capturas → noticias
           // noticias: no hay más abajo
         } else if (e.key === 'ArrowUp') {
+          soundService.playNavigation();
           if (focusIndex >= 200) setFocusIndex(steamMedia.length > 0 ? 100 : 2); // noticias → capturas
           else if (focusIndex >= 100) setFocusIndex(2);                   // capturas → trofeos
           else if (focusIndex >= 2) setFocusIndex(0);                     // trofeos → botones
           // 0/1: no hace nada, no sale
         } else if (e.key === 'Enter') {
+          soundService.playActivation?.();
           if (focusIndex === 0) {
             if (item?.path) {
               if (onLaunch) onLaunch(item.id, item.path);

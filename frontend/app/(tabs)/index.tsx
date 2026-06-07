@@ -191,6 +191,7 @@ export default function ConsoleHome() {
   const activeCardRef = useRef<View>(null);
   const [contextMenuCoords, setContextMenuCoords] = useState({ top: 250, left: 335 });
   const [isDetailVisible, setDetailVisible] = useState(false);
+  const [isLibraryDetailVisible, setIsLibraryDetailVisible] = useState(false);
 
   const [isOnline, setIsOnline] = useState(true);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -935,6 +936,8 @@ export default function ConsoleHome() {
         }
         if (isRandomSelectorVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setRandomSelectorVisible(false); return; }
         if (isFavoritesVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setFavoritesVisible(false); return; }
+        if (isDetailVisible) return;
+        if (isLibraryDetailVisible) return;
 
         // --- SPATIAL NAVIGATION ---
         if (e.key === 'ArrowRight') {
@@ -2035,6 +2038,7 @@ export default function ConsoleHome() {
             isFocused={focusArea === 'library_grid'}
             focusedIndex={libraryGridFocusIndex}
             onItemPress={(index, game) => { setSelectedItem(game); setDetailVisible(true); }}
+            onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}
           />
         )}
 
