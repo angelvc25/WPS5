@@ -29,6 +29,7 @@ import GameDetailView from '@/components/GameDetailView';
 import ProfileDropdownMenu from '@/components/ProfileDropdownMenu';
 
 const TABS = ['Games', 'Media'];
+var Wview: string = 'block';
 
 export interface ConsoleItem {
   id: string;
@@ -385,6 +386,10 @@ export default function ConsoleHome() {
   const widgetContainerStyle2 = useAnimatedStyle(() => ({
     paddingBottom: 0,
     paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.60]),
+  }));
+
+  const wviewStyle = useAnimatedStyle(() => ({
+    display: welcomeWidgetsFocusAnim.value === 1 ? 'flex' : 'none',
   }));
 
   useEffect(() => {
@@ -2224,6 +2229,36 @@ export default function ConsoleHome() {
                     </View>
                   </View>
                 </TouchableOpacity>
+
+
+                <Animated.View style={[{ width: 200, top: -120, left: 1380, gap: 25, flexDirection: 'row' }, wviewStyle]}>
+                  <View style={[styles.widgetTitle2, { lineHeight: 17 }]}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setHomeBgModalVisible(true);
+                      }}
+                    >
+                      <Image source={require('@/assets/images/cambioFondo.png')} style={{ width: 37, height: 37, resizeMode: 'contain' }} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={[styles.widgetTitle2, { lineHeight: 17 }]}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setFocusArea('welcome_widgets');
+                        setAddModalVisible(true);
+                      }}
+                    >
+                      <Ionicons name="add" size={35} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                </Animated.View>
+
               </Animated.View>
             )}
 
@@ -2709,11 +2744,11 @@ export default function ConsoleHome() {
                             </>
                           )}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                          <Ionicons name="bag-handle" size={13} color="#0070D1" />
-                          <Text style={styles.widgetTitle}>PlayStation Store</Text>
+                          <Image source={require('@/assets/images/PlaystationStore_copi.png')} style={{ width: 18, height: 18, resizeMode: 'cover' }} />
+                          <Text style={[styles.widgetTitle,]}>PlayStation Store</Text>
                         </View>
-                        <Text style={styles.widgetSubtitle} numberOfLines={1}>Últimas ofertas disponibles</Text>
-                        <Text style={{ fontSize: 10, fontWeight: "bold", marginTop: 15, color: "#fff" }} numberOfLines={1}>US$69.99</Text>
+                        <Text style={[styles.widgetSubtitle,]} numberOfLines={1}>Últimas ofertas disponibles</Text>
+                        <Text style={{ fontSize: 10, fontWeight: "bold", marginTop: 15, color: "#fff", zIndex: 10 }} numberOfLines={1}>US$69.99</Text>
                       </View>
                     </TouchableOpacity>
 
