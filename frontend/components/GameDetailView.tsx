@@ -43,6 +43,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [editModalFocusIndex, setEditModalFocusIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'basic' | 'path' | 'art'>('basic');
   const { activeUser } = useUser();
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
 
   // States for SteamGridDB Asset Selector Screen
   const [isAssetSelectorVisible, setAssetSelectorVisible] = useState(false);
@@ -421,6 +422,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   // Steam data
   const [steamNews, setSteamNews] = useState<SteamNewsItem[]>([]);
   const [steamMedia, setSteamMedia] = useState<SteamMediaItem[]>([]);
+  const selectedMedia = selectedMediaIndex !== null ? steamMedia[selectedMediaIndex] ?? null : null;
   const [newsLoading, setNewsLoading] = useState(false);
   const [mediaLoading, setMediaLoading] = useState(false);
   const mediaScrollRef = React.useRef<ScrollView>(null);
@@ -496,6 +498,17 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
         if (isAssetSelectorVisible) {
           handleAssetSelectorKeyDown(e);
+          return;
+        }
+
+        if (selectedMediaIndex !== null) {
+          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+            setSelectedMediaIndex(null);
+          } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            setSelectedMediaIndex(prev => prev !== null && prev < steamMedia.length - 1 ? prev + 1 : prev);
+          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            setSelectedMediaIndex(prev => prev !== null && prev > 0 ? prev - 1 : prev);
+          }
           return;
         }
 
@@ -662,8 +675,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             setEditModalVisible(true);
           } else if (focusIndex >= 100 && focusIndex < 200) {
             const media = steamMedia[focusIndex - 100];
-            if (media?.type === 'movie' && media.mp4_url) Linking.openURL(media.mp4_url);
-            else if (media?.full) Linking.openURL(media.full);
+            if (media) setSelectedMediaIndex(focusIndex - 100);
           } else if (focusIndex >= 200) {
             const news = steamNews[focusIndex - 200];
             if (news?.url) Linking.openURL(news.url);
@@ -675,7 +687,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isVisible, isEditModalVisible, focusIndex, editModalFocusIndex, item, onLaunch, onClose, editData, steamMedia, steamNews]);
+  }, [isVisible, isEditModalVisible, isAssetSelectorVisible, selectedMediaIndex, focusIndex, editModalFocusIndex, item, onLaunch, onClose, editData, steamMedia, steamNews]);
 
   if (!item) return null;
 
@@ -1258,8 +1270,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
                           activeOpacity={0.8}
                           onPress={() => {
-                            if (media.type === 'movie' && media.mp4_url) Linking.openURL(media.mp4_url);
-                            else if (media.full) Linking.openURL(media.full);
+                            setSelectedMediaIndex(idx);
                           }}
                         >
                           {/* DEGRADADO NEGRO (al estar enfocadas) */}
@@ -1440,6 +1451,120 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           </Animated.View>
         )}
       </View>
+
+      {/* MEDIA LIGHTBOX MODAL */}
+      <Modal
+        visible={selectedMediaIndex !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedMediaIndex(null)}
+      >
+        <View style={styles.lightboxOverlay}>
+          {/* Cierre con clic fuera */}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setSelectedMediaIndex(null)}
+          />
+
+          {/* Contenido */}
+          <View style={styles.lightboxContent} pointerEvents="box-none">
+            {selectedMedia?.type === 'movie' && selectedMedia.mp4_url ? (
+              <Video
+                source={{ uri: selectedMedia.mp4_url }}
+                style={styles.lightboxVideo}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay
+                useNativeControls
+              />
+            ) : selectedMedia?.full ? (
+              <Image
+                source={{ uri: selectedMedia.full }}
+                style={styles.lightboxImage}
+                contentFit="contain"
+              />
+            ) : null}
+
+            {/* Botón cerrar */}
+            <TouchableOpacity
+              style={styles.lightboxCloseBtn}
+              onPress={() => setSelectedMediaIndex(null)}
+            >
+              <Ionicons name="close" size={24} color="#FFF" />
+            </TouchableOpacity>
+
+            {/* Badge tipo */}
+            {selectedMedia?.type === 'movie' && (
+              <View style={styles.lightboxBadge}>
+                <Ionicons name="play-circle" size={14} color="#FFF" />
+                <Text style={styles.lightboxBadgeText}>Trailer</Text>
+              </View>
+            )}
+
+            {/* Contador */}
+            {steamMedia.length > 1 && selectedMediaIndex !== null && (
+              <View style={styles.lightboxCounter}>
+                <Text style={styles.lightboxCounterText}>
+                  {selectedMediaIndex + 1} / {steamMedia.length}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Flecha anterior */}
+          {selectedMediaIndex !== null && selectedMediaIndex > 0 && (
+            <TouchableOpacity
+              style={[styles.lightboxArrow, styles.lightboxArrowLeft]}
+              onPress={() => setSelectedMediaIndex(prev => prev !== null ? prev - 1 : prev)}
+            >
+              <Ionicons name="chevron-back" size={28} color="#FFF" />
+            </TouchableOpacity>
+          )}
+
+          {/* Flecha siguiente */}
+          {selectedMediaIndex !== null && selectedMediaIndex < steamMedia.length - 1 && (
+            <TouchableOpacity
+              style={[styles.lightboxArrow, styles.lightboxArrowRight]}
+              onPress={() => setSelectedMediaIndex(prev => prev !== null ? prev + 1 : prev)}
+            >
+              <Ionicons name="chevron-forward" size={28} color="#FFF" />
+            </TouchableOpacity>
+          )}
+
+          {/* Miniaturas bottom strip */}
+          {steamMedia.length > 1 && (
+            <View style={styles.lightboxStrip} pointerEvents="box-none">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.lightboxStripContent}
+              >
+                {steamMedia.map((m, i) => (
+                  <TouchableOpacity
+                    key={m.id}
+                    onPress={() => setSelectedMediaIndex(i)}
+                    style={[
+                      styles.lightboxThumb,
+                      selectedMediaIndex === i && styles.lightboxThumbActive,
+                    ]}
+                  >
+                    <Image
+                      source={{ uri: m.thumbnail }}
+                      style={{ width: '100%', height: '100%' }}
+                      contentFit="cover"
+                    />
+                    {m.type === 'movie' && (
+                      <View style={styles.lightboxThumbPlay}>
+                        <Ionicons name="play" size={10} color="#FFF" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      </Modal>
 
       {/* EDIT MODAL */}
       <Modal visible={isEditModalVisible} transparent animationType="fade">
@@ -2646,6 +2771,131 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 8,
     fontSize: 15,
+  },
+
+  // === MEDIA LIGHTBOX ===
+  lightboxOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3000,
+  },
+  lightboxContent: {
+    width: '82%',
+    maxWidth: 1060,
+    aspectRatio: 16 / 9,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    position: 'relative',
+  },
+  lightboxImage: {
+    width: '100%',
+    height: '100%',
+  },
+  lightboxVideo: {
+    width: '100%',
+    height: '100%',
+  },
+  lightboxCloseBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  lightboxBadge: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    zIndex: 10,
+  },
+  lightboxBadgeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  lightboxCounter: {
+    position: 'absolute',
+    bottom: 14,
+    right: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    zIndex: 10,
+  },
+  lightboxCounterText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  lightboxArrow: {
+    position: 'absolute',
+    top: '50%' as any,
+    marginTop: -24,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  lightboxArrowLeft: {
+    left: '8%' as any,
+  },
+  lightboxArrowRight: {
+    right: '8%' as any,
+  },
+  lightboxStrip: {
+    position: 'absolute',
+    bottom: 28,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  lightboxStripContent: {
+    paddingHorizontal: 20,
+    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  lightboxThumb: {
+    width: 80,
+    height: 46,
+    borderRadius: 6,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+    opacity: 0.55,
+  },
+  lightboxThumbActive: {
+    borderColor: '#FFFFFF',
+    opacity: 1,
+  },
+  lightboxThumbPlay: {
+    position: 'absolute',
+    inset: 0 as any,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
 
   // === STEAMGRIDDB ASSET SELECTOR ===
