@@ -131,6 +131,8 @@ export default function ConsoleHome() {
   // Steam screenshots & trailers
   const [steamMedia, setSteamMedia] = useState<SteamMediaItem[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
+  const selectedLightboxMedia = selectedMediaIndex !== null ? steamMedia[selectedMediaIndex] ?? null : null;
 
 
   const scrollRef = useRef<ScrollView>(null);
@@ -890,6 +892,16 @@ export default function ConsoleHome() {
           }
           return;
         }
+        if (selectedMediaIndex !== null) {
+          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+            setSelectedMediaIndex(null);
+          } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            setSelectedMediaIndex(prev => prev !== null && prev < steamMedia.length - 1 ? prev + 1 : prev);
+          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            setSelectedMediaIndex(prev => prev !== null && prev > 0 ? prev - 1 : prev);
+          }
+          return;
+        }
         if (isAddModalVisible) {
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setAddModalVisible(false);
           else if (e.key === 'ArrowDown') {
@@ -1128,11 +1140,7 @@ export default function ConsoleHome() {
             } else if (gamePanelFocusIndex >= 100) {
               const mediaItem = steamMedia[gamePanelFocusIndex - 100];
               if (mediaItem) {
-                if (mediaItem.type === 'movie' && mediaItem.mp4_url) {
-                  Linking.openURL(mediaItem.mp4_url);
-                } else if (mediaItem.full) {
-                  Linking.openURL(mediaItem.full);
-                }
+                setSelectedMediaIndex(gamePanelFocusIndex - 100);
               }
             } else if (gamePanelFocusIndex >= 4) {
               const newsItem = steamNews[gamePanelFocusIndex - 4];
@@ -1186,7 +1194,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, isProfileMenuOpen, profileMenuFocusIndex, isOnline]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -4057,11 +4065,7 @@ export default function ConsoleHome() {
                           activeOpacity={0.8}
                           onPress={() => {
                             setGamePanelFocusIndex(100 + idx);
-                            if (item.type === 'movie' && item.mp4_url) {
-                              Linking.openURL(item.mp4_url);
-                            } else if (item.full) {
-                              Linking.openURL(item.full);
-                            }
+                            setSelectedMediaIndex(idx);
                           }}
                         >
                           {/* DEGRADADO NEGRO (al estar enfocadas) */}
@@ -4313,6 +4317,112 @@ export default function ConsoleHome() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* MEDIA LIGHTBOX MODAL */}
+      <Modal
+        visible={selectedMediaIndex !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedMediaIndex(null)}
+      >
+        <View style={styles.lightboxOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setSelectedMediaIndex(null)}
+          />
+
+          <View style={styles.lightboxContent} pointerEvents="box-none">
+            {selectedLightboxMedia?.type === 'movie' && selectedLightboxMedia.mp4_url ? (
+              <Video
+                source={{ uri: selectedLightboxMedia.mp4_url }}
+                style={styles.lightboxVideo}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay
+                useNativeControls
+              />
+            ) : selectedLightboxMedia?.full ? (
+              <Image
+                source={{ uri: selectedLightboxMedia.full }}
+                style={styles.lightboxImage}
+                contentFit="contain"
+              />
+            ) : null}
+
+            <TouchableOpacity
+              style={styles.lightboxCloseBtn}
+              onPress={() => setSelectedMediaIndex(null)}
+            >
+              <Ionicons name="close" size={24} color="#FFF" />
+            </TouchableOpacity>
+
+            {selectedLightboxMedia?.type === 'movie' && (
+              <View style={styles.lightboxBadge}>
+                <Ionicons name="play-circle" size={14} color="#FFF" />
+                <Text style={styles.lightboxBadgeText}>Trailer</Text>
+              </View>
+            )}
+
+            {steamMedia.length > 1 && selectedMediaIndex !== null && (
+              <View style={styles.lightboxCounter}>
+                <Text style={styles.lightboxCounterText}>
+                  {selectedMediaIndex + 1} / {steamMedia.length}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {selectedMediaIndex !== null && selectedMediaIndex > 0 && (
+            <TouchableOpacity
+              style={[styles.lightboxArrow, styles.lightboxArrowLeft]}
+              onPress={() => setSelectedMediaIndex(prev => prev !== null ? prev - 1 : prev)}
+            >
+              <Ionicons name="chevron-back" size={28} color="#FFF" />
+            </TouchableOpacity>
+          )}
+
+          {selectedMediaIndex !== null && selectedMediaIndex < steamMedia.length - 1 && (
+            <TouchableOpacity
+              style={[styles.lightboxArrow, styles.lightboxArrowRight]}
+              onPress={() => setSelectedMediaIndex(prev => prev !== null ? prev + 1 : prev)}
+            >
+              <Ionicons name="chevron-forward" size={28} color="#FFF" />
+            </TouchableOpacity>
+          )}
+
+          {steamMedia.length > 1 && (
+            <View style={styles.lightboxStrip} pointerEvents="box-none">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.lightboxStripContent}
+              >
+                {steamMedia.map((m, i) => (
+                  <TouchableOpacity
+                    key={m.id}
+                    onPress={() => setSelectedMediaIndex(i)}
+                    style={[
+                      styles.lightboxThumb,
+                      selectedMediaIndex === i && styles.lightboxThumbActive,
+                    ]}
+                  >
+                    <Image
+                      source={{ uri: m.thumbnail }}
+                      style={{ width: '100%', height: '100%' }}
+                      contentFit="cover"
+                    />
+                    {m.type === 'movie' && (
+                      <View style={styles.lightboxThumbPlay}>
+                        <Ionicons name="play" size={10} color="#FFF" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </View>
       </Modal>
 
@@ -5117,6 +5227,121 @@ const styles = StyleSheet.create({
   newsScrollContent: {
     gap: 16,
   },
+  // === MEDIA LIGHTBOX ===
+  lightboxOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3000,
+  },
+  lightboxContent: {
+    width: '82%',
+    maxWidth: 1060,
+    aspectRatio: 16 / 9,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    position: 'relative',
+  },
+  lightboxImage: { width: '100%', height: '100%' },
+  lightboxVideo: { width: '100%', height: '100%' },
+  lightboxCloseBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  lightboxBadge: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    zIndex: 10,
+  },
+  lightboxBadgeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  lightboxCounter: {
+    position: 'absolute',
+    bottom: 14,
+    right: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    zIndex: 10,
+  },
+  lightboxCounterText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  lightboxArrow: {
+    position: 'absolute',
+    top: '50%' as any,
+    marginTop: -24,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  lightboxArrowLeft: { left: '8%' as any },
+  lightboxArrowRight: { right: '8%' as any },
+  lightboxStrip: {
+    position: 'absolute',
+    bottom: 28,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  lightboxStripContent: {
+    paddingHorizontal: 20,
+    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  lightboxThumb: {
+    width: 80,
+    height: 46,
+    borderRadius: 6,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+    opacity: 0.55,
+  },
+  lightboxThumbActive: {
+    borderColor: '#FFFFFF',
+    opacity: 1,
+  },
+  lightboxThumbPlay: {
+    position: 'absolute',
+    inset: 0 as any,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+
   newsCard: {
     width: 500,
     height: 250,
