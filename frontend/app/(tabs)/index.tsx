@@ -4208,6 +4208,10 @@ export default function ConsoleHome() {
         onClose={() => setDetailVisible(false)}
         onRefresh={() => loadApps()}
         inputMode={inputMode}
+        isLaunching={isLaunching}
+        onLaunch={(_id, _path) => {
+          if (selectedItem) handleLaunchApp(selectedItem);
+        }}
       />
 
       <FloatingSystemNav
