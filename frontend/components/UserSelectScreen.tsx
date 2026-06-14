@@ -24,6 +24,8 @@ export interface SyncPreferences {
 export interface UserSettings {
   autoPlayVideo: boolean;
   syncPreferences?: SyncPreferences;
+  steamApiKey?: string;
+  steamId?: string;
 }
 
 export interface UserProfile {

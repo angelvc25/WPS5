@@ -18,6 +18,9 @@ interface LibraryGridProps {
   isLaunching?: boolean;
   inputMode?: 'keyboard' | 'gamepad';
   onDetailVisibilityChange?: (isVisible: boolean) => void;
+  activeTab?: 'installed' | 'collection';
+  onTabChange?: (tab: 'installed' | 'collection') => void;
+  isLoading?: boolean;
 }
 
 const COLUMNS = 5;
@@ -212,7 +215,7 @@ const SlidingGameTitle = ({
   );
 };
 
-export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0, onItemPress, onLaunch, onRefresh, isLaunching = false, inputMode = 'keyboard', onDetailVisibilityChange }: LibraryGridProps) {
+export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0, onItemPress, onLaunch, onRefresh, isLaunching = false, inputMode = 'keyboard', onDetailVisibilityChange, activeTab = 'installed', onTabChange, isLoading = false }: LibraryGridProps) {
   const { height: windowHeight } = useWindowDimensions();
   const [selectedGame, setSelectedGame] = useState<ConsoleItem | null>(null);
 
@@ -222,15 +225,7 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
     onItemPress?.(index, game);
   };
 
-  if (!games || games.length === 0) {
-    return (
-      <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-        <MaterialCommunityIcons name="folder-outline" size={48} color="rgba(255,255,255,0.4)" />
-        <Text style={styles.emptyText}>La biblioteca está vacía.</Text>
-      </Animated.View>
-    );
-  }
+  // We will render the empty state below the tabs instead of returning early
 
   const translateY = useSharedValue(0);
 
@@ -254,8 +249,23 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
 
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
+      <View style={styles.tabsRow}>
+        <TouchableOpacity style={styles.filterButton}>
+          <MaterialCommunityIcons name="sort-variant" size={24} color="#FFF" />
+        </TouchableOpacity>
+        
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity onPress={() => onTabChange?.('installed')}>
+            <Text style={[styles.tabText, activeTab === 'installed' && styles.tabTextActive]}>Instalados</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onTabChange?.('collection')}>
+            <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>Tu Colección</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Almacenamiento de la consola: {games.length}</Text>
+        <Text style={styles.headerTitle}>{activeTab === 'installed' ? 'Almacenamiento de la consola: ' : 'Tus juegos de Steam: '}{games.length}</Text>
       </View>
 
       {/* Container to clip overflow and restrict scroll area */}
@@ -280,7 +290,19 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
             }}
           />
         )}
-        {/* Grid wrapper that translates up/down depending on focus */}
+        {/* Loading or Empty State */}
+        {isLoading ? (
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Cargando juegos de Steam...</Text>
+          </Animated.View>
+        ) : (!games || games.length === 0) ? (
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
+            <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+            <MaterialCommunityIcons name="folder-outline" size={48} color="rgba(255,255,255,0.4)" />
+            <Text style={styles.emptyText}>La biblioteca está vacía.</Text>
+          </Animated.View>
+        ) : (
+        /* Grid wrapper that translates up/down depending on focus */
         <Animated.View style={animatedGridStyle}>
           <View style={styles.grid}>
             {games.map((game, index) => {
@@ -348,6 +370,7 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
             })}
           </View>
         </Animated.View>
+        )}
       </View>
 
       {/* Game Detail View — abre al pulsar un juego en lugar de lanzarlo directamente */}
@@ -370,6 +393,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 100,
     paddingBottom: 80,
     marginTop: 120,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  filterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 40,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 30,
+  },
+  tabText: {
+    fontSize: 24,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '300',
+  },
+  tabTextActive: {
+    color: '#FFF',
+    fontWeight: '400',
   },
   header: {
     flexDirection: 'row',

@@ -15,6 +15,7 @@ import { fetchGamingNews, NewsArticle } from '@/services/newsService';
 import { soundService } from '@/services/soundService';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
+import { fetchSteamOwnedGames } from '@/services/steamUserService';
 import { Feather } from '@expo/vector-icons';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import PS5WidgetRow from '@/components/ps5widgetrow';
@@ -163,6 +164,9 @@ export default function ConsoleHome() {
   // States for new UI features (WPS5 UI Expansion)
   const [isLibraryFocused, setIsLibraryFocused] = useState(false);
   const [libraryGridFocusIndex, setLibraryGridFocusIndex] = useState(0);
+  const [libraryTab, setLibraryTab] = useState<'installed' | 'collection'>('installed');
+  const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
+  const [loadingSteam, setLoadingSteam] = useState(false);
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
   const activeCardRef = useRef<View>(null);
@@ -394,6 +398,32 @@ export default function ConsoleHome() {
   const savedGames = games.filter(
     item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && item.id !== '5' && !item.isFolder && !item.isGrid
   );
+
+  const displayedLibraryGames = libraryTab === 'installed' ? savedGames : steamGames;
+
+  useEffect(() => {
+    if (libraryTab === 'collection' && steamGames.length === 0 && !loadingSteam) {
+      const apiKey = activeUser?.settings?.steamApiKey;
+      const steamId = activeUser?.settings?.steamId;
+      if (apiKey && steamId) {
+        setLoadingSteam(true);
+        fetchSteamOwnedGames(apiKey, steamId).then(gamesList => {
+          const formatted: ConsoleItem[] = gamesList.map((g: any) => ({
+            id: `steam_${g.appid}`,
+            title: g.name,
+            time: 'Steam',
+            image: g.img_icon_url 
+              ? { uri: `https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/${g.appid}/${g.img_icon_url}.jpg` }
+              : require('@/assets/images/Home.gif'),
+            description: `Tiempo jugado: ${Math.round(g.playtime_forever / 60)} horas`,
+            platform: 'Steam'
+          }));
+          setSteamGames(formatted);
+          setLoadingSteam(false);
+        }).catch(() => setLoadingSteam(false));
+      }
+    }
+  }, [libraryTab, activeUser, steamGames.length, loadingSteam]);
 
   useEffect(() => {
     const currentItem = currentData[activeIndex];
@@ -936,7 +966,7 @@ export default function ConsoleHome() {
         if (e.key === 'ArrowRight') {
           soundService.playNavigation();
           if (focusArea === 'library_grid') {
-            setLibraryGridFocusIndex(prev => Math.min(prev + 1, savedGames.length - 1));
+            setLibraryGridFocusIndex(prev => Math.min(prev + 1, displayedLibraryGames.length - 1));
           }
           else if (focusArea === 'header_avatar') {
             if (focusIndex < 2) setFocusIndex(prev => prev + 1);
@@ -1007,7 +1037,7 @@ export default function ConsoleHome() {
         if (e.key === 'ArrowDown') {
           soundService.playNavigation();
           if (focusArea === 'library_grid') {
-            setLibraryGridFocusIndex(prev => Math.min(prev + 5, savedGames.length - 1));
+            setLibraryGridFocusIndex(prev => Math.min(prev + 5, displayedLibraryGames.length - 1));
           }
           else if (focusArea === 'header_avatar') {
             // Bajar desde los iconos globales siempre regresa a Games (inicio)
@@ -1106,7 +1136,7 @@ export default function ConsoleHome() {
             return;
           }
           if (focusArea === 'library_grid') {
-            const game = savedGames[libraryGridFocusIndex];
+            const game = displayedLibraryGames[libraryGridFocusIndex];
             if (game) { setSelectedItem(game); setDetailVisible(true); }
             return;
           }
@@ -1743,7 +1773,10 @@ export default function ConsoleHome() {
         {/* LIBRARY GRID SECTION */}
         {isLibraryFocused && (
           <LibraryGrid
-            games={savedGames}
+            games={displayedLibraryGames}
+            activeTab={libraryTab}
+            onTabChange={setLibraryTab}
+            isLoading={loadingSteam}
             isFocused={focusArea === 'library_grid'}
             focusedIndex={libraryGridFocusIndex}
             onItemPress={(index, game) => { setSelectedItem(game); setDetailVisible(true); }}
@@ -2191,6 +2224,35 @@ export default function ConsoleHome() {
                           />
                         </TouchableOpacity>
                       </View>
+                    </View>
+
+                    <View style={styles.settingsSectionNew}>
+                      <Text style={styles.settingsLabelNew}>Steam API Key</Text>
+                      <TextInput
+                        style={[
+                          styles.settingsInputNew,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 2) && styles.settingsInputFocusedNew
+                        ]}
+                        value={activeUser?.settings?.steamApiKey || ''}
+                        onChangeText={(text) => updateUser({ settings: { ...activeUser?.settings, steamApiKey: text } as any })}
+                        placeholder="Ingresa tu Steam API Key"
+                        placeholderTextColor="#666"
+                        secureTextEntry
+                      />
+                    </View>
+
+                    <View style={styles.settingsSectionNew}>
+                      <Text style={styles.settingsLabelNew}>Steam ID (64-bit)</Text>
+                      <TextInput
+                        style={[
+                          styles.settingsInputNew,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 3) && styles.settingsInputFocusedNew
+                        ]}
+                        value={activeUser?.settings?.steamId || ''}
+                        onChangeText={(text) => updateUser({ settings: { ...activeUser?.settings, steamId: text } as any })}
+                        placeholder="Ingresa tu Steam ID (ej. 7656119...)"
+                        placeholderTextColor="#666"
+                      />
                     </View>
                   </ScrollView>
                 ) : settingsTab === 'home' ? (
