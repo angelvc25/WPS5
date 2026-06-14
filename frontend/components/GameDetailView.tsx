@@ -8,6 +8,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, Fa
 import { ConsoleItem } from '../app/(tabs)/index';
 import YoutubePlayer from './YoutubePlayer';
 import ControlPrompt from './ControlPrompt';
+import GameInfoPanel from './GameInfoPanel';
 import { useUser } from '../contexts/UserContext';
 import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
@@ -354,8 +355,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
   };
 
-  const { width } = useWindowDimensions();
-  const isSmallScreen = width < 1100;
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isSmallScreen = windowWidth < 1100;
 
   // focusIndex >= 2 → ocultar logo+botones (topPanel)
   // focusIndex >= 4 → ocultar cards trofeos/amigos
@@ -375,19 +376,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   }, [focusIndex]);
 
   useEffect(() => {
-    infoCardsAnim.value = withTiming(focusIndex >= 100 ? 0 : 1, { duration: 300 });
+    infoCardsAnim.value = withTiming(focusIndex >= 4 ? 0 : 1, { duration: 300 });
   }, [focusIndex]);
 
-  // Auto-scroll horizontal rows when focus moves
-  useEffect(() => {
-    if (focusIndex >= 100 && focusIndex < 200) {
-      const idx = focusIndex - 100;
-      mediaScrollRef.current?.scrollTo({ x: idx * 516, animated: true });
-    } else if (focusIndex >= 200) {
-      const idx = focusIndex - 200;
-      newsScrollRef.current?.scrollTo({ x: idx * 336, animated: true });
-    }
-  }, [focusIndex]);
 
   const topPanelStyle = useAnimatedStyle(() => ({
     opacity: topPanelAnim.value,
@@ -425,8 +416,6 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const selectedMedia = selectedMediaIndex !== null ? steamMedia[selectedMediaIndex] ?? null : null;
   const [newsLoading, setNewsLoading] = useState(false);
   const [mediaLoading, setMediaLoading] = useState(false);
-  const mediaScrollRef = React.useRef<ScrollView>(null);
-  const newsScrollRef = React.useRef<ScrollView>(null);
 
   // Fetch steam data when item changes
   useEffect(() => {
@@ -641,7 +630,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           // En row de capturas: avanzar item
           else if (focusIndex >= 100 && focusIndex < 100 + steamMedia.length - 1) setFocusIndex(prev => prev + 1);
           // En row de noticias: avanzar item
-          else if (focusIndex >= 200 && focusIndex < 200 + steamNews.length - 1) setFocusIndex(prev => prev + 1);
+          else if (focusIndex >= 4 && focusIndex < 4 + steamNews.length - 1) setFocusIndex(prev => prev + 1);
         } else if (e.key === 'ArrowLeft') {
           soundService.playNavigation();
           if (focusIndex === 1) setFocusIndex(0);
@@ -649,18 +638,18 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           // En row de capturas: retroceder item (mínimo 100)
           else if (focusIndex > 100) setFocusIndex(prev => prev - 1);
           else if (focusIndex === 100) { } // ya en el primero
-          // En row de noticias: retroceder item (mínimo 200)
-          else if (focusIndex > 200) setFocusIndex(prev => prev - 1);
-          else if (focusIndex === 200) { } // ya en el primero
+          // En row de noticias: retroceder item (mínimo 4)
+          else if (focusIndex > 4 && focusIndex < 100) setFocusIndex(prev => prev - 1);
+          else if (focusIndex === 4) { } // ya en el primero
         } else if (e.key === 'ArrowDown') {
           soundService.playNavigation();
           if (focusIndex <= 1) setFocusIndex(2);                          // botones → trofeos
-          else if (focusIndex <= 3) setFocusIndex(steamMedia.length > 0 ? 100 : 200); // cards → capturas
-          else if (focusIndex >= 100 && focusIndex < 200) setFocusIndex(steamNews.length > 0 ? 200 : 100); // capturas → noticias
+          else if (focusIndex <= 3) setFocusIndex(steamMedia.length > 0 ? 100 : (steamNews.length > 0 ? 4 : 2)); // cards → capturas o noticias
+          else if (focusIndex >= 100) setFocusIndex(steamNews.length > 0 ? 4 : focusIndex); // capturas → noticias
           // noticias: no hay más abajo
         } else if (e.key === 'ArrowUp') {
           soundService.playNavigation();
-          if (focusIndex >= 200) setFocusIndex(steamMedia.length > 0 ? 100 : 2); // noticias → capturas
+          if (focusIndex >= 4 && focusIndex < 100) setFocusIndex(steamMedia.length > 0 ? 100 : 2); // noticias → capturas o trofeos
           else if (focusIndex >= 100) setFocusIndex(2);                   // capturas → trofeos
           else if (focusIndex >= 2) setFocusIndex(0);                     // trofeos → botones
           // 0/1: no hace nada, no sale
@@ -676,8 +665,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           } else if (focusIndex >= 100 && focusIndex < 200) {
             const media = steamMedia[focusIndex - 100];
             if (media) setSelectedMediaIndex(focusIndex - 100);
-          } else if (focusIndex >= 200) {
-            const news = steamNews[focusIndex - 200];
+          } else if (focusIndex >= 4 && focusIndex < 100) {
+            const news = steamNews[focusIndex - 4];
             if (news?.url) Linking.openURL(news.url);
           }
         } else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
@@ -872,533 +861,46 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           showsVerticalScrollIndicator={false}
         >
           <Animated.View style={scrollPaddingStyle}>
-
-            {/* Logo/título + botones — se ocultan al bajar a trofeos */}
-            <Animated.View style={topPanelStyle}>
-              {(editData.logo || item.logo) ? (
-                <Image
-                  source={resolveEditSource(editData.logo) ?? item.logo}
-                  style={styles.ps5Logo}
-                  contentFit="contain"
-                />
-              ) : (
-                <Text style={styles.ps5Title} numberOfLines={2}>{editData.title || item.title}</Text>
-              )}
-
-              <View style={styles.ps5ActionButtons}>
-                <TouchableOpacity
-                  style={[styles.ps5PlayBtn, focusIndex === 0 && styles.ps5PlayBtnFocused]}
-                  activeOpacity={0.85}
-                  onPress={async () => {
-                    setFocusIndex(0);
-                    if (item.path) {
-                      if (onLaunch) onLaunch(item.id, item.path);
-                      else if (Platform.OS === 'web' && (window as any).electronAPI)
-                        (window as any).electronAPI.launchApp(item.id, item.path);
-                    } else {
-                      setActiveTab('path');
-                      setEditModalVisible(true);
-                    }
-                  }}
-                >
-                  <Text style={[styles.ps5PlayBtnText, focusIndex === 0 && styles.ps5PlayBtnTextFocused]}>
-                    {!item.path
-                      ? 'Asignar ruta'
-                      : (item.type === 'media' || item.title?.toLowerCase().includes('spotify'))
-                        ? 'Entrar'
-                        : 'Jugar'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.ps5MoreBtn, focusIndex === 1 && styles.ps5MoreBtnFocused]}
-                  activeOpacity={0.8}
-                  onPress={() => { setFocusIndex(1); setEditModalVisible(true); }}
-                >
-                  <Text style={[styles.ps5MoreBtnText, focusIndex === 1 && styles.ps5MoreBtnTextFocused]}>···</Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-
-            <Animated.View style={[styles.infoCardsRow, infoCardsStyle]}>
-              {/* Trofeos */}
-              <View
-                style={[
-                  styles.infoCard,
-                  focusIndex === 2 && styles.infoCardFocused
-                ]}
-              >
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-
-                      background: `
-                                linear-gradient(
-                                    90deg,
-                                    rgba(207, 241, 253, 0.14) 0%,
-                                    rgba(207, 240, 255, 0.06) 35%,
-                                    rgba(255,255,255,0.02) 50%,
-                                    rgba(255,255,255,0.00) 65%,
-                                    rgba(0, 0, 0, 0) 100%
-                                  )
-                      `,
-
-                      pointerEvents: 'none',
-                      zIndex: 1,
-
-                      opacity: focusIndex === 2 ? 1 : 0,
-
-                      transition:
-                        'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
-
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusIndex === 2 && (
-                  <div
-                    className="widget-shimmer-line"
-                    style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
-                )}
-
-                {/* CONTENIDO */}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginBottom: 12,
-                    gap: 25,
-                    zIndex: 2,
-                  }}
-                >
-                  {/* PLATINO */}
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <Image
-                      source={require('@/assets/images/platino.png')}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        resizeMode: 'contain',
-                      }}
-                    />
-
-                    <Text
-                      style={{
-                        color: '#FFF',
-                        fontSize: 14,
-                        fontWeight: 'bold',
-                        marginTop: 15,
-                      }}
-                    >
-                      1
-                    </Text>
-                  </View>
-
-                  {/* ORO */}
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <Image
-                      source={require('@/assets/images/oro.png')}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        resizeMode: 'contain',
-                      }}
-                    />
-
-                    <Text
-                      style={{
-                        color: '#FFF',
-                        fontSize: 14,
-                        fontWeight: 'bold',
-                        marginTop: 15,
-                      }}
-                    >
-                      3
-                    </Text>
-                  </View>
-
-                  {/* PLATA */}
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <Image
-                      source={require('@/assets/images/plata.png')}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        resizeMode: 'contain',
-                      }}
-                    />
-
-                    <Text
-                      style={{
-                        color: '#FFF',
-                        fontSize: 14,
-                        fontWeight: 'bold',
-                        marginTop: 15,
-                      }}
-                    >
-                      16
-                    </Text>
-                  </View>
-
-                  {/* BRONCE */}
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <Image
-                      source={require('@/assets/images/bronce.png')}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        resizeMode: 'contain',
-                      }}
-                    />
-
-                    <Text
-                      style={{
-                        color: '#FFF',
-                        fontSize: 14,
-                        fontWeight: 'bold',
-                        marginTop: 15,
-                      }}
-                    >
-                      17
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={{ zIndex: 2 }}>
-                  <Text
-                    style={{
-                      color: '#FFF',
-                      fontSize: 16,
-                      fontWeight: 'bold',
-                      marginBottom: 4,
-                    }}
-                  >
-                    Trofeos
-                  </Text>
-
-                  <Text
-                    style={{
-                      color: '#ddddddff',
-                      fontSize: 17,
-                    }}
-                  >
-                    37 conseguidos
-                  </Text>
-                </View>
-              </View>
-
-              {/* Amigos */}
-              <View
-                style={[
-                  styles.infoCard,
-                  focusIndex === 3 && styles.infoCardFocused
-                ]}
-              >
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-
-                      background: `
-                                linear-gradient(
-                                    90deg,
-                                    rgba(207, 241, 253, 0.14) 0%,
-                                    rgba(207, 240, 255, 0.06) 35%,
-                                    rgba(255,255,255,0.02) 50%,
-                                    rgba(255,255,255,0.00) 65%,
-                                    rgba(0, 0, 0, 0) 100%
-                                  )
-                    `,
-
-                      pointerEvents: 'none',
-                      zIndex: 1,
-
-                      opacity: focusIndex === 3 ? 1 : 0,
-
-                      transition:
-                        'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
-
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusIndex === 3 && (
-                  <div
-                    className="widget-shimmer-line"
-                    style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
-                )}
-
-                {/* AVATARES */}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    marginBottom: 12,
-                    zIndex: 2,
-                  }}
-                >
-                  {/* {[1, 2, 3, 4, 5].map((_, i) => (
-                    <View
-                      key={i}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 16,
-                        backgroundColor: 'rgba(255,255,255,0.08)',
-                        borderWidth: 2,
-                        borderColor: 'rgba(255,255,255,0.12)',
-                        marginLeft: i === 0 ? 0 : -10,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <Ionicons
-                        name="person"
-                        size={16}
-                        color="#D5DFFF"
-                      />
-                    </View>
-                  ))} */}
-                  <Image
-                    source={require('@/assets/images/amigos.png')}
-                    style={{
-                      width: 35,
-                      height: 35,
-                      resizeMode: 'contain',
-                      //borderRadius: 14,
-                    }}
-                  />
-                </View>
-
-                {/* TEXTO */}
-                <View style={{ zIndex: 2 }}>
-                  <Text
-                    style={{
-                      color: '#FFF',
-                      fontSize: 16,
-                      fontWeight: 'bold',
-                      marginBottom: 4,
-                    }}
-                  >
-                    Amigos que juegan
-                  </Text>
-
-                  <Text
-                    style={{
-                      color: '#ddddddff',
-                      fontSize: 17,
-                    }}
-                  >
-                    5 amigos tienen este juego
-                  </Text>
-                </View>
-              </View>
-            </Animated.View>
-
-            {/* Frase */}
-            {(item.type === 'media' || item.title?.toLowerCase().includes('spotify')) && (
-              <Animated.View style={[infoCardsStyle, { marginTop: 20, alignItems: 'center', paddingHorizontal: 24 }]}>
-                <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontStyle: 'italic', textAlign: 'center' }}>
-                  La música es el fondo perfecto para cada aventura.
-                </Text>
-              </Animated.View>
-            )}
-
-            {/* CAPTURAS Y TRAILERS */}
-            {!(item.type === 'media' || item.title?.toLowerCase().includes('spotify')) && (
-              <View style={[styles.newsSectionWrapper]}>
-                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Capturas y trailers</Text>
-                {mediaLoading ? (
-                  <View style={styles.newsLoadingRow}>
-                    <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-                    <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
-                  </View>
-                ) : steamMedia.length === 0 ? (
-                  <View style={styles.newsLoadingRow}>
-                    <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
-                    <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
-                  </View>
-                ) : (
-                  <ScrollView
-                    ref={mediaScrollRef}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={[styles.newsScrollContent, { paddingRight: 50 }]}
-                  >
-                    {steamMedia.map((media, idx) => {
-                      const isMediaFocused = focusIndex === 100 + idx;
-                      return (
-                        <TouchableOpacity
-                          key={media.id}
-                          style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
-                          activeOpacity={0.8}
-                          onPress={() => {
-                            setSelectedMediaIndex(idx);
-                          }}
-                        >
-                          {/* DEGRADADO NEGRO (al estar enfocadas) */}
-                          {Platform.OS === 'web' && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
-                                background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
-                                pointerEvents: 'none',
-                                zIndex: 1,
-                                opacity: isMediaFocused ? 1 : 0,
-                                transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                              }}
-                            />
-                          )}
-
-                          {/* SHIMMER (al estar enfocadas) */}
-                          {Platform.OS === 'web' && isMediaFocused && (
-                            <div
-                              className="widget-shimmer-line"
-                              style={{
-                                animationDuration: '7s',
-                                opacity: 0.8,
-                              }}
-                            />
-                          )}
-                          <View style={styles.newsCardThumbnail}>
-                            <Image source={{ uri: media.thumbnail }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-                            {media.type === 'movie' && (
-                              <View style={styles.mediaPlayBadge}>
-                                <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
-                              </View>
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                )}
-              </View>
-            )}
-
-            {/* ÚLTIMAS NOTICIAS */}
-            <View style={[styles.newsSectionWrapper]}>
-              <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16 }}>Últimas noticias</Text>
-              {newsLoading ? (
-                <View style={styles.newsLoadingRow}>
-                  <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-                  <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
-                </View>
-              ) : steamNews.length === 0 ? (
-                <View style={styles.newsLoadingRow}>
-                  <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
-                  <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
-                </View>
-              ) : (
-                <ScrollView
-                  ref={newsScrollRef}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={[styles.newsScrollContent, { paddingRight: 50 }]}
-                >
-                  {steamNews.slice(0, 8).map((news, idx) => {
-                    const isNewsFocused = focusIndex === 200 + idx;
-                    return (
-                      <TouchableOpacity
-                        key={news.gid}
-                        style={[styles.newsCard2, isNewsFocused && styles.newsCardFocused]}
-                        activeOpacity={0.8}
-                        onPress={() => { if (news.url) Linking.openURL(news.url); }}
-                      >
-                        {/* DEGRADADO NEGRO (al estar enfocadas) */}
-                        {Platform.OS === 'web' && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              inset: 0,
-                              background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
-                              pointerEvents: 'none',
-                              zIndex: 1,
-                              opacity: isNewsFocused ? 1 : 0,
-                              transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                            }}
-                          />
-                        )}
-
-                        {/* SHIMMER (al estar enfocadas) */}
-                        {Platform.OS === 'web' && isNewsFocused && (
-                          <div
-                            className="widget-shimmer-line"
-                            style={{
-                              animationDuration: '7s',
-                              opacity: 0.8,
-                            }}
-                          />
-                        )}
-                        <View style={styles.newsCardThumbnail}>
-                          <Image
-                            source={
-                              news.image_url
-                                ? { uri: news.image_url }
-                                : (item?.backgroundImage ?? item?.image ?? require('@/assets/images/FondoDefault2.jpg'))
-                            }
-                            style={{ width: '100%', height: '100%', opacity: news.image_url ? 1 : 0.4 }}
-                            contentFit="cover"
-                            onError={() => {
-                              // Si la URL falla, mutar el item para usar el fallback del juego
-                              setSteamNews(prev =>
-                                prev.map(n =>
-                                  n.gid === news.gid ? { ...n, image_url: undefined } : n
-                                )
-                              );
-                            }}
-                          />
-                        </View>
-                        <View style={styles.newsCardContent}>
-                          <Text style={styles.newsCardTitle} numberOfLines={1}>{news.title}</Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              )}
-            </View>
-
-          </Animated.View>{/* end content */}
-
+            <GameInfoPanel
+              activeItem={{
+                ...item,
+                ...editData,
+                image: resolveEditSource(editData.image) ?? item.image,
+                logo: resolveEditSource(editData.logo) ?? item.logo,
+                backgroundImage: resolveEditSource(editData.backgroundImage) ?? item.backgroundImage,
+              } as ConsoleItem}
+              activeIndex={0}
+              lastPlayedGame={null}
+              focusArea="game_panel"
+              gamePanelFocusIndex={focusIndex}
+              setGamePanelFocusIndex={setFocusIndex}
+              setFocusArea={() => { }}
+              handleLaunchApp={async () => {
+                if (item.path) {
+                  if (onLaunch) onLaunch(item.id, item.path);
+                  else if (Platform.OS === 'web' && (window as any).electronAPI)
+                    (window as any).electronAPI.launchApp(item.id, item.path);
+                } else {
+                  setActiveTab('path');
+                  setEditModalVisible(true);
+                }
+              }}
+              setSelectedItem={() => { }}
+              setDetailVisible={setEditModalVisible}
+              steamMedia={steamMedia}
+              mediaLoading={mediaLoading}
+              setSelectedMediaIndex={setSelectedMediaIndex}
+              steamNews={steamNews}
+              newsLoading={newsLoading}
+              activeUser={activeUser}
+              windowWidth={windowWidth}
+              windowHeight={windowHeight}
+              gameInfoPanelStyle={{}}
+              spacerStyle={{}}
+              infoCardsStyle={infoCardsStyle}
+              topPanelStyle={topPanelStyle}
+            />
+          </Animated.View>
         </ScrollView>
 
         {isLaunching && item && (
@@ -2117,78 +1619,10 @@ const styles = StyleSheet.create({
   ps5BottomPanel: {
     position: 'absolute',
     bottom: 0,
-    left: 150,
+    left: 0,
     right: 0,
     top: '10%',
     zIndex: 10,
-  },
-  ps5Logo: {
-    width: 450,
-    height: 160,
-    marginBottom: 28,
-  },
-  ps5Title: {
-    color: '#FFFFFF',
-    fontSize: 30,
-    fontWeight: '300',
-    marginBottom: 28,
-    letterSpacing: 0.3,
-  },
-  ps5ActionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginLeft: 3,
-  },
-  ps5PlayBtn: {
-    backgroundColor: '#9999991c',
-    paddingHorizontal: 52,
-    paddingVertical: 14,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 280,
-  },
-  ps5PlayBtnFocused: {
-    backgroundColor: '#FFFFFF',
-    outlineStyle: 'solid',
-    outlineWidth: 2,
-    outlineColor: '#FFFFFF',
-    outlineOffset: 1,
-  } as any,
-  ps5PlayBtnText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  ps5PlayBtnTextFocused: {
-    color: '#111111',
-  },
-  ps5MoreBtn: {
-    backgroundColor: '#9999991c',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ps5MoreBtnFocused: {
-    backgroundColor: '#FFFFFF',
-    outlineStyle: 'solid',
-    outlineWidth: 2,
-    outlineColor: '#FFFFFF',
-    outlineOffset: 1,
-  } as any,
-  ps5MoreBtnText: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '700',
-    lineHeight: 20,
-    marginTop: -4,
-  },
-  ps5MoreBtnTextFocused: {
-    color: '#111111',
   },
 
   // === TOP HEADER (game image + title, replaces back button) ===
