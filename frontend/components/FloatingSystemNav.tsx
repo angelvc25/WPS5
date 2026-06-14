@@ -116,7 +116,7 @@ export default function FloatingSystemNav({
                 style={styles.iconButton}
               >
                 {isActive ? (
-                  <RadarFocusWrapper isFocused={isActive} size={58} innerSize={0}>
+                  <RadarFocusWrapper id={`sys-nav-${index}`} isFocused={isActive} size={58} innerSize={0}>
                     <Ionicons
                       name={item.icon}
                       size={24}

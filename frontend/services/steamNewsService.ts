@@ -152,7 +152,7 @@ const fetchSteamEventsForApp = async (appid: number): Promise<SteamNewsItem[]> =
           feed_type: 1,
           appid,
           image_url: buildThumbnailUrl(body),
-        } satisfies SteamNewsItem;
+        } as SteamNewsItem;
       })
       .filter((item): item is SteamNewsItem => item !== null);
   } catch (error) {

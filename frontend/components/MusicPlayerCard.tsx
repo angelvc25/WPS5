@@ -51,8 +51,8 @@ interface RuntimeTrack {
   album?: string;
   /** require() para tracks estáticos, o string URI para tracks importados en runtime */
   source: number | string;
-  /** URI local de la portada, si existe */
-  artworkUri?: string;
+  /** require() o URI de la portada, si existe */
+  artwork?: any;
   color?: string;
   /** true = fue añadido por el usuario en runtime (persistido en FS) */
   userAdded?: boolean;
@@ -64,7 +64,7 @@ interface MusicPlayerCardProps {
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'music_player_user_tracks_v1';
-const MUSIC_DIR = FileSystem.documentDirectory + 'music/';
+const MUSIC_DIR = (FileSystem as any).documentDirectory + 'music/';
 const FALLBACK_COLORS = [
   '#1DB954', '#e40d60', '#6a5acd', '#e67e22',
   '#2980b9', '#c0392b', '#16a085', '#8e44ad',
@@ -91,7 +91,7 @@ function staticToRuntime(t: StaticTrack, index: number): RuntimeTrack {
     artist: t.artist,
     album: t.album,
     source: t.source,
-    artworkUri: t.artwork ? Image.resolveAssetSource?.(t.artwork)?.uri : undefined,
+    artwork: t.artwork,
     color: t.color ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length],
     userAdded: false,
   };
@@ -116,8 +116,8 @@ async function deleteUserTrack(track: RuntimeTrack) {
     if (typeof track.source === 'string') {
       await FileSystem.deleteAsync(track.source, { idempotent: true });
     }
-    if (track.artworkUri) {
-      await FileSystem.deleteAsync(track.artworkUri, { idempotent: true });
+    if (track.artwork && typeof track.artwork === 'string') {
+      await FileSystem.deleteAsync(track.artwork, { idempotent: true });
     }
   } catch { /* noop */ }
 }
@@ -264,17 +264,27 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
   // ── Controles de reproducción ─────────────────────────────────────────────
   const togglePlay = async () => {
     if (!soundRef.current) return;
-    isPlaying
-      ? await soundRef.current.pauseAsync()
-      : await soundRef.current.playAsync();
+    try {
+      if (isPlaying) {
+        await soundRef.current.pauseAsync();
+      } else {
+        await soundRef.current.playAsync();
+      }
+    } catch (e) {
+      console.warn('Cannot play/pause: sound not loaded', e);
+    }
   };
 
   const skipNext = () =>
     setTrackIndex(i => (i + 1) % allTracks.length);
 
-  const skipPrev = () => {
+  const skipPrev = async () => {
     if (positionMs > 3000) {
-      soundRef.current?.setPositionAsync(0);
+      try {
+        await soundRef.current?.setPositionAsync(0);
+      } catch (e) {
+        console.warn('Cannot set position: sound not loaded', e);
+      }
     } else {
       setTrackIndex(i => (i - 1 + allTracks.length) % allTracks.length);
     }
@@ -428,8 +438,8 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
       {!showList && (
         <>
           <View style={styles.trackRow}>
-            {track?.artworkUri ? (
-              <Image source={{ uri: track.artworkUri }} style={styles.artwork} contentFit="cover" />
+            {track?.artwork ? (
+              <Image source={track.artwork} style={styles.artwork} contentFit="cover" />
             ) : (
               <View style={[styles.artworkPlaceholder, { backgroundColor: `${accentColor}33` }]}>
                 <Ionicons name="musical-note" size={18} color={accentColor} />

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 
 type WidgetId =
     | "controller"
@@ -241,7 +241,7 @@ function BackgroundWidget({ expanded }: { expanded: boolean }) {
     );
 }
 
-const WIDGET_CONTENT: Record<WidgetId, (expanded: boolean) => JSX.Element> = {
+const WIDGET_CONTENT: Record<WidgetId, (expanded: boolean) => React.ReactNode> = {
     controller: (e) => <ControllerWidget expanded={e} />,
     trophies: (e) => <TrophiesWidget expanded={e} />,
     store: (e) => <StoreWidget expanded={e} />,
