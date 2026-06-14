@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Pla
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, interpolate, Easing, FadeInDown, FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay, withRepeat, interpolate, Easing, FadeInDown, FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import FavoritesView from '@/components/FavoritesView';
@@ -81,14 +81,21 @@ const AnimatedCardWrapper = React.memo(({
   isActive,
   children,
   style,
+  entryIndex = 0,
 }: {
   isActive: boolean;
   children: React.ReactNode;
   style?: any;
+  entryIndex?: number;
 }) => {
   const scale = useSharedValue(isActive ? 1.5 : 1);
   const translateY = useSharedValue(isActive ? 17 : 0);
   const marginH = useSharedValue(isActive ? 20 : 6);
+
+  // Entry animation shared values (carousel entrance on mount/tab change)
+  const entryOpacity = useSharedValue(0);
+  const entryScale = useSharedValue(0.7);
+  const entryTranslateX = useSharedValue(150);
 
   React.useEffect(() => {
     scale.value = withTiming(isActive ? 1.5 : 1, { duration: 280, easing: Easing.out(Easing.quad) });
@@ -96,10 +103,26 @@ const AnimatedCardWrapper = React.memo(({
     marginH.value = withTiming(isActive ? 20 : 6, { duration: 280, easing: Easing.out(Easing.quad) });
   }, [isActive]);
 
+  // Trigger staggered entry animation on mount
+  React.useEffect(() => {
+    // Clamp delay: first 10 cards stagger nicely, rest enter together at the end
+    const clampedIndex = Math.min(entryIndex, 10);
+    const delay = 80 + clampedIndex * 60;
+    const easing = Easing.out(Easing.exp);
+    entryOpacity.value = withDelay(delay, withTiming(1, { duration: 700, easing }));
+    entryScale.value = withDelay(delay, withTiming(1, { duration: 700, easing }));
+    entryTranslateX.value = withDelay(delay, withTiming(0, { duration: 700, easing }));
+  }, []);
+
   const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }, { translateY: translateY.value }],
+    transform: [
+      { scale: scale.value * entryScale.value },
+      { translateY: translateY.value },
+      { translateX: entryTranslateX.value },
+    ],
     marginLeft: marginH.value,
     marginRight: marginH.value,
+    opacity: entryOpacity.value,
     overflow: isActive ? 'visible' : 'hidden',
     borderRadius: 20,
   }));
@@ -116,6 +139,9 @@ export default function ConsoleHome() {
   const [activeTab, setActiveTab] = useState('Games');
   const [currentRenderedTab, setCurrentRenderedTab] = useState('Games');
   const [activeIndex, setActiveIndex] = useState(1);
+  // carouselKey: incrementing this forces AnimatedCardWrapper instances to remount,
+  // re-triggering the staggered entrance animation on tab change.
+  const [carouselKey, setCarouselKey] = useState(0);
 
   // Focus management
   type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'game_panel' | 'footer' | 'welcome_widgets' | 'library_grid' | 'header_avatar';
@@ -235,6 +261,8 @@ export default function ConsoleHome() {
     tabFade.value = withTiming(0, { duration: 150, easing: Easing.out(Easing.quad) }, (isFinished) => {
       if (isFinished) {
         runOnJS(setCurrentRenderedTab)(activeTab);
+        // Bump carouselKey so cards remount and replay the entrance animation
+        runOnJS(setCarouselKey)((prev: number) => prev + 1);
       }
     });
   }, [activeTab]);
@@ -1892,7 +1920,7 @@ export default function ConsoleHome() {
 
                 if (item.id === 'more_library') {
                   cardContent = (
-                    <AnimatedCardWrapper isActive={isActive} style={{ opacity: 0.75 }}>
+                    <AnimatedCardWrapper key={`more-${carouselKey}`} isActive={isActive} style={{ opacity: 0.75 }} entryIndex={index}>
                       <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                         {isActive && <SpinningBorder size={CARD_SIZE} />}
 
@@ -1916,7 +1944,7 @@ export default function ConsoleHome() {
                   );
                 } else if (item.isGrid) {
                   cardContent = (
-                    <AnimatedCardWrapper isActive={isActive} style={{ opacity: customOpacity }}>
+                    <AnimatedCardWrapper key={`grid-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
                       <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                         {isActive && <SpinningBorder size={CARD_SIZE} />}
                         <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
@@ -1944,7 +1972,7 @@ export default function ConsoleHome() {
                   );
                 } else if (item.isFolder) {
                   cardContent = (
-                    <AnimatedCardWrapper isActive={isActive}>
+                    <AnimatedCardWrapper key={`folder-${carouselKey}`} isActive={isActive} entryIndex={index}>
                       <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                         {isActive && <SpinningBorder size={CARD_SIZE} />}
                         <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
@@ -1972,7 +2000,7 @@ export default function ConsoleHome() {
                   );
                 } else if (item.isLastPlayed && !lastPlayedGame) {
                   cardContent = (
-                    <AnimatedCardWrapper isActive={isActive} style={{ opacity: customOpacity }}>
+                    <AnimatedCardWrapper key={`lp-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
                       <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                         {isActive && <SpinningBorder size={CARD_SIZE} />}
                         <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive]}>
@@ -1984,7 +2012,7 @@ export default function ConsoleHome() {
                 } else {
                   const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
                   cardContent = (
-                    <AnimatedCardWrapper isActive={isActive} style={{ opacity: customOpacity }}>
+                    <AnimatedCardWrapper key={`${item.id}-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
                       <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                         {isActive && <SpinningBorder size={CARD_SIZE} />}
                         <Image source={imgSource} style={[styles.card, isActive && styles.cardActive]} contentFit="cover" />
