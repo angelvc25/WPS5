@@ -25,7 +25,7 @@ interface GameInfoPanelProps {
   activeUser: any;
   windowWidth: number;
   windowHeight: number;
-  
+
   // Animated Styles passed from parent
   gameInfoPanelStyle: any;
   spacerStyle: any;
@@ -64,9 +64,16 @@ export const GameInfoPanel = ({
 
   const mediaScrollRef = React.useRef<ScrollView>(null);
   const newsScrollRef = React.useRef<ScrollView>(null);
+  const scrollDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
-    if (focusArea === 'game_panel') {
+    if (focusArea !== 'game_panel') return;
+
+    if (scrollDebounceRef.current) {
+      clearTimeout(scrollDebounceRef.current);
+    }
+
+    scrollDebounceRef.current = setTimeout(() => {
       if (gamePanelFocusIndex >= 100) {
         const idx = gamePanelFocusIndex - 100;
         mediaScrollRef.current?.scrollTo({ x: idx * 516, animated: true });
@@ -74,7 +81,13 @@ export const GameInfoPanel = ({
         const idx = gamePanelFocusIndex - 4;
         newsScrollRef.current?.scrollTo({ x: idx * 336, animated: true });
       }
-    }
+    }, 80);
+
+    return () => {
+      if (scrollDebounceRef.current) {
+        clearTimeout(scrollDebounceRef.current);
+      }
+    };
   }, [gamePanelFocusIndex, focusArea]);
 
   const buttonLabel = activeItem?.isLastPlayed
