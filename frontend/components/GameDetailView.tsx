@@ -41,6 +41,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
   const [isSyncing, setIsSyncing] = useState(false);
   const [focusIndex, setFocusIndex] = useState(0); // 0:Jugar, 1:···, 2:Trofeos, 3:Amigos
+  const prevFocusIndexRef = React.useRef(0);
   const [editModalFocusIndex, setEditModalFocusIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'basic' | 'path' | 'art'>('basic');
   const { activeUser } = useUser();
@@ -410,6 +411,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const editDescRef = React.useRef<TextInput>(null);
   const editPathInputRef = React.useRef<TextInput>(null);
 
+  // Throttle para navegación horizontal en rows (capturas / noticias)
+  const rowNavThrottleRef = React.useRef<number | null>(null);
+  const ROW_NAV_INTERVAL = 150; // ms entre cada paso al mantener pulsado
+
   // Steam data
   const [steamNews, setSteamNews] = useState<SteamNewsItem[]>([]);
   const [steamMedia, setSteamMedia] = useState<SteamMediaItem[]>([]);
@@ -442,6 +447,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
   useEffect(() => {
     if (item) {
+      prevFocusIndexRef.current = 0;
       setFocusIndex(0); // Reset focus when opening
       const initialData: any = {
         id: item.id,
@@ -623,35 +629,51 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           return;
         }
 
+        const moveFocus = (next: number) => {
+          prevFocusIndexRef.current = focusIndex;
+          setFocusIndex(next);
+        };
+
+        // moveFocus con throttle para navegación dentro de un row horizontal.
+        // Permite el primer keydown inmediato y luego uno cada ROW_NAV_INTERVAL ms.
+        // El sonido solo se reproduce cuando el movimiento realmente ocurre.
+        const moveFocusThrottled = (next: number) => {
+          const now = Date.now();
+          if (rowNavThrottleRef.current !== null && now - rowNavThrottleRef.current < ROW_NAV_INTERVAL) {
+            return;
+          }
+          rowNavThrottleRef.current = now;
+          soundService.playNavigation();
+          moveFocus(next);
+        };
+
         if (e.key === 'ArrowRight') {
-          soundService.playNavigation();
-          if (focusIndex === 0) setFocusIndex(1);
-          else if (focusIndex === 2) setFocusIndex(3);
-          // En row de capturas: avanzar item
-          else if (focusIndex >= 100 && focusIndex < 100 + steamMedia.length - 1) setFocusIndex(prev => prev + 1);
-          // En row de noticias: avanzar item
-          else if (focusIndex >= 4 && focusIndex < 4 + steamNews.length - 1) setFocusIndex(prev => prev + 1);
+          if (focusIndex === 0) { soundService.playNavigation(); moveFocus(1); }
+          else if (focusIndex === 2) { soundService.playNavigation(); moveFocus(3); }
+          // En row de capturas: avanzar item (throttled)
+          else if (focusIndex >= 100 && focusIndex < 100 + steamMedia.length - 1) moveFocusThrottled(focusIndex + 1);
+          // En row de noticias: avanzar item (throttled)
+          else if (focusIndex >= 4 && focusIndex < 4 + steamNews.length - 1) moveFocusThrottled(focusIndex + 1);
         } else if (e.key === 'ArrowLeft') {
-          soundService.playNavigation();
-          if (focusIndex === 1) setFocusIndex(0);
-          else if (focusIndex === 3) setFocusIndex(2);
-          // En row de capturas: retroceder item (mínimo 100)
-          else if (focusIndex > 100) setFocusIndex(prev => prev - 1);
+          if (focusIndex === 1) { soundService.playNavigation(); moveFocus(0); }
+          else if (focusIndex === 3) { soundService.playNavigation(); moveFocus(2); }
+          // En row de capturas: retroceder item (mínimo 100, throttled)
+          else if (focusIndex > 100) moveFocusThrottled(focusIndex - 1);
           else if (focusIndex === 100) { } // ya en el primero
-          // En row de noticias: retroceder item (mínimo 4)
-          else if (focusIndex > 4 && focusIndex < 100) setFocusIndex(prev => prev - 1);
+          // En row de noticias: retroceder item (mínimo 4, throttled)
+          else if (focusIndex > 4 && focusIndex < 100) moveFocusThrottled(focusIndex - 1);
           else if (focusIndex === 4) { } // ya en el primero
         } else if (e.key === 'ArrowDown') {
           soundService.playNavigation();
-          if (focusIndex <= 1) setFocusIndex(2);                          // botones → trofeos
-          else if (focusIndex <= 3) setFocusIndex(steamMedia.length > 0 ? 100 : (steamNews.length > 0 ? 4 : 2)); // cards → capturas o noticias
-          else if (focusIndex >= 100) setFocusIndex(steamNews.length > 0 ? 4 : focusIndex); // capturas → noticias
+          if (focusIndex <= 1) moveFocus(2);                          // botones → trofeos
+          else if (focusIndex <= 3) moveFocus(steamMedia.length > 0 ? 100 : (steamNews.length > 0 ? 4 : 2)); // cards → capturas o noticias
+          else if (focusIndex >= 100) moveFocus(steamNews.length > 0 ? 4 : focusIndex); // capturas → noticias
           // noticias: no hay más abajo
         } else if (e.key === 'ArrowUp') {
           soundService.playNavigation();
-          if (focusIndex >= 4 && focusIndex < 100) setFocusIndex(steamMedia.length > 0 ? 100 : 2); // noticias → capturas o trofeos
-          else if (focusIndex >= 100) setFocusIndex(2);                   // capturas → trofeos
-          else if (focusIndex >= 2) setFocusIndex(0);                     // trofeos → botones
+          if (focusIndex >= 4 && focusIndex < 100) moveFocus(steamMedia.length > 0 ? 100 : 2); // noticias → capturas o trofeos
+          else if (focusIndex >= 100) moveFocus(2);                   // capturas → trofeos
+          else if (focusIndex >= 2) moveFocus(0);                     // trofeos → botones
           // 0/1: no hace nada, no sale
         } else if (e.key === 'Enter') {
           soundService.playActivation?.();
