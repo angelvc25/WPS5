@@ -62,6 +62,21 @@ export const GameInfoPanel = ({
   const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
   const isSpotify = activeItem?.title?.toLowerCase()?.includes('spotify');
 
+  const mediaScrollRef = React.useRef<ScrollView>(null);
+  const newsScrollRef = React.useRef<ScrollView>(null);
+
+  React.useEffect(() => {
+    if (focusArea === 'game_panel') {
+      if (gamePanelFocusIndex >= 100) {
+        const idx = gamePanelFocusIndex - 100;
+        mediaScrollRef.current?.scrollTo({ x: idx * 516, animated: true });
+      } else if (gamePanelFocusIndex >= 4) {
+        const idx = gamePanelFocusIndex - 4;
+        newsScrollRef.current?.scrollTo({ x: idx * 336, animated: true });
+      }
+    }
+  }, [gamePanelFocusIndex, focusArea]);
+
   const buttonLabel = activeItem?.isLastPlayed
     ? (isSpotify || activeItem?.type === 'media' ? 'Reproducir' : 'Jugar')
     : !activeItem?.path
@@ -389,6 +404,7 @@ export const GameInfoPanel = ({
             </View>
           ) : (
             <ScrollView
+              ref={mediaScrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
@@ -469,6 +485,7 @@ export const GameInfoPanel = ({
             </View>
           ) : (
             <ScrollView
+              ref={newsScrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
