@@ -358,7 +358,7 @@ export default function ConsoleHome() {
   // Push widgets down when contracted so they appear centered/lower on screen posicion de los widgets cuando se contrae windowHeight/0.22
   const widgetContainerStyle = useAnimatedStyle(() => ({
     paddingBottom: 80,
-    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.05]),
+    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.24]),
   }));
 
   const widgetContainerStyle2 = useAnimatedStyle(() => ({
@@ -1754,7 +1754,7 @@ export default function ConsoleHome() {
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         {!isLibraryFocused && (
           activeItem?.id === '1' ? (
-            <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
+            <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]} entering={FadeInDown.duration(800).delay(150)}>
               <Animated.View style={widgetContainerStyle}>
                 <WelcomeWidgets
                   focusArea={focusArea}
@@ -3113,7 +3113,7 @@ const styles = StyleSheet.create({
   },
   gameInfoPanel: {
     paddingLeft: 150,
-    paddingTop: 24,
+    paddingTop: 380,
     maxWidth: '100%' as any,
   },
 });

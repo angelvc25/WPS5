@@ -1408,8 +1408,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   } as any,
   welcomeWidgetCardFocused: {
-    borderColor: '#FFFFFF',
-    borderWidth: 1.5,
+    //borderColor: '#FFFFFF',
+    //borderWidth: 1.5,
   } as any,
   widgetTitle: {
     color: '#FFFFFF',
