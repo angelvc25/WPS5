@@ -209,6 +209,14 @@ app.whenReady().then(() => {
           platform: 'Spotify',
           ...filteredUpdate
         });
+      } else if (updatedApp.id.toString().startsWith('steam_')) {
+        data.games = data.games || [];
+        const filteredUpdate = Object.fromEntries(
+          Object.entries(updatedApp).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+        );
+        data.games.push({
+          ...filteredUpdate
+        });
       } else {
         return { success: false, error: 'App not found' };
       }

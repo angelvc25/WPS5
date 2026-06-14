@@ -382,10 +382,12 @@ export default function ConsoleHome() {
   }, []);
 
   const GAMES_LIMIT = 10;
-  let currentData = currentRenderedTab === 'Games' ? games : media;
+  const nonSteamGames = games.filter(item => !item.id.toString().startsWith('steam_'));
+
+  let currentData = currentRenderedTab === 'Games' ? nonSteamGames : media;
 
   if (currentRenderedTab === 'Games') {
-    currentData = games.slice(0, GAMES_LIMIT);
+    currentData = nonSteamGames.slice(0, GAMES_LIMIT);
     currentData.push({
       id: 'more_library',
       title: 'Ver Biblioteca',
@@ -395,11 +397,14 @@ export default function ConsoleHome() {
   }
 
   // Filter out system utility cards from the saved games list
-  const savedGames = games.filter(
+  const savedGames = nonSteamGames.filter(
     item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && item.id !== '5' && !item.isFolder && !item.isGrid
   );
 
-  const displayedLibraryGames = libraryTab === 'installed' ? savedGames : steamGames;
+  const displayedLibraryGames = libraryTab === 'installed' ? savedGames : steamGames.map(sg => {
+    const override = games.find(g => g.id === sg.id);
+    return override ? { ...sg, ...override } : sg;
+  });
 
   useEffect(() => {
     if (libraryTab === 'collection' && steamGames.length === 0 && !loadingSteam) {
