@@ -1806,7 +1806,7 @@ export default function ConsoleHome() {
           <LibraryGrid
             games={displayedLibraryGames}
             activeTab={libraryTab}
-            onTabChange={setLibraryTab}
+            onTabChange={(tab) => { setLibraryTab(tab); setLibraryGridFocusIndex(0); }}
             isLoading={loadingSteam}
             isFocused={focusArea === 'library_grid'}
             focusedIndex={libraryGridFocusIndex}
