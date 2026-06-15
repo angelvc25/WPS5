@@ -314,69 +314,90 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
           /* Grid wrapper that translates up/down depending on focus */
           <Animated.View style={animatedGridStyle}>
             <View style={styles.grid}>
-              {games.map((game, index) => {
-                const isItemFocused = isFocused && focusedIndex === index;
-                const borderId = `lib-${game.id ?? index}`;
+              {(() => {
+                // Virtualization: only render rows near the visible area
+                const totalRows = Math.ceil(games.length / COLUMNS);
+                const visibleRowCount = Math.ceil((windowHeight - 220) / rowHeight);
+                const BUFFER = 3; // extra rows above/below to pre-render
+                const startRow = Math.max(0, currentRow - BUFFER);
+                const endRow = Math.min(totalRows - 1, currentRow + visibleRowCount + BUFFER);
 
-                return (
-                  <TouchableOpacity
-                    key={game.id ?? index}
-                    activeOpacity={0.8}
-                    onPress={() => handleItemPress(index, game)}
-                    style={[
-                      styles.gameCardWrapper,
-                      isItemFocused && styles.gameCardWrapperFocused,
-                    ]}
-                  >
-                    {/* SpinningBorder: sits outside the BlurView overflow:hidden clip */}
-                    {isItemFocused && <SpinningBorder id={borderId} />}
+                return games.map((game, index) => {
+                  const itemRow = Math.floor(index / COLUMNS);
 
-                    <BlurView
-                      intensity={isItemFocused ? 45 : 25}
-                      tint="dark"
+                  // Off-screen items: render lightweight invisible placeholder
+                  if (itemRow < startRow || itemRow > endRow) {
+                    return (
+                      <View
+                        key={game.id ?? index}
+                        style={styles.gameCardPlaceholder}
+                      />
+                    );
+                  }
+
+                  const isItemFocused = isFocused && focusedIndex === index;
+                  const borderId = `lib-${game.id ?? index}`;
+
+                  return (
+                    <TouchableOpacity
+                      key={game.id ?? index}
+                      activeOpacity={0.8}
+                      onPress={() => handleItemPress(index, game)}
                       style={[
-                        styles.gameCard,
-                        isItemFocused && styles.gameCardFocused,
+                        styles.gameCardWrapper,
+                        isItemFocused && styles.gameCardWrapperFocused,
                       ]}
                     >
-                      <View style={styles.imageContainer}>
-                        {game.image ? (
-                          <Image source={game.image} style={styles.gameImage} contentFit="cover" />
-                        ) : (
-                          <View style={styles.placeholderImage}>
-                            <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
-                          </View>
-                        )}
+                      {/* SpinningBorder: sits outside the BlurView overflow:hidden clip */}
+                      {isItemFocused && <SpinningBorder id={borderId} />}
 
-                        {/* Overlay degradado + nombre SOLO cuando está enfocado */}
-                        {isItemFocused && (
-                          <View style={styles.focusedOverlay}>
-                            <View style={styles.gradientOverlay} />
-
-                            <View style={styles.gameInfoContainer}>
-                              <RNImage
-                                source={require('@/assets/images/PS5.png')}
-                                style={styles.platformLogo}
-                                resizeMode="contain"
-                              />
-
-                              <SlidingGameTitle
-                                title={game.title || game.title || 'Juego'}
-                                focused={isItemFocused}
-                              />
+                      <BlurView
+                        intensity={isItemFocused ? 45 : 25}
+                        tint="dark"
+                        style={[
+                          styles.gameCard,
+                          isItemFocused && styles.gameCardFocused,
+                        ]}
+                      >
+                        <View style={styles.imageContainer}>
+                          {game.image ? (
+                            <Image source={game.image} style={styles.gameImage} contentFit="cover" />
+                          ) : (
+                            <View style={styles.placeholderImage}>
+                              <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
                             </View>
-                          </View>
-                        )}
+                          )}
 
-                        {/* Subtle dim overlay for non-focused items when grid has focus */}
-                        {isFocused && !isItemFocused && (
-                          <View style={styles.unfocusedOverlay} />
-                        )}
-                      </View>
-                    </BlurView>
-                  </TouchableOpacity>
-                );
-              })}
+                          {/* Overlay degradado + nombre SOLO cuando está enfocado */}
+                          {isItemFocused && (
+                            <View style={styles.focusedOverlay}>
+                              <View style={styles.gradientOverlay} />
+
+                              <View style={styles.gameInfoContainer}>
+                                <RNImage
+                                  source={require('@/assets/images/PS5.png')}
+                                  style={styles.platformLogo}
+                                  resizeMode="contain"
+                                />
+
+                                <SlidingGameTitle
+                                  title={game.title || game.title || 'Juego'}
+                                  focused={isItemFocused}
+                                />
+                              </View>
+                            </View>
+                          )}
+
+                          {/* Subtle dim overlay for non-focused items when grid has focus */}
+                          {isFocused && !isItemFocused && (
+                            <View style={styles.unfocusedOverlay} />
+                          )}
+                        </View>
+                      </BlurView>
+                    </TouchableOpacity>
+                  );
+                });
+              })()}
             </View>
           </Animated.View>
         )}
@@ -456,6 +477,12 @@ const styles = StyleSheet.create({
         gap: 16,
       },
     }),
+  },
+  gameCardPlaceholder: {
+    // Invisible placeholder that maintains grid layout for off-screen items
+    aspectRatio: 1,
+    borderRadius: 16,
+    opacity: 0,
   },
   gameCardWrapper: {
     borderRadius: 16,
