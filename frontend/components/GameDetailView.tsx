@@ -102,33 +102,27 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
   const getActiveTabList = () => {
     if (!assetsData) return [];
+    
+    const debugGrids = (assetsData.grids || []).map(g => ({
+      id: g.id,
+      w: g.width,
+      h: g.height,
+      wType: typeof g.width,
+      hType: typeof g.height
+    })).slice(0, 5);
+
+    console.log('getActiveTabList Debug:', {
+      tab: assetSelectorTab,
+      filter: selectedDimensionFilter,
+      gridsCount: assetsData.grids?.length,
+      firstFiveGrids: debugGrids
+    });
+
     let list: any[] = [];
     switch (assetSelectorTab) {
       case 'capsule':
-        list = (assetsData.grids || []).filter((g: any) => {
-          const w = Number(g.width) || 0;
-          const h = Number(g.height) || 0;
-          if (selectedDimensionFilter === '1:1') {
-            return w === h;
-          }
-          if (selectedDimensionFilter === 'all') {
-            return w < h || w === h;
-          }
-          return w < h;
-        });
-        break;
       case 'capsule_wide':
-        list = (assetsData.grids || []).filter((g: any) => {
-          const w = Number(g.width) || 0;
-          const h = Number(g.height) || 0;
-          if (selectedDimensionFilter === '1:1') {
-            return w === h;
-          }
-          if (selectedDimensionFilter === 'all') {
-            return w > h || w === h;
-          }
-          return w > h;
-        });
+        list = assetsData.grids || [];
         break;
       case 'hero':
         return assetsData.heroes || [];
@@ -140,33 +134,73 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         return [];
     }
 
-    if (selectedDimensionFilter === '2:3') {
-      return list.filter((g: any) => {
+    const isCapsule = assetSelectorTab === 'capsule';
+
+    let finalFiltered: any[] = [];
+
+    if (selectedDimensionFilter === '1:1') {
+      finalFiltered = list.filter((g: any) => {
         const w = Number(g.width) || 0;
         const h = Number(g.height) || 0;
-        return h > 0 && Math.abs(w / h - 2 / 3) < 0.05;
+        return w === h && w > 0;
       });
-    } else if (selectedDimensionFilter === '22:31') {
-      return list.filter((g: any) => {
+    } else if (isCapsule) {
+      const verticalList = list.filter((g: any) => {
         const w = Number(g.width) || 0;
         const h = Number(g.height) || 0;
-        return h > 0 && Math.abs(w / h - 22 / 31) < 0.05;
+        return w < h;
       });
-    } else if (selectedDimensionFilter === '1:1') {
-      return list.filter((g: any) => {
+
+      if (selectedDimensionFilter === '2:3') {
+        finalFiltered = verticalList.filter((g: any) => {
+          const w = Number(g.width) || 0;
+          const h = Number(g.height) || 0;
+          return h > 0 && Math.abs(w / h - 2 / 3) < 0.05;
+        });
+      } else if (selectedDimensionFilter === '22:31') {
+        finalFiltered = verticalList.filter((g: any) => {
+          const w = Number(g.width) || 0;
+          const h = Number(g.height) || 0;
+          return h > 0 && Math.abs(w / h - 22 / 31) < 0.05;
+        });
+      } else {
+        finalFiltered = verticalList;
+      }
+    } else {
+      const horizontalList = list.filter((g: any) => {
         const w = Number(g.width) || 0;
         const h = Number(g.height) || 0;
-        return w === h;
+        return w > h;
       });
-    } else if (selectedDimensionFilter === '92:43') {
-      return list.filter((g: any) => {
-        const w = Number(g.width) || 0;
-        const h = Number(g.height) || 0;
-        return h > 0 && Math.abs(w / h - 92 / 43) < 0.05;
-      });
+
+      if (selectedDimensionFilter === '92:43') {
+        finalFiltered = horizontalList.filter((g: any) => {
+          const w = Number(g.width) || 0;
+          const h = Number(g.height) || 0;
+          return h > 0 && Math.abs(w / h - 92 / 43) < 0.05;
+        });
+      } else {
+        finalFiltered = horizontalList;
+      }
     }
 
-    return list;
+    // Deduplicate to avoid React key collisions if the API returns duplicates
+    const seen = new Set();
+    const uniqueFiltered = finalFiltered.filter(g => {
+      if (!g.id) return true;
+      if (seen.has(g.id)) return false;
+      seen.add(g.id);
+      return true;
+    });
+
+    console.log('getActiveTabList Return:', {
+      tab: assetSelectorTab,
+      filter: selectedDimensionFilter,
+      returnCount: uniqueFiltered.length,
+      firstThreeReturned: uniqueFiltered.slice(0, 3).map(g => ({ id: g.id, w: g.width, h: g.height }))
+    });
+
+    return uniqueFiltered;
   };
 
   const cycleTab = (direction: number) => {
@@ -1454,6 +1488,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       <Text style={styles.filterBtnText}>{getDimensionFilterLabel(selectedDimensionFilter)}</Text>
                     </TouchableOpacity>
 
+                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginLeft: 10, alignSelf: 'center' }}>v1.0.2</Text>
+
                     <TouchableOpacity
                       style={[
                         styles.filterBtn,
@@ -1565,7 +1601,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                         return (
                           <TouchableOpacity
-                            key={asset.id || idx}
+                            key={`${asset.id}_${idx}`}
                             style={[
                               styles.assetCard,
                               { width: cardWidthPercent },

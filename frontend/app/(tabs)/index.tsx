@@ -1146,8 +1146,18 @@ export default function ConsoleHome() {
             return;
           }
           if (focusArea === 'game_panel') {
-            if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
+            if (gamePanelFocusIndex === 0) {
               if (activeItem) { handleLaunchApp(activeItem); }
+            } else if (gamePanelFocusIndex === 1) {
+              if (activeItem) {
+                const target = activeItem.isLastPlayed ? lastPlayedGame : activeItem;
+                if (target) {
+                  setSelectedItem(target);
+                  setDetailVisible(true);
+                } else {
+                  alert('Aún no has jugado a ningún juego.');
+                }
+              }
             } else if (gamePanelFocusIndex >= 100) {
               const mediaItem = steamMedia[gamePanelFocusIndex - 100];
               if (mediaItem) {
