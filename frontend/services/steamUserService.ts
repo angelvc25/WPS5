@@ -27,7 +27,7 @@ export interface SteamPlayerAchievementsResponse {
 
 export const fetchSteamOwnedGames = async (apiKey: string, steamId: string): Promise<SteamOwnedGame[]> => {
   try {
-    const url = `http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${apiKey}&steamid=${steamId}&format=json&include_appinfo=1`;
+    const url = `http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${apiKey}&steamid=${steamId}&format=json&include_appinfo=1&include_played_free_games=1`;
     const fetchUrl = Platform.OS === 'web' ? `${CORS_PROXY}${encodeURIComponent(url)}` : url;
     
     const response = await fetch(fetchUrl);
