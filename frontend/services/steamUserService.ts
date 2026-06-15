@@ -28,7 +28,10 @@ export interface SteamPlayerAchievementsResponse {
 export const fetchSteamOwnedGames = async (apiKey: string, steamId: string): Promise<SteamOwnedGame[]> => {
   try {
     const url = `http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${apiKey}&steamid=${steamId}&format=json&include_appinfo=1&include_played_free_games=1`;
-    const fetchUrl = Platform.OS === 'web' ? `${CORS_PROXY}${encodeURIComponent(url)}` : url;
+    // Electron doesn't need CORS proxy; only use it for pure browser web
+    const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+    const needsProxy = Platform.OS === 'web' && !isElectron;
+    const fetchUrl = needsProxy ? `${CORS_PROXY}${encodeURIComponent(url)}` : url;
     
     const response = await fetch(fetchUrl);
     if (!response.ok) {

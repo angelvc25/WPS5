@@ -743,8 +743,8 @@ export default function ConsoleHome() {
     if (Platform.OS === 'web') {
       const handleKeyDown = (e: any) => {
         if (!e.fromGamepad) setInputMode('keyboard');
-        if (isLaunching) return;
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
+        if (isLaunching) return;
         if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
 
         // Throttle rapid arrow key inputs (key repeats/fast tapping)
@@ -1205,7 +1205,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, displayedLibraryGames, lastPlayedGame]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -1335,6 +1335,19 @@ export default function ConsoleHome() {
       setIsLaunching(true);
       (window as any).electronAPI.launchApp(targetItem.id, targetItem.path).then(() => {
         loadApps();
+        if (activeTab === 'Games') {
+          const lpIdx = currentData.findIndex(x => x.id === 'last_played');
+          if (lpIdx !== -1) {
+            setActiveIndex(lpIdx);
+          } else {
+            setActiveIndex(2);
+          }
+        }
+        setFocusArea('main_carousel');
+        setDetailVisible(false);
+        setFavoritesVisible(false);
+        setRandomSelectorVisible(false);
+
         setTimeout(() => {
           setIsLaunching(false);
           setLaunchingItem(null);
@@ -2500,7 +2513,7 @@ export default function ConsoleHome() {
 
       {/* PROFILE DROPDOWN MENU & BACKDROP */}
       {isProfileMenuOpen && (
-        <View style={StyleSheet.absoluteFill}>
+        <View style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}>
           {/* Backdrop for partially darkening background */}
           <TouchableOpacity
             style={styles.profileMenuBackdrop}

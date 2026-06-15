@@ -63,6 +63,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [gridFocusIndex, setGridFocusIndex] = useState(0);
   const [filterFocusIndex, setFilterFocusIndex] = useState(0);
 
+  useEffect(() => {
+    setSelectedDimensionFilter('all');
+  }, [assetSelectorTab]);
+
   const getAvailableDimensionFilters = (): ('all' | '2:3' | '22:31' | '1:1' | '92:43')[] => {
     if (assetSelectorTab === 'capsule') {
       return ['all', '2:3', '22:31', '1:1'];
@@ -101,32 +105,65 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     let list: any[] = [];
     switch (assetSelectorTab) {
       case 'capsule':
-        list = (assetsData.grids || []).filter((g: any) => g.width < g.height || (selectedDimensionFilter === '1:1' && g.width === g.height));
+        list = (assetsData.grids || []).filter((g: any) => {
+          const w = Number(g.width) || 0;
+          const h = Number(g.height) || 0;
+          if (selectedDimensionFilter === '1:1') {
+            return w === h;
+          }
+          if (selectedDimensionFilter === 'all') {
+            return w < h || w === h;
+          }
+          return w < h;
+        });
         break;
       case 'capsule_wide':
-        list = (assetsData.grids || []).filter((g: any) => g.width > g.height || (selectedDimensionFilter === '1:1' && g.width === g.height));
+        list = (assetsData.grids || []).filter((g: any) => {
+          const w = Number(g.width) || 0;
+          const h = Number(g.height) || 0;
+          if (selectedDimensionFilter === '1:1') {
+            return w === h;
+          }
+          if (selectedDimensionFilter === 'all') {
+            return w > h || w === h;
+          }
+          return w > h;
+        });
         break;
       case 'hero':
-        list = assetsData.heroes || [];
-        break;
+        return assetsData.heroes || [];
       case 'logo':
-        list = assetsData.logos || [];
-        break;
+        return assetsData.logos || [];
       case 'icon':
-        list = assetsData.icons || [];
-        break;
+        return assetsData.icons || [];
       default:
         return [];
     }
 
     if (selectedDimensionFilter === '2:3') {
-      return list.filter((g: any) => Math.abs(g.width / g.height - 2 / 3) < 0.05);
+      return list.filter((g: any) => {
+        const w = Number(g.width) || 0;
+        const h = Number(g.height) || 0;
+        return h > 0 && Math.abs(w / h - 2 / 3) < 0.05;
+      });
     } else if (selectedDimensionFilter === '22:31') {
-      return list.filter((g: any) => Math.abs(g.width / g.height - 22 / 31) < 0.05);
+      return list.filter((g: any) => {
+        const w = Number(g.width) || 0;
+        const h = Number(g.height) || 0;
+        return h > 0 && Math.abs(w / h - 22 / 31) < 0.05;
+      });
     } else if (selectedDimensionFilter === '1:1') {
-      return list.filter((g: any) => g.width === g.height);
+      return list.filter((g: any) => {
+        const w = Number(g.width) || 0;
+        const h = Number(g.height) || 0;
+        return w === h;
+      });
     } else if (selectedDimensionFilter === '92:43') {
-      return list.filter((g: any) => Math.abs(g.width / g.height - 92 / 43) < 0.05);
+      return list.filter((g: any) => {
+        const w = Number(g.width) || 0;
+        const h = Number(g.height) || 0;
+        return h > 0 && Math.abs(w / h - 92 / 43) < 0.05;
+      });
     }
 
     return list;
