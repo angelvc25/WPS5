@@ -26,12 +26,15 @@ export interface UserSettings {
   syncPreferences?: SyncPreferences;
   steamApiKey?: string;
   steamId?: string;
+  useSteamAvatar?: boolean;
 }
 
 export interface UserProfile {
   id: string;
   name: string;
   avatar: string;
+  avatarBase64?: string;
+  steamAvatarUrl?: string;
   color: string;
   settings?: UserSettings;
 }
@@ -385,7 +388,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
               <RadarFocusWrapper id={user.id} isFocused={isFocused} size={164} innerSize={isFocused ? 150 : 130}>
                 <View style={[styles.card, isFocused && styles.cardFocused]}>
                   <Image
-                    source={{ uri: (user as any).avatarBase64 || user.avatar }}
+                    source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
                     style={styles.avatarImg}
                   />
                 </View>

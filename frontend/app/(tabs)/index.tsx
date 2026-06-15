@@ -1419,6 +1419,32 @@ export default function ConsoleHome() {
     }
   };
 
+  const fetchSteamAvatar = async (apiKey: string, steamId: string) => {
+    try {
+      const res = await fetch(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${apiKey}&steamids=${steamId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.response?.players?.length > 0) {
+          const avatarUrl = data.response.players[0].avatarfull;
+          updateUser({ steamAvatarUrl: avatarUrl });
+          return avatarUrl;
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching Steam avatar:', err);
+    }
+    return null;
+  };
+
+  const handleToggleSteamAvatar = async () => {
+    const isCurrentlyUsingSteam = !!activeUser?.settings?.useSteamAvatar;
+    const newSettings = { ...activeUser?.settings, useSteamAvatar: !isCurrentlyUsingSteam };
+    updateUser({ settings: newSettings as any });
+    if (!isCurrentlyUsingSteam && activeUser?.settings?.steamApiKey && activeUser?.settings?.steamId) {
+      await fetchSteamAvatar(activeUser.settings.steamApiKey, activeUser.settings.steamId);
+    }
+  };
+
   const currentBg = (currentRenderedTab === 'Games' && activeIndex === 1)
     ? (homeBackground || require('@/assets/images/FondoDefault2.jpg'))
     : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg')));
@@ -1717,7 +1743,7 @@ export default function ConsoleHome() {
                 activeOpacity={0.75}
               >
                 {activeUser?.avatar ? (
-                  <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.avatar} />
+                  <Image source={{ uri: (activeUser?.settings?.useSteamAvatar && activeUser?.steamAvatarUrl) ? activeUser.steamAvatarUrl : ((activeUser as any).avatarBase64 || activeUser.avatar) }} style={styles.avatar} />
                 ) : (
                   <View style={styles.defaultAvatarHeader}>
                     {/* <Ionicons name="person" size={18} color="#FFF" /> */}
@@ -2169,7 +2195,7 @@ export default function ConsoleHome() {
                         ]}
                       >
                         {activeUser?.avatar ? (
-                          <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.settingsAvatarNew} />
+                          <Image source={{ uri: (activeUser?.settings?.useSteamAvatar && activeUser?.steamAvatarUrl) ? activeUser.steamAvatarUrl : ((activeUser as any).avatarBase64 || activeUser.avatar) }} style={styles.settingsAvatarNew} />
                         ) : (
                           <View style={styles.defaultAvatarContainerNew}>
                             <Ionicons name="person" size={60} color="rgba(255,255,255,0.4)" />
@@ -2181,13 +2207,30 @@ export default function ConsoleHome() {
                       </TouchableOpacity>
                     </View>
 
+                    <View style={styles.settingsOptionRowNew}>
+                      <View style={styles.settingsOptionInfoNew}>
+                        <Text style={styles.settingsOptionLabelNew}>Usar Foto de Perfil de Steam</Text>
+                        <Text style={styles.settingsOptionDescNew}>Usa tu avatar de Steam en lugar de la foto local. Requiere API Key y Steam ID.</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={handleToggleSteamAvatar}
+                        style={[
+                          styles.toggleContainerNew,
+                          activeUser?.settings?.useSteamAvatar && styles.toggleContainerActiveNew,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 1) && styles.settingsElementFocusedNew
+                        ]}
+                      >
+                        <View style={[styles.toggleCircleNew, activeUser?.settings?.useSteamAvatar && styles.toggleCircleActiveNew]} />
+                      </TouchableOpacity>
+                    </View>
+
                     <View style={styles.settingsSectionNew}>
                       <Text style={styles.settingsLabelNew}>Nombre de Usuario</Text>
                       <TextInput
                         ref={settingsNameRef}
                         style={[
                           styles.settingsInputNew,
-                          (settingsFocusArea === 'content' && settingsFocusIndex === 1) && styles.settingsInputFocusedNew
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 2) && styles.settingsInputFocusedNew
                         ]}
                         value={activeUser?.name || ''}
                         onChangeText={(text) => updateUser({ name: text })}
@@ -2236,7 +2279,7 @@ export default function ConsoleHome() {
                       <TextInput
                         style={[
                           styles.settingsInputNew,
-                          (settingsFocusArea === 'content' && settingsFocusIndex === 2) && styles.settingsInputFocusedNew
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 3) && styles.settingsInputFocusedNew
                         ]}
                         value={activeUser?.settings?.steamApiKey || ''}
                         onChangeText={(text) => updateUser({ settings: { ...activeUser?.settings, steamApiKey: text } as any })}
@@ -2251,7 +2294,7 @@ export default function ConsoleHome() {
                       <TextInput
                         style={[
                           styles.settingsInputNew,
-                          (settingsFocusArea === 'content' && settingsFocusIndex === 3) && styles.settingsInputFocusedNew
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 4) && styles.settingsInputFocusedNew
                         ]}
                         value={activeUser?.settings?.steamId || ''}
                         onChangeText={(text) => updateUser({ settings: { ...activeUser?.settings, steamId: text } as any })}
@@ -2361,7 +2404,7 @@ export default function ConsoleHome() {
               <View style={styles.userModalHeader}>
                 <View style={styles.modalAvatarContainer}>
                   {activeUser?.avatar ? (
-                    <Image source={{ uri: (activeUser as any).avatarBase64 || activeUser.avatar }} style={styles.modalAvatar} />
+                    <Image source={{ uri: (activeUser?.settings?.useSteamAvatar && activeUser?.steamAvatarUrl) ? activeUser.steamAvatarUrl : ((activeUser as any).avatarBase64 || activeUser.avatar) }} style={styles.modalAvatar} />
                   ) : (
                     <View style={styles.defaultAvatarModal}><Ionicons name="person" size={24} color="#FFF" /></View>
                   )}

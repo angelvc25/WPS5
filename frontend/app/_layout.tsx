@@ -37,9 +37,10 @@ export default function RootLayout() {
   }
 
   const updateUser = async (updates: Partial<UserProfile>) => {
-    if (activeUser) {
-      const newUser = { ...activeUser, ...updates };
-      setActiveUser(newUser);
+    setActiveUser(prevUser => {
+      if (!prevUser) return prevUser;
+      
+      const newUser = { ...prevUser, ...updates };
 
       // Persistir en el listado global de usuarios (Electron DB y LocalStorage fallback)
       const savedUsers = localStorage.getItem('console_users');
@@ -52,10 +53,12 @@ export default function RootLayout() {
         
         // Guardar en Electron DB
         if ((window as any).electronAPI) {
-          await (window as any).electronAPI.saveUsers(updatedList);
+          (window as any).electronAPI.saveUsers(updatedList).catch(console.error);
         }
       }
-    }
+
+      return newUser;
+    });
   };
 
   return (
