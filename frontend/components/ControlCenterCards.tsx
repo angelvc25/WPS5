@@ -20,7 +20,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import SpinningBorder from './SpinningBorderConic';
+import SpinningBorder from './Spinningborder';
+import SpinningBorderNoticias from './SpinningborderNoticias';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 import { useUser } from '../contexts/UserContext';
 
@@ -471,7 +472,7 @@ function NewsRow({ title, desc, tag, date, imageUri, icon, color, enterDelay, is
         </View>
       </View>
       {isFocused && (
-        <SpinningBorder
+        <SpinningBorderNoticias
           width={'100%'}
           height={'100%'}
           borderRadius={13}

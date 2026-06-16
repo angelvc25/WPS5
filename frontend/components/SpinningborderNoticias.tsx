@@ -17,13 +17,13 @@ export const Spinningborder = ({ size }: SpinningBorderProps) => {
     100% { transform: translate(-50%, -50%) rotate(360deg); }
   }
   
-  .wc-spinning-container2 {
+  .wc-spinning-container3 {
     position: absolute;
-    top: -5px;
-    left: -6px;
-    right: -6px;
-    bottom: -5px;
-    border-radius: 22px;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    border-radius: 12px;
     z-index: 20;
     overflow: visible;
 
@@ -56,7 +56,7 @@ export const Spinningborder = ({ size }: SpinningBorderProps) => {
     
     background: conic-gradient(
       from 0deg,
-      rgba(255, 255, 255, 0.15) 0%,
+      rgba(255, 255, 255, 0.58) 0%,
       rgba(255, 255, 255, 0.79) 28%,
       rgba(180, 210, 255, 0.86) 33%,
       rgba(220, 235, 255, 0.95) 48%,
@@ -64,7 +64,7 @@ export const Spinningborder = ({ size }: SpinningBorderProps) => {
       rgba(223, 248, 182, 0.95) 52%,
       rgba(180, 210, 255, 0.88) 57%,
       rgba(255, 255, 255, 0.75) 62%,
-      rgba(255, 255, 255, 0.15) 100%
+      rgba(255, 255, 255, 0.51) 100%
     );
     border-radius: 50%;
   }
@@ -77,7 +77,7 @@ export const Spinningborder = ({ size }: SpinningBorderProps) => {
     70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
     100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
   }
-  .wc-shimmer-line2 {
+  .wc-shimmer-line3 {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -98,7 +98,7 @@ export const Spinningborder = ({ size }: SpinningBorderProps) => {
       {/* CAPA ATRÁS: Borde Giratorio con Máscara Rectangular */}
       {/* Eliminamos los estilos inline que puedan chocar con la máscara */}
       {/* @ts-ignore */}
-      <div className="wc-spinning-container2">
+      <div className="wc-spinning-container3">
         {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
         <div className="wc-spinning-inner" />
       </div>
@@ -118,7 +118,7 @@ export const Spinningborder = ({ size }: SpinningBorderProps) => {
         pointerEvents="none"
       >
         {/* @ts-ignore */}
-        <div className="wc-shimmer-line2" />
+        <div className="wc-shimmer-line3" />
       </View>
     </>
   );

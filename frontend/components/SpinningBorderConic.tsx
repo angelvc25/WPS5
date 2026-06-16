@@ -19,11 +19,11 @@ export const SpinningBorderConic = ({ size }: SpinningBorderConicProps) => {
   
   .wc-spinning-container {
     position: absolute;
-    top: -3px;
-    left: 7px;
-    right: 7px;
-    bottom: -3px;
-    border-radius: 23px;
+    top: -2px;
+    left: 10px;
+    right: 10px;
+    bottom: -2px;
+    border-radius: 22px;
     z-index: 20;
     overflow: visible;
 
@@ -43,7 +43,7 @@ export const SpinningBorderConic = ({ size }: SpinningBorderConicProps) => {
     mask-composite: exclude;
 
     /* 4. El grosor del anillo se define por el "border" del contenedor */
-    border: 3px solid transparent; 
+    border: 2px solid transparent; 
   }
 
   .wc-spinning-inner {

@@ -244,8 +244,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
-    marginLeft: 10,
-    marginRight: 10,
+    marginLeft: 12,
+    marginRight: 12,
   } as any,
   moreCard: {
     justifyContent: 'center',
