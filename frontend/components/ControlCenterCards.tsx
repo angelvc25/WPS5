@@ -20,7 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import SpinningBorder from './Spinningborder';
+import SpinningBorder from './SpinningBorderConic';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 import { useUser } from '../contexts/UserContext';
 
@@ -99,7 +99,7 @@ function AnimatedCard({
   const [focusedNewsIndex, setFocusedNewsIndex] = React.useState(0);
   const scrollRef = React.useRef<ScrollView>(null);
   const [realNews, setRealNews] = React.useState<SteamNewsItem[]>([]);
-  
+
   const { activeUser } = useUser();
   const [captureImage, setCaptureImage] = React.useState<string | null>(null);
   const [isCaptureModalVisible, setCaptureModalVisible] = React.useState(false);
@@ -281,7 +281,7 @@ function AnimatedCard({
                 <Image source={{ uri: captureImage || card.imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
                 {/* Maximize Overlay */}
                 {isExpanded && (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={{ position: 'absolute', inset: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}
                     onPress={() => setCaptureModalVisible(true)}
                     activeOpacity={0.8}
@@ -728,7 +728,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  
+
   // Lightbox
   lightboxOverlay: {
     flex: 1,
