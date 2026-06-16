@@ -444,7 +444,10 @@ export default function ConsoleHome() {
       const now = new Date();
       let hours = now.getHours();
       const minutes = now.getMinutes().toString().padStart(2, '0');
-      setCurrentTime(`${hours}:${minutes}`);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      setCurrentTime(`${hours}:${minutes} ${ampm}`);
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
@@ -981,7 +984,7 @@ export default function ConsoleHome() {
           else if (focusArea === 'header_tabs') {
             if (focusIndex < TABS.length - 1) {
               const nextIdx = focusIndex + 1;
-              setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
+              setFocusIndex(nextIdx);
             } else {
               // Último tab → pasar a los iconos de la derecha (buscar)
               setFocusArea('header_avatar');
@@ -1013,7 +1016,7 @@ export default function ConsoleHome() {
           else if (focusArea === 'main_carousel') { const nextIdx = Math.max(activeIndex - 1, 0); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
           else if (focusArea === 'header_tabs') {
             const nextIdx = Math.max(focusIndex - 1, 0);
-            setFocusIndex(nextIdx); setActiveTab(TABS[nextIdx]); setActiveIndex(0);
+            setFocusIndex(nextIdx);
           }
           else if (focusArea === 'header_avatar') {
             if (focusIndex > 0) {
@@ -1129,6 +1132,12 @@ export default function ConsoleHome() {
         }
         if (e.key === 'Enter') {
           soundService.playActivation();
+          if (focusArea === 'header_tabs') {
+            setActiveTab(TABS[focusIndex]);
+            setActiveIndex(0);
+            setFocusArea('main_carousel');
+            return;
+          }
           if (focusArea === 'header_avatar') {
             if (focusIndex === 0) {
               // Buscar — sin acción por ahora
@@ -1713,8 +1722,8 @@ export default function ConsoleHome() {
               <Image
                 source={require('@/assets/images/PS5_SearchIcon.png')}
                 style={{
-                  width: 30,
-                  height: 30,
+                  width: 24,
+                  height: 24,
                   resizeMode: 'contain',
                 }}
                 tintColor={
@@ -1737,8 +1746,8 @@ export default function ConsoleHome() {
               <Image
                 source={require('@/assets/images/settings.png')}
                 style={{
-                  width: 30,
-                  height: 30,
+                  width: 24,
+                  height: 24,
                   resizeMode: 'contain',
                 }}
                 tintColor={
