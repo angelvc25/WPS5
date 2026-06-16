@@ -21,6 +21,7 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import SpinningBorder from './Spinningborder';
+import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 
 interface CardData {
   id: string;
@@ -72,6 +73,7 @@ function AnimatedCard({
   card,
   index,
   isActive,
+  isExpanded,
   isFocusedLayer,
   onPress,
   enterDelay,
@@ -79,6 +81,7 @@ function AnimatedCard({
   card: CardData;
   index: number;
   isActive: boolean;
+  isExpanded: boolean;
   isFocusedLayer: boolean;
   onPress: () => void;
   enterDelay: number;
@@ -89,12 +92,71 @@ function AnimatedCard({
   const scale = useSharedValue(1);
   const scaleX = useSharedValue(1);
   const focusLift = useSharedValue(0);
+  const animWidth = useSharedValue(260);
+  const animHeight = useSharedValue(260);
+
+  const [focusedNewsIndex, setFocusedNewsIndex] = React.useState(0);
+  const [realNews, setRealNews] = React.useState<SteamNewsItem[]>([]);
+
+  useEffect(() => {
+    if (card.type === 'news') {
+      fetchSteamNewsByName('Helldivers 2').then(data => {
+        if (data && data.length > 0) {
+          setRealNews(data.slice(0, 6));
+        }
+      });
+    }
+  }, [card.type]);
+
+  const maxIndex = realNews.length > 0 ? realNews.length - 1 : NEWS_ITEMS.length - 1;
+
+  useEffect(() => {
+    if (isExpanded) {
+      setFocusedNewsIndex(0);
+    }
+  }, [isExpanded]);
+
+  useEffect(() => {
+    if (!isExpanded || Platform.OS !== 'web') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        setFocusedNewsIndex((prev) => Math.max(0, prev - 1));
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        setFocusedNewsIndex((prev) => Math.min(maxIndex, prev + 1));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (realNews.length > 0 && realNews[focusedNewsIndex]?.url) {
+          window.open(realNews[focusedNewsIndex].url, '_blank');
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isExpanded, maxIndex, realNews, focusedNewsIndex]);
+
+  useEffect(() => {
+    if (!isActive || isExpanded || Platform.OS !== 'web') return;
+    const handleEnterToExpand = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        onPress();
+      }
+    };
+    window.addEventListener('keydown', handleEnterToExpand, true);
+    return () => window.removeEventListener('keydown', handleEnterToExpand, true);
+  }, [isActive, isExpanded, onPress]);
 
   // Entrance animation on mount (staggered per card)
   useEffect(() => {
     translateY.value = withDelay(
       enterDelay,
-      withSpring(0, { damping: 18, stiffness: 200 })
+      withTiming(0, { duration: 350, easing: Easing.out(Easing.cubic) })
     );
     opacity.value = withDelay(
       enterDelay,
@@ -102,43 +164,56 @@ function AnimatedCard({
     );
   }, []);
 
+  // Size on expand
+  useEffect(() => {
+    if (isActive && isExpanded) {
+      animWidth.value = withTiming(450, { duration: 300, easing: Easing.out(Easing.cubic) });
+      animHeight.value = withTiming(650, { duration: 300, easing: Easing.out(Easing.cubic) });
+    } else {
+      animWidth.value = withTiming(260, { duration: 300, easing: Easing.out(Easing.cubic) });
+      animHeight.value = withTiming(260, { duration: 300, easing: Easing.out(Easing.cubic) });
+    }
+  }, [isActive, isExpanded]);
+
   // Scale on focus
   useEffect(() => {
-    if (isActive) {
+    if (isActive && !isExpanded) {
       scale.value = withTiming(1.30, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
 
-      scaleX.value = withSpring(1.015, {
-        damping: 18,
-        stiffness: 280,
+      scaleX.value = withTiming(1.015, {
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
 
       focusLift.value = withTiming(-35, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
     } else {
       scale.value = withTiming(1, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
 
       scaleX.value = withTiming(1, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
 
       focusLift.value = withTiming(0, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
     }
-  }, [isActive]);
+  }, [isActive, isExpanded]);
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
+    width: animWidth.value,
+    height: animHeight.value,
     transform: [
       {
         translateY: translateY.value + focusLift.value,
@@ -156,8 +231,8 @@ function AnimatedCard({
     <Animated.View style={animStyle}>
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={onPress}
-        style={styles.card}
+        onPress={isExpanded ? undefined : onPress}
+        style={[styles.card, { width: '100%', height: '100%' }]}
       >
         {/* Inner clip wrapper */}
         <View style={styles.cardClip}>
@@ -172,21 +247,74 @@ function AnimatedCard({
           )}
 
           {/* Card content */}
-          <View style={styles.cardContent} pointerEvents="none">
-            <View style={styles.cardTopBar}>
-              <View style={styles.smallIcon}>
-                <Ionicons name={card.icon} size={13} color="#000" />
+          {isExpanded && card.type === 'news' ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(23, 23, 30, 1)' }]}>
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `linear-gradient(45deg, rgba(232, 249, 255, 0.17) 0%, rgba(120,220,255,0.03) 40%, rgba(255,255,255,0.01) 60%, rgba(0,0,0,0.00) 100%)`,
+                    pointerEvents: 'none',
+                    zIndex: 1,
+                  }}
+                />
+              )}
+              <View style={{ padding: 20, flex: 1, zIndex: 2 }}>
+                <Text style={styles.expandedTitle}>{card.title}</Text>
+                <Text style={styles.expandedSubtitle}>{card.subtitle}</Text>
+                <ScrollView
+                  style={{ flex: 1, marginTop: 20 }}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {realNews.length > 0 ? (
+                    realNews.map((article, i) => (
+                      <NewsRow
+                        key={i}
+                        title={article.title}
+                        desc={(article.contents || '').replace(/<[^>]*>?/gm, '').replace(/\[\/?(b|i|u|url|img|h1|h2|h3)[^\]]*\]/gi, '').slice(0, 120) + '...'}
+                        tag={article.feedlabel.toUpperCase()}
+                        date={formatSteamDate(article.date)}
+                        imageUri={article.image_url}
+                        enterDelay={i * 50}
+                        isFocused={i === focusedNewsIndex}
+                      />
+                    ))
+                  ) : (
+                    NEWS_ITEMS.map((news, i) => (
+                      <NewsRow
+                        key={i}
+                        title={news.title}
+                        desc={news.desc}
+                        tag={news.tag}
+                        date={news.date}
+                        icon={news.icon}
+                        color={news.color}
+                        enterDelay={i * 50}
+                        isFocused={i === focusedNewsIndex}
+                      />
+                    ))
+                  )}
+                </ScrollView>
               </View>
             </View>
-            <View style={styles.cardBottom}>
-              <Text style={styles.cardSubtitle} numberOfLines={1}>{card.subtitle}</Text>
-              <Text style={styles.cardTitle} numberOfLines={2}>{card.title}</Text>
+          ) : (
+            <View style={styles.cardContent} pointerEvents="none">
+              <View style={styles.cardTopBar}>
+                <View style={styles.smallIcon}>
+                  <Ionicons name={card.icon} size={13} color="#000" />
+                </View>
+              </View>
+              <View style={styles.cardBottom}>
+                <Text style={styles.cardSubtitle} numberOfLines={1}>{card.subtitle}</Text>
+                <Text style={styles.cardTitle} numberOfLines={2}>{card.title}</Text>
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         {/* SpinningBorder — outside clip, draws over card border */}
-        {isActive && (
+        {isActive && !isExpanded && (
           <SpinningBorder
             width={260}
             height={260}
@@ -199,96 +327,28 @@ function AnimatedCard({
   );
 }
 
-// ─── Expanded Modal ────────────────────────────────────────────────────────────
-function ExpandedModal({
-  card,
-  isExpanded,
-  onClose,
-}: {
-  card: CardData;
-  isExpanded: boolean;
-  onClose: () => void;
-}) {
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.94);
-  const translateY = useSharedValue(30);
 
-  useEffect(() => {
-    if (isExpanded) {
-      opacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.ease) });
-      scale.value = withSpring(1, { damping: 22, stiffness: 260 });
-      translateY.value = withSpring(0, { damping: 22, stiffness: 260 });
-    } else {
-      opacity.value = withTiming(0, { duration: 160 });
-      scale.value = withTiming(0.94, { duration: 160 });
-      translateY.value = withTiming(20, { duration: 160 });
-    }
-  }, [isExpanded]);
-
-  const bgStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  const containerStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ scale: scale.value }, { translateY: translateY.value }],
-  }));
-
-  return (
-    <Modal transparent visible={isExpanded} animationType="none" onRequestClose={onClose}>
-      <View style={styles.modalOuter}>
-        {/* Dark background — no blur, just a solid dark with slight transparency */}
-        <Animated.View style={[StyleSheet.absoluteFill, styles.modalBg, bgStyle]} />
-
-        {/* Dismiss on background tap */}
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-
-        {/* Dialog panel */}
-        <Animated.View style={[styles.expandedContainer, containerStyle]}>
-          {/* Header */}
-          <View style={styles.expandedHeader}>
-            <View style={styles.iconCircle}>
-              <Ionicons name={card.icon} size={22} color="#fff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.expandedTitle}>{card.title}</Text>
-              <Text style={styles.expandedSubtitle}>{card.subtitle}</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={20} color="rgba(255,255,255,0.6)" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Content */}
-          {card.type === 'news' && (
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-              showsVerticalScrollIndicator={false}
-            >
-              {NEWS_ITEMS.map((news, i) => (
-                <NewsRow key={i} news={news} enterDelay={i * 50} />
-              ))}
-            </ScrollView>
-          )}
-
-          {card.type !== 'news' && (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-              <Ionicons name="construct-outline" size={48} color="rgba(255,255,255,0.15)" />
-              <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 15 }}>Próximamente</Text>
-            </View>
-          )}
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-}
 
 // ─── Animated News Row ────────────────────────────────────────────────────────
-function NewsRow({ news, enterDelay }: { news: typeof NEWS_ITEMS[0]; enterDelay: number }) {
+interface NewsRowProps {
+  title: string;
+  desc: string;
+  tag: string;
+  date: string;
+  imageUri?: string;
+  icon?: any;
+  color?: string;
+  enterDelay: number;
+  isFocused: boolean;
+}
+
+function NewsRow({ title, desc, tag, date, imageUri, icon, color, enterDelay, isFocused }: NewsRowProps) {
   const translateX = useSharedValue(-20);
   const opacity = useSharedValue(0);
 
   useEffect(() => {
-    translateX.value = withDelay(enterDelay, withSpring(0, { damping: 20, stiffness: 200 }));
-    opacity.value = withDelay(enterDelay, withTiming(1, { duration: 200 }));
+    translateX.value = withDelay(enterDelay, withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic) }));
+    opacity.value = withDelay(enterDelay, withTiming(1, { duration: 300 }));
   }, []);
 
   const style = useAnimatedStyle(() => ({
@@ -297,19 +357,33 @@ function NewsRow({ news, enterDelay }: { news: typeof NEWS_ITEMS[0]; enterDelay:
   }));
 
   return (
-    <Animated.View style={[styles.newsItem, style]}>
-      <View style={[styles.newsThumb, { backgroundColor: news.color }]}>
-        <Ionicons name={news.icon} size={26} color="rgba(255,255,255,0.55)" />
-      </View>
-      <View style={{ flex: 1 }}>
-        <View style={styles.newsTagRow}>
-          <View style={[styles.newsTag, { backgroundColor: news.tagColor }]}>
-            <Text style={styles.newsTagText}>{news.tag}</Text>
-          </View>
-          <Text style={styles.newsDate}>{news.date}</Text>
+    <Animated.View style={[styles.newsItem, style, isFocused && { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+      <View style={{ flex: 1, flexDirection: 'row', gap: 14 }}>
+        <View style={[styles.newsThumb, color ? { backgroundColor: color } : { backgroundColor: '#1a1a1a' }, { overflow: 'hidden' }]}>
+          {imageUri ? (
+            <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          ) : (
+            <Ionicons name={icon || 'newspaper'} size={26} color="rgba(255,255,255,0.55)" />
+          )}
         </View>
-        <Text style={styles.newsTitle}>{news.title}</Text>
-        <Text style={styles.newsDesc} numberOfLines={2}>{news.desc}</Text>
+        <View style={{ flex: 1 }}>
+          <View style={styles.newsTagRow}>
+            <View style={[styles.newsTag, { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]}>
+              <Text style={[styles.newsTagText, { color: 'rgba(255,255,255,0.6)' }]}>{tag}</Text>
+            </View>
+            <Text style={styles.newsDate}>{date}</Text>
+          </View>
+          <Text style={styles.newsTitle}>{title}</Text>
+          <Text style={styles.newsDesc} numberOfLines={2}>{desc}</Text>
+        </View>
+        {isFocused && (
+          <SpinningBorder
+            width={'100%'}
+            height={'100%'}
+            borderRadius={13}
+            id={`news-${enterDelay}`}
+          />
+        )}
       </View>
     </Animated.View>
   );
@@ -323,8 +397,6 @@ export default function ControlCenterCards({
   isExpanded,
   onCloseExpanded,
 }: ControlCenterCardsProps) {
-  const expandedCard = MOCK_CARDS[Math.min(focusedIndex, MOCK_CARDS.length - 1)];
-
   const translateX = useSharedValue(0);
 
   useEffect(() => {
@@ -340,27 +412,20 @@ export default function ControlCenterCards({
   }));
 
   return (
-    <>
-      <Animated.View style={[styles.cardsRow, rowStyle]}>
-        {MOCK_CARDS.map((card, index) => (
-          <AnimatedCard
-            key={card.id}
-            card={card}
-            index={index}
-            isActive={isFocusedLayer && focusedIndex === index}
-            isFocusedLayer={isFocusedLayer}
-            onPress={() => onPressCard(index)}
-            enterDelay={index * 60}
-          />
-        ))}
-      </Animated.View>
-
-      <ExpandedModal
-        card={expandedCard}
-        isExpanded={isExpanded}
-        onClose={onCloseExpanded}
-      />
-    </>
+    <Animated.View style={[styles.cardsRow, rowStyle]}>
+      {MOCK_CARDS.map((card, index) => (
+        <AnimatedCard
+          key={card.id}
+          card={card}
+          index={index}
+          isActive={isFocusedLayer && focusedIndex === index}
+          isExpanded={isExpanded && focusedIndex === index}
+          isFocusedLayer={isFocusedLayer}
+          onPress={() => onPressCard(index)}
+          enterDelay={index * 60}
+        />
+      ))}
+    </Animated.View>
   );
 }
 
@@ -409,11 +474,14 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   card: {
-    width: 260,
-    height: 260,
     borderRadius: 16,
     overflow: 'visible',
     backgroundColor: '#1c1c1e',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 10,
   },
   cardClip: {
     ...StyleSheet.absoluteFillObject,
