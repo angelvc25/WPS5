@@ -417,7 +417,7 @@ export default function ConsoleHome() {
             id: `steam_${g.appid}`,
             title: g.name,
             time: 'Steam',
-            image: g.img_icon_url 
+            image: g.img_icon_url
               ? { uri: `https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/${g.appid}/${g.img_icon_url}.jpg` }
               : require('@/assets/images/Home.gif'),
             description: `Tiempo jugado: ${Math.round(g.playtime_forever / 60)} horas`,
@@ -526,6 +526,7 @@ export default function ConsoleHome() {
     loadApps();
     fetchGamingNews().then(() => { });
     soundService.init();
+    soundService.playBackground();
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       (window as any).electronAPI.getStorageInfo().then((res: any) => {
         if (res.success) setStorageInfo({ percent: res.percent, freeGB: res.freeGB });
