@@ -19,12 +19,12 @@ class SoundService {
       this.backgroundSound = bgSound;
 
       const { sound: navSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/navigation.wav')
+        require('@/assets/sounds/navigation.mp3')
       );
       this.navigationSound = navSound;
 
       const { sound: actSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/activation.wav')
+        require('@/assets/sounds/activation.mp3')
       );
       this.activationSound = actSound;
     } catch (error) {
