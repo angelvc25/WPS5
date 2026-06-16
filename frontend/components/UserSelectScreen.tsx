@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { Video, ResizeMode } from 'expo-av';
 import ControlPrompt from './ControlPrompt';
 import { soundService } from '../services/soundService';
 
@@ -131,6 +132,8 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   const [homeBg, setHomeBg] = useState<string | null>(null);
   const [time, setTime] = useState('');
   const [inputMode, setInputMode] = useState<'keyboard' | 'gamepad'>('keyboard');
+
+  const animatedIndex = useRef(new Animated.Value(0)).current;
 
   // Store cleanup functions for radar animations
   const radarCleanups = useRef<Record<string, () => void>>({});
@@ -327,14 +330,37 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     outputRange: ['rgba(0,212,255,0.03)', 'rgba(0,212,255,0.08)'],
   });
 
+  const totalItems = users.length + 1;
+  const allIds = ['add', ...users.map(u => u.id)];
+  const currentIndex = allIds.indexOf(hoveredId || 'add');
+  const safeIndex = currentIndex === -1 ? 0 : currentIndex;
+  const middleIndex = (totalItems - 1) / 2;
+
+  useEffect(() => {
+    Animated.spring(animatedIndex, {
+      toValue: safeIndex,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 40,
+    }).start();
+  }, [safeIndex]);
+
+  const translateX = animatedIndex.interpolate({
+    inputRange: [-10, 100],
+    outputRange: [(middleIndex - -10) * 204, (middleIndex - 100) * 204]
+  });
+
   return (
     <View style={styles.container}>
       {/* BACKGROUND */}
-      {homeBg ? (
-        <Image source={{ uri: homeBg }} style={styles.blurredBg} blurRadius={40} />
-      ) : (
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bgInterpolate }]} />
-      )}
+      <Video
+        source={require('@/assets/video/waves_ajustes.mp4')}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode={ResizeMode.COVER}
+        shouldPlay
+        isLooping
+        isMuted
+      />
       <View style={styles.overlay} />
 
       {/* CLOCK */}
@@ -349,64 +375,72 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       </View>
 
       {/* USER CARDS */}
-      <View style={styles.cardsRow}>
+      <Animated.View style={[styles.cardsRow, { transform: [{ translateX }] }]}>
 
         {/* ADD USER */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.cardWrapper}
-          onPress={() => { }}
-          {...(Platform.OS === 'web' ? {
-            onMouseEnter: () => setHoveredId('add'),
-            onMouseLeave: () => setHoveredId(null),
-          } : {})}
-        >
-          <View style={[styles.card, hoveredId === 'add' && styles.cardFocused]}>
-            <View style={styles.addIconCircle}>
-              <Ionicons name="add" size={40} color="#FFF" />
+        <Animated.View style={{
+          opacity: animatedIndex.interpolate({
+            inputRange: [-2, -1, 0, 1, 2],
+            outputRange: [0.1, 0.4, 1, 0.4, 0.1],
+            extrapolate: 'clamp'
+          })
+        }}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.cardWrapper}
+            onPress={() => { }}
+            {...(Platform.OS === 'web' ? {
+              onMouseEnter: () => setHoveredId('add'),
+              onMouseLeave: () => setHoveredId(null),
+            } : {})}
+          >
+            <View style={[styles.card, hoveredId === 'add' && styles.cardFocused]}>
+              <View style={styles.addIconCircle}>
+                <Ionicons name="add" size={40} color="#FFF" />
+              </View>
             </View>
-          </View>
-          <Text style={styles.userName}>Add User</Text>
-        </TouchableOpacity>
+            <Text style={styles.userName}>Add User</Text>
+          </TouchableOpacity>
+        </Animated.View>
 
         {/* USERS */}
-        {users.map((user) => {
+        {users.map((user, idx) => {
           const isFocused = hoveredId === user.id;
+          const itemIndex = idx + 1;
           return (
-            <TouchableOpacity
-              key={user.id}
-              activeOpacity={0.8}
-              style={styles.cardWrapper}
-              onPress={() => handleSelect(user)}
-              {...(Platform.OS === 'web' ? {
-                onMouseEnter: () => setHoveredId(user.id),
-                onMouseLeave: () => setHoveredId(null),
-              } : {})}
-            >
-
-              {/* ¡Toda la magia ocurre aquí dentro de manera limpia! */}
-              <RadarFocusWrapper id={user.id} isFocused={isFocused} size={164} innerSize={isFocused ? 150 : 130}>
-                <View style={[styles.card, isFocused && styles.cardFocused]}>
-                  <Image
-                    source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
-                    style={styles.avatarImg}
-                  />
-                </View>
-              </RadarFocusWrapper>
-
-              <Text style={[styles.userName, isFocused && styles.userNameFocused]}>
-                {user.name}
-              </Text>
-
-              {isFocused && (
-                <View style={styles.optionsHint}>
-                  <ControlPrompt btn="Options" label="Opciones" inputMode={inputMode} />
-                </View>
-              )}
-            </TouchableOpacity>
+            <Animated.View key={user.id} style={{
+              opacity: animatedIndex.interpolate({
+                inputRange: [itemIndex - 2, itemIndex - 1, itemIndex, itemIndex + 1, itemIndex + 2],
+                outputRange: [0.1, 0.4, 1, 0.4, 0.1],
+                extrapolate: 'clamp'
+              })
+            }}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.cardWrapper}
+                onPress={() => handleSelect(user)}
+                {...(Platform.OS === 'web' ? {
+                  onMouseEnter: () => setHoveredId(user.id),
+                  onMouseLeave: () => setHoveredId(null),
+                } : {})}
+              >
+                {/* ¡Toda la magia ocurre aquí dentro de manera limpia! */}
+                <RadarFocusWrapper id={user.id} isFocused={isFocused} size={164} innerSize={isFocused ? 150 : 130}>
+                  <View style={[styles.card, isFocused && styles.cardFocused]}>
+                    <Image
+                      source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
+                      style={styles.avatarImg}
+                    />
+                  </View>
+                </RadarFocusWrapper>
+                <Text style={[styles.userName, isFocused && styles.userNameFocused]}>
+                  {user.name}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
           );
         })}
-      </View>
+      </Animated.View>
 
       {/* POWER BUTTON */}
       <TouchableOpacity
@@ -420,11 +454,6 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       >
         <Ionicons name="power" size={24} color="#FFF" />
       </TouchableOpacity>
-
-      {/* BOTTOM HINT */}
-      <View style={styles.bottomRightHint}>
-        <ControlPrompt btn="A" label="Seleccionar" inputMode={inputMode} />
-      </View>
     </View>
   );
 }
@@ -438,9 +467,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  blurredBg: {
+  customBg: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.6,
+    opacity: 1,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
