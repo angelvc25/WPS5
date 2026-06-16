@@ -123,7 +123,7 @@ function AnimatedCard({
   useEffect(() => {
     translateY.value = withDelay(
       enterDelay,
-      withSpring(0, { damping: 18, stiffness: 200 })
+      withTiming(0, { duration: 350, easing: Easing.out(Easing.cubic) })
     );
     opacity.value = withDelay(
       enterDelay,
@@ -134,11 +134,11 @@ function AnimatedCard({
   // Size on expand
   useEffect(() => {
     if (isActive && isExpanded) {
-      animWidth.value = withSpring(450, { damping: 20, stiffness: 200 });
-      animHeight.value = withSpring(650, { damping: 20, stiffness: 200 });
+      animWidth.value = withTiming(450, { duration: 300, easing: Easing.out(Easing.cubic) });
+      animHeight.value = withTiming(650, { duration: 300, easing: Easing.out(Easing.cubic) });
     } else {
-      animWidth.value = withSpring(260, { damping: 20, stiffness: 200 });
-      animHeight.value = withSpring(260, { damping: 20, stiffness: 200 });
+      animWidth.value = withTiming(260, { duration: 300, easing: Easing.out(Easing.cubic) });
+      animHeight.value = withTiming(260, { duration: 300, easing: Easing.out(Easing.cubic) });
     }
   }, [isActive, isExpanded]);
 
@@ -146,33 +146,33 @@ function AnimatedCard({
   useEffect(() => {
     if (isActive && !isExpanded) {
       scale.value = withTiming(1.30, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
 
-      scaleX.value = withSpring(1.015, {
-        damping: 18,
-        stiffness: 280,
+      scaleX.value = withTiming(1.015, {
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
 
       focusLift.value = withTiming(-35, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
     } else {
       scale.value = withTiming(1, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
 
       scaleX.value = withTiming(1, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
 
       focusLift.value = withTiming(0, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
       });
     }
   }, [isActive, isExpanded]);
@@ -277,8 +277,8 @@ function NewsRow({ news, enterDelay, isFocused }: { news: typeof NEWS_ITEMS[0]; 
   const opacity = useSharedValue(0);
 
   useEffect(() => {
-    translateX.value = withDelay(enterDelay, withSpring(0, { damping: 20, stiffness: 200 }));
-    opacity.value = withDelay(enterDelay, withTiming(1, { duration: 200 }));
+    translateX.value = withDelay(enterDelay, withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic) }));
+    opacity.value = withDelay(enterDelay, withTiming(1, { duration: 300 }));
   }, []);
 
   const style = useAnimatedStyle(() => ({
