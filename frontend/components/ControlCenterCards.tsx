@@ -21,6 +21,7 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import SpinningBorder from './Spinningborder';
+import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 
 interface CardData {
   id: string;
@@ -95,6 +96,19 @@ function AnimatedCard({
   const animHeight = useSharedValue(260);
 
   const [focusedNewsIndex, setFocusedNewsIndex] = React.useState(0);
+  const [realNews, setRealNews] = React.useState<SteamNewsItem[]>([]);
+
+  useEffect(() => {
+    if (card.type === 'news') {
+      fetchSteamNewsByName('Helldivers 2').then(data => {
+        if (data && data.length > 0) {
+          setRealNews(data.slice(0, 6));
+        }
+      });
+    }
+  }, [card.type]);
+
+  const maxIndex = realNews.length > 0 ? realNews.length - 1 : NEWS_ITEMS.length - 1;
 
   useEffect(() => {
     if (isExpanded) {
@@ -112,12 +126,31 @@ function AnimatedCard({
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         e.stopPropagation();
-        setFocusedNewsIndex((prev) => Math.min(NEWS_ITEMS.length - 1, prev + 1));
+        setFocusedNewsIndex((prev) => Math.min(maxIndex, prev + 1));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (realNews.length > 0 && realNews[focusedNewsIndex]?.url) {
+          window.open(realNews[focusedNewsIndex].url, '_blank');
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isExpanded]);
+  }, [isExpanded, maxIndex, realNews, focusedNewsIndex]);
+
+  useEffect(() => {
+    if (!isActive || isExpanded || Platform.OS !== 'web') return;
+    const handleEnterToExpand = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        onPress();
+      }
+    };
+    window.addEventListener('keydown', handleEnterToExpand, true);
+    return () => window.removeEventListener('keydown', handleEnterToExpand, true);
+  }, [isActive, isExpanded, onPress]);
 
   // Entrance animation on mount (staggered per card)
   useEffect(() => {
@@ -234,9 +267,34 @@ function AnimatedCard({
                   style={{ flex: 1, marginTop: 20 }}
                   showsVerticalScrollIndicator={false}
                 >
-                  {NEWS_ITEMS.map((news, i) => (
-                    <NewsRow key={i} news={news} enterDelay={i * 50} isFocused={i === focusedNewsIndex} />
-                  ))}
+                  {realNews.length > 0 ? (
+                    realNews.map((article, i) => (
+                      <NewsRow
+                        key={i}
+                        title={article.title}
+                        desc={(article.contents || '').replace(/<[^>]*>?/gm, '').replace(/\[\/?(b|i|u|url|img|h1|h2|h3)[^\]]*\]/gi, '').slice(0, 120) + '...'}
+                        tag={article.feedlabel.toUpperCase()}
+                        date={formatSteamDate(article.date)}
+                        imageUri={article.image_url}
+                        enterDelay={i * 50}
+                        isFocused={i === focusedNewsIndex}
+                      />
+                    ))
+                  ) : (
+                    NEWS_ITEMS.map((news, i) => (
+                      <NewsRow
+                        key={i}
+                        title={news.title}
+                        desc={news.desc}
+                        tag={news.tag}
+                        date={news.date}
+                        icon={news.icon}
+                        color={news.color}
+                        enterDelay={i * 50}
+                        isFocused={i === focusedNewsIndex}
+                      />
+                    ))
+                  )}
                 </ScrollView>
               </View>
             </View>
@@ -272,7 +330,19 @@ function AnimatedCard({
 
 
 // ─── Animated News Row ────────────────────────────────────────────────────────
-function NewsRow({ news, enterDelay, isFocused }: { news: typeof NEWS_ITEMS[0]; enterDelay: number; isFocused: boolean; }) {
+interface NewsRowProps {
+  title: string;
+  desc: string;
+  tag: string;
+  date: string;
+  imageUri?: string;
+  icon?: any;
+  color?: string;
+  enterDelay: number;
+  isFocused: boolean;
+}
+
+function NewsRow({ title, desc, tag, date, imageUri, icon, color, enterDelay, isFocused }: NewsRowProps) {
   const translateX = useSharedValue(-20);
   const opacity = useSharedValue(0);
 
@@ -289,25 +359,29 @@ function NewsRow({ news, enterDelay, isFocused }: { news: typeof NEWS_ITEMS[0]; 
   return (
     <Animated.View style={[styles.newsItem, style, isFocused && { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
       <View style={{ flex: 1, flexDirection: 'row', gap: 14 }}>
-        <View style={[styles.newsThumb, { backgroundColor: news.color }]}>
-          <Ionicons name={news.icon} size={26} color="rgba(255,255,255,0.55)" />
+        <View style={[styles.newsThumb, color ? { backgroundColor: color } : { backgroundColor: '#1a1a1a' }, { overflow: 'hidden' }]}>
+          {imageUri ? (
+            <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          ) : (
+            <Ionicons name={icon || 'newspaper'} size={26} color="rgba(255,255,255,0.55)" />
+          )}
         </View>
         <View style={{ flex: 1 }}>
           <View style={styles.newsTagRow}>
             <View style={[styles.newsTag, { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]}>
-              <Text style={[styles.newsTagText, { color: 'rgba(255,255,255,0.6)' }]}>{news.tag}</Text>
+              <Text style={[styles.newsTagText, { color: 'rgba(255,255,255,0.6)' }]}>{tag}</Text>
             </View>
-            <Text style={styles.newsDate}>{news.date}</Text>
+            <Text style={styles.newsDate}>{date}</Text>
           </View>
-          <Text style={styles.newsTitle}>{news.title}</Text>
-          <Text style={styles.newsDesc} numberOfLines={2}>{news.desc}</Text>
+          <Text style={styles.newsTitle}>{title}</Text>
+          <Text style={styles.newsDesc} numberOfLines={2}>{desc}</Text>
         </View>
         {isFocused && (
           <SpinningBorder
             width={'100%'}
             height={'100%'}
             borderRadius={13}
-            id={`news-${news.title}`}
+            id={`news-${enterDelay}`}
           />
         )}
       </View>
