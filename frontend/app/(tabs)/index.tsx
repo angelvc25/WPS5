@@ -1220,7 +1220,7 @@ export default function ConsoleHome() {
           return;
         }
         if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
-          soundService.playNavigation();
+          soundService.playTab();
           const direction = (e.key === 'q' || e.key === 'Q') ? -1 : 1;
           setActiveTab(prev => {
             const idx = TABS.indexOf(prev);
@@ -1232,6 +1232,9 @@ export default function ConsoleHome() {
             }
             return prev;
           });
+        }
+        if (e.key === 'b' || e.key === 'B' || e.key === 'Escape') {
+          soundService.playBack();
         }
       };
       window.addEventListener('keydown', handleKeyDown);
@@ -2895,11 +2898,11 @@ const styles = StyleSheet.create({
   },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { 
-    width: 420, 
-    backgroundColor: 'rgba(23, 23, 30, 1)', 
-    borderRadius: 12, 
-    padding: 24, 
+  modalContent: {
+    width: 420,
+    backgroundColor: 'rgba(23, 23, 30, 1)',
+    borderRadius: 12,
+    padding: 24,
     position: 'relative',
     overflow: 'hidden',
     shadowColor: '#000',
