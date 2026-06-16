@@ -96,7 +96,14 @@ function AnimatedCard({
   const animHeight = useSharedValue(260);
 
   const [focusedNewsIndex, setFocusedNewsIndex] = React.useState(0);
+  const scrollRef = React.useRef<ScrollView>(null);
   const [realNews, setRealNews] = React.useState<SteamNewsItem[]>([]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ y: focusedNewsIndex * 110, animated: true });
+    }
+  }, [focusedNewsIndex]);
 
   useEffect(() => {
     if (card.type === 'news') {
@@ -264,6 +271,7 @@ function AnimatedCard({
                 <Text style={styles.expandedTitle}>{card.title}</Text>
                 <Text style={styles.expandedSubtitle}>{card.subtitle}</Text>
                 <ScrollView
+                  ref={scrollRef}
                   style={{ flex: 1, marginTop: 20 }}
                   showsVerticalScrollIndicator={false}
                 >
@@ -359,9 +367,9 @@ function NewsRow({ title, desc, tag, date, imageUri, icon, color, enterDelay, is
   return (
     <Animated.View style={[styles.newsItem, style, isFocused && { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
       <View style={{ flex: 1, flexDirection: 'row', gap: 14 }}>
-        <View style={[styles.newsThumb, color ? { backgroundColor: color } : { backgroundColor: '#1a1a1a' }, { overflow: 'hidden' }]}>
+        <View style={[styles.newsThumb, color ? { backgroundColor: color } : { backgroundColor: '#1a1a1a' }, { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }]}>
           {imageUri ? (
-            <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition="center" />
           ) : (
             <Ionicons name={icon || 'newspaper'} size={26} color="rgba(255,255,255,0.55)" />
           )}
@@ -376,15 +384,15 @@ function NewsRow({ title, desc, tag, date, imageUri, icon, color, enterDelay, is
           <Text style={styles.newsTitle}>{title}</Text>
           <Text style={styles.newsDesc} numberOfLines={2}>{desc}</Text>
         </View>
-        {isFocused && (
-          <SpinningBorder
-            width={'100%'}
-            height={'100%'}
-            borderRadius={13}
-            id={`news-${enterDelay}`}
-          />
-        )}
       </View>
+      {isFocused && (
+        <SpinningBorder
+          width={'100%'}
+          height={'100%'}
+          borderRadius={13}
+          id={`news-${enterDelay}`}
+        />
+      )}
     </Animated.View>
   );
 }
