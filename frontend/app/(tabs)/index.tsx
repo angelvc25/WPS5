@@ -1509,6 +1509,17 @@ export default function ConsoleHome() {
     currentRenderedTab === 'Games' && activeIndex === 0
       ? currentData[activeIndex]?.backgroundVideo
       : null;
+      
+  const prevActiveIndexRef = useRef(activeIndex);
+  const wipeDirection = useSharedValue<1 | -1>(1);
+
+  useEffect(() => {
+    if (activeIndex !== prevActiveIndexRef.current) {
+      wipeDirection.value = activeIndex > prevActiveIndexRef.current ? 1 : -1;
+      prevActiveIndexRef.current = activeIndex;
+    }
+  }, [activeIndex]);
+
   useEffect(() => {
     // If it's the very first time setting the background, do it immediately without delay
     if (!bgA && !bgB) {
@@ -1520,27 +1531,58 @@ export default function ConsoleHome() {
       if (currentBg !== bgA) {
         setBgB(currentBg);
         setActiveLayer('B');
-        fade.value = withTiming(1, { duration: 500, easing: Easing.inOut(Easing.quad) });
+        fade.value = withTiming(1, { duration: 600, easing: Easing.inOut(Easing.quad) });
       }
     } else {
       if (currentBg !== bgB) {
         setBgA(currentBg);
         setActiveLayer('A');
-        fade.value = withTiming(0, { duration: 500, easing: Easing.inOut(Easing.quad) });
+        fade.value = withTiming(0, { duration: 600, easing: Easing.inOut(Easing.quad) });
       }
     }
   }, [currentBg]);
 
   useEffect(() => { if (currentBg && !bgA && !bgB) setBgA(currentBg); }, []);
 
-  const animatedStyleB = useAnimatedStyle(() => ({
-    opacity: fade.value,
-    transform: [{ scale: interpolate(fade.value, [0, 1], [1.04, 1]) }],
-  }));
+  const animatedStyleA = useAnimatedStyle(() => {
+    const progress = 1 - fade.value;
+    const dir = wipeDirection.value;
+    // Para un desvanecimiento muy suave, ampliamos el borde de transición a 100%.
+    // p va desde -100 hasta 150 (rango de 250).
+    const p = progress * 250 - 100;
+    // dir === 1 (moved right) -> wave starts from left (0%)
+    // dir === -1 (moved left) -> wave starts from right (100%)
+    const originX = dir === 1 ? '0%' : '100%';
+    const maskStr = `radial-gradient(circle at ${originX} 50%, black ${p}%, transparent ${p + 100}%)`;
 
-  const animatedStyleA = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(fade.value, [0, 1], [1, 1.04]) }],
-  }));
+    return {
+      zIndex: activeLayer === 'A' ? 1 : 0,
+      opacity: Platform.OS === 'web' ? 1 : progress, // Fallback for native
+      transform: [{ scale: interpolate(progress, [0, 1], [1.04, 1]) }],
+      ...(Platform.OS === 'web' ? {
+        WebkitMaskImage: activeLayer === 'A' ? maskStr : 'none',
+        maskImage: activeLayer === 'A' ? maskStr : 'none',
+      } : {})
+    };
+  });
+
+  const animatedStyleB = useAnimatedStyle(() => {
+    const progress = fade.value;
+    const dir = wipeDirection.value;
+    const p = progress * 250 - 100;
+    const originX = dir === 1 ? '0%' : '100%';
+    const maskStr = `radial-gradient(circle at ${originX} 50%, black ${p}%, transparent ${p + 100}%)`;
+
+    return {
+      zIndex: activeLayer === 'B' ? 1 : 0,
+      opacity: Platform.OS === 'web' ? 1 : progress,
+      transform: [{ scale: interpolate(progress, [0, 1], [1.04, 1]) }],
+      ...(Platform.OS === 'web' ? {
+        WebkitMaskImage: activeLayer === 'B' ? maskStr : 'none',
+        maskImage: activeLayer === 'B' ? maskStr : 'none',
+      } : {})
+    };
+  });
 
   // Get the active item info for the bottom panel
   const activeItem = currentData[activeIndex];
