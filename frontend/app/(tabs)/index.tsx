@@ -699,6 +699,11 @@ export default function ConsoleHome() {
         checkButton(4, 'q');
         checkButton(5, 'e');
         checkButton(9, 'o');
+      } else {
+        if (lastGpId.current !== null) {
+          lastGpId.current = null;
+          setGamepadInfo({ connected: false, name: '', battery: 0 });
+        }
       }
       rafId = requestAnimationFrame(poll);
     };

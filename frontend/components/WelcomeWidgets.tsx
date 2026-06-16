@@ -41,6 +41,15 @@ export const WelcomeWidgets = ({
   widgetContainerStyle2,
   wviewStyle,
 }: WelcomeWidgetsProps) => {
+  const batteryPct = gamepadInfo.connected ? Math.round(gamepadInfo.battery * 100) : 0;
+  let batteryColor = '#4CD964';
+  if (batteryPct <= 20) batteryColor = '#FF3B30';
+  else if (batteryPct <= 50) batteryColor = '#FF9500';
+
+  const batteryIcon = gamepadInfo.connected 
+    ? (batteryPct > 50 ? "battery-full" : (batteryPct > 20 ? "battery-half" : "battery-dead")) 
+    : "battery-dead";
+
   return (
     <View style={{ width: '100%' }}>
       <style>{`
@@ -273,17 +282,41 @@ export const WelcomeWidgets = ({
                 />
               )}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={[styles.widgetIconWrap, { width: 80, height: 80, borderRadius: 50, borderWidth: 5, borderColor: "#4CD964", borderStyle: "solid" }]}>
-                  <Text style={{ color: "#FFF" }}>1</Text>
-                  <Image source={require('@/assets/images/controller.png')} style={{ width: 25, height: 25, resizeMode: 'contain', tintColor: "#FFF" }} />
-                  <Ionicons name="battery-full" size={11} color="#fff" />
+                <View style={{ width: 80, height: 80, justifyContent: 'center', alignItems: 'center' }}>
+                  {Platform.OS === 'web' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '50%',
+                        background: `conic-gradient(${batteryColor} ${batteryPct}%, rgba(255,255,255,0.1) 0)`,
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
+                  {Platform.OS === 'web' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 4,
+                        borderRadius: '50%',
+                        background: '#0d1015',
+                        zIndex: 1,
+                      }}
+                    />
+                  )}
+                  <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: "#FFF", fontSize: 12, marginBottom: 2 }}>{gamepadInfo.connected ? "1" : "-"}</Text>
+                    <Image source={require('@/assets/images/controller.png')} style={{ width: 25, height: 25, resizeMode: 'contain', tintColor: "#FFF", marginBottom: 2 }} />
+                    <Ionicons name={batteryIcon as any} size={11} color={gamepadInfo.connected ? batteryColor : "#fff"} />
+                  </View>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.widgetTitle} numberOfLines={1}>
                     {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : 'Control inalambrico DualSense'}
                   </Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
-                    <Text style={styles.widgetSubtitle}>{gamepadInfo.connected ? `${Math.round(gamepadInfo.battery * 100)}%` : '75%'}</Text>
+                    <Text style={styles.widgetSubtitle}>{gamepadInfo.connected ? `${batteryPct}%` : 'Desconectado'}</Text>
                   </View>
                 </View>
               </View>
