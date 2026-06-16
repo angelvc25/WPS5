@@ -240,13 +240,13 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       const currentIndex = allIds.indexOf(hoveredId || 'add');
 
       if (e.key === 'ArrowRight') {
-        if (hoveredId === 'power') return;
+        if (hoveredId === 'power' || currentIndex >= totalItems - 1) return;
         soundService.playNavigation();
-        setHoveredId(allIds[(currentIndex + 1) % totalItems]);
+        setHoveredId(allIds[currentIndex + 1]);
       } else if (e.key === 'ArrowLeft') {
-        if (hoveredId === 'power') return;
+        if (hoveredId === 'power' || currentIndex <= 0) return;
         soundService.playNavigation();
-        setHoveredId(allIds[(currentIndex - 1 + totalItems) % totalItems]);
+        setHoveredId(allIds[currentIndex - 1]);
       } else if (e.key === 'ArrowDown') {
         if (hoveredId !== 'power') { soundService.playNavigation(); setHoveredId('power'); }
       } else if (e.key === 'ArrowUp') {
@@ -281,13 +281,37 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       }
     };
 
-    if (Platform.OS === 'web') window.addEventListener('keydown', handleKeyDown);
+    let wheelTimeout: NodeJS.Timeout | null = null;
+    const handleWheel = (e: WheelEvent) => {
+      if (wheelTimeout) return;
+      
+      const totalItems = users.length + 1;
+      const allIds = ['add', ...users.map(u => u.id)];
+      const currentIndex = allIds.indexOf(hoveredId || 'add');
+      
+      if (e.deltaY > 5 || e.deltaX > 5) {
+        if (hoveredId === 'power' || currentIndex >= totalItems - 1) return;
+        soundService.playNavigation();
+        setHoveredId(allIds[currentIndex + 1]);
+        wheelTimeout = setTimeout(() => { wheelTimeout = null; }, 300);
+      } else if (e.deltaY < -5 || e.deltaX < -5) {
+        if (hoveredId === 'power' || currentIndex <= 0) return;
+        soundService.playNavigation();
+        setHoveredId(allIds[currentIndex - 1]);
+        wheelTimeout = setTimeout(() => { wheelTimeout = null; }, 300);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('wheel', handleWheel, { passive: false });
+    }
 
     // ── Gamepad polling ──────────────────────────────────────────────────
     let rafId: number;
     const prevButtons = new Array(16).fill(false);
     let lastMoveTime = 0;
-    const THROTTLE = 220;
+    const THROTTLE = 300;
 
     const poll = () => {
       const gp = navigator.getGamepads()[0];
@@ -320,7 +344,10 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     return () => {
       clearInterval(interval);
       cancelAnimationFrame(rafId);
-      if (Platform.OS === 'web') window.removeEventListener('keydown', handleKeyDown);
+      if (Platform.OS === 'web') {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('wheel', handleWheel);
+      }
     };
   }, [hoveredId, users]);
 
@@ -390,10 +417,6 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
             activeOpacity={0.8}
             style={styles.cardWrapper}
             onPress={() => { }}
-            {...(Platform.OS === 'web' ? {
-              onMouseEnter: () => setHoveredId('add'),
-              onMouseLeave: () => setHoveredId(null),
-            } : {})}
           >
             <View style={[styles.card, hoveredId === 'add' && styles.cardFocused]}>
               <View style={styles.addIconCircle}>
@@ -420,10 +443,6 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
                 activeOpacity={0.8}
                 style={styles.cardWrapper}
                 onPress={() => handleSelect(user)}
-                {...(Platform.OS === 'web' ? {
-                  onMouseEnter: () => setHoveredId(user.id),
-                  onMouseLeave: () => setHoveredId(null),
-                } : {})}
               >
                 {/* ¡Toda la magia ocurre aquí dentro de manera limpia! */}
                 <RadarFocusWrapper id={user.id} isFocused={isFocused} size={164} innerSize={isFocused ? 150 : 130}>
