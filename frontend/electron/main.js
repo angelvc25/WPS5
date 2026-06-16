@@ -341,6 +341,52 @@ app.whenReady().then(() => {
     return null;
   });
 
+  // IPC: Abrir diálogo para seleccionar carpeta de capturas
+  ipcMain.handle('select-capture-folder', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory']
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0];
+    }
+    return null;
+  });
+
+  // IPC: Obtener última captura de un directorio
+  ipcMain.handle('get-latest-capture', async (event, folderPath) => {
+    try {
+      let targetPath = folderPath;
+      if (!targetPath) {
+        targetPath = path.join(app.getPath('pictures'), 'Screenshots');
+      }
+      if (!fs.existsSync(targetPath)) return null;
+      
+      const files = fs.readdirSync(targetPath);
+      let latestFile = null;
+      let latestTime = 0;
+      
+      for (const file of files) {
+        const ext = path.extname(file).toLowerCase();
+        if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
+          const fullPath = path.join(targetPath, file);
+          const stats = fs.statSync(fullPath);
+          if (stats.mtimeMs > latestTime) {
+            latestTime = stats.mtimeMs;
+            latestFile = fullPath;
+          }
+        }
+      }
+      
+      if (latestFile) {
+        return `local-file:///${latestFile.replace(/\\/g, '/')}`;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting latest capture:', error);
+      return null;
+    }
+  });
+
   // IGDB: Obtener token de acceso
   async function getIGDBAccessToken() {
     if (igdbAccessToken) return igdbAccessToken;

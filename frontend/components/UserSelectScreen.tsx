@@ -28,6 +28,7 @@ export interface UserSettings {
   steamApiKey?: string;
   steamId?: string;
   useSteamAvatar?: boolean;
+  capturePath?: string;
 }
 
 export interface UserProfile {
