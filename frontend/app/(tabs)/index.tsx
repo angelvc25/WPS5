@@ -530,6 +530,7 @@ export default function ConsoleHome() {
     fetchGamingNews().then(() => { });
     soundService.init();
     soundService.playBackground();
+    soundService.playStartHome();
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       (window as any).electronAPI.getStorageInfo().then((res: any) => {
         if (res.success) setStorageInfo({ percent: res.percent, freeGB: res.freeGB });
@@ -764,7 +765,7 @@ export default function ConsoleHome() {
         if (isProfileMenuOpen) {
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
             setIsProfileMenuOpen(false);
-            soundService.playNavigation();
+            soundService.playBack();
           } else if (e.key === 'ArrowDown') {
             setProfileMenuFocusIndex(prev => Math.min(prev + 1, 4));
             soundService.playNavigation();
@@ -773,12 +774,14 @@ export default function ConsoleHome() {
             soundService.playNavigation();
           } else if (e.key === 'Enter') {
             handleProfileMenuAction(profileMenuFocusIndex);
+            soundService.playActivation();
           }
           return;
         }
 
         // Toggle Control Center via Home key
         if (e.key === 'Home') {
+          soundService.playContextMenu();
           if (focusArea === 'header_user') {
             setFocusArea('main_carousel');
           } else {
@@ -802,6 +805,7 @@ export default function ConsoleHome() {
         if (isContextMenuOpen) {
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
             setIsContextMenuOpen(false);
+            soundService.playBack();
           } else if (e.key === 'ArrowDown') {
             setContextMenuFocusIndex(prev => Math.min(prev + 1, 2));
             soundService.playNavigation();
@@ -810,6 +814,7 @@ export default function ConsoleHome() {
             soundService.playNavigation();
           } else if (e.key === 'Enter') {
             handleContextMenuAction(contextMenuFocusIndex);
+            soundService.playActivation();
           }
           return;
         }
@@ -819,6 +824,7 @@ export default function ConsoleHome() {
           if (isSystemNavCardExpanded) {
             if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
               setSystemNavCardExpanded(false);
+              soundService.playBack();
             }
             return;
           }
@@ -862,6 +868,7 @@ export default function ConsoleHome() {
 
         // 3. Option Action Keys (Open Context Menu)
         if (e.key === 'x' || e.key === 'X' || e.key === 'm' || e.key === 'M') {
+          soundService.playContextMenu();
           if (focusArea === 'main_carousel') {
             const item = currentData[activeIndex];
             if (item && item.id !== 'more_library') {
