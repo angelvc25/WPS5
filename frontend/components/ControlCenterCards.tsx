@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import SpinningBorder from './Spinningborder';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
+import { useUser } from '../contexts/UserContext';
 
 interface CardData {
   id: string;
@@ -98,6 +99,23 @@ function AnimatedCard({
   const [focusedNewsIndex, setFocusedNewsIndex] = React.useState(0);
   const scrollRef = React.useRef<ScrollView>(null);
   const [realNews, setRealNews] = React.useState<SteamNewsItem[]>([]);
+  
+  const { activeUser } = useUser();
+  const [captureImage, setCaptureImage] = React.useState<string | null>(null);
+  const [isCaptureModalVisible, setCaptureModalVisible] = React.useState(false);
+
+  useEffect(() => {
+    if (card.type === 'capture' && Platform.OS === 'web') {
+      const fetchCapture = async () => {
+        const path = activeUser?.settings?.capturePath || '';
+        if ((window as any).electronAPI && typeof (window as any).electronAPI.getLatestCapture === 'function') {
+          const img = await (window as any).electronAPI.getLatestCapture(path);
+          if (img) setCaptureImage(img);
+        }
+      };
+      fetchCapture();
+    }
+  }, [card.type, activeUser?.settings?.capturePath, isActive]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -137,14 +155,22 @@ function AnimatedCard({
       } else if (e.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
-        if (realNews.length > 0 && realNews[focusedNewsIndex]?.url) {
+        if (card.type === 'capture') {
+          setCaptureModalVisible(prev => !prev);
+        } else if (card.type === 'news' && realNews.length > 0 && realNews[focusedNewsIndex]?.url) {
           window.open(realNews[focusedNewsIndex].url, '_blank');
+        }
+      } else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+        if (card.type === 'capture' && isCaptureModalVisible) {
+          e.preventDefault();
+          e.stopPropagation();
+          setCaptureModalVisible(false);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isExpanded, maxIndex, realNews, focusedNewsIndex]);
+  }, [isExpanded, maxIndex, realNews, focusedNewsIndex, card.type, isCaptureModalVisible]);
 
   useEffect(() => {
     if (!isActive || isExpanded || Platform.OS !== 'web') return;
@@ -243,81 +269,116 @@ function AnimatedCard({
       >
         {/* Inner clip wrapper */}
         <View style={styles.cardClip}>
-          {card.bgColor ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: card.bgColor }]} />
-          ) : (
-            <Image
-              source={{ uri: card.imageUri }}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-            />
-          )}
+          {card.type === 'capture' ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(38, 41, 48, 0.95)', padding: 16 }]}>
+              {/* Icon */}
+              <View style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                <Ionicons name="scan" size={18} color="#000" />
+              </View>
 
-          {/* Card content */}
-          {isExpanded && card.type === 'news' ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(23, 23, 30, 1)' }]}>
-              {Platform.OS === 'web' && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: `linear-gradient(45deg, rgba(232, 249, 255, 0.17) 0%, rgba(120,220,255,0.03) 40%, rgba(255,255,255,0.01) 60%, rgba(0,0,0,0.00) 100%)`,
-                    pointerEvents: 'none',
-                    zIndex: 1,
-                  }}
+              {/* Image Container */}
+              <View style={{ flex: 1, borderRadius: 8, overflow: 'hidden' }}>
+                <Image source={{ uri: captureImage || card.imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                {/* Maximize Overlay */}
+                {isExpanded && (
+                  <TouchableOpacity 
+                    style={{ position: 'absolute', inset: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}
+                    onPress={() => setCaptureModalVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="expand" size={26} color="#FFF" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Text Section */}
+              <View style={{ marginTop: 16, paddingBottom: 4 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>Recently created</Text>
+                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: 'bold', marginTop: 2 }}>New screenshot</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 4 }}>Just now</Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              {card.bgColor ? (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: card.bgColor }]} />
+              ) : (
+                <Image
+                  source={{ uri: card.imageUri }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
                 />
               )}
-              <View style={{ padding: 20, flex: 1, zIndex: 2 }}>
-                <Text style={styles.expandedTitle}>{card.title}</Text>
-                <Text style={styles.expandedSubtitle}>{card.subtitle}</Text>
-                <ScrollView
-                  ref={scrollRef}
-                  style={{ flex: 1, marginTop: 20 }}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {realNews.length > 0 ? (
-                    realNews.map((article, i) => (
-                      <NewsRow
-                        key={i}
-                        title={article.title}
-                        desc={(article.contents || '').replace(/<[^>]*>?/gm, '').replace(/\[\/?(b|i|u|url|img|h1|h2|h3)[^\]]*\]/gi, '').slice(0, 120) + '...'}
-                        tag={article.feedlabel.toUpperCase()}
-                        date={formatSteamDate(article.date)}
-                        imageUri={article.image_url}
-                        enterDelay={i * 50}
-                        isFocused={i === focusedNewsIndex}
-                      />
-                    ))
-                  ) : (
-                    NEWS_ITEMS.map((news, i) => (
-                      <NewsRow
-                        key={i}
-                        title={news.title}
-                        desc={news.desc}
-                        tag={news.tag}
-                        date={news.date}
-                        icon={news.icon}
-                        color={news.color}
-                        enterDelay={i * 50}
-                        isFocused={i === focusedNewsIndex}
-                      />
-                    ))
+
+              {/* Card content */}
+              {isExpanded && card.type === 'news' ? (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(23, 23, 30, 1)' }]}>
+                  {Platform.OS === 'web' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: `linear-gradient(45deg, rgba(232, 249, 255, 0.17) 0%, rgba(120,220,255,0.03) 40%, rgba(255,255,255,0.01) 60%, rgba(0,0,0,0.00) 100%)`,
+                        pointerEvents: 'none',
+                        zIndex: 1,
+                      }}
+                    />
                   )}
-                </ScrollView>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.cardContent} pointerEvents="none">
-              <View style={styles.cardTopBar}>
-                <View style={styles.smallIcon}>
-                  <Ionicons name={card.icon} size={13} color="#000" />
+                  <View style={{ padding: 20, flex: 1, zIndex: 2 }}>
+                    <Text style={styles.expandedTitle}>{card.title}</Text>
+                    <Text style={styles.expandedSubtitle}>{card.subtitle}</Text>
+                    <ScrollView
+                      ref={scrollRef}
+                      style={{ flex: 1, marginTop: 20 }}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {realNews.length > 0 ? (
+                        realNews.map((article, i) => (
+                          <NewsRow
+                            key={i}
+                            title={article.title}
+                            desc={(article.contents || '').replace(/<[^>]*>?/gm, '').replace(/\[\/?(b|i|u|url|img|h1|h2|h3)[^\]]*\]/gi, '').slice(0, 120) + '...'}
+                            tag={article.feedlabel.toUpperCase()}
+                            date={formatSteamDate(article.date)}
+                            imageUri={article.image_url}
+                            enterDelay={i * 50}
+                            isFocused={i === focusedNewsIndex}
+                          />
+                        ))
+                      ) : (
+                        NEWS_ITEMS.map((news, i) => (
+                          <NewsRow
+                            key={i}
+                            title={news.title}
+                            desc={news.desc}
+                            tag={news.tag}
+                            date={news.date}
+                            icon={news.icon}
+                            color={news.color}
+                            enterDelay={i * 50}
+                            isFocused={i === focusedNewsIndex}
+                          />
+                        ))
+                      )}
+                    </ScrollView>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.cardBottom}>
-                <Text style={styles.cardSubtitle} numberOfLines={1}>{card.subtitle}</Text>
-                <Text style={styles.cardTitle} numberOfLines={2}>{card.title}</Text>
-              </View>
-            </View>
+              ) : (
+                <View style={styles.cardContent} pointerEvents="none">
+                  <View style={styles.cardTopBar}>
+                    <View style={styles.smallIcon}>
+                      <Ionicons name={card.icon} size={13} color="#000" />
+                    </View>
+                  </View>
+                  <View style={styles.cardBottom}>
+                    <Text style={styles.cardSubtitle} numberOfLines={1}>{card.subtitle}</Text>
+                    <Text style={styles.cardTitle} numberOfLines={2}>{card.title}</Text>
+                  </View>
+                </View>
+              )}
+            </>
           )}
         </View>
 
@@ -331,6 +392,30 @@ function AnimatedCard({
           />
         )}
       </TouchableOpacity>
+
+      {/* Capture Fullscreen Modal */}
+      <Modal visible={isCaptureModalVisible} transparent animationType="fade">
+        <View style={styles.lightboxOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setCaptureModalVisible(false)}
+          />
+          <View style={styles.lightboxContent} pointerEvents="box-none">
+            <Image
+              source={{ uri: captureImage || card.imageUri }}
+              style={styles.lightboxImage}
+              contentFit="contain"
+            />
+            <TouchableOpacity
+              style={styles.lightboxCloseBtn}
+              onPress={() => setCaptureModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </Animated.View>
   );
 }
@@ -642,5 +727,34 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.45)',
     fontSize: 12,
     lineHeight: 16,
+  },
+  
+  // Lightbox
+  lightboxOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lightboxContent: {
+    width: '90%',
+    height: '90%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lightboxImage: {
+    width: '100%',
+    height: '100%',
+  },
+  lightboxCloseBtn: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

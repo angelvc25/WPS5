@@ -1460,6 +1460,15 @@ export default function ConsoleHome() {
     }
   };
 
+  const handleSelectCaptureFolder = async () => {
+    if (Platform.OS === 'web' && (window as any).electronAPI && typeof (window as any).electronAPI.selectCaptureFolder === 'function') {
+      const folderPath = await (window as any).electronAPI.selectCaptureFolder();
+      if (folderPath) {
+        updateUser({ settings: { ...activeUser?.settings, capturePath: folderPath } as any });
+      }
+    }
+  };
+
   const handleSelectAvatar = async () => {
     if ((window as any).electronAPI) {
       const img = await (window as any).electronAPI.selectImage();
@@ -2408,6 +2417,36 @@ export default function ConsoleHome() {
                         <Ionicons name="image-outline" size={20} color="#FFF" />
                         <Text style={styles.settingsSecondaryBtnTextNew}>Cambiar Imagen de Fondo</Text>
                       </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.settingsSectionNew}>
+                      <Text style={styles.settingsLabelNew}>Carpeta de Capturas</Text>
+                      <Text style={[styles.settingsOptionDescNew, { marginBottom: 10, color: '#888' }]}>
+                        Ruta actual: {activeUser?.settings?.capturePath || 'Predeterminada (Imágenes/Screenshots)'}
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.settingsSecondaryBtnNew,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 2) && styles.settingsElementFocusedNew
+                        ]}
+                        onPress={handleSelectCaptureFolder}
+                      >
+                        <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                        <Text style={styles.settingsSecondaryBtnTextNew}>Seleccionar Carpeta</Text>
+                      </TouchableOpacity>
+                      {activeUser?.settings?.capturePath && (
+                        <TouchableOpacity
+                          style={[
+                            styles.settingsSecondaryBtnNew,
+                            { marginTop: 10, backgroundColor: '#442222' },
+                            (settingsFocusArea === 'content' && settingsFocusIndex === 3) && styles.settingsElementFocusedNew
+                          ]}
+                          onPress={() => updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any })}
+                        >
+                          <Ionicons name="trash-outline" size={20} color="#FF5555" />
+                          <Text style={[styles.settingsSecondaryBtnTextNew, { color: '#FF5555' }]}>Restaurar Predeterminada</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </ScrollView>
                 ) : settingsTab === 'sync' ? (
