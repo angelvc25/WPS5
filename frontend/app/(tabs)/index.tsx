@@ -408,18 +408,18 @@ export default function ConsoleHome() {
 
   useEffect(() => {
     if (libraryTab === 'collection' && steamGames.length === 0 && !loadingSteam) {
-      const apiKey = activeUser?.settings?.steamApiKey;
+      // Reemplaza 'TU_API_KEY_AQUI' con tu verdadera Steam Web API Key
+      const GLOBAL_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
       const steamId = activeUser?.settings?.steamId;
-      if (apiKey && steamId) {
+
+      if (steamId) {
         setLoadingSteam(true);
-        fetchSteamOwnedGames(apiKey, steamId).then(gamesList => {
+        fetchSteamOwnedGames(GLOBAL_STEAM_API_KEY, steamId).then(gamesList => {
           const formatted: ConsoleItem[] = gamesList.map((g: any) => ({
             id: `steam_${g.appid}`,
             title: g.name,
             time: 'Steam',
-            image: g.img_icon_url
-              ? { uri: `https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/${g.appid}/${g.img_icon_url}.jpg` }
-              : require('@/assets/images/Home.gif'),
+            image: { uri: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900_2x.jpg` },
             description: `Tiempo jugado: ${Math.round(g.playtime_forever / 60)} horas`,
             platform: 'Steam'
           }));
@@ -1502,8 +1502,10 @@ export default function ConsoleHome() {
     const isCurrentlyUsingSteam = !!activeUser?.settings?.useSteamAvatar;
     const newSettings = { ...activeUser?.settings, useSteamAvatar: !isCurrentlyUsingSteam };
     updateUser({ settings: newSettings as any });
-    if (!isCurrentlyUsingSteam && activeUser?.settings?.steamApiKey && activeUser?.settings?.steamId) {
-      await fetchSteamAvatar(activeUser.settings.steamApiKey, activeUser.settings.steamId);
+
+    const GLOBAL_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'TU_API_KEY_AQUI';
+    if (!isCurrentlyUsingSteam && activeUser?.settings?.steamId) {
+      await fetchSteamAvatar(GLOBAL_STEAM_API_KEY, activeUser.settings.steamId);
     }
   };
 
@@ -1514,7 +1516,7 @@ export default function ConsoleHome() {
     currentRenderedTab === 'Games' && activeIndex === 0
       ? currentData[activeIndex]?.backgroundVideo
       : null;
-      
+
   const prevActiveIndexRef = useRef(activeIndex);
   const wipeDirection = useSharedValue<1 | -1>(1);
 
@@ -2400,32 +2402,40 @@ export default function ConsoleHome() {
                     </View>
 
                     <View style={styles.settingsSectionNew}>
-                      <Text style={styles.settingsLabelNew}>Steam API Key</Text>
-                      <TextInput
-                        style={[
-                          styles.settingsInputNew,
-                          (settingsFocusArea === 'content' && settingsFocusIndex === 3) && styles.settingsInputFocusedNew
-                        ]}
-                        value={activeUser?.settings?.steamApiKey || ''}
-                        onChangeText={(text) => updateUser({ settings: { ...activeUser?.settings, steamApiKey: text } as any })}
-                        placeholder="Ingresa tu Steam API Key"
-                        placeholderTextColor="#666"
-                        secureTextEntry
-                      />
-                    </View>
-
-                    <View style={styles.settingsSectionNew}>
-                      <Text style={styles.settingsLabelNew}>Steam ID (64-bit)</Text>
-                      <TextInput
-                        style={[
-                          styles.settingsInputNew,
-                          (settingsFocusArea === 'content' && settingsFocusIndex === 4) && styles.settingsInputFocusedNew
-                        ]}
-                        value={activeUser?.settings?.steamId || ''}
-                        onChangeText={(text) => updateUser({ settings: { ...activeUser?.settings, steamId: text } as any })}
-                        placeholder="Ingresa tu Steam ID (ej. 7656119...)"
-                        placeholderTextColor="#666"
-                      />
+                      <Text style={styles.settingsLabelNew}>Cuenta de Steam</Text>
+                      {activeUser?.settings?.steamId ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                          <Text style={{ color: '#FFF', fontSize: 16 }}>Conectado (ID: {activeUser.settings.steamId})</Text>
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#FF3333', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
+                            onPress={() => updateUser({ settings: { ...activeUser.settings, steamId: null } as any })}
+                          >
+                            <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Desvincular</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={[
+                            { backgroundColor: '#1b2838', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+                            (settingsFocusArea === 'content' && settingsFocusIndex === 3) && { borderWidth: 2, borderColor: '#FFF' }
+                          ]}
+                          onPress={async () => {
+                            if (Platform.OS === 'web' && (window as any).electronAPI) {
+                              const res = await (window as any).electronAPI.steamLogin();
+                              if (res.success && res.steamId) {
+                                updateUser({ settings: { ...activeUser?.settings, steamId: res.steamId } as any });
+                              } else if (res.error && res.error !== 'Ventana de inicio de sesión cerrada') {
+                                alert('Error al iniciar sesión en Steam: ' + res.error);
+                              }
+                            } else {
+                              alert('Esta función solo está disponible en la versión de escritorio.');
+                            }
+                          }}
+                        >
+                          <MaterialCommunityIcons name="steam" size={24} color="#FFF" style={{ marginRight: 8 }} />
+                          <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold' }}>Vincular con Steam</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </ScrollView>
                 ) : settingsTab === 'home' ? (

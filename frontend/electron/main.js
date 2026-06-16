@@ -618,6 +618,76 @@ app.whenReady().then(() => {
     }
   });
 
+  // IPC: Login de Steam OpenID a través del navegador por defecto
+  ipcMain.handle('steam-login', async () => {
+    return new Promise((resolve) => {
+      const http = require('http');
+      const { parse } = require('url');
+
+      // Iniciar servidor temporal en el puerto 31415
+      const PORT = 31415;
+      const returnUrl = `http://localhost:${PORT}/auth/steam/return`;
+      
+      const server = http.createServer((req, res) => {
+        const parsedUrl = parse(req.url, true);
+        
+        if (parsedUrl.pathname === '/auth/steam/return') {
+          try {
+            const claimedId = parsedUrl.query['openid.claimed_id'];
+            if (claimedId) {
+              const steamId = claimedId.split('/').pop();
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(`
+                <html>
+                  <body style="background-color:#1b2838; color:white; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh;">
+                    <div style="text-align:center;">
+                      <h1>¡Sesión iniciada con éxito!</h1>
+                      <p>Ya puedes cerrar esta pestaña y volver a la aplicación.</p>
+                      <script>setTimeout(() => window.close(), 3000);</script>
+                    </div>
+                  </body>
+                </html>
+              `);
+              server.close();
+              resolve({ success: true, steamId });
+            } else {
+              res.writeHead(400, { 'Content-Type': 'text/plain' });
+              res.end('Error: No se encontró el SteamID en la respuesta.');
+              server.close();
+              resolve({ success: false, error: 'No se encontró el SteamID en la respuesta' });
+            }
+          } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            res.end('Error interno.');
+            server.close();
+            resolve({ success: false, error: e.message });
+          }
+        } else {
+          res.writeHead(404);
+          res.end('Not found');
+        }
+      });
+
+      server.listen(PORT, '127.0.0.1', () => {
+        const openIdUrl = `https://steamcommunity.com/openid/login?openid.ns=http://specs.openid.net/auth/2.0&openid.mode=checkid_setup&openid.return_to=${returnUrl}&openid.realm=http://localhost:${PORT}&openid.identity=http://specs.openid.net/auth/2.0/identifier_select&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select`;
+        
+        // Abrir la URL en el navegador predeterminado del sistema (Chrome, Edge, etc.)
+        shell.openExternal(openIdUrl).catch(err => {
+          server.close();
+          resolve({ success: false, error: 'Error al abrir el navegador: ' + err.message });
+        });
+      });
+
+      // Timeout de seguridad: si el usuario no inicia sesión en 3 minutos, cerramos el servidor
+      setTimeout(() => {
+        if (server.listening) {
+          server.close();
+          resolve({ success: false, error: 'Tiempo de espera agotado' });
+        }
+      }, 3 * 60 * 1000);
+    });
+  });
+
   createWindow();
 
 

@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchNews: () => ipcRenderer.invoke('fetch-news'),
   selectCaptureFolder: () => ipcRenderer.invoke('select-capture-folder'),
   getLatestCapture: (folderPath) => ipcRenderer.invoke('get-latest-capture', folderPath),
+  steamLogin: () => ipcRenderer.invoke('steam-login'),
 });
 
 
