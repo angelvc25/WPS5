@@ -798,8 +798,10 @@ export default function ConsoleHome() {
         }
 
         if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-          setFocusArea('main_carousel');
-          soundService.playExitMenu();
+          if (!isContextMenuOpen && !(focusArea === 'header_user')) {
+            setFocusArea('main_carousel');
+            soundService.playExitMenu();
+          }
         }
 
         if (e.key === 'o' || e.key === 'O') {
