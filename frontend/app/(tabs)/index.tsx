@@ -700,6 +700,11 @@ export default function ConsoleHome() {
         checkButton(4, 'q');
         checkButton(5, 'e');
         checkButton(9, 'o');
+      } else {
+        if (lastGpId.current !== null) {
+          lastGpId.current = null;
+          setGamepadInfo({ connected: false, name: '', battery: 0 });
+        }
       }
       rafId = requestAnimationFrame(poll);
     };
@@ -1965,60 +1970,81 @@ export default function ConsoleHome() {
       <Modal visible={isAddModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Añadir Nueva Aplicación</Text>
-            <TextInput
-              ref={addModalTitleRef}
-              style={[styles.input, addModalFocusIndex === 0 && styles.inputFocused]}
-              placeholder="Nombre de la Aplicación"
-              placeholderTextColor="#888"
-              value={newApp.title}
-              onChangeText={(text) => setNewApp({ ...newApp, title: text })}
-            />
-            <View style={styles.pickerRow}>
-              <TouchableOpacity style={[styles.typeBtn, newApp.type === 'game' && styles.typeBtnActive, addModalFocusIndex === 1 && styles.buttonFocused]} onPress={() => setNewApp({ ...newApp, type: 'game' })}>
-                <Text style={styles.typeBtnText}>Games</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.typeBtn, newApp.type === 'media' && styles.typeBtnActive, addModalFocusIndex === 2 && styles.buttonFocused]} onPress={() => setNewApp({ ...newApp, type: 'media', platform: '' })}>
-                <Text style={styles.typeBtnText}>Media</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.typeBtn, newApp.type === 'web' && styles.typeBtnActive, addModalFocusIndex === 3 && styles.buttonFocused]} onPress={() => setNewApp({ ...newApp, type: 'web', platform: '' })}>
-                <Text style={styles.typeBtnText}>Web</Text>
-              </TouchableOpacity>
-            </View>
-            {newApp.type === 'game' && (
-              <View style={{ marginBottom: 15 }}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
-                  {[{ id: 'PC', icon: 'microsoft-windows' }, { id: 'PS5', icon: 'sony-playstation' }, { id: 'Xbox', icon: 'microsoft-xbox' }, { id: 'Switch', icon: 'nintendo-switch' }, { id: 'Steam', icon: 'steam' }, { id: 'EA', icon: 'alpha-e-box' }, { id: 'Epic', icon: 'alpha-e-circle' }].map((plat, idx) => {
-                    const focusIdx = 4 + idx;
-                    return (
-                      <TouchableOpacity key={plat.id} style={[styles.platformBtn, newApp.platform === plat.id && styles.platformBtnActive, addModalFocusIndex === focusIdx && styles.buttonFocused]} onPress={() => setNewApp({ ...newApp, platform: plat.id })}>
-                        <MaterialCommunityIcons name={plat.icon as any} size={20} color={newApp.platform === plat.id ? '#000' : '#FFF'} />
-                        <Text style={[styles.platformBtnText, newApp.platform === plat.id && styles.platformBtnTextActive]}>{plat.id}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+            {Platform.OS === 'web' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: `
+                    linear-gradient(
+                      45deg,
+                      rgba(255, 255, 255, 0.08) 0%,
+                      rgba(255,255,255,0.03) 40%,
+                      rgba(255,255,255,0.01) 60%,
+                      rgba(0,0,0,0.00) 100%
+                    )
+                  `,
+                  pointerEvents: 'none',
+                  zIndex: 1,
+                }}
+              />
+            )}
+            <View style={{ zIndex: 2 }}>
+              <Text style={styles.modalTitle}>Añadir Nueva Aplicación</Text>
+              <TextInput
+                ref={addModalTitleRef}
+                style={[styles.input, addModalFocusIndex === 0 && styles.inputFocused]}
+                placeholder="Nombre de la Aplicación"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={newApp.title}
+                onChangeText={(text) => setNewApp({ ...newApp, title: text })}
+              />
+              <View style={styles.pickerRow}>
+                <TouchableOpacity style={[styles.typeBtn, newApp.type === 'game' && styles.typeBtnActive, addModalFocusIndex === 1 && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, type: 'game' })}>
+                  <Text style={[styles.typeBtnText, newApp.type === 'game' && styles.typeBtnTextActive]}>Games</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.typeBtn, newApp.type === 'media' && styles.typeBtnActive, addModalFocusIndex === 2 && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, type: 'media', platform: '' })}>
+                  <Text style={[styles.typeBtnText, newApp.type === 'media' && styles.typeBtnTextActive]}>Media</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.typeBtn, newApp.type === 'web' && styles.typeBtnActive, addModalFocusIndex === 3 && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, type: 'web', platform: '' })}>
+                  <Text style={[styles.typeBtnText, newApp.type === 'web' && styles.typeBtnTextActive]}>Web</Text>
+                </TouchableOpacity>
               </View>
-            )}
-            {newApp.type === 'web' ? (
-              <TextInput ref={addModalPathRef} style={[styles.input, addModalFocusIndex === 11 && styles.inputFocused]} placeholder="URL (https://...)" placeholderTextColor="#888" value={newApp.path} onChangeText={(text) => setNewApp({ ...newApp, path: text })} />
-            ) : (
-              <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 11 && styles.buttonFocused]} onPress={handleSelectExecutable}>
-                <Ionicons name="folder-open" size={20} color="#FFF" />
-                <Text style={styles.fileBtnText}>{newApp.path ? 'Ruta: ...' + newApp.path.slice(-20) : 'Seleccionar Ejecutable (.exe)'}</Text>
+              {newApp.type === 'game' && (
+                <View style={{ marginBottom: 15 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
+                    {[{ id: 'PC', icon: 'microsoft-windows' }, { id: 'PS5', icon: 'sony-playstation' }, { id: 'Xbox', icon: 'microsoft-xbox' }, { id: 'Switch', icon: 'nintendo-switch' }, { id: 'Steam', icon: 'steam' }, { id: 'EA', icon: 'alpha-e-box' }, { id: 'Epic', icon: 'alpha-e-circle' }].map((plat, idx) => {
+                      const focusIdx = 4 + idx;
+                      return (
+                        <TouchableOpacity key={plat.id} style={[styles.platformBtn, newApp.platform === plat.id && styles.platformBtnActive, addModalFocusIndex === focusIdx && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, platform: plat.id })}>
+                          <MaterialCommunityIcons name={plat.icon as any} size={20} color={newApp.platform === plat.id ? '#FFF' : 'rgba(255,255,255,0.5)'} />
+                          <Text style={[styles.platformBtnText, newApp.platform === plat.id && styles.platformBtnTextActive]}>{plat.id}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+              {newApp.type === 'web' ? (
+                <TextInput ref={addModalPathRef} style={[styles.input, addModalFocusIndex === 11 && styles.inputFocused]} placeholder="URL (https://...)" placeholderTextColor="rgba(255,255,255,0.3)" value={newApp.path} onChangeText={(text) => setNewApp({ ...newApp, path: text })} />
+              ) : (
+                <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 11 && styles.inputFocused]} onPress={handleSelectExecutable}>
+                  <Ionicons name="folder-open" size={20} color="rgba(255,255,255,0.7)" />
+                  <Text style={styles.fileBtnText}>{newApp.path ? 'Ruta: ...' + newApp.path.slice(-20) : 'Seleccionar Ejecutable (.exe)'}</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 12 && styles.inputFocused]} onPress={handleSelectImage}>
+                <Ionicons name="image" size={20} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.fileBtnText}>{newApp.image ? 'Portada: ...' + newApp.image.slice(-20) : 'Portada (Opcional - Auto-fetch)'}</Text>
               </TouchableOpacity>
-            )}
-            <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 12 && styles.buttonFocused]} onPress={handleSelectImage}>
-              <Ionicons name="image" size={20} color="#FFF" />
-              <Text style={styles.fileBtnText}>{newApp.image ? 'Portada: ...' + newApp.image.slice(-20) : 'Portada (Opcional - Auto-fetch)'}</Text>
-            </TouchableOpacity>
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.cancelBtn, isSaving && { opacity: 0.5 }, addModalFocusIndex === 13 && styles.buttonFocused]} onPress={() => !isSaving && setAddModalVisible(false)} disabled={isSaving}>
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.saveBtn, isSaving && { backgroundColor: '#444' }, addModalFocusIndex === 14 && styles.buttonFocused]} onPress={handleSaveApp} disabled={isSaving}>
-                <Text style={styles.saveBtnText}>{isSaving ? 'Buscando assets...' : 'Guardar'}</Text>
-              </TouchableOpacity>
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={[styles.cancelBtn, isSaving && { opacity: 0.5 }, addModalFocusIndex === 13 && styles.inputFocused]} onPress={() => !isSaving && setAddModalVisible(false)} disabled={isSaving}>
+                  <Text style={styles.cancelBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.saveBtn, isSaving && { backgroundColor: 'rgba(255,255,255,0.05)' }, addModalFocusIndex === 14 && styles.inputFocused]} onPress={handleSaveApp} disabled={isSaving}>
+                  <Text style={styles.saveBtnText}>{isSaving ? 'Buscando assets...' : 'Guardar'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -2868,28 +2894,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // === MODALS ===
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: 420, backgroundColor: '#1C1C1E', borderRadius: 16, padding: 28, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  modalTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  input: { backgroundColor: '#111', color: '#FFF', padding: 12, borderRadius: 10, marginBottom: 15, borderWidth: 1, borderColor: '#333', fontSize: 15 },
-  inputFocused: { borderColor: '#FFFFFF', borderWidth: 2 },
+  modalContent: { 
+    width: 420, 
+    backgroundColor: 'rgba(23, 23, 30, 1)', 
+    borderRadius: 12, 
+    padding: 24, 
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  modalTitle: { color: '#FFF', fontSize: 18, fontWeight: '300', marginBottom: 20, textAlign: 'center', letterSpacing: 0.5 },
+  input: { backgroundColor: 'rgba(255,255,255,0.02)', color: '#FFF', padding: 12, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', fontSize: 15 },
+  inputFocused: { borderColor: 'rgba(255,255,255,0.45)', backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, transform: [{ scale: 1.02 }] },
   pickerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-  typeBtn: { flex: 1, padding: 12, alignItems: 'center', backgroundColor: '#111', borderRadius: 10, marginHorizontal: 4, borderWidth: 1, borderColor: '#333' },
-  typeBtnActive: { borderColor: '#FFF', backgroundColor: '#2A2A2A' },
-  typeBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
+  typeBtn: { flex: 1, padding: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 8, marginHorizontal: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  typeBtnActive: { borderColor: 'rgba(255,255,255,0.45)', backgroundColor: 'rgba(255,255,255,0.06)' },
+  typeBtnText: { color: 'rgba(255,255,255,0.5)', fontWeight: '300', fontSize: 13 },
+  typeBtnTextActive: { color: '#FFF', fontWeight: '500' },
   platformScrollContent: { gap: 8, paddingVertical: 5 },
-  platformBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#333' },
-  platformBtnActive: { borderColor: '#FFF', backgroundColor: '#FFF' },
-  platformBtnText: { color: '#FFF', fontWeight: 'bold', marginLeft: 6, fontSize: 12 },
-  platformBtnTextActive: { color: '#000' },
-  fileBtn: { backgroundColor: '#2A2A2A', padding: 15, borderRadius: 10, flexDirection: 'row', alignItems: 'center', marginBottom: 15, borderWidth: 1, borderColor: '#333' },
-  fileBtnText: { color: '#FFF', marginLeft: 10, flex: 1, fontSize: 13 },
+  platformBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  platformBtnActive: { borderColor: 'rgba(255,255,255,0.45)', backgroundColor: 'rgba(255,255,255,0.06)' },
+  platformBtnText: { color: 'rgba(255,255,255,0.5)', fontWeight: '300', marginLeft: 6, fontSize: 12 },
+  platformBtnTextActive: { color: '#FFF', fontWeight: '500' },
+  fileBtn: { backgroundColor: 'rgba(255,255,255,0.02)', padding: 15, borderRadius: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  fileBtnText: { color: 'rgba(255,255,255,0.85)', fontWeight: '300', marginLeft: 10, flex: 1, fontSize: 13 },
   modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  cancelBtn: { flex: 1, padding: 12, backgroundColor: '#333', borderRadius: 10, marginRight: 5, alignItems: 'center' },
-  cancelBtnText: { color: '#FFF', fontWeight: 'bold' },
-  saveBtn: { flex: 1, padding: 12, backgroundColor: '#FFFFFF', borderRadius: 10, marginLeft: 5, alignItems: 'center' },
-  saveBtnText: { color: '#000', fontWeight: 'bold' },
+  cancelBtn: { flex: 1, padding: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, marginRight: 5, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
+  cancelBtnText: { color: 'rgba(255,255,255,0.7)', fontWeight: '300' },
+  saveBtn: { flex: 1, padding: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, marginLeft: 5, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
+  saveBtnText: { color: '#FFF', fontWeight: '600' },
 
   // === SETTINGS MODAL ===
   settingsOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
