@@ -8,6 +8,7 @@ class SoundService {
   private tabSound: Audio.Sound | null = null;
   private startHomeSound: Audio.Sound | null = null;
   private contextMenuSound: Audio.Sound | null = null;
+  private exitMenuSound: Audio.Sound | null = null;
   private isMuted: boolean = false;
 
   async init() {
@@ -51,6 +52,11 @@ class SoundService {
         require('@/assets/sounds/openControlCenter.mp3')
       );
       this.contextMenuSound = contextMenuSound;
+
+      const { sound: exitMenuSound } = await Audio.Sound.createAsync(
+        require('@/assets/sounds/exitOptionMenu.mp3')
+      );
+      this.exitMenuSound = exitMenuSound;
 
     } catch (error) {
       console.error('Error loading sounds:', error);
@@ -102,6 +108,15 @@ class SoundService {
     }
   }
 
+  async playExitMenu() {
+    if (this.isMuted || !this.exitMenuSound) return;
+    try {
+      await this.exitMenuSound.replayAsync();
+    } catch (error) {
+      // Ignore errors
+    }
+  }
+
   async playStartHome() {
     if (this.isMuted || !this.startHomeSound) return;
     try {
@@ -115,15 +130,6 @@ class SoundService {
     if (this.isMuted || !this.tabSound) return;
     try {
       await this.tabSound.replayAsync();
-    } catch (error) {
-      // Ignore errors
-    }
-  }
-
-  async playTrophys() {
-    if (this.isMuted || !this.trophysSound) return;
-    try {
-      await this.trophysSound.replayAsync();
     } catch (error) {
       // Ignore errors
     }
