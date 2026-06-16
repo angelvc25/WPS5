@@ -325,9 +325,23 @@ export default function ControlCenterCards({
 }: ControlCenterCardsProps) {
   const expandedCard = MOCK_CARDS[Math.min(focusedIndex, MOCK_CARDS.length - 1)];
 
+  const translateX = useSharedValue(0);
+
+  useEffect(() => {
+    // 260 (card width) + 14 (gap) = 274
+    translateX.value = withTiming(-focusedIndex * 274, {
+      duration: 250,
+      easing: Easing.out(Easing.ease),
+    });
+  }, [focusedIndex]);
+
+  const rowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
   return (
     <>
-      <View style={styles.cardsRow}>
+      <Animated.View style={[styles.cardsRow, rowStyle]}>
         {MOCK_CARDS.map((card, index) => (
           <AnimatedCard
             key={card.id}
@@ -339,7 +353,7 @@ export default function ControlCenterCards({
             enterDelay={index * 60}
           />
         ))}
-      </View>
+      </Animated.View>
 
       <ExpandedModal
         card={expandedCard}
