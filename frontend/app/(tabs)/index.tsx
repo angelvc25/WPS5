@@ -2405,36 +2405,51 @@ export default function ConsoleHome() {
                       <Text style={styles.settingsLabelNew}>Cuenta de Steam</Text>
                       {activeUser?.settings?.steamId ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-                          <Text style={{ color: '#FFF', fontSize: 16 }}>Conectado (ID: {activeUser.settings.steamId})</Text>
-                          <TouchableOpacity
-                            style={{ backgroundColor: '#FF3333', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
-                            onPress={() => updateUser({ settings: { ...activeUser.settings, steamId: null } as any })}
-                          >
-                            <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Desvincular</Text>
-                          </TouchableOpacity>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <MaterialCommunityIcons name="steam" size={28} color="#FFF" style={{ marginRight: 10 }} />
+                            <Text style={{ color: '#FFF', fontSize: 18, fontWeight: 'bold' }}>Steam</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, marginRight: 15 }}>Conectado (ID: {activeUser.settings.steamId})</Text>
+                            <TouchableOpacity
+                              style={{ backgroundColor: '#FF3333', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
+                              onPress={() => updateUser({ settings: { ...activeUser.settings, steamId: null } as any })}
+                            >
+                              <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Desvincular</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       ) : (
-                        <TouchableOpacity
-                          style={[
-                            { backgroundColor: '#1b2838', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
-                            (settingsFocusArea === 'content' && settingsFocusIndex === 3) && { borderWidth: 2, borderColor: '#FFF' }
-                          ]}
-                          onPress={async () => {
-                            if (Platform.OS === 'web' && (window as any).electronAPI) {
-                              const res = await (window as any).electronAPI.steamLogin();
-                              if (res.success && res.steamId) {
-                                updateUser({ settings: { ...activeUser?.settings, steamId: res.steamId } as any });
-                              } else if (res.error && res.error !== 'Ventana de inicio de sesión cerrada') {
-                                alert('Error al iniciar sesión en Steam: ' + res.error);
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <MaterialCommunityIcons name="steam" size={28} color="#FFF" style={{ marginRight: 10 }} />
+                            <Text style={{ color: '#FFF', fontSize: 18, fontWeight: 'bold' }}>Steam</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={[
+                              { borderRadius: 4, overflow: 'hidden' },
+                              (settingsFocusArea === 'content' && settingsFocusIndex === 3) && { borderWidth: 2, borderColor: '#FFF' }
+                            ]}
+                            onPress={async () => {
+                              if (Platform.OS === 'web' && (window as any).electronAPI) {
+                                const res = await (window as any).electronAPI.steamLogin();
+                                if (res.success && res.steamId) {
+                                  updateUser({ settings: { ...activeUser?.settings, steamId: res.steamId } as any });
+                                } else if (res.error && res.error !== 'Ventana de inicio de sesión cerrada') {
+                                  alert('Error al iniciar sesión en Steam: ' + res.error);
+                                }
+                              } else {
+                                alert('Esta función solo está disponible en la versión de escritorio.');
                               }
-                            } else {
-                              alert('Esta función solo está disponible en la versión de escritorio.');
-                            }
-                          }}
-                        >
-                          <MaterialCommunityIcons name="steam" size={24} color="#FFF" style={{ marginRight: 8 }} />
-                          <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold' }}>Vincular con Steam</Text>
-                        </TouchableOpacity>
+                            }}
+                          >
+                            <Image 
+                              source={require('@/assets/images/steam_boton.png')} 
+                              style={{ width: 180, height: 45 }} 
+                              contentFit="contain" 
+                            />
+                          </TouchableOpacity>
+                        </View>
                       )}
                     </View>
                   </ScrollView>
