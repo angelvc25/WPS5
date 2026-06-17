@@ -260,7 +260,12 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
       <View style={styles.tabsRow}>
         <TouchableOpacity style={styles.filterButton}>
-          <MaterialCommunityIcons name="sort-variant" size={24} color="#FFF" />
+          {/* <MaterialCommunityIcons name="sort-variant" size={24} color="#FFF" /> */}
+          <Image
+            source={require('@/assets/images/PS5_Filters.png')}
+            style={{ width: 40, height: 40 }}
+            contentFit="contain"
+          />
         </TouchableOpacity>
 
         <View style={styles.tabsContainer}>

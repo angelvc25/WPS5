@@ -1926,7 +1926,7 @@ export default function ConsoleHome() {
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         {!isLibraryFocused && (
           activeItem?.id === '1' ? (
-            <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]} entering={FadeInDown.duration(800).delay(150)}>
+            <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]} entering={FadeInDown.duration(500).delay(150)}>
               <Animated.View style={widgetContainerStyle}>
                 <WelcomeWidgets
                   focusArea={focusArea}
@@ -2445,10 +2445,10 @@ export default function ConsoleHome() {
                               }
                             }}
                           >
-                            <Image 
-                              source={require('@/assets/images/steam_boton.png')} 
-                              style={{ width: 180, height: 45 }} 
-                              contentFit="contain" 
+                            <Image
+                              source={require('@/assets/images/steam_boton.png')}
+                              style={{ width: 180, height: 45 }}
+                              contentFit="contain"
                             />
                           </TouchableOpacity>
                         </View>
