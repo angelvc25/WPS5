@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectCaptureFolder: () => ipcRenderer.invoke('select-capture-folder'),
   getLatestCapture: (folderPath) => ipcRenderer.invoke('get-latest-capture', folderPath),
   steamLogin: () => ipcRenderer.invoke('steam-login'),
+  onGameClosed: (callback) => ipcRenderer.on('game-closed', (_event, id) => callback(id)),
+  removeGameClosedListener: () => ipcRenderer.removeAllListeners('game-closed'),
 });
 
 
