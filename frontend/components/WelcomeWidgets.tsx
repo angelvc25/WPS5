@@ -46,8 +46,8 @@ export const WelcomeWidgets = ({
   if (batteryPct <= 20) batteryColor = '#FF3B30';
   else if (batteryPct <= 50) batteryColor = '#FF9500';
 
-  const batteryIcon = gamepadInfo.connected 
-    ? (batteryPct > 50 ? "battery-full" : (batteryPct > 20 ? "battery-half" : "battery-dead")) 
+  const batteryIcon = gamepadInfo.connected
+    ? (batteryPct > 50 ? "battery-full" : (batteryPct > 20 ? "battery-half" : "battery-dead"))
     : "battery-dead";
 
   return (
@@ -150,7 +150,7 @@ export const WelcomeWidgets = ({
           </View>
         </TouchableOpacity>
 
-        {/* Change background / Add App quick options */}
+        {/* Change background / Add App quick options
         <View style={styles.quickOptionsContainer}>
           <TouchableOpacity
             activeOpacity={0.85}
@@ -171,7 +171,7 @@ export const WelcomeWidgets = ({
           >
             <Ionicons name="add" size={35} color="#FFF" />
           </TouchableOpacity>
-        </View>
+        </View> */}
       </View>
 
       {/* === WELCOME WIDGETS GRID === */}
