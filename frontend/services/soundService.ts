@@ -21,7 +21,7 @@ class SoundService {
         require('@/assets/sounds/background.mp3'),
         {
           isLooping: true,
-          volume: 0.35,
+          volume: 0.70,
           shouldPlay: !this.isMuted, // No reproduce de golpe si ya se configuró muteado
         }
       );
