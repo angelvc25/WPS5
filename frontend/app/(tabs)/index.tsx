@@ -1375,7 +1375,7 @@ export default function ConsoleHome() {
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       setLaunchingItem(targetItem);
       setIsLaunching(true);
-      (window as any).electronAPI.launchApp(targetItem.id, targetItem.path).then(() => {
+      (window as any).electronAPI.launchApp(targetItem.id, targetItem.path).then((result: any) => {
         loadApps();
         if (activeTab === 'Games') {
           const lpIdx = currentData.findIndex(x => x.id === 'last_played');
@@ -1390,13 +1390,32 @@ export default function ConsoleHome() {
         setFavoritesVisible(false);
         setRandomSelectorVisible(false);
 
-        setTimeout(() => {
-          setIsLaunching(false);
-          setLaunchingItem(null);
-        }, 10000);
+        // Si el launcher no se suspendió (URLs, .url, etc), limpiar estado tras delay
+        if (!result?.suspended) {
+          setTimeout(() => {
+            setIsLaunching(false);
+            setLaunchingItem(null);
+          }, 5000);
+        }
+        // Si se suspendió, el evento 'game-closed' se encarga de restaurar
       });
     }
   };
+
+  // Escuchar evento game-closed del proceso principal (launcher resume tras cerrar juego)
+  useEffect(() => {
+    if (Platform.OS === 'web' && (window as any).electronAPI?.onGameClosed) {
+      (window as any).electronAPI.onGameClosed((id: string) => {
+        console.log('Juego cerrado, restaurando launcher:', id);
+        setIsLaunching(false);
+        setLaunchingItem(null);
+        loadApps();
+      });
+      return () => {
+        (window as any).electronAPI?.removeGameClosedListener?.();
+      };
+    }
+  }, []);
 
   const handleAppPress = (index: number, item: ConsoleItem) => {
     setFocusArea('main_carousel');

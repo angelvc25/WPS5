@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const { pathToFileURL } = require('url');
 const serve = require('electron-serve').default || require('electron-serve');
 
@@ -16,6 +16,7 @@ const IGDB_CLIENT_ID = 'cedukeor213t2yrqswcerzpldefp43'; // REEMPLAZAR
 const IGDB_CLIENT_SECRET = 'q9hm9iq6ahlaccv3osl19a7y71qd3t'; // REEMPLAZAR
 const STEAMGRID_API_KEY = '6abd5716fa6f6cb81eaed8426560c5eb'; // REEMPLAZADO
 let igdbAccessToken = null;
+let mainWindow = null;
 
 
 
@@ -35,7 +36,7 @@ function initDB() {
 }
 
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
     fullscreen: true,
@@ -251,8 +252,22 @@ app.whenReady().then(() => {
     return { success: true };
   });
 
-  // IPC: Ejecutar un programa externo
-  ipcMain.handle('launch-app', (event, id, executablePath) => {
+  // Helper: Resolver acceso directo .lnk a su ruta real (Windows)
+  function resolveLnkTarget(lnkPath) {
+    return new Promise((resolve) => {
+      const escapedPath = lnkPath.replace(/'/g, "''");
+      exec(`powershell -NoProfile -Command "(New-Object -ComObject WScript.Shell).CreateShortcut('${escapedPath}').TargetPath"`, (error, stdout) => {
+        if (error || !stdout.trim()) {
+          resolve(null);
+        } else {
+          resolve(stdout.trim());
+        }
+      });
+    });
+  }
+
+  // IPC: Ejecutar un programa externo (con suspensión del launcher)
+  ipcMain.handle('launch-app', async (event, id, executablePath) => {
     if (!executablePath) return;
 
     // Actualizar timestamp de último juego en la DB si el id existe
@@ -277,29 +292,90 @@ app.whenReady().then(() => {
       }
     }
 
-    // Ejecutar la ruta proporcionada
     const lowerPath = executablePath.toLowerCase();
-    if (lowerPath.endsWith('.lnk') || lowerPath.endsWith('.url')) {
-      shell.openPath(executablePath).then((errMsg) => {
-        if (errMsg) {
-          console.error('Error al abrir shortcut:', errMsg);
-        }
-      }).catch((err) => {
-        console.error('Exception opening shortcut:', err);
-      });
-    } else if (executablePath.startsWith('http://') || executablePath.startsWith('https://')) {
-      shell.openExternal(executablePath).catch((err) => {
-        console.error('Error al abrir URL externa:', err);
-      });
-    } else {
-      exec(`"${executablePath}"`, (error, stdout, stderr) => {
-        if (error) {
-          console.error('Error al ejecutar la aplicación:', error);
-        }
-      });
+
+    // URLs y protocolos (http://, steam://, epic://, etc.): abrir sin suspender
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(executablePath)) {
+      shell.openExternal(executablePath).catch(console.error);
+      return { success: true, suspended: false };
     }
 
-    return { success: true };
+    // .url files: abrir sin suspender
+    if (lowerPath.endsWith('.url')) {
+      shell.openPath(executablePath).catch(console.error);
+      return { success: true, suspended: false };
+    }
+
+    // Resolver .lnk a la ruta real del ejecutable
+    let targetExe = executablePath;
+    if (lowerPath.endsWith('.lnk')) {
+      const resolved = await resolveLnkTarget(executablePath);
+      if (resolved) {
+        targetExe = resolved;
+        console.log('.lnk resuelto a:', targetExe);
+      } else {
+        // No se pudo resolver, abrir sin suspender
+        console.log('No se pudo resolver el .lnk, abriendo sin suspensión');
+        shell.openPath(executablePath).catch(console.error);
+        return { success: true, suspended: false };
+      }
+    }
+
+    // --- Suspensión del launcher mientras el juego está activo ---
+    let gameExited = false;
+    let hideTimer = null;
+
+    const resumeLauncher = () => {
+      if (gameExited) return; // Evitar doble ejecución
+      gameExited = true;
+      if (hideTimer) clearTimeout(hideTimer);
+
+      if (mainWindow) {
+        mainWindow.webContents.send('game-closed', id);
+        if (!mainWindow.isVisible()) {
+          // La ventana estaba oculta, restaurarla con un breve delay
+          setTimeout(() => {
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.focus();
+              console.log('Launcher restaurado');
+            }
+          }, 300);
+        }
+      }
+    };
+
+    // Ocultar el launcher después de 1.5s para que se vea la animación de lanzamiento
+    hideTimer = setTimeout(() => {
+      if (!gameExited && mainWindow) {
+        mainWindow.hide();
+        console.log('Launcher suspendido — ventana oculta');
+      }
+    }, 1500);
+
+    // Lanzar el juego y monitorear el proceso
+    try {
+      const child = spawn(`"${targetExe}"`, [], {
+        shell: true,
+        stdio: 'ignore',
+        windowsHide: false,
+      });
+
+      child.on('error', (err) => {
+        console.error('Error al iniciar el juego:', err);
+        resumeLauncher();
+      });
+
+      child.on('close', (code) => {
+        console.log(`Juego cerrado (código: ${code})`);
+        resumeLauncher();
+      });
+    } catch (err) {
+      console.error('Excepción al lanzar el juego:', err);
+      resumeLauncher();
+    }
+
+    return { success: true, suspended: true };
   });
 
   // IPC: Abrir diálogo para seleccionar ejecutable
