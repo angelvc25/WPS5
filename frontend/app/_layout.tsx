@@ -1,9 +1,16 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Image } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withSpring,
+  runOnJS
+} from 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
@@ -17,21 +24,39 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [activeUser, setActiveUser] = useState<UserProfile | null>(null);
   const [showSplash, setShowSplash] = useState(true);
-  const splashOpacity = useRef(new Animated.Value(1)).current;
+
+  // Valores compartidos de Reanimated
+  const splashOpacity = useSharedValue(1);
+  const logoScale = useSharedValue(0.3); // Inicia pequeño para el efecto de entrada
 
   useEffect(() => {
-    // Mantener el logo 2.5 segundos y luego desvanecerlo por 0.5 segundos
+    // 1. Animación de Entrada: El logo aparece con un rebote premium (efecto consola)
+    logoScale.value = withSpring(1, { damping: 0, stiffness: 20 });
+
+    // 2. Temporizador para la secuencia de salida
     const timer = setTimeout(() => {
-      Animated.timing(splashOpacity, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => {
-        setShowSplash(false);
+      // Desvanecer el fondo
+      splashOpacity.value = withTiming(0, { duration: 600 });
+
+      // El logo se expande masivamente hacia la pantalla (efecto "entrar al sistema")
+      logoScale.value = withTiming(2.5, { duration: 600 }, (finished) => {
+        if (finished) {
+          runOnJS(setShowSplash)(false);
+        }
       });
     }, 2500);
+
     return () => clearTimeout(timer);
-  }, [splashOpacity]);
+  }, []);
+
+  // Estilos animados
+  const animatedSplashStyle = useAnimatedStyle(() => ({
+    opacity: splashOpacity.value,
+  }));
+
+  const animatedLogoStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: logoScale.value }],
+  }));
 
   if (!activeUser) {
     return (
@@ -47,20 +72,19 @@ export default function RootLayout() {
             display: none;
           }
         ` }} />
+
         <UserSelectScreen onUserSelected={(user) => setActiveUser(user)} />
+
         {showSplash && (
-          <Animated.View style={{ 
-            ...StyleSheet.absoluteFillObject, 
-            backgroundColor: '#000', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            opacity: splashOpacity,
-            zIndex: 9999
-          }}>
-            <Image 
-              source={require('../assets/images/applogo.png')} 
-              style={{ width: 150, height: 150 }} 
-              resizeMode="contain" 
+          <Animated.View style={[
+            StyleSheet.absoluteFillObject,
+            styles.splashContainer,
+            animatedSplashStyle
+          ]}>
+            <Animated.Image
+              source={require('../assets/images/applogo.png')}
+              style={[styles.logo, animatedLogoStyle]}
+              resizeMode="contain"
             />
           </Animated.View>
         )}
@@ -72,24 +96,16 @@ export default function RootLayout() {
   const updateUser = async (updates: Partial<UserProfile>) => {
     setActiveUser(prevUser => {
       if (!prevUser) return prevUser;
-
       const newUser = { ...prevUser, ...updates };
-
-      // Persistir en el listado global de usuarios (Electron DB y LocalStorage fallback)
       const savedUsers = localStorage.getItem('console_users');
       if (savedUsers) {
         const usersList: UserProfile[] = JSON.parse(savedUsers);
         const updatedList = usersList.map(u => u.id === newUser.id ? newUser : u);
-
-        // Guardar en LocalStorage
         localStorage.setItem('console_users', JSON.stringify(updatedList));
-
-        // Guardar en Electron DB
         if ((window as any).electronAPI) {
           (window as any).electronAPI.saveUsers(updatedList).catch(console.error);
         }
       }
-
       return newUser;
     });
   };
@@ -117,3 +133,16 @@ export default function RootLayout() {
     </UserContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  splashContainer: {
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999
+  },
+  logo: {
+    width: 150,
+    height: 150
+  }
+});
