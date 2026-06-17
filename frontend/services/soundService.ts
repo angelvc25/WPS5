@@ -10,15 +10,19 @@ class SoundService {
   private contextMenuSound: Audio.Sound | null = null;
   private exitMenuSound: Audio.Sound | null = null;
   private isMuted: boolean = false;
+  private isInitialized: boolean = false; // Candado para evitar duplicados
 
   async init() {
+    // Evita cargar los sonidos múltiples veces si init() se vuelve a llamar
+    if (this.isInitialized) return;
+
     try {
       const { sound: bgSound } = await Audio.Sound.createAsync(
         require('@/assets/sounds/background.mp3'),
         {
           isLooping: true,
-          volume: 0.35, // ajusta el volumen (0.0 - 1.0)
-          shouldPlay: true,
+          volume: 0.35,
+          shouldPlay: !this.isMuted, // No reproduce de golpe si ya se configuró muteado
         }
       );
       this.backgroundSound = bgSound;
@@ -54,10 +58,11 @@ class SoundService {
       this.contextMenuSound = contextMenuSound;
 
       const { sound: exitMenuSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/exitOptionMenu.mp3')
+        require('@/assets/sounds/salir.mp3')
       );
       this.exitMenuSound = exitMenuSound;
 
+      this.isInitialized = true;
     } catch (error) {
       console.error('Error loading sounds:', error);
     }
@@ -65,11 +70,7 @@ class SoundService {
 
   async playNavigation() {
     if (this.isMuted || !this.navigationSound) return;
-    try {
-      await this.navigationSound.replayAsync();
-    } catch (error) {
-      // Ignore errors if sound is already playing or busy
-    }
+    try { await this.navigationSound.replayAsync(); } catch (e) { }
   }
 
   async playBackground() {
@@ -77,75 +78,78 @@ class SoundService {
     try {
       await this.backgroundSound.playAsync();
     } catch (error) {
-      // Ignore errors if sound is already playing or busy
-    }
-  }
-
-  async stopBackground() {
-    if (!this.backgroundSound) return;
-    try {
-      await this.backgroundSound.stopAsync();
-    } catch (error) {
-      // Ignore errors
+      // Ignorar error si ya está reproduciendo
     }
   }
 
   async playActivation() {
     if (this.isMuted || !this.activationSound) return;
-    try {
-      await this.activationSound.replayAsync();
-    } catch (error) {
-      // Ignore errors
-    }
+    try { await this.activationSound.replayAsync(); } catch (e) { }
   }
 
   async playContextMenu() {
     if (this.isMuted || !this.contextMenuSound) return;
+    try { await this.contextMenuSound.replayAsync(); } catch (e) { }
+  }
+
+  async playStartHome() {
+    if (this.isMuted || !this.startHomeSound) return;
+    try { await this.startHomeSound.replayAsync(); } catch (e) { }
+  }
+
+  async playTab() {
+    if (this.isMuted || !this.tabSound) return;
+    try { await this.tabSound.replayAsync(); } catch (e) { }
+  }
+
+  async playBack() {
+    if (this.isMuted || !this.backSound) return;
+    try { await this.backSound.replayAsync(); } catch (e) { }
+  }
+
+  async stopBackground() {
+    if (!this.backgroundSound) return;
     try {
-      await this.contextMenuSound.replayAsync();
+      // Usamos un estricto stop de la instancia actual
+      await this.backgroundSound.stopAsync();
     } catch (error) {
-      // Ignore errors
+      console.error('Error stopping background:', error);
     }
   }
 
   async playExitMenu() {
     if (this.isMuted || !this.exitMenuSound) return;
-    try {
-      await this.exitMenuSound.replayAsync();
-    } catch (error) {
-      // Ignore errors
-    }
+    try { await this.exitMenuSound.replayAsync(); } catch (e) { }
   }
 
-  async playStartHome() {
-    if (this.isMuted || !this.startHomeSound) return;
-    try {
-      await this.startHomeSound.replayAsync();
-    } catch (error) {
-      // Ignore errors
-    }
-  }
-
-  async playTab() {
-    if (this.isMuted || !this.tabSound) return;
-    try {
-      await this.tabSound.replayAsync();
-    } catch (error) {
-      // Ignore errors
-    }
-  }
-
-  async playBack() {
-    if (this.isMuted || !this.backSound) return;
-    try {
-      await this.backSound.replayAsync();
-    } catch (error) {
-      // Ignore errors
-    }
-  }
-
-  setMuted(muted: boolean) {
+  // Ahora es una función asíncrona que cambia el estado real del audio en reproducción
+  async setMuted(muted: boolean) {
     this.isMuted = muted;
+
+    if (this.backgroundSound) {
+      try {
+        // Mutea directamente la pista de fondo que está corriendo en tiempo real
+        await this.backgroundSound.setIsMutedAsync(muted);
+      } catch (error) {
+        console.error('Error setting background mute status:', error);
+      }
+    }
+  }
+
+  // Opcional: método para liberar memoria si el componente global se desmonta
+  async unloadAll() {
+    try {
+      if (this.backgroundSound) await this.backgroundSound.unloadAsync();
+      if (this.navigationSound) await this.navigationSound.unloadAsync();
+      if (this.activationSound) await this.activationSound.unloadAsync();
+      if (this.startHomeSound) await this.startHomeSound.unloadAsync();
+      if (this.tabSound) await this.tabSound.unloadAsync();
+      if (this.backSound) await this.backSound.unloadAsync();
+      if (this.contextMenuSound) await this.contextMenuSound.unloadAsync();
+      if (this.exitMenuSound) await this.exitMenuSound.unloadAsync();
+
+      this.isInitialized = false;
+    } catch (e) { }
   }
 }
 

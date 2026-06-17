@@ -798,9 +798,9 @@ export default function ConsoleHome() {
         }
 
         if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+          soundService.playExitMenu();
           if (!isContextMenuOpen && !(focusArea === 'header_user')) {
             setFocusArea('main_carousel');
-            soundService.playExitMenu();
           }
         }
 
@@ -1377,6 +1377,8 @@ export default function ConsoleHome() {
       setIsLaunching(true);
       (window as any).electronAPI.launchApp(targetItem.id, targetItem.path).then((result: any) => {
         loadApps();
+        console.log('Juego lanzado');
+        soundService.stopBackground();
         if (activeTab === 'Games') {
           const lpIdx = currentData.findIndex(x => x.id === 'last_played');
           if (lpIdx !== -1) {
@@ -1407,6 +1409,7 @@ export default function ConsoleHome() {
     if (Platform.OS === 'web' && (window as any).electronAPI?.onGameClosed) {
       (window as any).electronAPI.onGameClosed((id: string) => {
         console.log('Juego cerrado, restaurando launcher:', id);
+        soundService.playBackground();
         setIsLaunching(false);
         setLaunchingItem(null);
         loadApps();
