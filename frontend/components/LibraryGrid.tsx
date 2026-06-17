@@ -215,9 +215,48 @@ const SlidingGameTitle = ({
   );
 };
 
-export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0, onItemPress, onLaunch, onRefresh, isLaunching = false, inputMode = 'keyboard', onDetailVisibilityChange, activeTab = 'installed', onTabChange, isLoading = false }: LibraryGridProps) {
+export default function LibraryGrid({
+  games = [], // Aseguramos un fallback vacío por si viene undefined
+  isFocused = false,
+  focusedIndex = 0,
+  onItemPress,
+  onLaunch,
+  onRefresh,
+  isLaunching = false,
+  inputMode = 'keyboard',
+  onDetailVisibilityChange,
+  activeTab = 'installed',
+  onTabChange,
+  isLoading = false
+}: LibraryGridProps) {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [selectedGame, setSelectedGame] = useState<ConsoleItem | null>(null);
+
+  // 1. Estado para controlar la dirección del ordenamiento: 'none' | 'asc' (A-Z) | 'desc' (Z-A)
+  const [sortDirection, setSortDirection] = useState<'none' | 'asc' | 'desc'>('none');
+
+  // 2. Función para alternar el ordenamiento al presionar el botón
+  const toggleSort = () => {
+    setSortDirection((prev) => {
+      if (prev === 'none') return 'asc';
+      if (prev === 'asc') return 'desc';
+      return 'none'; // Vuelve al estado original
+    });
+  };
+
+  // 3. Ordenar los juegos basados en el estado actual
+  const sortedGames = [...games].sort((a, b) => {
+    if (sortDirection === 'none') return 0; // Mantiene el orden original que viene del backend/prop
+
+    const titleA = (a.title || '').toLowerCase();
+    const titleB = (b.title || '').toLowerCase();
+
+    if (sortDirection === 'asc') {
+      return titleA.localeCompare(titleB); // A-Z
+    } else {
+      return titleB.localeCompare(titleA); // Z-A
+    }
+  });
 
   const handleItemPress = (index: number, game: ConsoleItem) => {
     setSelectedGame(game);
@@ -225,18 +264,12 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
     onItemPress?.(index, game);
   };
 
-  // We will render the empty state below the tabs instead of returning early
-
   const translateY = useSharedValue(0);
 
-  // Compute the actual row height dynamically based on window width.
-  // The grid has paddingHorizontal: 100 on each side (200 total),
-  // plus the clip container adds paddingHorizontal: 20 on each side.
-  // CSS grid gap is 20px between columns.
   const GAP = 20;
-  const gridWidth = windowWidth - 200; // container paddingHorizontal: 100 * 2
+  const gridWidth = windowWidth - 200;
   const cardWidth = (gridWidth - GAP * (COLUMNS - 1)) / COLUMNS;
-  const cardHeight = cardWidth; // aspectRatio 1:1
+  const cardHeight = cardWidth;
   const rowHeight = Platform.OS === 'web' ? cardHeight + GAP : 180;
 
   useEffect(() => {
@@ -259,32 +292,45 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
       <View style={styles.tabsRow}>
-        <TouchableOpacity style={styles.filterButton}>
-          {/* <MaterialCommunityIcons name="sort-variant" size={24} color="#FFF" /> */}
+        {/* 4. Modificamos el filterButton con onPress y un feedback visual simple */}
+        <TouchableOpacity
+          onPress={toggleSort}
+          style={[
+            styles.filterButton,
+            sortDirection !== 'none' && { backgroundColor: 'rgba(255,255,255,0.3)' } // Se ilumina si está activo
+          ]}
+        >
           <Image
             source={require('@/assets/images/PS5_Filters.png')}
             style={{ width: 40, height: 40 }}
             contentFit="contain"
           />
+          {/* Opcional: Un pequeño indicador de texto para saber qué orden tiene */}
+          {sortDirection !== 'none' && (
+            <Text style={{ color: '#FFF', fontSize: 10, position: 'absolute', bottom: -18, fontWeight: 'bold' }}>
+              {sortDirection === 'asc' ? 'A-Z' : 'Z-A'}
+            </Text>
+          )}
         </TouchableOpacity>
 
         <View style={styles.tabsContainer}>
-          <TouchableOpacity onPress={() => onTabChange?.('installed')}>
+          <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('installed'); }}>
             <Text style={[styles.tabText, activeTab === 'installed' && styles.tabTextActive]}>Instalados</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => onTabChange?.('collection')}>
+          <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('collection'); }}>
             <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>Tu Colección</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{activeTab === 'installed' ? 'Almacenamiento de la consola: ' : 'Tus juegos de Steam: '}{games.length}</Text>
+        <Text style={styles.headerTitle}>
+          {activeTab === 'installed' ? 'Almacenamiento de la consola: ' : 'Tus juegos de Steam: '}
+          {sortedGames.length}
+        </Text>
       </View>
 
-      {/* Container to clip overflow and restrict scroll area */}
       <View style={{ height: windowHeight - 220, overflow: 'hidden', paddingTop: 20, marginTop: -20, paddingHorizontal: 20, marginHorizontal: -20 }}>
-        {/* Inset shadow overlay — sits on top, non-interactive */}
         {hasScrolled && (
           <View
             pointerEvents="none"
@@ -295,42 +341,35 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
               right: 0,
               bottom: 0,
               zIndex: 100,
-              ...(Platform.OS === 'web'
-                ? {
-                  boxShadow:
-                    'inset 0px 26px 15px -10px rgb(0 0 0 / 90%)',
-                }
-                : {}),
+              ...(Platform.OS === 'web' ? { boxShadow: 'inset 0px 26px 15px -10px rgb(0 0 0 / 90%)' } : {}),
             }}
           />
         )}
-        {/* Loading or Empty State */}
+
         {isLoading ? (
           <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Cargando juegos de Steam...</Text>
           </Animated.View>
-        ) : (!games || games.length === 0) ? (
+        ) : (!sortedGames || sortedGames.length === 0) ? (
           <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
             <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
             <MaterialCommunityIcons name="folder-outline" size={48} color="rgba(255,255,255,0.4)" />
             <Text style={styles.emptyText}>La biblioteca está vacía.</Text>
           </Animated.View>
         ) : (
-          /* Grid wrapper that translates up/down depending on focus */
           <Animated.View style={animatedGridStyle}>
             <View style={styles.grid}>
               {(() => {
-                // Virtualization: only render rows near the visible area
-                const totalRows = Math.ceil(games.length / COLUMNS);
+                // 5. IMPORTANTE: Ahora usamos sortedGames en lugar de games
+                const totalRows = Math.ceil(sortedGames.length / COLUMNS);
                 const visibleRowCount = Math.ceil((windowHeight - 220) / rowHeight);
-                const BUFFER = 3; // extra rows above/below to pre-render
+                const BUFFER = 3;
                 const startRow = Math.max(0, currentRow - BUFFER);
                 const endRow = Math.min(totalRows - 1, currentRow + visibleRowCount + BUFFER);
 
-                return games.map((game, index) => {
+                return sortedGames.map((game, index) => {
                   const itemRow = Math.floor(index / COLUMNS);
 
-                  // Off-screen items: render lightweight invisible placeholder
                   if (itemRow < startRow || itemRow > endRow) {
                     return (
                       <View
@@ -353,7 +392,6 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
                         isItemFocused && styles.gameCardWrapperFocused,
                       ]}
                     >
-                      {/* SpinningBorder: sits outside the BlurView overflow:hidden clip */}
                       {isItemFocused && <SpinningBorder id={borderId} />}
 
                       <BlurView
@@ -373,27 +411,23 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
                             </View>
                           )}
 
-                          {/* Overlay degradado + nombre SOLO cuando está enfocado */}
                           {isItemFocused && (
                             <View style={styles.focusedOverlay}>
                               <View style={styles.gradientOverlay} />
-
                               <View style={styles.gameInfoContainer}>
                                 <RNImage
                                   source={require('@/assets/images/PS5.png')}
                                   style={styles.platformLogo}
                                   resizeMode="contain"
                                 />
-
                                 <SlidingGameTitle
-                                  title={game.title || game.title || 'Juego'}
+                                  title={game.title || 'Juego'}
                                   focused={isItemFocused}
                                 />
                               </View>
                             </View>
                           )}
 
-                          {/* Subtle dim overlay for non-focused items when grid has focus */}
                           {isFocused && !isItemFocused && (
                             <View style={styles.unfocusedOverlay} />
                           )}
@@ -408,7 +442,6 @@ export default function LibraryGrid({ games, isFocused = false, focusedIndex = 0
         )}
       </View>
 
-      {/* Game Detail View — abre al pulsar un juego en lugar de lanzarlo directamente */}
       <GameDetailView
         isVisible={selectedGame !== null}
         item={selectedGame}
