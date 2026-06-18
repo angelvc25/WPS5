@@ -271,13 +271,18 @@ export default function LibraryGrid({
   });
 
   // Determina si un juego del grid ya está instalado/descargado.
-  // Usa la misma lógica que el resto de la app (steamLaunchService):
-  // los juegos no-Steam (locales, pestaña "Instalados") siempre cuentan
-  // como instalados; los de Steam se comparan contra installedSteamAppIds.
   const isGameInstalled = (game: ConsoleItem) => {
     if (!isSteamGame(game)) return true;
     return isSteamGameInstalled(game as { id: string }, installedSteamAppIds);
   };
+
+  // 4. NUEVO: Filtrar los juegos basados en la pestaña activa
+  const filteredGames = sortedGames.filter((game) => {
+    if (activeTab === 'installed') {
+      return isGameInstalled(game); // Muestra solo los que están instalados si estamos en la pestaña Instalados
+    }
+    return true; // En la pestaña 'collection' muestra todos
+  });
 
   const handleItemPress = (index: number, game: ConsoleItem) => {
     setSelectedGame(game);
@@ -313,7 +318,6 @@ export default function LibraryGrid({
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
       <View style={styles.tabsRow}>
-        {/* 4. Modificamos el filterButton con onPress y un feedback visual simple */}
         <TouchableOpacity
           onPress={toggleSort}
           style={[
@@ -326,7 +330,6 @@ export default function LibraryGrid({
             style={{ width: 40, height: 40 }}
             contentFit="contain"
           />
-          {/* Opcional: Un pequeño indicador de texto para saber qué orden tiene */}
           {sortDirection !== 'none' && (
             <Text style={{ color: '#FFF', fontSize: 10, position: 'absolute', bottom: -18, fontWeight: 'bold' }}>
               {sortDirection === 'asc' ? 'A-Z' : 'Z-A'}
@@ -353,7 +356,7 @@ export default function LibraryGrid({
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
           {activeTab === 'installed' ? 'Almacenamiento de la consola: ' : 'Tus juegos de Steam: '}
-          {sortedGames.length}
+          {filteredGames.length}
         </Text>
       </View>
 
@@ -377,7 +380,7 @@ export default function LibraryGrid({
           <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Cargando juegos de Steam...</Text>
           </Animated.View>
-        ) : (!sortedGames || sortedGames.length === 0) ? (
+        ) : (!filteredGames || filteredGames.length === 0) ? (
           <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
             <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
             <MaterialCommunityIcons name="folder-outline" size={48} color="rgba(255,255,255,0.4)" />
@@ -387,14 +390,14 @@ export default function LibraryGrid({
           <Animated.View style={animatedGridStyle}>
             <View style={styles.grid}>
               {(() => {
-                // 5. IMPORTANTE: Ahora usamos sortedGames en lugar de games
-                const totalRows = Math.ceil(sortedGames.length / COLUMNS);
+                // 5. IMPORTANTE: Ahora usamos filteredGames en todo el grid
+                const totalRows = Math.ceil(filteredGames.length / COLUMNS);
                 const visibleRowCount = Math.ceil((windowHeight - 220) / rowHeight);
                 const BUFFER = 3;
                 const startRow = Math.max(0, currentRow - BUFFER);
                 const endRow = Math.min(totalRows - 1, currentRow + visibleRowCount + BUFFER);
 
-                return sortedGames.map((game, index) => {
+                return filteredGames.map((game, index) => {
                   const itemRow = Math.floor(index / COLUMNS);
 
                   if (itemRow < startRow || itemRow > endRow) {
@@ -457,11 +460,27 @@ export default function LibraryGrid({
                             <View style={styles.focusedOverlay}>
                               <View style={styles.gradientOverlay} />
                               <View style={styles.gameInfoContainer}>
-                                <RNImage
-                                  source={require('@/assets/images/PS5.png')}
-                                  style={styles.platformLogo}
-                                  resizeMode="contain"
-                                />
+
+                                {/* 6. NUEVO: Lógica dinámica para la imagen de plataforma */}
+                                {isSteamGame(game) ? (
+                                  <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>
+                                    <MaterialCommunityIcons
+                                      name="steam"
+                                      size={20}
+                                      color="#FFF" // Puedes usar #00adef para el azul clásico de Steam o #FFF para mantenerlo minimalista
+                                      style={{ marginRight: 6 }}
+                                    />
+
+                                    Steam</Text>
+
+                                ) : (
+                                  <RNImage
+                                    source={require('@/assets/images/PS5.png')}
+                                    style={styles.platformLogo}
+                                    resizeMode="contain"
+                                  />
+                                )}
+
                                 <SlidingGameTitle
                                   title={game.title || 'Juego'}
                                   focused={isItemFocused}
