@@ -16,6 +16,7 @@ import { soundService } from '@/services/soundService';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
+import { buildSteamRunUrl, resolveLaunchPath } from '@/services/steamLaunchService';
 import { Feather } from '@expo/vector-icons';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import PS5WidgetRow from '@/components/ps5widgetrow';
@@ -403,7 +404,8 @@ export default function ConsoleHome() {
 
   const displayedLibraryGames = libraryTab === 'installed' ? savedGames : steamGames.map(sg => {
     const override = games.find(g => g.id === sg.id);
-    return override ? { ...sg, ...override } : sg;
+    const merged = override ? { ...sg, ...override } : sg;
+    return { ...merged, path: resolveLaunchPath(merged) };
   });
 
   useEffect(() => {
@@ -421,7 +423,8 @@ export default function ConsoleHome() {
             time: 'Steam',
             image: { uri: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900_2x.jpg` },
             description: `Tiempo jugado: ${Math.round(g.playtime_forever / 60)} horas`,
-            platform: 'Steam'
+            platform: 'Steam',
+            path: buildSteamRunUrl(g.appid),
           }));
           setSteamGames(formatted);
           setLoadingSteam(false);
@@ -1363,19 +1366,20 @@ export default function ConsoleHome() {
     }
     const targetItem = item.isLastPlayed ? lastPlayedGame! : item;
     if (!targetItem) return;
-    if (!targetItem.path) {
+    const launchPath = resolveLaunchPath(targetItem);
+    if (!launchPath) {
       setSelectedItem(targetItem);
       setDetailVisible(true);
       return;
     }
-    if (targetItem.path.startsWith('http')) {
-      Linking.openURL(targetItem.path);
+    if (launchPath.startsWith('http')) {
+      Linking.openURL(launchPath);
       return;
     }
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       setLaunchingItem(targetItem);
       setIsLaunching(true);
-      (window as any).electronAPI.launchApp(targetItem.id, targetItem.path).then((result: any) => {
+      (window as any).electronAPI.launchApp(targetItem.id, launchPath).then((result: any) => {
         loadApps();
         console.log('Juego lanzado');
         soundService.stopBackground();
@@ -1631,7 +1635,7 @@ export default function ConsoleHome() {
           ? 'Reproducir'
           : 'Jugar'
       )
-      : !activeItem?.path
+      : !resolveLaunchPath(activeItem)
         ? 'Asignar ruta'
         : (
           isSpotify || activeItem?.type === 'media'

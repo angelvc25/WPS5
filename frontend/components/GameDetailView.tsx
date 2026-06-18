@@ -14,6 +14,7 @@ import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsServic
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService } from '../services/steamGridService';
 import { soundService } from '../services/soundService';
+import { getSteamLaunchPath, isSteamGame, resolveLaunchPath } from '../services/steamLaunchService';
 
 interface GameDetailViewProps {
   isVisible: boolean;
@@ -531,7 +532,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         video: item.video?.uri?.startsWith('local-file://') ? item.video.uri.replace(/^local-file:\/+/, '') : (item.video?.uri?.startsWith('http') ? item.video.uri : undefined),
         youtubeId: item.youtubeId,
         platform: item.platform,
-        path: item.path,
+        path: getSteamLaunchPath(item) || item.path || undefined,
         type: item.type,
       };
 
@@ -969,10 +970,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               setGamePanelFocusIndex={setFocusIndex}
               setFocusArea={() => { }}
               handleLaunchApp={async () => {
-                if (item.path) {
-                  if (onLaunch) onLaunch(item.id, item.path);
+                const launchPath = resolveLaunchPath({ ...item, ...editData } as ConsoleItem);
+                if (launchPath) {
+                  if (onLaunch) onLaunch(item.id, launchPath);
                   else if (Platform.OS === 'web' && (window as any).electronAPI)
-                    (window as any).electronAPI.launchApp(item.id, item.path);
+                    (window as any).electronAPI.launchApp(item.id, launchPath);
                 } else {
                   setActiveTab('path');
                   setEditModalVisible(true);
@@ -1308,6 +1310,23 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             value={editData.path}
                             onChangeText={(text) => setEditData({ ...editData, path: text })}
                           />
+                        ) : isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item) ? (
+                          <>
+                            <TextInput
+                              ref={editPathInputRef}
+                              style={[styles.editInput, editModalFocusIndex === 18 && styles.editInputFocused]}
+                              placeholder="steam://rungameid/..."
+                              placeholderTextColor="#888"
+                              value={editData.path}
+                              onChangeText={(text) => setEditData({ ...editData, path: text })}
+                            />
+                            <View style={styles.pathDisplayBox}>
+                              <Text style={styles.pathDisplayTextHeader}>Lanzamiento vía Steam</Text>
+                              <Text style={styles.pathDisplayText}>
+                                Este juego se ejecutará directamente desde Steam usando el protocolo steam://
+                              </Text>
+                            </View>
+                          </>
                         ) : (
                           <>
                             <TouchableOpacity

@@ -5,6 +5,7 @@ import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MusicPlayerCard from './MusicPlayerCard';
 import { ConsoleItem } from '../app/(tabs)/index';
+import { resolveLaunchPath } from '../services/steamLaunchService';
 
 interface GameInfoPanelProps {
   activeItem: ConsoleItem;
@@ -92,7 +93,7 @@ export const GameInfoPanel = ({
 
   const buttonLabel = activeItem?.isLastPlayed
     ? (isSpotify || activeItem?.type === 'media' ? 'Reproducir' : 'Jugar')
-    : !activeItem?.path
+    : !resolveLaunchPath(activeItem)
       ? 'Asignar ruta'
       : (isSpotify || activeItem?.type === 'media' ? 'Reproducir' : 'Jugar');
 
