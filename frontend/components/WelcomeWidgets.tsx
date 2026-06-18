@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -49,6 +49,103 @@ export const WelcomeWidgets = ({
   const batteryIcon = gamepadInfo.connected
     ? (batteryPct > 50 ? "battery-full" : (batteryPct > 20 ? "battery-half" : "battery-dead"))
     : "battery-dead";
+
+  const styles = useMemo(() => {
+    const scaleW = windowWidth / 1920;
+    const scaleH = windowHeight / 1080;
+    const scale = Math.min(scaleW, scaleH);
+    const s = (px: number) => Math.max(1, Math.round(px * scale));
+    const sH = (px: number) => Math.max(1, Math.round(px * scaleH));
+    const sW = (px: number) => Math.max(1, Math.round(px * scaleW));
+
+    return StyleSheet.create({
+      widgetGrid: {
+        paddingHorizontal: 0,
+        paddingTop: s(10),
+        gap: s(10),
+        width: '100%',
+      },
+      widgetRow: {
+        flexDirection: 'row',
+        gap: s(10),
+        marginBottom: s(10),
+      },
+      welcomeWidgetCard: {
+        flex: 1,
+        height: sH(88),
+        borderRadius: s(10),
+        padding: s(13),
+        overflow: 'hidden',
+        position: 'relative',
+        justifyContent: 'center',
+        backgroundColor: '#0d1015',
+      } as any,
+      welcomeWidgetCard2: {
+        flex: 1,
+        height: sH(88),
+        borderRadius: s(20),
+        padding: s(13),
+        borderWidth: 0,
+        overflow: 'hidden',
+        position: 'relative',
+        justifyContent: 'center',
+        backgroundColor: '#0d1015',
+        marginBottom: s(20),
+        maxWidth: sW(347),
+      } as any,
+      welcomeWidgetCardFocused: {
+        //borderColor: '#FFFFFF',
+        //borderWidth: 1.5,
+      } as any,
+      widgetTitle: {
+        color: '#FFFFFF',
+        fontSize: s(13),
+        fontWeight: '600',
+        letterSpacing: 0.1,
+      },
+      widgetTitle2: {
+        color: '#fffc5dff',
+        fontSize: s(13),
+        fontWeight: '300',
+        letterSpacing: 0.1,
+      },
+      widgetSubtitle: {
+        color: 'rgba(255, 255, 255, 1)',
+        fontSize: s(11),
+        marginTop: 1,
+      },
+      widgetBadge: {
+        color: 'rgba(255, 255, 255, 0.81)',
+        fontSize: s(13),
+        fontWeight: '500',
+      },
+      widgetIconWrap: {
+        width: s(36),
+        height: s(36),
+        borderRadius: s(18),
+        backgroundColor: 'rgba(255,255,255,0.07)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+      },
+      avatarMensajes: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 100,
+      },
+      quickOptionsContainer: {
+        width: sW(200),
+        position: 'absolute',
+        right: sW(50),
+        bottom: 0,
+        gap: s(25),
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+      },
+    });
+  }, [windowWidth, windowHeight]);
 
   return (
     <View style={{ width: '100%' }}>
@@ -104,7 +201,7 @@ export const WelcomeWidgets = ({
             setFocusIndex(10);
           }}
         >
-          <View style={[styles.welcomeWidgetCard2, { maxWidth: 347 }, (focusArea === 'welcome_widgets' && focusIndex === 10) && styles.welcomeWidgetCardFocused]}>
+          <View style={[styles.welcomeWidgetCard2, (focusArea === 'welcome_widgets' && focusIndex === 10) && styles.welcomeWidgetCardFocused]}>
             {/* DEGRADADO */}
             {Platform.OS === 'web' && (
               <div
@@ -175,7 +272,7 @@ export const WelcomeWidgets = ({
       </View>
 
       {/* === WELCOME WIDGETS GRID === */}
-      <View style={[styles.widgetGrid, { width: windowWidth }]}>
+      <View style={styles.widgetGrid}>
         {/* Row 1 */}
         <View style={styles.widgetRow}>
           {/* Controller Widget */}
@@ -1405,92 +1502,5 @@ export const WelcomeWidgets = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  widgetGrid: {
-    paddingHorizontal: 0,
-    paddingTop: 10,
-    gap: 10,
-    width: '100%',
-  },
-  widgetRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  welcomeWidgetCard: {
-    flex: 1,
-    height: 88,
-    borderRadius: 10,
-    padding: 13,
-    overflow: 'hidden',
-    position: 'relative',
-    justifyContent: 'center',
-    backgroundColor: '#0d1015',
-  } as any,
-  welcomeWidgetCard2: {
-    flex: 1,
-    height: 88,
-    borderRadius: 20,
-    padding: 13,
-    borderWidth: 0,
-    overflow: 'hidden',
-    position: 'relative',
-    justifyContent: 'center',
-    backgroundColor: '#0d1015',
-    marginBottom: 20,
-  } as any,
-  welcomeWidgetCardFocused: {
-    //borderColor: '#FFFFFF',
-    //borderWidth: 1.5,
-  } as any,
-  widgetTitle: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
-  widgetTitle2: {
-    color: '#fffc5dff',
-    fontSize: 13,
-    fontWeight: '300',
-    letterSpacing: 0.1,
-  },
-  widgetSubtitle: {
-    color: 'rgba(255, 255, 255, 1)',
-    fontSize: 11,
-    marginTop: 1,
-  },
-  widgetBadge: {
-    color: 'rgba(255, 255, 255, 0.81)',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  widgetIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  avatarMensajes: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 100,
-  },
-  quickOptionsContainer: {
-    width: 200,
-    position: 'absolute',
-    right: 50,
-    bottom: 0,
-    gap: 25,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-});
 
 export default WelcomeWidgets;

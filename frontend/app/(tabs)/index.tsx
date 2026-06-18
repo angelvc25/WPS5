@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Modal, TextInput, useWindowDimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
@@ -365,11 +365,23 @@ export default function ConsoleHome() {
     }]
   }));
 
-  // Push widgets down when contracted so they appear centered/lower on screen posicion de los widgets cuando se contrae windowHeight/0.22
+  // Push widgets down when contracted so they appear centered/lower on screen
   const widgetContainerStyle = useAnimatedStyle(() => ({
-    paddingBottom: 80,
+    paddingBottom: windowHeight * (40 / 1080),
     paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.24]),
   }));
+
+  const welcomePanelLayout = useMemo(() => ({
+    paddingLeft: Math.max(20, windowWidth * (150 / 1920)),
+    paddingRight: Math.max(20, windowWidth * (60 / 1920)),
+    paddingTop: Math.max(8, windowHeight * (16 / 1080)),
+    paddingBottom: Math.max(16, windowHeight * (40 / 1080)),
+  }), [windowWidth, windowHeight]);
+
+  const mainScrollContentStyle = useMemo(() => ({
+    ...styles.mainScrollContent,
+    minHeight: windowHeight - 80,
+  }), [windowHeight]);
 
   const widgetContainerStyle2 = useAnimatedStyle(() => ({
     paddingBottom: 0,
@@ -1932,7 +1944,7 @@ export default function ConsoleHome() {
         ref={mainScrollRef}
         style={[styles.mainContent, animatedTabContentStyle]}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.mainScrollContent}
+        contentContainerStyle={mainScrollContentStyle}
         scrollEventThrottle={16}
       >
         {/* CAROUSEL ROW */}
@@ -1978,7 +1990,7 @@ export default function ConsoleHome() {
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         {!isLibraryFocused && (
           activeItem?.id === '1' ? (
-            <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]} entering={FadeInDown.duration(500).delay(150)}>
+            <Animated.View style={[styles.welcomePanel, welcomePanelLayout, gameInfoPanelStyle]} entering={FadeInDown.duration(500).delay(150)}>
               <Animated.View style={widgetContainerStyle}>
                 <WelcomeWidgets
                   focusArea={focusArea}
@@ -2908,6 +2920,7 @@ const styles = StyleSheet.create({
   mainScrollContent: {
     paddingTop: 10, // space for fixed header (reduced to move games higher)
     paddingBottom: 60, // space for footer
+    flexGrow: 1,
     minHeight: '100%',
   },
 
@@ -3469,9 +3482,9 @@ const styles = StyleSheet.create({
     //textShadowOffset: { width: 2, height: 2 },
     //textShadowRadius: 5,
   },
-  gameInfoPanel: {
-    paddingLeft: 150,
-    paddingTop: 380,
+  welcomePanel: {
+    marginTop: 'auto' as any,
+    width: '100%',
     maxWidth: '100%' as any,
   },
 });
