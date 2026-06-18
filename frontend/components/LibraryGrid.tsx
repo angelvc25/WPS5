@@ -21,6 +21,7 @@ interface LibraryGridProps {
   activeTab?: 'installed' | 'collection';
   onTabChange?: (tab: 'installed' | 'collection') => void;
   isLoading?: boolean;
+  installedSteamAppIds?: Set<string> | null;
 }
 
 const COLUMNS = 5;
@@ -227,7 +228,8 @@ export default function LibraryGrid({
   onDetailVisibilityChange,
   activeTab = 'installed',
   onTabChange,
-  isLoading = false
+  isLoading = false,
+  installedSteamAppIds = null,
 }: LibraryGridProps) {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [selectedGame, setSelectedGame] = useState<ConsoleItem | null>(null);
@@ -450,6 +452,7 @@ export default function LibraryGrid({
         onRefresh={onRefresh}
         isLaunching={isLaunching}
         inputMode={inputMode}
+        installedSteamAppIds={installedSteamAppIds}
       />
     </Animated.View>
   );

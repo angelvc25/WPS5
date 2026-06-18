@@ -5,7 +5,7 @@ import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MusicPlayerCard from './MusicPlayerCard';
 import { ConsoleItem } from '../app/(tabs)/index';
-import { resolveLaunchPath } from '../services/steamLaunchService';
+import { getGameActionLabel } from '../services/steamLaunchService';
 
 interface GameInfoPanelProps {
   activeItem: ConsoleItem;
@@ -32,6 +32,7 @@ interface GameInfoPanelProps {
   spacerStyle: any;
   infoCardsStyle: any;
   topPanelStyle: any;
+  installedSteamAppIds?: Set<string> | null;
 }
 
 export const GameInfoPanel = ({
@@ -57,6 +58,7 @@ export const GameInfoPanel = ({
   spacerStyle,
   infoCardsStyle,
   topPanelStyle,
+  installedSteamAppIds = null,
 }: GameInfoPanelProps) => {
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : 'Último Jugado') : activeItem?.title;
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
@@ -91,11 +93,7 @@ export const GameInfoPanel = ({
     };
   }, [gamePanelFocusIndex, focusArea]);
 
-  const buttonLabel = activeItem?.isLastPlayed
-    ? (isSpotify || activeItem?.type === 'media' ? 'Reproducir' : 'Jugar')
-    : !resolveLaunchPath(activeItem)
-      ? 'Asignar ruta'
-      : (isSpotify || activeItem?.type === 'media' ? 'Reproducir' : 'Jugar');
+  const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds);
 
   return (
     <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>

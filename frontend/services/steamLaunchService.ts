@@ -12,6 +12,20 @@ export function buildSteamRunUrl(appId: string | number): string {
   return `steam://rungameid/${appId}`;
 }
 
+export function buildSteamInstallUrl(appId: string | number): string {
+  return `steam://install/${appId}`;
+}
+
+export function isSteamGameInstalled(
+  item: { id: string },
+  installedAppIds: Set<string> | readonly string[] | null | undefined
+): boolean {
+  const appId = getSteamAppId(item);
+  if (!appId || !installedAppIds) return true;
+  if (installedAppIds instanceof Set) return installedAppIds.has(appId);
+  return installedAppIds.includes(appId);
+}
+
 export function isSteamGame(item: { id?: string; platform?: string } | null | undefined): boolean {
   if (!item?.id) return false;
   if (item.platform === 'Steam') return true;
@@ -35,4 +49,39 @@ export function resolveLaunchPath(item: { id: string; platform?: string; path?: 
   }
   if (item.path) return item.path;
   return steamPath ?? undefined;
+}
+
+export function resolveSteamLaunchPath(
+  item: { id: string; platform?: string; path?: string },
+  installedAppIds: Set<string> | readonly string[] | null | undefined
+): string | undefined {
+  const appId = getSteamAppId(item);
+  if (appId && isSteamGame(item) && installedAppIds && !isSteamGameInstalled(item, installedAppIds)) {
+    return buildSteamInstallUrl(appId);
+  }
+  return resolveLaunchPath(item);
+}
+
+export function getGameActionLabel(
+  item: { id?: string; title?: string; type?: string; isLastPlayed?: boolean; platform?: string; path?: string } | null | undefined,
+  installedSteamAppIds?: Set<string> | null
+): string {
+  if (!item) return 'Jugar';
+
+  const isSpotify = item.title?.toLowerCase()?.includes('spotify');
+  const isMedia = isSpotify || item.type === 'media';
+
+  if (item.isLastPlayed) {
+    return isMedia ? 'Reproducir' : 'Jugar';
+  }
+
+  if (!resolveLaunchPath(item as { id: string; platform?: string; path?: string })) {
+    return 'Asignar ruta';
+  }
+
+  if (isSteamGame(item) && installedSteamAppIds && !isSteamGameInstalled(item as { id: string }, installedSteamAppIds)) {
+    return 'Descargar';
+  }
+
+  return isMedia ? 'Reproducir' : 'Jugar';
 }

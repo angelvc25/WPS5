@@ -16,7 +16,8 @@ import { soundService } from '@/services/soundService';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
-import { buildSteamRunUrl, resolveLaunchPath } from '@/services/steamLaunchService';
+import { fetchSteamInstalledAppIds } from '@/services/steamInstallService';
+import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
 import { Feather } from '@expo/vector-icons';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import PS5WidgetRow from '@/components/ps5widgetrow';
@@ -167,6 +168,7 @@ export default function ConsoleHome() {
   const [libraryGridFocusIndex, setLibraryGridFocusIndex] = useState(0);
   const [libraryTab, setLibraryTab] = useState<'installed' | 'collection'>('installed');
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
+  const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
   const [loadingSteam, setLoadingSteam] = useState(false);
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
@@ -432,6 +434,19 @@ export default function ConsoleHome() {
       }
     }
   }, [libraryTab, activeUser, steamGames.length, loadingSteam]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
+
+    fetchSteamInstalledAppIds().then(setInstalledSteamAppIds);
+  }, []);
+
+  useEffect(() => {
+    if (libraryTab !== 'collection') return;
+    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
+
+    fetchSteamInstalledAppIds().then(setInstalledSteamAppIds);
+  }, [libraryTab, steamGames.length]);
 
   useEffect(() => {
     const currentItem = currentData[activeIndex];
@@ -1366,7 +1381,7 @@ export default function ConsoleHome() {
     }
     const targetItem = item.isLastPlayed ? lastPlayedGame! : item;
     if (!targetItem) return;
-    const launchPath = resolveLaunchPath(targetItem);
+    const launchPath = resolveSteamLaunchPath(targetItem, installedSteamAppIds);
     if (!launchPath) {
       setSelectedItem(targetItem);
       setDetailVisible(true);
@@ -1628,20 +1643,7 @@ export default function ConsoleHome() {
   const isSpotify =
     activeItem?.title?.toLowerCase()?.includes('spotify');
 
-  const buttonLabel =
-    activeItem?.isLastPlayed
-      ? (
-        isSpotify || activeItem?.type === 'media'
-          ? 'Reproducir'
-          : 'Jugar'
-      )
-      : !resolveLaunchPath(activeItem)
-        ? 'Asignar ruta'
-        : (
-          isSpotify || activeItem?.type === 'media'
-        )
-          ? 'Reproducir'
-          : 'Jugar';
+  const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds);
 
 
 
@@ -1946,6 +1948,7 @@ export default function ConsoleHome() {
             focusedIndex={libraryGridFocusIndex}
             onItemPress={(index, game) => { setSelectedItem(game); setDetailVisible(true); }}
             onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}
+            installedSteamAppIds={installedSteamAppIds}
           />
         )}
 
@@ -1998,6 +2001,7 @@ export default function ConsoleHome() {
               spacerStyle={spacerStyle}
               infoCardsStyle={infoCardsStyle}
               topPanelStyle={topPanelStyle}
+              installedSteamAppIds={installedSteamAppIds}
             />
           )
         )}
@@ -2011,6 +2015,7 @@ export default function ConsoleHome() {
         onRefresh={() => loadApps()}
         inputMode={inputMode}
         isLaunching={isLaunching}
+        installedSteamAppIds={installedSteamAppIds}
         onLaunch={(_id, _path) => {
           if (selectedItem) handleLaunchApp(selectedItem);
         }}

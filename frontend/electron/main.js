@@ -100,6 +100,91 @@ function injectMediaToBase64(item) {
   return newItem;
 }
 
+function getSteamInstallPath() {
+  if (process.platform === 'win32') {
+    try {
+      const { execSync } = require('child_process');
+      const output = execSync('reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath', {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore'],
+      });
+      const match = output.match(/SteamPath\s+REG_SZ\s+(.+)/);
+      if (match) return match[1].trim();
+    } catch (e) { /* fallback paths below */ }
+
+    const defaults = [
+      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Steam'),
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Steam'),
+    ];
+    for (const candidate of defaults) {
+      if (fs.existsSync(path.join(candidate, 'steam.exe'))) return candidate;
+    }
+  } else if (process.platform === 'linux') {
+    const candidates = [
+      path.join(process.env.HOME || '', '.steam', 'steam'),
+      path.join(process.env.HOME || '', '.local', 'share', 'Steam'),
+    ];
+    for (const candidate of candidates) {
+      if (fs.existsSync(path.join(candidate, 'steam.sh'))) return candidate;
+    }
+  } else if (process.platform === 'darwin') {
+    const candidate = path.join(process.env.HOME || '', 'Library', 'Application Support', 'Steam');
+    if (fs.existsSync(path.join(candidate, 'Steam.app'))) return candidate;
+  }
+  return null;
+}
+
+function parseVdfLibraryPaths(content) {
+  const paths = [];
+  const regex = /"path"\s+"((?:[^"\\]|\\.)*)"/g;
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    paths.push(match[1].replace(/\\\\/g, '\\'));
+  }
+  return paths;
+}
+
+function getSteamLibraryFolders(steamPath) {
+  const folders = [path.join(steamPath, 'steamapps')];
+  const vdfPath = path.join(steamPath, 'steamapps', 'libraryfolders.vdf');
+
+  if (fs.existsSync(vdfPath)) {
+    try {
+      const content = fs.readFileSync(vdfPath, 'utf8');
+      for (const libPath of parseVdfLibraryPaths(content)) {
+        folders.push(path.join(libPath, 'steamapps'));
+      }
+    } catch (e) {
+      console.error('Error reading libraryfolders.vdf:', e);
+    }
+  }
+
+  return [...new Set(folders)];
+}
+
+function getInstalledSteamAppIds() {
+  const steamPath = getSteamInstallPath();
+  if (!steamPath) return [];
+
+  const appIds = new Set();
+  const libraryFolders = getSteamLibraryFolders(steamPath);
+
+  for (const steamappsDir of libraryFolders) {
+    if (!fs.existsSync(steamappsDir)) continue;
+
+    try {
+      for (const file of fs.readdirSync(steamappsDir)) {
+        const match = file.match(/^appmanifest_(\d+)\.acf$/i);
+        if (match) appIds.add(match[1]);
+      }
+    } catch (e) {
+      console.error('Error scanning Steam library folder:', steamappsDir, e);
+    }
+  }
+
+  return Array.from(appIds);
+}
+
 app.whenReady().then(() => {
   initDB();
 
@@ -691,6 +776,17 @@ app.whenReady().then(() => {
         success: false,
         error: error.message
       };
+    }
+  });
+
+  // IPC: Obtener AppIDs instalados localmente en Steam
+  ipcMain.handle('get-steam-installed-apps', async () => {
+    try {
+      const appIds = getInstalledSteamAppIds();
+      return { success: true, appIds };
+    } catch (error) {
+      console.error('Error getting installed Steam apps:', error);
+      return { success: false, appIds: [], error: error.message };
     }
   });
 

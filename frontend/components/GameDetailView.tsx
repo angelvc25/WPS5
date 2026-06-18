@@ -14,7 +14,7 @@ import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsServic
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService } from '../services/steamGridService';
 import { soundService } from '../services/soundService';
-import { getSteamLaunchPath, isSteamGame, resolveLaunchPath } from '../services/steamLaunchService';
+import { getSteamLaunchPath, isSteamGame, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
 
 interface GameDetailViewProps {
   isVisible: boolean;
@@ -24,6 +24,7 @@ interface GameDetailViewProps {
   onRefresh?: () => void;
   isLaunching?: boolean;
   inputMode: 'keyboard' | 'gamepad';
+  installedSteamAppIds?: Set<string> | null;
 }
 
 // Normaliza un string de path/url de editData a un source { uri } válido.
@@ -37,7 +38,7 @@ const resolveEditSource = (val: string | undefined): { uri: string } | null => {
   return { uri: `local-file:///${clean}` };
 };
 
-const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode }) => {
+const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null }) => {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
   const [isSyncing, setIsSyncing] = useState(false);
@@ -970,7 +971,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               setGamePanelFocusIndex={setFocusIndex}
               setFocusArea={() => { }}
               handleLaunchApp={async () => {
-                const launchPath = resolveLaunchPath({ ...item, ...editData } as ConsoleItem);
+                const launchPath = resolveSteamLaunchPath({ ...item, ...editData } as ConsoleItem, installedSteamAppIds);
                 if (launchPath) {
                   if (onLaunch) onLaunch(item.id, launchPath);
                   else if (Platform.OS === 'web' && (window as any).electronAPI)
@@ -994,6 +995,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               spacerStyle={{}}
               infoCardsStyle={infoCardsStyle}
               topPanelStyle={topPanelStyle}
+              installedSteamAppIds={installedSteamAppIds}
             />
           </Animated.View>
         </ScrollView>
