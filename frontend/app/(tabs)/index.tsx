@@ -167,6 +167,9 @@ export default function ConsoleHome() {
   const [isLibraryFocused, setIsLibraryFocused] = useState(false);
   const [libraryGridFocusIndex, setLibraryGridFocusIndex] = useState(0);
   const [libraryTab, setLibraryTab] = useState<'installed' | 'collection'>('installed');
+  // true cuando el foco (teclado/mando) está sobre la fila de pestañas
+  // Instalados | Tu Colección, en vez de sobre una tarjeta del grid.
+  const [libraryTabsFocused, setLibraryTabsFocused] = useState(false);
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
   const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
   const [loadingSteam, setLoadingSteam] = useState(false);
@@ -1012,7 +1015,11 @@ export default function ConsoleHome() {
         if (e.key === 'ArrowRight') {
           soundService.playNavigation();
           if (focusArea === 'library_grid') {
-            setLibraryGridFocusIndex(prev => Math.min(prev + 1, displayedLibraryGames.length - 1));
+            if (libraryTabsFocused) {
+              if (libraryTab !== 'collection') { setLibraryTab('collection'); setLibraryGridFocusIndex(0); }
+            } else {
+              setLibraryGridFocusIndex(prev => Math.min(prev + 1, displayedLibraryGames.length - 1));
+            }
           }
           else if (focusArea === 'header_avatar') {
             if (focusIndex < 2) setFocusIndex(prev => prev + 1);
@@ -1048,7 +1055,11 @@ export default function ConsoleHome() {
         if (e.key === 'ArrowLeft') {
           soundService.playNavigation();
           if (focusArea === 'library_grid') {
-            setLibraryGridFocusIndex(prev => Math.max(prev - 1, 0));
+            if (libraryTabsFocused) {
+              if (libraryTab !== 'installed') { setLibraryTab('installed'); setLibraryGridFocusIndex(0); }
+            } else {
+              setLibraryGridFocusIndex(prev => Math.max(prev - 1, 0));
+            }
           }
           else if (focusArea === 'main_carousel') { const nextIdx = Math.max(activeIndex - 1, 0); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
           else if (focusArea === 'header_tabs') {
@@ -1083,7 +1094,12 @@ export default function ConsoleHome() {
         if (e.key === 'ArrowDown') {
           soundService.playNavigation();
           if (focusArea === 'library_grid') {
-            setLibraryGridFocusIndex(prev => Math.min(prev + 5, displayedLibraryGames.length - 1));
+            if (libraryTabsFocused) {
+              setLibraryTabsFocused(false);
+              setLibraryGridFocusIndex(0);
+            } else {
+              setLibraryGridFocusIndex(prev => Math.min(prev + 5, displayedLibraryGames.length - 1));
+            }
           }
           else if (focusArea === 'header_avatar') {
             // Bajar desde los iconos globales siempre regresa a Games (inicio)
@@ -1096,6 +1112,7 @@ export default function ConsoleHome() {
           else if (focusArea === 'main_carousel') {
             if (activeItem?.id === 'more_library') {
               setFocusArea('library_grid');
+              setLibraryTabsFocused(true);
               setLibraryGridFocusIndex(0);
             } else if (activeItem?.id === '1') {
               setFocusArea('welcome_widgets');
@@ -1130,8 +1147,11 @@ export default function ConsoleHome() {
         if (e.key === 'ArrowUp') {
           soundService.playNavigation();
           if (focusArea === 'library_grid') {
-            if (libraryGridFocusIndex < 5) {
+            if (libraryTabsFocused) {
               setFocusArea('main_carousel');
+              setLibraryTabsFocused(false);
+            } else if (libraryGridFocusIndex < 5) {
+              setLibraryTabsFocused(true);
             } else {
               setLibraryGridFocusIndex(prev => Math.max(prev - 5, 0));
             }
@@ -1188,6 +1208,7 @@ export default function ConsoleHome() {
             return;
           }
           if (focusArea === 'library_grid') {
+            if (libraryTabsFocused) { return; } // usa ←/→ para cambiar de pestaña
             const game = displayedLibraryGames[libraryGridFocusIndex];
             if (game) { setSelectedItem(game); setDetailVisible(true); }
             return;
@@ -1265,7 +1286,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, displayedLibraryGames, lastPlayedGame]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -1942,9 +1963,11 @@ export default function ConsoleHome() {
           <LibraryGrid
             games={displayedLibraryGames}
             activeTab={libraryTab}
-            onTabChange={(tab) => { setLibraryTab(tab); setLibraryGridFocusIndex(0); }}
+            onTabChange={(tab) => { setLibraryTab(tab); setLibraryGridFocusIndex(0); setLibraryTabsFocused(false); }}
             isLoading={loadingSteam}
             isFocused={focusArea === 'library_grid'}
+            gridActive={focusArea === 'library_grid' && !libraryTabsFocused}
+            tabsFocused={focusArea === 'library_grid' && libraryTabsFocused}
             focusedIndex={libraryGridFocusIndex}
             onItemPress={(index, game) => { setSelectedItem(game); setDetailVisible(true); }}
             onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}

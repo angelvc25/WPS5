@@ -7,6 +7,7 @@ import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, wit
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useEffect } from 'react';
 import GameDetailView from './GameDetailView';
+import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
 
 interface LibraryGridProps {
   games: ConsoleItem[];
@@ -22,6 +23,13 @@ interface LibraryGridProps {
   onTabChange?: (tab: 'installed' | 'collection') => void;
   isLoading?: boolean;
   installedSteamAppIds?: Set<string> | null;
+  // gridActive: true cuando el foco real está sobre las tarjetas del grid
+  // (no sobre las pestañas). isFocused sigue indicando "estás dentro de la
+  // sección de biblioteca" (controla si se muestran las pestañas).
+  gridActive?: boolean;
+  // tabsFocused: true cuando el foco de teclado/mando está sobre la fila de
+  // pestañas (Instalados | Tu Colección) en lugar de sobre el grid.
+  tabsFocused?: boolean;
 }
 
 const COLUMNS = 5;
@@ -230,6 +238,8 @@ export default function LibraryGrid({
   onTabChange,
   isLoading = false,
   installedSteamAppIds = null,
+  gridActive = isFocused,
+  tabsFocused = false,
 }: LibraryGridProps) {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [selectedGame, setSelectedGame] = useState<ConsoleItem | null>(null);
@@ -259,6 +269,15 @@ export default function LibraryGrid({
       return titleB.localeCompare(titleA); // Z-A
     }
   });
+
+  // Determina si un juego del grid ya está instalado/descargado.
+  // Usa la misma lógica que el resto de la app (steamLaunchService):
+  // los juegos no-Steam (locales, pestaña "Instalados") siempre cuentan
+  // como instalados; los de Steam se comparan contra installedSteamAppIds.
+  const isGameInstalled = (game: ConsoleItem) => {
+    if (!isSteamGame(game)) return true;
+    return isSteamGameInstalled(game as { id: string }, installedSteamAppIds);
+  };
 
   const handleItemPress = (index: number, game: ConsoleItem) => {
     setSelectedGame(game);
@@ -315,14 +334,20 @@ export default function LibraryGrid({
           )}
         </TouchableOpacity>
 
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('installed'); }}>
-            <Text style={[styles.tabText, activeTab === 'installed' && styles.tabTextActive]}>Instalados</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('collection'); }}>
-            <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>Tu Colección</Text>
-          </TouchableOpacity>
-        </View>
+        {isFocused && (
+          <View style={styles.tabsContainer}>
+            <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('installed'); }}>
+              <View style={[styles.tabPill, tabsFocused && activeTab === 'installed' && styles.tabPillFocused]}>
+                <Text style={[styles.tabText, activeTab === 'installed' && styles.tabTextActive]}>Instalados</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('collection'); }}>
+              <View style={[styles.tabPill, tabsFocused && activeTab === 'collection' && styles.tabPillFocused]}>
+                <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>Tu Colección</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <View style={styles.header}>
@@ -381,7 +406,8 @@ export default function LibraryGrid({
                     );
                   }
 
-                  const isItemFocused = isFocused && focusedIndex === index;
+                  const isItemFocused = gridActive && focusedIndex === index;
+                  const isInstalled = isGameInstalled(game);
                   const borderId = `lib-${game.id ?? index}`;
 
                   return (
@@ -413,6 +439,20 @@ export default function LibraryGrid({
                             </View>
                           )}
 
+                          {!isInstalled && (
+                            <View style={styles.notInstalledDarken} pointerEvents="none" />
+                          )}
+
+                          {!isInstalled && (
+                            <View style={styles.installBadge} pointerEvents="none">
+                              <RNImage
+                                source={require('@/assets/images/install.png')}
+                                style={styles.installBadgeIcon}
+                                resizeMode="contain"
+                              />
+                            </View>
+                          )}
+
                           {isItemFocused && (
                             <View style={styles.focusedOverlay}>
                               <View style={styles.gradientOverlay} />
@@ -430,7 +470,7 @@ export default function LibraryGrid({
                             </View>
                           )}
 
-                          {isFocused && !isItemFocused && (
+                          {gridActive && !isItemFocused && (
                             <View style={styles.unfocusedOverlay} />
                           )}
                         </View>
@@ -492,6 +532,17 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#FFF',
     fontWeight: '400',
+  },
+  tabPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 2,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  tabPillFocused: {
+    borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   header: {
     flexDirection: 'row',
@@ -577,6 +628,28 @@ const styles = StyleSheet.create({
   unfocusedOverlay: {
     //...StyleSheet.absoluteFillObject,
     //backgroundColor: 'rgba(0,0,0,0.38)',
+  },
+  notInstalledDarken: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.32)',
+    zIndex: 1,
+  },
+  installBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 30,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 4,
+  },
+  installBadgeIcon: {
+    width: '100%',
+    height: '100%',
   },
   emptyContainer: {
     width: '100%',
