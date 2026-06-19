@@ -2,9 +2,17 @@ import React, { useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import ControlCenterCards from './ControlCenterCards';
 import RadarFocusWrapper from './RadarFocusWrapper';
+
+export interface RunningGameInfo {
+  id: string;
+  title: string;
+  imageUri?: string | null;
+  logoUri?: string | null;
+}
 
 export interface NavItem {
   icon: keyof typeof Ionicons.glyphMap;
@@ -35,6 +43,7 @@ interface FloatingSystemNavProps {
   isCardExpanded?: boolean;
   onPressCard?: (index: number) => void;
   onCloseExpanded?: () => void;
+  runningGame?: RunningGameInfo | null;
 }
 
 export default function FloatingSystemNav({
@@ -46,7 +55,8 @@ export default function FloatingSystemNav({
   cardIndex = 0,
   isCardExpanded = false,
   onPressCard = () => { },
-  onCloseExpanded = () => { }
+  onCloseExpanded = () => { },
+  runningGame = null,
 }: FloatingSystemNavProps) {
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(50);
@@ -108,6 +118,8 @@ export default function FloatingSystemNav({
         <BlurView intensity={0} tint="dark" style={styles.pillContainer}>
           {NAV_ITEMS.map((item, index) => {
             const isActive = isFocused && focusedIndex === index;
+            const isSwitcherWithGame = index === 1 && runningGame?.imageUri;
+            const switcherImage = runningGame?.imageUri ? { uri: runningGame.imageUri } : null;
             return (
               <TouchableOpacity
                 key={index}
@@ -117,32 +129,50 @@ export default function FloatingSystemNav({
               >
                 {isActive ? (
                   <RadarFocusWrapper id={`sys-nav-${index}`} isFocused={isActive} size={58} innerSize={0}>
-                    <Ionicons
-                      name={item.icon}
-                      size={24}
-                      color={'#000'}
-                      style={{
-                        backgroundColor: '#FFF',
-                        width: 40,
-                        height: 40,
-                        borderRadius: 29,
-                        padding: 7,
-                        paddingLeft: 8,
-                      }}
-                    />
+                    {isSwitcherWithGame && switcherImage ? (
+                      <Image
+                        source={switcherImage}
+                        style={styles.switcherGameIconActive}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <Ionicons
+                        name={item.icon}
+                        size={24}
+                        color={'#000'}
+                        style={{
+                          backgroundColor: '#FFF',
+                          width: 40,
+                          height: 40,
+                          borderRadius: 29,
+                          padding: 7,
+                          paddingLeft: 8,
+                        }}
+                      />
+                    )}
                   </RadarFocusWrapper>
                 ) : (
                   <View style={styles.iconWrapper}>
-                    <Ionicons
-                      name={item.icon}
-                      size={24}
-                      color={'rgba(255, 255, 255, 1)'}
-                    />
+                    {isSwitcherWithGame && switcherImage ? (
+                      <Image
+                        source={switcherImage}
+                        style={styles.switcherGameIcon}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <Ionicons
+                        name={item.icon}
+                        size={24}
+                        color={'rgba(255, 255, 255, 1)'}
+                      />
+                    )}
                   </View>
                 )}
                 {isActive && (
                   <View style={styles.tooltip}>
-                    <Text style={styles.tooltipText}>{item.label}</Text>
+                    <Text style={styles.tooltipText}>
+                      {index === 1 && runningGame ? runningGame.title : item.label}
+                    </Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -216,5 +246,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     letterSpacing: 0.5,
+  },
+  switcherGameIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  switcherGameIconActive: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
 });

@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUsers: () => ipcRenderer.invoke('get-users'),
   saveApp: (appData) => ipcRenderer.invoke('save-app', appData),
   saveUsers: (users) => ipcRenderer.invoke('save-users', users),
-  launchApp: (id, path) => ipcRenderer.invoke('launch-app', id, path),
+  launchApp: (id, path, gameMeta) => ipcRenderer.invoke('launch-app', id, path, gameMeta),
   selectFile: () => ipcRenderer.invoke('select-file'),
   selectImage: () => ipcRenderer.invoke('select-image'),
   selectVideo: () => ipcRenderer.invoke('select-video'),
@@ -23,9 +23,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getLatestCapture: (folderPath) => ipcRenderer.invoke('get-latest-capture', folderPath),
   steamLogin: () => ipcRenderer.invoke('steam-login'),
   getSteamInstalledApps: () => ipcRenderer.invoke('get-steam-installed-apps'),
+  hideGameOverlay: () => ipcRenderer.invoke('hide-game-overlay'),
+  restoreLauncherFromGame: () => ipcRenderer.invoke('restore-launcher-from-game'),
+  getRunningGame: () => ipcRenderer.invoke('get-running-game'),
   onGameClosed: (callback) => ipcRenderer.on('game-closed', (_event, id) => callback(id)),
   removeGameClosedListener: () => ipcRenderer.removeAllListeners('game-closed'),
+  onOverlayOpened: (callback) => ipcRenderer.on('overlay-opened', (_event, game) => callback(game)),
+  removeOverlayOpenedListener: () => ipcRenderer.removeAllListeners('overlay-opened'),
+  onOverlayClosed: (callback) => ipcRenderer.on('returned-to-game', () => callback()),
+  removeOverlayClosedListener: () => ipcRenderer.removeAllListeners('returned-to-game'),
+  onLauncherRestoredFromGame: (callback) => ipcRenderer.on('launcher-restored-from-game', (_event, game) => callback(game)),
+  removeLauncherRestoredFromGameListener: () => ipcRenderer.removeAllListeners('launcher-restored-from-game'),
 });
-
-
 

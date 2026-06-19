@@ -61,6 +61,21 @@ export interface ConsoleItem {
   platform?: string;
 }
 
+function serializeGameMeta(item: ConsoleItem) {
+  const srcToUri = (src: any): string | null => {
+    if (!src) return null;
+    if (typeof src === 'object' && src.uri) return String(src.uri);
+    return null;
+  };
+  return {
+    id: item.id,
+    title: item.title,
+    imageUri: srcToUri(item.image),
+    logoUri: srcToUri(item.logo),
+    backgroundImageUri: srcToUri(item.backgroundImage),
+  };
+}
+
 const DATA_GAMES: ConsoleItem[] = [
   { id: '1', title: 'Welcome', time: 'WConsole - Home', image: require('@/assets/images/Home.png'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0 },
   { id: 'last_played', title: 'Último Jugado', time: 'No ejecutado aún', image: require('@/assets/images/Home.gif'), isLastPlayed: true },
@@ -161,6 +176,10 @@ export default function ConsoleHome() {
   const [homeBackground, setHomeBackground] = useState<any>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchingItem, setLaunchingItem] = useState<ConsoleItem | null>(null);
+  const [isGameSuspended, setIsGameSuspended] = useState(false);
+  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
+  const [isLauncherOverGame, setIsLauncherOverGame] = useState(false);
+  const [runningGame, setRunningGame] = useState<{ id: string; title: string; imageUri?: string | null; logoUri?: string | null } | null>(null);
   const [isRandomSelectorVisible, setRandomSelectorVisible] = useState(false);
 
   // States for new UI features (WPS5 UI Expansion)
@@ -636,8 +655,18 @@ export default function ConsoleHome() {
 
   const handleSystemNavAction = (idx: number) => {
     if (idx === 0) {
-      // Inicio
+      // Inicio — con juego en ejecución, abrir el launcher completo encima
+      if (isGameSuspended && isOverlayVisible && Platform.OS === 'web' && (window as any).electronAPI?.restoreLauncherFromGame) {
+        setIsOverlayVisible(false);
+        setIsLauncherOverGame(true);
+        (window as any).electronAPI.restoreLauncherFromGame();
+      }
       setFocusArea('main_carousel');
+    } else if (idx === 1 && isGameSuspended) {
+      // Cambiador — volver al juego en ejecución
+      if (Platform.OS === 'web' && (window as any).electronAPI?.hideGameOverlay) {
+        (window as any).electronAPI.hideGameOverlay();
+      }
     } else if (idx === 9) {
       // Perfil (Cambiar usuario)
       changeUser();
@@ -732,6 +761,7 @@ export default function ConsoleHome() {
         checkButton(1, 'Escape');
         checkButton(4, 'q');
         checkButton(5, 'e');
+        checkButton(8, 'Home');
         checkButton(9, 'o');
       } else {
         if (lastGpId.current !== null) {
@@ -790,6 +820,17 @@ export default function ConsoleHome() {
         if (isLaunching) return;
         if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
 
+        // Volver al juego desde overlay o launcher encima del juego
+        if ((e.key === 'Escape' || e.key === 'b' || e.key === 'B') && isGameSuspended) {
+          if (isOverlayVisible || isLauncherOverGame) {
+            if (Platform.OS === 'web' && (window as any).electronAPI?.hideGameOverlay) {
+              (window as any).electronAPI.hideGameOverlay();
+            }
+            soundService.playExitMenu();
+            return;
+          }
+        }
+
         // Throttle rapid arrow key inputs (key repeats/fast tapping)
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           const now = Date.now();
@@ -820,8 +861,20 @@ export default function ConsoleHome() {
         // Toggle Control Center via Home key
         if (e.key === 'Home') {
           soundService.playContextMenu();
+          if (isGameSuspended && isOverlayVisible) {
+            if (Platform.OS === 'web' && (window as any).electronAPI?.hideGameOverlay) {
+              (window as any).electronAPI.hideGameOverlay();
+            }
+            return;
+          }
           if (focusArea === 'header_user') {
-            setFocusArea('main_carousel');
+            if (isGameSuspended && isLauncherOverGame) {
+              if (Platform.OS === 'web' && (window as any).electronAPI?.hideGameOverlay) {
+                (window as any).electronAPI.hideGameOverlay();
+              }
+            } else {
+              setFocusArea('main_carousel');
+            }
           } else {
             setFocusArea('header_user');
             setModalSelectedIndex(0);
@@ -875,7 +928,13 @@ export default function ConsoleHome() {
           }
 
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-            setFocusArea('main_carousel');
+            if (isGameSuspended && (isOverlayVisible || isLauncherOverGame)) {
+              if (Platform.OS === 'web' && (window as any).electronAPI?.hideGameOverlay) {
+                (window as any).electronAPI.hideGameOverlay();
+              }
+            } else {
+              setFocusArea('main_carousel');
+            }
           } else if (e.key === 'ArrowUp') {
             if (systemNavLevel === 0 && modalSelectedIndex === 0) {
               setSystemNavLevel(1);
@@ -1298,7 +1357,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isGameSuspended, isOverlayVisible, isLauncherOverGame, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -1425,9 +1484,10 @@ export default function ConsoleHome() {
       return;
     }
     if (Platform.OS === 'web' && (window as any).electronAPI) {
+      const gameMeta = serializeGameMeta(targetItem);
       setLaunchingItem(targetItem);
       setIsLaunching(true);
-      (window as any).electronAPI.launchApp(targetItem.id, launchPath).then((result: any) => {
+      (window as any).electronAPI.launchApp(targetItem.id, launchPath, gameMeta).then((result: any) => {
         loadApps();
         console.log('Juego lanzado');
         soundService.stopBackground();
@@ -1450,26 +1510,66 @@ export default function ConsoleHome() {
             setIsLaunching(false);
             setLaunchingItem(null);
           }, 5000);
+        } else {
+          setTimeout(() => {
+            setIsLaunching(false);
+            setLaunchingItem(null);
+            setRunningGame(gameMeta);
+            setIsGameSuspended(true);
+          }, 1600);
         }
-        // Si se suspendió, el evento 'game-closed' se encarga de restaurar
       });
     }
   };
 
-  // Escuchar evento game-closed del proceso principal (launcher resume tras cerrar juego)
+  // Escuchar eventos del proceso principal (juego / overlay)
   useEffect(() => {
-    if (Platform.OS === 'web' && (window as any).electronAPI?.onGameClosed) {
-      (window as any).electronAPI.onGameClosed((id: string) => {
-        console.log('Juego cerrado, restaurando launcher:', id);
-        soundService.playBackground();
-        setIsLaunching(false);
-        setLaunchingItem(null);
-        loadApps();
-      });
-      return () => {
-        (window as any).electronAPI?.removeGameClosedListener?.();
-      };
-    }
+    if (Platform.OS !== 'web' || !(window as any).electronAPI) return;
+
+    const api = (window as any).electronAPI;
+
+    api.onGameClosed?.((id: string) => {
+      console.log('Juego cerrado, restaurando launcher:', id);
+      soundService.playBackground();
+      setIsLaunching(false);
+      setLaunchingItem(null);
+      setIsGameSuspended(false);
+      setIsOverlayVisible(false);
+      setIsLauncherOverGame(false);
+      setRunningGame(null);
+      loadApps();
+    });
+
+    api.onOverlayOpened?.((game: any) => {
+      setRunningGame(game);
+      setIsOverlayVisible(true);
+      setIsLauncherOverGame(false);
+      setFocusArea('header_user');
+      setModalSelectedIndex(0);
+      setSystemNavLevel(0);
+      setSystemNavCardExpanded(false);
+      soundService.playContextMenu();
+    });
+
+    api.onOverlayClosed?.(() => {
+      setIsOverlayVisible(false);
+      setIsLauncherOverGame(false);
+      setFocusArea('main_carousel');
+    });
+
+    api.onLauncherRestoredFromGame?.((game: any) => {
+      setRunningGame(game);
+      setIsOverlayVisible(false);
+      setIsLauncherOverGame(true);
+      setFocusArea('main_carousel');
+    });
+
+    return () => {
+      api.removeGameClosedListener?.();
+      api.removeOverlayOpenedListener?.();
+      api.removeOverlayClosedListener?.();
+      api.removeLauncherRestoredFromGameListener?.();
+    };
   }, []);
 
   const handleAppPress = (index: number, item: ConsoleItem) => {
@@ -1678,11 +1778,11 @@ export default function ConsoleHome() {
 
   const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds);
 
-
-
+  const overlayOnlyMode = isOverlayVisible && isGameSuspended && !isLauncherOverGame;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, overlayOnlyMode && { backgroundColor: 'transparent' }]}>
+      <View style={overlayOnlyMode ? styles.overlayMainHidden : undefined} pointerEvents={overlayOnlyMode ? 'none' : 'auto'}>
       {/* === BACKGROUND: Dual Layer Crossfade === */}
       <View style={StyleSheet.absoluteFill}>
 
@@ -2055,6 +2155,7 @@ export default function ConsoleHome() {
           if (selectedItem) handleLaunchApp(selectedItem);
         }}
       />
+      </View>
 
       <FloatingSystemNav
         focusedIndex={modalSelectedIndex}
@@ -2063,7 +2164,13 @@ export default function ConsoleHome() {
           setModalSelectedIndex(index);
           handleSystemNavAction(index);
         }}
-        onClose={() => setFocusArea('main_carousel')}
+        onClose={() => {
+          if (isOverlayVisible && Platform.OS === 'web' && (window as any).electronAPI?.hideGameOverlay) {
+            (window as any).electronAPI.hideGameOverlay();
+          } else {
+            setFocusArea('main_carousel');
+          }
+        }}
         navLevel={systemNavLevel}
         cardIndex={systemNavCardIndex}
         isCardExpanded={isSystemNavCardExpanded}
@@ -2073,6 +2180,7 @@ export default function ConsoleHome() {
           setSystemNavCardExpanded(true);
         }}
         onCloseExpanded={() => setSystemNavCardExpanded(false)}
+        runningGame={runningGame}
       />
 
       <FavoritesView
@@ -2775,6 +2883,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0D1117',
+  },
+  overlayMainHidden: {
+    opacity: 0,
   },
 
   // === OVERLAY GRADIENTS ===

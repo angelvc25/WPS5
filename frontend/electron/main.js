@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { exec, spawn } = require('child_process');
@@ -18,7 +18,75 @@ const STEAMGRID_API_KEY = '6abd5716fa6f6cb81eaed8426560c5eb'; // REEMPLAZADO
 let igdbAccessToken = null;
 let mainWindow = null;
 
+/** @type {{ id: string, title: string, imageUri?: string, logoUri?: string, backgroundImageUri?: string } | null} */
+let gameSession = null;
+let overlayOpen = false;
+let homeShortcutRegistered = false;
 
+function registerHomeShortcut() {
+  if (homeShortcutRegistered) return;
+  try {
+    const ok = globalShortcut.register('Home', () => {
+      if (gameSession) toggleGameOverlay();
+    });
+    homeShortcutRegistered = ok;
+    if (!ok) console.warn('No se pudo registrar el atajo global Home');
+  } catch (e) {
+    console.error('Error registrando atajo Home:', e);
+  }
+}
+
+function unregisterHomeShortcut() {
+  if (!homeShortcutRegistered) return;
+  globalShortcut.unregister('Home');
+  homeShortcutRegistered = false;
+}
+
+function toggleGameOverlay() {
+  if (!gameSession || !mainWindow) return;
+  if (overlayOpen) {
+    returnToGame();
+  } else {
+    openGameOverlay();
+  }
+}
+
+function openGameOverlay() {
+  if (!mainWindow || !gameSession) return;
+  overlayOpen = true;
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  mainWindow.setFullScreen(true);
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.webContents.send('overlay-opened', gameSession);
+}
+
+function returnToGame() {
+  if (!mainWindow || !gameSession) return;
+  overlayOpen = false;
+  mainWindow.setAlwaysOnTop(false);
+  mainWindow.webContents.send('returned-to-game');
+  mainWindow.hide();
+}
+
+function restoreLauncherFromGame() {
+  if (!mainWindow || !gameSession) return;
+  overlayOpen = false;
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  mainWindow.setFullScreen(true);
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.webContents.send('launcher-restored-from-game', gameSession);
+}
+
+function endGameSession() {
+  unregisterHomeShortcut();
+  overlayOpen = false;
+  gameSession = null;
+  if (mainWindow) {
+    mainWindow.setAlwaysOnTop(false);
+  }
+}
 
 // Inicializar la base de datos local
 function initDB() {
@@ -40,6 +108,9 @@ function createWindow() {
     width: 1000,
     height: 700,
     fullscreen: true,
+    transparent: true,
+    backgroundColor: '#00000000',
+    frame: false,
     icon: path.join(__dirname, '../assets/images/ps5.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -351,8 +422,20 @@ app.whenReady().then(() => {
     });
   }
 
+  ipcMain.handle('hide-game-overlay', () => {
+    returnToGame();
+    return { success: true };
+  });
+
+  ipcMain.handle('restore-launcher-from-game', () => {
+    restoreLauncherFromGame();
+    return { success: true };
+  });
+
+  ipcMain.handle('get-running-game', () => gameSession);
+
   // IPC: Ejecutar un programa externo (con suspensión del launcher)
-  ipcMain.handle('launch-app', async (event, id, executablePath) => {
+  ipcMain.handle('launch-app', async (event, id, executablePath, gameMeta) => {
     if (!executablePath) return;
 
     // Actualizar timestamp de último juego en la DB si el id existe
@@ -410,31 +493,34 @@ app.whenReady().then(() => {
     let gameExited = false;
     let hideTimer = null;
 
+    gameSession = gameMeta ? gameMeta : { id: id || 'unknown', title: 'Juego' };
+    registerHomeShortcut();
+
     const resumeLauncher = () => {
       if (gameExited) return; // Evitar doble ejecución
       gameExited = true;
       if (hideTimer) clearTimeout(hideTimer);
 
       if (mainWindow) {
+        endGameSession();
         mainWindow.webContents.send('game-closed', id);
-        if (!mainWindow.isVisible()) {
-          // La ventana estaba oculta, restaurarla con un breve delay
-          setTimeout(() => {
-            if (mainWindow) {
-              mainWindow.show();
-              mainWindow.focus();
-              console.log('Launcher restaurado');
-            }
-          }, 300);
-        }
+        setTimeout(() => {
+          if (mainWindow) {
+            mainWindow.setAlwaysOnTop(false);
+            mainWindow.show();
+            mainWindow.focus();
+            console.log('Launcher restaurado');
+          }
+        }, 300);
       }
     };
 
     // Ocultar el launcher después de 1.5s para que se vea la animación de lanzamiento
     hideTimer = setTimeout(() => {
       if (!gameExited && mainWindow) {
+        mainWindow.setAlwaysOnTop(false);
         mainWindow.hide();
-        console.log('Launcher suspendido — ventana oculta');
+        console.log('Launcher suspendido — juego en ejecución (Home para overlay)');
       }
     }, 1500);
 
@@ -870,4 +956,8 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
