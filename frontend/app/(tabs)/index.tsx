@@ -302,7 +302,7 @@ export default function ConsoleHome() {
       lowerSectionFocusAnim.value,
       [0, 1],
       [
-        interpolate(gamePanelFocusAnim.value, [0, 1], [windowHeight - 390, windowHeight * 0.5 + 200]),
+        interpolate(gamePanelFocusAnim.value, [0, 1], [windowHeight - 420, windowHeight * 0.5 + 200]),
         deepHeight
       ]
     );
@@ -1714,13 +1714,13 @@ export default function ConsoleHome() {
 
   const floatingImageStyle = useAnimatedStyle(() => {
     const c = collapseAnim.value;
-    
+
     const width = interpolate(c, [0, 1], [startW.value, 60]);
     const height = interpolate(c, [0, 1], [startH.value, 60]);
     const left = interpolate(c, [0, 1], [startX.value, 50]);
     const top = interpolate(c, [0, 1], [startY.value, 40]);
     const borderRadius = interpolate(c, [0, 1], [30, 8]);
-    
+
     const opacity = c;
 
     return {
