@@ -367,7 +367,7 @@ export default function ConsoleHome() {
     paddingBottom: windowHeight * (40 / 1080),
     paddingTop: 0,
   }));
-
+  //Altura widgets
   const welcomePanelLayout = useMemo(() => ({
     paddingLeft: Math.max(20, windowWidth * (150 / 1920)),
     //paddingRight: Math.max(20, windowWidth * (10 / 1920)),
