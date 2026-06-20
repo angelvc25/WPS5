@@ -20,7 +20,6 @@ import { fetchSteamInstalledAppIds } from '@/services/steamInstallService';
 import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
 import { Feather } from '@expo/vector-icons';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
-import PS5WidgetRow from '@/components/ps5widgetrow';
 import MusicPlayerCard from '@/components/MusicPlayerCard';
 
 // WPS5 UI Expansion Components
@@ -307,12 +306,8 @@ export default function ConsoleHome() {
         deepHeight
       ]
     );
-    // When welcome_widgets is focused: shrink spacer to ~0 so title+carousel collapse up
-    const welcomeHeight = interpolate(
-      welcomeWidgetsFocusAnim.value,
-      [0, 1],
-      [Math.max(30, windowHeight - 655), 0]
-    );
+    // When welcome_widgets is focused: keep spacer constant
+    const welcomeHeight = Math.max(30, windowHeight - 655);
     return {
       minHeight: isWelcome ? welcomeHeight : Math.max(0, targetMinHeight),
       justifyContent: 'flex-end',
@@ -323,22 +318,24 @@ export default function ConsoleHome() {
   const headerStyle = useAnimatedStyle(() => {
     // Collapse both when game_panel is focused AND when welcome_widgets is focused
     const collapseAnim = Math.max(gamePanelFocusAnim.value, welcomeWidgetsFocusAnim.value);
+    const heightCollapse = gamePanelFocusAnim.value;
     return {
       opacity: 1 - collapseAnim,
       transform: [{ translateY: interpolate(collapseAnim, [0, 1], [0, -20]) }],
-      maxHeight: interpolate(collapseAnim, [0, 1], [120, 0]),
-      paddingTop: interpolate(collapseAnim, [0, 1], [40, 0]),
-      paddingBottom: interpolate(collapseAnim, [0, 1], [12, 0]),
+      maxHeight: interpolate(heightCollapse, [0, 1], [120, 0]),
+      paddingTop: interpolate(heightCollapse, [0, 1], [40, 0]),
+      paddingBottom: interpolate(heightCollapse, [0, 1], [12, 0]),
       overflow: 'hidden',
     };
   });
 
   const carouselStyle = useAnimatedStyle(() => {
     const collapseAnim = Math.max(gamePanelFocusAnim.value, welcomeWidgetsFocusAnim.value);
+    const heightCollapse = gamePanelFocusAnim.value;
     return {
       opacity: 1 - collapseAnim,
       transform: [{ translateY: interpolate(collapseAnim, [0, 1], [0, -20]) }],
-      height: interpolate(collapseAnim, [0, 1], [200, 0]),
+      height: interpolate(heightCollapse, [0, 1], [200, 0]),
       overflow: 'hidden',
     };
   });
@@ -368,14 +365,14 @@ export default function ConsoleHome() {
   // Push widgets down when contracted so they appear centered/lower on screen
   const widgetContainerStyle = useAnimatedStyle(() => ({
     paddingBottom: windowHeight * (40 / 1080),
-    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.24]),
+    paddingTop: 0,
   }));
 
   const welcomePanelLayout = useMemo(() => ({
     paddingLeft: Math.max(20, windowWidth * (150 / 1920)),
-    paddingRight: Math.max(20, windowWidth * (60 / 1920)),
+    paddingRight: Math.max(20, windowWidth * (10 / 1920)),
     paddingTop: Math.max(8, windowHeight * (16 / 1080)),
-    paddingBottom: Math.max(16, windowHeight * (40 / 1080)),
+    paddingBottom: Math.max(10, windowHeight * (10 / 1080)),
   }), [windowWidth, windowHeight]);
 
   const mainScrollContentStyle = useMemo(() => ({
@@ -385,7 +382,7 @@ export default function ConsoleHome() {
 
   const widgetContainerStyle2 = useAnimatedStyle(() => ({
     paddingBottom: 0,
-    paddingTop: interpolate(welcomeWidgetsFocusAnim.value, [0, 1], [0, windowHeight * 0.60]),
+    paddingTop: 0,
   }));
 
   const wviewStyle = useAnimatedStyle(() => ({
