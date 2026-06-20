@@ -2794,7 +2794,7 @@ export default function ConsoleHome() {
                     <View style={styles.patronsSection}>
                       <Text style={styles.settingsLabelNew}>Colaboradores y Patrocinadores</Text>
                       <View style={styles.patronsListGrid}>
-                        {['angelvc25', 'Player 1', 'Player 2', 'Comunidad WPS5', 'Beta Tester 1', 'Sponsor Premium'].map((name, idx) => (
+                        {['angelvc25', 'Crizz_Vc',].map((name, idx) => (
                           <View key={idx} style={styles.patronCard}>
                             <Ionicons name="star" size={14} color="#FFCC00" />
                             <Text style={styles.patronName}>{name}</Text>
