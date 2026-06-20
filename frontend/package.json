@@ -62,8 +62,8 @@
   },
   "private": true,
   "build": {
-    "appId": "com.ps5xperience.app",
-    "productName": "PS5 Xperience",
+    "appId": "com.fifthstationui.app",
+    "productName": "FifthStation UI",
     "directories": {
       "output": "dist-electron"
     },

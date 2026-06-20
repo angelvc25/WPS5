@@ -285,11 +285,11 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     let wheelTimeout: NodeJS.Timeout | null = null;
     const handleWheel = (e: WheelEvent) => {
       if (wheelTimeout) return;
-      
+
       const totalItems = users.length + 1;
       const allIds = ['add', ...users.map(u => u.id)];
       const currentIndex = allIds.indexOf(hoveredId || 'add');
-      
+
       if (e.deltaY > 5 || e.deltaX > 5) {
         if (hoveredId === 'power' || currentIndex >= totalItems - 1) return;
         soundService.playNavigation();
@@ -399,7 +399,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
       {/* TITLE */}
       <View style={styles.titleArea}>
-        <Text style={styles.title}>Welcome to PS5 Xperience</Text>
+        <Text style={styles.title}>Welcome to FifthStation UI</Text>
         <Text style={styles.subtitle}>Who's playing today?</Text>
       </View>
 
