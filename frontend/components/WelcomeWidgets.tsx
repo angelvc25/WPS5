@@ -634,6 +634,32 @@ export const WelcomeWidgets = ({
                     </div>
                   </>
                 )}
+              {/* Background Image when NOT focused/hovered */}
+              {!(focusArea === 'welcome_widgets' && focusIndex === 2) && (
+                <>
+                  <Image
+                    source={{ uri: 'https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                    }}
+                    contentFit="cover"
+                  />
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'rgba(13, 16, 21, 0.45)',
+                    }}
+                  />
+                </>
+              )}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                 <Image source={require('@/assets/images/PlaystationStore_copi.png')} style={{ width: 18, height: 18, resizeMode: 'cover' }} />
                 <Text style={styles.widgetTitle}>PlayStation Store</Text>
@@ -1375,7 +1401,7 @@ export const WelcomeWidgets = ({
                 />
               )}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-                <Ionicons name="heart" size={17} color="#ffffffffff" />
+                <Ionicons name="heart" size={17} color="#ffffff" />
                 <Text style={styles.widgetTitle}>Lista de deseos</Text>
               </View>
               <Text style={styles.widgetSubtitle}>Ver tu lista de deseos</Text>

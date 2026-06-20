@@ -84,7 +84,7 @@ function TrophiesWidget({ expanded }: { expanded: boolean }) {
 
 function StoreWidget({ expanded }: { expanded: boolean }) {
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <BagIcon />
                 <p style={wTitle}>PlayStation Store</p>
@@ -337,14 +337,12 @@ export default function PS5WidgetRow() {
                                 toggleExpand(id);
                             }}
                             style={{
-                                // estilos de widget en ps5
                                 gridRow: isExpanded ? "span 2" : "span 1",
                                 background: isFocused
                                     ? "linear-gradient(90deg, rgba(55, 65, 70, 1) 0%, rgba(12, 26, 39, 1) 100%)"
-                                    : "#121a22ef",
-                                // border: isFocused
-                                //     ? "1.5px solid rgba(255,255,255,0.35)"
-                                //     : "0.5px solid rgba(255,255,255,0.1)",
+                                    : (id === "store"
+                                        ? "linear-gradient(rgba(18, 26, 34, 0.45), rgba(18, 26, 34, 0.45)), url('https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg') center/cover no-repeat"
+                                        : "#121a22ef"),
                                 borderRadius: 12,
                                 padding: "12px 14px",
                                 cursor: "grab",
@@ -503,7 +501,7 @@ function HddIcon() {
 
 function HeartIcon() {
     return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
     );
