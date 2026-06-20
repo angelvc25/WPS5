@@ -212,7 +212,7 @@ export const WelcomeWidgets = ({
       ref={horizontalScrollRef}
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={{ width: '100%' }}
+      style={{ paddingLeft: 3, width: '100%' }}
       contentContainerStyle={{ flexDirection: 'column' }}
       scrollEnabled={true}
     >
