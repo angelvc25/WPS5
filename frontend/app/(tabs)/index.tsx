@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Pla
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay, withRepeat, interpolate, Easing, FadeInDown, FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, useDerivedValue, useAnimatedRef, measure, withTiming, withDelay, withRepeat, interpolate, Easing, FadeInDown, FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import FavoritesView from '@/components/FavoritesView';
@@ -174,7 +174,7 @@ export default function ConsoleHome() {
   const [loadingSteam, setLoadingSteam] = useState(false);
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
-  const activeCardRef = useRef<View>(null);
+  const activeCardRef = useAnimatedRef<View>();
   const [contextMenuCoords, setContextMenuCoords] = useState({ top: 250, left: 335 });
   const [isDetailVisible, setDetailVisible] = useState(false);
   const [isLibraryDetailVisible, setIsLibraryDetailVisible] = useState(false);
@@ -785,6 +785,7 @@ export default function ConsoleHome() {
         if (!e.fromGamepad) setInputMode('keyboard');
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
         if (isLaunching) return;
+        if (isDetailVisible || isLibraryDetailVisible) return;
         if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
 
         // Throttle rapid arrow key inputs (key repeats/fast tapping)
@@ -1017,8 +1018,6 @@ export default function ConsoleHome() {
         }
         if (isRandomSelectorVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setRandomSelectorVisible(false); return; }
         if (isFavoritesVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setFavoritesVisible(false); return; }
-        if (isDetailVisible) return;
-        if (isLibraryDetailVisible) return;
 
         // --- SPATIAL NAVIGATION ---
         if (e.key === 'ArrowRight') {
@@ -1675,8 +1674,68 @@ export default function ConsoleHome() {
 
   const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds);
 
+  const collapseAnim = useDerivedValue(() => {
+    return Math.max(gamePanelFocusAnim.value, welcomeWidgetsFocusAnim.value);
+  });
 
+  const startX = useSharedValue(140);
+  const startY = useSharedValue(187);
+  const startW = useSharedValue(180);
+  const startH = useSharedValue(180);
 
+  useDerivedValue(() => {
+    if (collapseAnim.value === 0) {
+      const measurement = measure(activeCardRef);
+      if (measurement) {
+        startX.value = measurement.pageX;
+        startY.value = measurement.pageY;
+        startW.value = measurement.width;
+        startH.value = measurement.height;
+      }
+    }
+  });
+
+  const getTransitionImageSource = () => {
+    if (focusArea === 'library_grid') {
+      return require('@/assets/images/Libreria.jpeg');
+    }
+    if (focusArea === 'welcome_widgets') {
+      return currentData[activeIndex]?.image;
+    }
+    if (!activeItem) return null;
+    if (activeItem.id === 'more_library') {
+      return require('@/assets/images/Libreria.jpeg');
+    }
+    if (activeItem.isLastPlayed) {
+      return lastPlayedGame?.image ?? activeItem.image;
+    }
+    return activeItem.image;
+  };
+
+  const floatingImageStyle = useAnimatedStyle(() => {
+    const c = collapseAnim.value;
+    
+    const width = interpolate(c, [0, 1], [startW.value, 60]);
+    const height = interpolate(c, [0, 1], [startH.value, 60]);
+    const left = interpolate(c, [0, 1], [startX.value, 50]);
+    const top = interpolate(c, [0, 1], [startY.value, 40]);
+    const borderRadius = interpolate(c, [0, 1], [30, 8]);
+    
+    const opacity = c;
+
+    return {
+      position: 'absolute',
+      left,
+      top,
+      width,
+      height,
+      borderRadius,
+      opacity,
+      zIndex: 9999,
+      pointerEvents: 'none',
+      overflow: 'hidden',
+    };
+  });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1795,17 +1854,17 @@ export default function ConsoleHome() {
       <Animated.View style={[styles.miniHeader, topBarMiniStyle]} pointerEvents="none">
         {focusArea === 'library_grid' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image source={require('@/assets/images/Libreria.jpeg')} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12 }} />
+            <Image source={require('@/assets/images/Libreria.jpeg')} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} />
             <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Biblioteca de juegos</Text>
           </View>
         ) : focusArea === 'welcome_widgets' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image source={currentData[activeIndex]?.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12 }} contentFit="cover" />
+            <Image source={currentData[activeIndex]?.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} contentFit="cover" />
             <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Welcome</Text>
           </View>
         ) : (canPlay && activeItem && (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12 }} />
+            <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} />
             <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
           </View>
         ))}
@@ -1964,6 +2023,7 @@ export default function ConsoleHome() {
             RIGHT_PADDING={RIGHT_PADDING}
             media={media}
             games={games}
+            collapseAnim={collapseAnim}
           />
         </Animated.View>
 
@@ -2763,6 +2823,16 @@ export default function ConsoleHome() {
             />
           </View>
         </View>
+      )}
+      {/* FLOATING TRANSITION COVER */}
+      {getTransitionImageSource() && (
+        <Animated.View style={floatingImageStyle}>
+          <Image
+            source={getTransitionImageSource()}
+            style={{ width: '100%', height: '100%' }}
+            contentFit="cover"
+          />
+        </Animated.View>
       )}
 
     </SafeAreaView >
