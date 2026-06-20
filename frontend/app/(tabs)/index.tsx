@@ -785,6 +785,7 @@ export default function ConsoleHome() {
         if (!e.fromGamepad) setInputMode('keyboard');
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
         if (isLaunching) return;
+        if (isDetailVisible || isLibraryDetailVisible) return;
         if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
 
         // Throttle rapid arrow key inputs (key repeats/fast tapping)
@@ -1017,8 +1018,6 @@ export default function ConsoleHome() {
         }
         if (isRandomSelectorVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setRandomSelectorVisible(false); return; }
         if (isFavoritesVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setFavoritesVisible(false); return; }
-        if (isDetailVisible) return;
-        if (isLibraryDetailVisible) return;
 
         // --- SPATIAL NAVIGATION ---
         if (e.key === 'ArrowRight') {
