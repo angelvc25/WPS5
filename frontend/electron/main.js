@@ -227,6 +227,19 @@ app.whenReady().then(() => {
     }
   });
 
+  // IPC: Obtener ofertas destacadas de Steam (para bypass de CORS)
+  ipcMain.handle('fetch-steam-specials', async () => {
+    try {
+      const response = await fetch('https://store.steampowered.com/api/featuredgcategories/?l=spanish&cc=US');
+      if (!response.ok) throw new Error('Network response was not ok');
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching Steam specials in main:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // IPC: Obtener todas las aplicaciones y usuarios
   ipcMain.handle('get-apps', () => {
     const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));

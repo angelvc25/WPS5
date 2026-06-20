@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openGameLocation: (path) => ipcRenderer.invoke('open-game-location', path),
   deleteApp: (id) => ipcRenderer.invoke('delete-app', id),
   fetchNews: () => ipcRenderer.invoke('fetch-news'),
+  fetchSteamSpecials: () => ipcRenderer.invoke('fetch-steam-specials'),
   selectCaptureFolder: () => ipcRenderer.invoke('select-capture-folder'),
   getLatestCapture: (folderPath) => ipcRenderer.invoke('get-latest-capture', folderPath),
   steamLogin: () => ipcRenderer.invoke('steam-login'),

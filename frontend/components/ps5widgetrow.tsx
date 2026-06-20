@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { fetchSteamNewsByName, SteamNewsItem } from "../services/steamNewsService";
+import { fetchStoreOffers, StoreOffer } from "../services/storeService";
 
 type WidgetId =
     | "controller"
@@ -83,20 +84,41 @@ function TrophiesWidget({ expanded }: { expanded: boolean }) {
     );
 }
 
-function StoreWidget({ expanded }: { expanded: boolean }) {
+function StoreWidget({ expanded, activeOffer, offers }: { expanded: boolean; activeOffer: StoreOffer | null; offers: StoreOffer[] }) {
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <BagIcon />
                 <p style={wTitle}>PlayStation Store</p>
             </div>
-            <p style={wSub}>Descubre las últimas ofertas</p>
-            <p style={{ color: "#4e9fe8", fontSize: 12, fontWeight: 700, margin: 0 }}>Ver tienda →</p>
-            {expanded && (
+            <p style={wSub}>{activeOffer ? (activeOffer.type === 'offer' ? "🔥 Oferta Destacada" : "✨ Último Lanzamiento") : "Descubre las últimas ofertas"}</p>
+            <p style={{ color: "#4e9fe8", fontSize: 11, fontWeight: 700, margin: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                {activeOffer ? activeOffer.title : 'Ver tienda →'}
+            </p>
+            {activeOffer && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    {activeOffer.discountPercent && (
+                        <span style={{ backgroundColor: '#0070D1', color: '#fff', fontSize: 10, fontWeight: 800, padding: '2px 4px', borderRadius: 4 }}>
+                            -{activeOffer.discountPercent}%
+                        </span>
+                    )}
+                    <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                        {activeOffer.price}
+                    </span>
+                    {activeOffer.originalPrice && (
+                        <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, textDecorationLine: 'line-through' }}>
+                            {activeOffer.originalPrice}
+                        </span>
+                    )}
+                </div>
+            )}
+            {expanded && offers.length > 0 && (
                 <div style={{ borderTop: "0.5px solid rgba(255,255,255,0.1)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-                    <p style={{ color: "#FFD700", fontSize: 11, fontWeight: 600, margin: 0 }}>🔥 Ofertas esta semana</p>
-                    {["God of War Ragnarök  −40%", "Spider-Man 2  −35%", "Horizon FW  −50%"].map((g) => (
-                        <p key={g} style={{ ...wSub, margin: 0 }}>{g}</p>
+                    <p style={{ color: "#FFD700", fontSize: 10, fontWeight: 600, margin: 0 }}>🔥 Más ofertas destacadas</p>
+                    {offers.filter(o => o.id !== activeOffer?.id).slice(0, 3).map((o) => (
+                        <p key={o.id} style={{ ...wSub, margin: 0, fontSize: 10, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {o.title} · <span style={{ color: '#4e9fe8', fontWeight: 600 }}>{o.price}</span> {o.discountPercent ? `(-${o.discountPercent}%)` : ''}
+                        </p>
                     ))}
                 </div>
             )}
@@ -252,10 +274,10 @@ function BackgroundWidget({ expanded }: { expanded: boolean }) {
     );
 }
 
-const WIDGET_CONTENT: Record<WidgetId, (expanded: boolean) => React.ReactNode> = {
+const WIDGET_CONTENT: Record<WidgetId, (expanded: boolean, extraData?: any) => React.ReactNode> = {
     controller: (e) => <ControllerWidget expanded={e} />,
     trophies: (e) => <TrophiesWidget expanded={e} />,
-    store: (e) => <StoreWidget expanded={e} />,
+    store: (e, extra) => <StoreWidget expanded={e} activeOffer={extra?.activeOffer} offers={extra?.offers || []} />,
     news: (e) => <NewsWidget expanded={e} />,
     addgame: (e) => <AddGameWidget expanded={e} />,
     recent: (e) => <RecentWidget expanded={e} />,
@@ -276,7 +298,28 @@ export default function PS5WidgetRow() {
     const [expanded, setExpanded] = useState<WidgetId[]>([]);
     const [focused, setFocused] = useState<WidgetId | null>(null);
 
+    const [offers, setOffers] = useState<StoreOffer[]>([]);
+    const [activeOfferIndex, setActiveOfferIndex] = useState(0);
+
     const dragSrc = useRef<number | null>(null);
+
+    useEffect(() => {
+        fetchStoreOffers().then(data => {
+            if (data && data.length > 0) {
+                setOffers(data);
+            }
+        });
+    }, []);
+
+    useEffect(() => {
+        if (offers.length <= 1) return;
+        const timer = setInterval(() => {
+            setActiveOfferIndex(prev => (prev + 1) % offers.length);
+        }, 8000);
+        return () => clearInterval(timer);
+    }, [offers]);
+
+    const activeOffer = offers[activeOfferIndex] || null;
 
     const handleDragStart = useCallback((idx: number) => {
         dragSrc.current = idx;
@@ -352,7 +395,7 @@ export default function PS5WidgetRow() {
                                 background: isFocused
                                     ? "linear-gradient(90deg, rgba(55, 65, 70, 1) 0%, rgba(12, 26, 39, 1) 100%)"
                                     : (id === "store"
-                                        ? "linear-gradient(rgba(18, 26, 34, 0.45), rgba(18, 26, 34, 0.45)), url('https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg') center/cover no-repeat"
+                                        ? `linear-gradient(rgba(18, 26, 34, 0.45), rgba(18, 26, 34, 0.45)), url('${activeOffer?.image || 'https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg'}') center/cover no-repeat`
                                         : "#121a22ef"),
                                 borderRadius: 12,
                                 padding: "12px 14px",
@@ -379,7 +422,7 @@ export default function PS5WidgetRow() {
                                 </span>
                                 <span style={{ fontSize: 9, color: "#fff" }}>⠿ mover</span>
                             </div>
-                            {WIDGET_CONTENT[id](isExpanded)}
+                            {WIDGET_CONTENT[id](isExpanded, id === "store" ? { activeOffer, offers } : undefined)}
                         </div>
                     );
                 })}

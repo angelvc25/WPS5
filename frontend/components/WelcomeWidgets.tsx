@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking } from 'rea
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
+import { fetchStoreOffers, StoreOffer } from '../services/storeService';
 
 interface WelcomeWidgetsProps {
   focusArea: string;
@@ -52,6 +53,8 @@ export const WelcomeWidgets = ({
     : "battery-dead";
 
   const [realNews, setRealNews] = useState<SteamNewsItem[]>([]);
+  const [storeOffers, setStoreOffers] = useState<StoreOffer[]>([]);
+  const [activeOfferIndex, setActiveOfferIndex] = useState(0);
 
   useEffect(() => {
     fetchSteamNewsByName('Helldivers 2').then(data => {
@@ -60,6 +63,24 @@ export const WelcomeWidgets = ({
       }
     });
   }, []);
+
+  useEffect(() => {
+    fetchStoreOffers().then(data => {
+      if (data && data.length > 0) {
+        setStoreOffers(data);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (storeOffers.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveOfferIndex(prev => (prev + 1) % storeOffers.length);
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [storeOffers]);
+
+  const activeOffer = storeOffers[activeOfferIndex] || null;
 
   const styles = useMemo(() => {
     const scaleW = windowWidth / 1920;
@@ -576,7 +597,7 @@ export const WelcomeWidgets = ({
             onPress={() => {
               setFocusArea('welcome_widgets');
               setFocusIndex(2);
-              Linking.openURL('https://store.playstation.com');
+              Linking.openURL(activeOffer?.url || 'https://store.playstation.com');
             }}
           >
             <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 2) && styles.welcomeWidgetCardFocused]}>
@@ -629,7 +650,7 @@ export const WelcomeWidgets = ({
                         }}
                       />
                       <Image
-                        source={{ uri: 'https://clan.fastly.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
+                        source={{ uri: activeOffer?.image || 'https://clan.fastly.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
                         style={{
                           position: 'absolute',
                           top: 7,
@@ -649,7 +670,7 @@ export const WelcomeWidgets = ({
               {!(focusArea === 'welcome_widgets' && focusIndex === 2) && (
                 <>
                   <Image
-                    source={{ uri: 'https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
+                    source={{ uri: activeOffer?.image || 'https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -675,8 +696,24 @@ export const WelcomeWidgets = ({
                 <Image source={require('@/assets/images/PlaystationStore_copi.png')} style={{ width: 18, height: 18, resizeMode: 'cover' }} />
                 <Text style={styles.widgetTitle}>PlayStation Store</Text>
               </View>
-              <Text style={styles.widgetSubtitle} numberOfLines={1}>Últimas ofertas disponibles</Text>
-              <Text style={{ fontSize: 10, fontWeight: "bold", marginTop: 15, color: "#fff", zIndex: 10 }} numberOfLines={1}>US$69.99</Text>
+              <Text style={styles.widgetSubtitle} numberOfLines={1}>
+                {activeOffer ? activeOffer.title : 'Últimas ofertas disponibles'}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, zIndex: 10 }}>
+                {activeOffer?.discountPercent && (
+                  <View style={{ backgroundColor: '#0070D1', paddingHorizontal: 3, paddingVertical: 1, borderRadius: 3 }}>
+                    <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>-{activeOffer.discountPercent}%</Text>
+                  </View>
+                )}
+                <Text style={{ fontSize: 10, fontWeight: "bold", color: "#fff" }} numberOfLines={1}>
+                  {activeOffer ? activeOffer.price : 'US$69.99'}
+                </Text>
+                {activeOffer?.originalPrice && (
+                  <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", textDecorationLine: 'line-through' }} numberOfLines={1}>
+                    {activeOffer.originalPrice}
+                  </Text>
+                )}
+              </View>
             </View>
           </TouchableOpacity>
 
