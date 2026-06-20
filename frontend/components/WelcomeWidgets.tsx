@@ -316,7 +316,7 @@ export const WelcomeWidgets = ({
                 <Image source={require('@/assets/images/psplus.png')} style={{ width: 13, height: 13, resizeMode: 'contain' }} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.widgetTitle2} numberOfLines={1}>
-                    Obtenén EA Sports FC 26 con PlayStation Plus
+                    Descubre lo nuevo de PlayStation Plus
                   </Text>
                 </View>
               </View>
