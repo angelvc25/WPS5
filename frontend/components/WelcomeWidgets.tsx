@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 
 interface WelcomeWidgetsProps {
   focusArea: string;
@@ -49,6 +50,16 @@ export const WelcomeWidgets = ({
   const batteryIcon = gamepadInfo.connected
     ? (batteryPct > 50 ? "battery-full" : (batteryPct > 20 ? "battery-half" : "battery-dead"))
     : "battery-dead";
+
+  const [realNews, setRealNews] = useState<SteamNewsItem[]>([]);
+
+  useEffect(() => {
+    fetchSteamNewsByName('Helldivers 2').then(data => {
+      if (data && data.length > 0) {
+        setRealNews(data.slice(0, 3));
+      }
+    });
+  }, []);
 
   const styles = useMemo(() => {
     const scaleW = windowWidth / 1920;
@@ -676,6 +687,9 @@ export const WelcomeWidgets = ({
             onPress={() => {
               setFocusArea('welcome_widgets');
               setFocusIndex(3);
+              if (realNews.length > 0 && realNews[0].url) {
+                Linking.openURL(realNews[0].url);
+              }
             }}
           >
             <View style={[styles.welcomeWidgetCard, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && focusIndex === 3) && styles.welcomeWidgetCardFocused]}>
@@ -772,15 +786,23 @@ export const WelcomeWidgets = ({
                   }}
                 />
               )}
-              <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+              <View style={{ flexDirection: 'column', alignItems: 'flex-start', flex: 1, marginRight: 8 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15 }}>
                   <Ionicons name="newspaper" size={13} color="rgba(255,255,255,0.8)" />
                   <Text style={styles.widgetTitle}>Noticias</Text>
                 </View>
-                <Text style={styles.widgetSubtitle}>Descubre juegos nuevos</Text>
-                <Text style={styles.widgetSubtitle}>Apex Legends | Ayer</Text>
+                <Text style={[styles.widgetSubtitle, { fontWeight: 'bold', width: '100%' }]} numberOfLines={2}>
+                  {realNews.length > 0 ? realNews[0].title : 'Descubre juegos nuevos'}
+                </Text>
+                <Text style={[styles.widgetSubtitle, { opacity: 0.7, width: '100%', fontSize: 9 }]} numberOfLines={1}>
+                  {realNews.length > 0 ? `Helldivers 2 · ${formatSteamDate(realNews[0].date)}` : 'Apex Legends | Ayer'}
+                </Text>
               </View>
-              <Image source={require("@/assets/images/Store.png")} style={{ width: 70, height: 70, borderRadius: 6 }} contentFit="cover" />
+              <Image 
+                source={realNews.length > 0 && realNews[0].image_url ? { uri: realNews[0].image_url } : require("@/assets/images/Store.png")} 
+                style={{ width: 70, height: 70, borderRadius: 6 }} 
+                contentFit="cover" 
+              />
             </View>
           </TouchableOpacity>
 

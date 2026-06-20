@@ -1,4 +1,5 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { fetchSteamNewsByName, SteamNewsItem } from "../services/steamNewsService";
 
 type WidgetId =
     | "controller"
@@ -104,23 +105,33 @@ function StoreWidget({ expanded }: { expanded: boolean }) {
 }
 
 function NewsWidget({ expanded }: { expanded: boolean }) {
+    const [news, setNews] = useState<SteamNewsItem[]>([]);
+
+    useEffect(() => {
+        fetchSteamNewsByName('Helldivers 2').then(data => {
+            if (data && data.length > 0) {
+                setNews(data.slice(0, 3));
+            }
+        });
+    }, []);
+
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <NewsIcon />
                 <p style={wTitle}>Noticias</p>
             </div>
-            <p style={wSub}>Descubre juegos nuevos</p>
+            <p style={{ ...wSub, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '250px' }}>
+                {news.length > 0 ? news[0].title : "Descubre juegos nuevos"}
+            </p>
             {expanded && (
                 <div style={{ borderTop: "0.5px solid rgba(255,255,255,0.1)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                    {[
-                        "Ghost of Yōtei — nuevo tráiler revealed",
-                        "PS Plus junio: 3 juegos gratis",
-                        "Actualización firmware 8.10 disponible",
-                    ].map((n) => (
-                        <div key={n} style={{ display: "flex", gap: 6 }}>
+                    {news.map((n, i) => (
+                        <div key={n.gid || i} style={{ display: "flex", gap: 6, cursor: 'pointer' }} onClick={() => n.url && window.open(n.url, '_blank')}>
                             <div style={{ width: 3, minWidth: 3, height: "auto", background: "#4e9fe8", borderRadius: 2 }} />
-                            <p style={{ ...wSub, margin: 0, fontSize: 11 }}>{n}</p>
+                            <p style={{ ...wSub, margin: 0, fontSize: 11, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={n.title}>
+                                {n.title}
+                            </p>
                         </div>
                     ))}
                 </div>
