@@ -19,7 +19,7 @@ import Animated, {
   Easing,
   interpolate,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import SpinningBorder from './Spinningborder';
 import SpinningBorderNoticias from './SpinningborderNoticias';
@@ -70,6 +70,7 @@ interface ControlCenterCardsProps {
   isExpanded: boolean;
   onCloseExpanded: () => void;
   activeNavIndex?: number;
+  onRefreshApps?: () => void;
 }
 
 // ─── Animated Card ────────────────────────────────────────────────────────────
@@ -82,6 +83,7 @@ function AnimatedCard({
   onPress,
   enterDelay,
   onCloseExpanded,
+  onRefreshApps,
 }: {
   card: CardData;
   index: number;
@@ -91,6 +93,7 @@ function AnimatedCard({
   onPress: () => void;
   enterDelay: number;
   onCloseExpanded?: () => void;
+  onRefreshApps?: () => void;
 }) {
   const translateY = useSharedValue(40);
   const opacity = useSharedValue(0);
@@ -108,6 +111,91 @@ function AnimatedCard({
   const { activeUser } = useUser();
   const [captureImage, setCaptureImage] = React.useState<string | null>(null);
   const [isCaptureModalVisible, setCaptureModalVisible] = React.useState(false);
+
+  // Form states for adding game
+  const [title, setTitle] = React.useState('');
+  const [path, setPath] = React.useState('');
+  const [image, setImage] = React.useState('');
+  const [platform, setPlatform] = React.useState('PC');
+  const [type, setType] = React.useState<'game' | 'media' | 'web'>('game');
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [focusedField, setFocusedField] = React.useState<string | null>(null);
+
+  const handleSelectFile = async () => {
+    if (Platform.OS === 'web' && (window as any).electronAPI?.selectFile) {
+      const file = await (window as any).electronAPI.selectFile();
+      if (file) {
+        setPath(file);
+        if (!title) {
+          const filename = file.split(/[\\\/]/).pop() || '';
+          const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+          setTitle(nameWithoutExt);
+        }
+      }
+    }
+  };
+
+  const handleSelectLocalImage = async () => {
+    if (Platform.OS === 'web' && (window as any).electronAPI?.selectImage) {
+      const img = await (window as any).electronAPI.selectImage();
+      if (img) setImage(img);
+    }
+  };
+
+  const handleSaveApp = async () => {
+    if (!title || !path) {
+      alert('Por favor completa el nombre y la ruta del ejecutable o URL.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      let appToSave: any = {
+        title,
+        path,
+        image: image || undefined,
+        type, // 'game', 'media' or 'web'
+        platform: type === 'game' ? platform : undefined,
+      };
+
+      if (!appToSave.image && type === 'game' && (window as any).electronAPI?.fetchSteamGridData) {
+        try {
+          const res = await (window as any).electronAPI.fetchSteamGridData(title);
+          if (res.success && res.data) {
+            if (res.data.grid) appToSave.image = res.data.grid;
+            if (res.data.hero) appToSave.backgroundImage = res.data.hero;
+            if (res.data.logo) appToSave.logo = res.data.logo;
+          }
+        } catch (error) {
+          console.error('Error fetching SteamGrid data:', error);
+        }
+      }
+
+      if ((window as any).electronAPI?.saveApp) {
+        await (window as any).electronAPI.saveApp(appToSave);
+      }
+
+      // Reset form
+      setTitle('');
+      setPath('');
+      setImage('');
+      setPlatform('PC');
+      setType('game');
+
+      // Close expanded card
+      if (onCloseExpanded) {
+        onCloseExpanded();
+      }
+
+      // Reload applications list
+      if (onRefreshApps) {
+        onRefreshApps();
+      }
+    } catch (e) {
+      console.error('Error saving app:', e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (card.type === 'capture' && Platform.OS === 'web') {
@@ -275,52 +363,289 @@ function AnimatedCard({
         {/* Inner clip wrapper */}
         <View style={styles.cardClip}>
           {card.type === 'addGame' ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(20,20,25,0.95)' }]}>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(23, 23, 30, 0.98)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
+                      linear-gradient(
+                        45deg,
+                        rgba(232, 249, 255, 0.17) 0%,
+                        rgba(120,220,255,0.03) 40%,
+                        rgba(255,255,255,0.01) 60%,
+                        rgba(0,0,0,0.00) 100%
+                      )
+                    `,
+                    pointerEvents: 'none',
+                    zIndex: 1,
+                  }}
+                />
+              )}
               {isExpanded ? (
-                <View style={[StyleSheet.absoluteFill]}>
+                <View style={[StyleSheet.absoluteFill, { zIndex: 2 }]}>
                   <View style={styles.expandedHeader}>
                     <View style={styles.iconCircle}>
                       <Ionicons name="game-controller" size={20} color="#fff" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.expandedTitle}>Agregar Juego</Text>
-                      <Text style={styles.expandedSubtitle}>Completa los detalles para añadir un juego de tu PC</Text>
+                      <Text style={styles.expandedTitle}>Agregar Juego / Aplicación</Text>
+                      <Text style={styles.expandedSubtitle}>Completa los detalles para añadir un elemento a tu biblioteca</Text>
                     </View>
                     <TouchableOpacity style={styles.closeBtn} onPress={onCloseExpanded}>
                       <Ionicons name="close" size={20} color="#fff" />
                     </TouchableOpacity>
                   </View>
-                  <ScrollView style={{ padding: 24, flex: 1 }} showsVerticalScrollIndicator={false}>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600' }}>NOMBRE DEL JUEGO</Text>
-                    <TextInput
-                      style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, color: '#FFF', padding: 14, fontSize: 16, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                      placeholder="Ej: Cyberpunk 2077"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                    />
-
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600' }}>RUTA DEL EJECUTABLE</Text>
-                    <View style={{ flexDirection: 'row', marginBottom: 20 }}>
-                      <TextInput
-                        style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderTopLeftRadius: 8, borderBottomLeftRadius: 8, color: '#FFF', padding: 14, fontSize: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRightWidth: 0 }}
-                        placeholder="C:\Juegos\Juego.exe"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                      />
-                      <TouchableOpacity style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 20, justifyContent: 'center', borderTopRightRadius: 8, borderBottomRightRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                        <Ionicons name="folder-open" size={20} color="#FFF" />
-                      </TouchableOpacity>
+                  <ScrollView style={{ paddingHorizontal: 24, paddingVertical: 20, flex: 1 }} showsVerticalScrollIndicator={false}>
+                    {/* TIPO DE APLICACIÓN */}
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600', letterSpacing: 0.5 }}>
+                      TIPO DE APLICACIÓN
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+                      {[
+                        { id: 'game', label: 'Juegos', icon: 'game-controller' },
+                        { id: 'media', label: 'Media', icon: 'musical-notes' },
+                        { id: 'web', label: 'Web', icon: 'globe' }
+                      ].map((t) => {
+                        const isSelected = type === t.id;
+                        return (
+                          <TouchableOpacity
+                            key={t.id}
+                            activeOpacity={0.8}
+                            onPress={() => setType(t.id as any)}
+                            style={{
+                              flex: 1,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                              borderColor: isSelected ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.08)',
+                              borderWidth: 1,
+                              borderRadius: 8,
+                              paddingVertical: 12,
+                              gap: 6,
+                              // @ts-ignore
+                              boxShadow: isSelected ? '0 0 10px rgba(255, 255, 255, 0.2)' : 'none',
+                            }}
+                          >
+                            <Ionicons name={t.icon as any} size={16} color={isSelected ? '#fff' : 'rgba(255, 255, 255, 0.5)'} />
+                            <Text style={{ color: isSelected ? '#fff' : 'rgba(255, 255, 255, 0.6)', fontWeight: isSelected ? '700' : '400', fontSize: 14 }}>
+                              {t.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
 
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600' }}>URL DE IMAGEN (OPCIONAL)</Text>
+                    {/* NOMBRE */}
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600', letterSpacing: 0.5 }}>
+                      {type === 'game' ? 'NOMBRE DEL JUEGO' : 'NOMBRE DE LA APLICACIÓN'}
+                    </Text>
                     <TextInput
-                      style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, color: '#FFF', padding: 14, fontSize: 16, marginBottom: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                      placeholder="https://ejemplo.com/imagen.jpg"
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.05)',
+                        borderRadius: 8,
+                        color: '#FFF',
+                        padding: 14,
+                        fontSize: 16,
+                        marginBottom: 20,
+                        borderWidth: 1,
+                        borderColor: focusedField === 'title' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255,255,255,0.1)',
+                      }}
+                      placeholder={type === 'game' ? "Ej: Cyberpunk 2077" : type === 'media' ? "Ej: Spotify" : "Ej: Google"}
                       placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={title}
+                      onChangeText={setTitle}
+                      onFocus={() => setFocusedField('title')}
+                      onBlur={() => setFocusedField(null)}
                     />
 
-                    <TouchableOpacity style={{ backgroundColor: '#fff', borderRadius: 8, padding: 16, alignItems: 'center' }}>
-                      <Text style={{ color: '#000', fontSize: 16, fontWeight: 'bold' }}>Guardar Juego</Text>
-                    </TouchableOpacity>
+                    {/* PLATAFORMA (Solo para Juegos) */}
+                    {type === 'game' && (
+                      <View style={{ marginBottom: 20 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600', letterSpacing: 0.5 }}>
+                          PLATAFORMA
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {[
+                            { id: 'PC', icon: 'microsoft-windows' },
+                            { id: 'PS5', icon: 'sony-playstation' },
+                            { id: 'Xbox', icon: 'microsoft-xbox' },
+                            { id: 'Switch', icon: 'nintendo-switch' },
+                            { id: 'Steam', icon: 'steam' },
+                            { id: 'EA', icon: 'alpha-e-box' },
+                            { id: 'Epic', icon: 'alpha-e-circle' }
+                          ].map((plat) => {
+                            const isSelected = platform === plat.id;
+                            return (
+                              <TouchableOpacity
+                                key={plat.id}
+                                activeOpacity={0.8}
+                                onPress={() => setPlatform(plat.id)}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                                  borderColor: isSelected ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.08)',
+                                  borderWidth: 1,
+                                  borderRadius: 8,
+                                  paddingHorizontal: 12,
+                                  paddingVertical: 8,
+                                  gap: 6,
+                                  // @ts-ignore
+                                  boxShadow: isSelected ? '0 0 10px rgba(255, 255, 255, 0.15)' : 'none',
+                                }}
+                              >
+                                <MaterialCommunityIcons
+                                  name={plat.icon as any}
+                                  size={16}
+                                  color={isSelected ? '#fff' : 'rgba(255, 255, 255, 0.5)'}
+                                />
+                                <Text style={{ color: isSelected ? '#fff' : 'rgba(255, 255, 255, 0.6)', fontWeight: isSelected ? '600' : '400', fontSize: 13 }}>
+                                  {plat.id}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* RUTA / URL */}
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600', letterSpacing: 0.5 }}>
+                      {type === 'web' ? 'URL DE LA PÁGINA WEB' : 'RUTA DEL EJECUTABLE'}
+                    </Text>
+                    {type === 'web' ? (
+                      <TextInput
+                        style={{
+                          backgroundColor: 'rgba(255,255,255,0.05)',
+                          borderRadius: 8,
+                          color: '#FFF',
+                          padding: 14,
+                          fontSize: 16,
+                          marginBottom: 20,
+                          borderWidth: 1,
+                          borderColor: focusedField === 'path' ? 'rgba(120, 255, 255, 0.4)' : 'rgba(255,255,255,0.1)',
+                        }}
+                        placeholder="https://ejemplo.com"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={path}
+                        onChangeText={setPath}
+                        onFocus={() => setFocusedField('path')}
+                        onBlur={() => setFocusedField(null)}
+                      />
+                    ) : (
+                      <View style={{ flexDirection: 'row', marginBottom: 20 }}>
+                        <TextInput
+                          style={{
+                            flex: 1,
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            borderTopLeftRadius: 8,
+                            borderBottomLeftRadius: 8,
+                            color: '#FFF',
+                            padding: 14,
+                            fontSize: 16,
+                            borderWidth: 1,
+                            borderColor: focusedField === 'path' ? 'rgba(120, 255, 255, 0.4)' : 'rgba(255,255,255,0.1)',
+                            borderRightWidth: 0,
+                          }}
+                          placeholder={type === 'media' ? "C:\\Media\\video.mp4 o URL" : "C:\\Juegos\\Juego.exe"}
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                          value={path}
+                          onChangeText={setPath}
+                          onFocus={() => setFocusedField('path')}
+                          onBlur={() => setFocusedField(null)}
+                        />
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={handleSelectFile}
+                          style={{
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            paddingHorizontal: 20,
+                            justifyContent: 'center',
+                            borderTopRightRadius: 8,
+                            borderBottomRightRadius: 8,
+                            borderWidth: 1,
+                            borderColor: focusedField === 'path' ? 'rgba(120, 255, 255, 0.4)' : 'rgba(255,255,255,0.1)',
+                          }}
+                        >
+                          <Ionicons name="folder-open" size={20} color="#FFF" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {/* PORTADA (OPCIONAL) */}
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600', letterSpacing: 0.5 }}>
+                      PORTADA (OPCIONAL - AUTO-FETCH EN JUEGOS)
+                    </Text>
+                    <View style={{ flexDirection: 'row', marginBottom: 30 }}>
+                      <TextInput
+                        style={{
+                          flex: 1,
+                          backgroundColor: 'rgba(255,255,255,0.05)',
+                          borderTopLeftRadius: 8,
+                          borderBottomLeftRadius: 8,
+                          color: '#FFF',
+                          padding: 14,
+                          fontSize: 16,
+                          borderWidth: 1,
+                          borderColor: focusedField === 'image' ? 'rgba(120, 255, 255, 0.4)' : 'rgba(255,255,255,0.1)',
+                          borderRightWidth: 0,
+                        }}
+                        placeholder="https://ejemplo.com/imagen.jpg o ruta local"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={image}
+                        onChangeText={setImage}
+                        onFocus={() => setFocusedField('image')}
+                        onBlur={() => setFocusedField(null)}
+                      />
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={handleSelectLocalImage}
+                        style={{
+                          backgroundColor: 'rgba(255,255,255,0.1)',
+                          paddingHorizontal: 20,
+                          justifyContent: 'center',
+                          borderTopRightRadius: 8,
+                          borderBottomRightRadius: 8,
+                          borderWidth: 1,
+                          borderColor: focusedField === 'image' ? 'rgba(120, 255, 255, 0.4)' : 'rgba(255,255,255,0.1)',
+                        }}
+                      >
+                        <Ionicons name="image" size={20} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
                   </ScrollView>
+
+                  {/* STICKY BOTTOM BUTTON */}
+                  <View style={{
+                    paddingHorizontal: 24,
+                    paddingBottom: 24,
+                    paddingTop: 16,
+                    borderTopWidth: 1,
+                    borderTopColor: 'rgba(255,255,255,0.08)',
+                    backgroundColor: 'rgba(23, 23, 30, 0.96)',
+                  }}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={handleSaveApp}
+                      disabled={isSaving}
+                      style={{
+                        backgroundColor: '#fff',
+                        borderRadius: 10,
+                        padding: 16,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        // @ts-ignore
+                        boxShadow: '0 4px 15px rgba(255,255,255,0.2)',
+                      }}
+                    >
+                      <Text style={{ color: '#000', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 }}>
+                        {isSaving ? 'Buscando assets y guardando...' : (type === 'game' ? 'Guardar Juego' : 'Guardar Aplicación')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ) : (
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(38, 41, 48, 0.95)', borderRadius: 16, overflow: 'hidden' }]}>
@@ -577,6 +902,7 @@ export default function ControlCenterCards({
   isExpanded,
   onCloseExpanded,
   activeNavIndex,
+  onRefreshApps,
 }: ControlCenterCardsProps) {
   const translateX = useSharedValue(0);
 
@@ -620,6 +946,7 @@ export default function ControlCenterCards({
           onPress={() => onPressCard(index)}
           enterDelay={index * 60}
           onCloseExpanded={onCloseExpanded}
+          onRefreshApps={onRefreshApps}
         />
       ))}
     </Animated.View>

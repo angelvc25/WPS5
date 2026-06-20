@@ -2073,6 +2073,7 @@ export default function ConsoleHome() {
           setSystemNavCardExpanded(true);
         }}
         onCloseExpanded={() => setSystemNavCardExpanded(false)}
+        onRefreshApps={loadApps}
       />
 
       <FavoritesView
