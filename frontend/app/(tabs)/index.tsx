@@ -377,7 +377,7 @@ export default function ConsoleHome() {
 
   const mainScrollContentStyle = useMemo(() => ({
     ...styles.mainScrollContent,
-    minHeight: windowHeight - 80,
+    minHeight: windowHeight - 40,
   }), [windowHeight]);
 
   const widgetContainerStyle2 = useAnimatedStyle(() => ({
