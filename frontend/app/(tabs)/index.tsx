@@ -156,7 +156,7 @@ export default function ConsoleHome() {
 
   const [isFavoritesVisible, setFavoritesVisible] = useState(false);
   const [isSettingsVisible, setSettingsVisible] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'home' | 'sync'>('profile');
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'home' | 'sync' | 'support'>('profile');
   const [homeBackground, setHomeBackground] = useState<any>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchingItem, setLaunchingItem] = useState<ConsoleItem | null>(null);
@@ -924,8 +924,15 @@ export default function ConsoleHome() {
         if (isSettingsVisible) {
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') { setSettingsVisible(false); setFocusArea('header_user'); }
           else if (e.key === 'ArrowDown') {
-            if (settingsFocusArea === 'sidebar') setSettingsFocusIndex(prev => Math.min(prev + 1, 3));
-            else { let maxIdx = 1; if (settingsTab === 'profile') maxIdx = 2; if (settingsTab === 'sync') maxIdx = 3; setSettingsFocusIndex(prev => Math.min(prev + 1, maxIdx)); }
+            if (settingsFocusArea === 'sidebar') setSettingsFocusIndex(prev => Math.min(prev + 1, 4));
+            else {
+              let maxIdx = 1;
+              if (settingsTab === 'profile') maxIdx = 2;
+              else if (settingsTab === 'sync') maxIdx = 3;
+              else if (settingsTab === 'home') maxIdx = activeUser?.settings?.capturePath ? 4 : 3;
+              else if (settingsTab === 'support') maxIdx = 2;
+              setSettingsFocusIndex(prev => Math.min(prev + 1, maxIdx));
+            }
           } else if (e.key === 'ArrowUp') setSettingsFocusIndex(prev => Math.max(prev - 1, 0));
           else if (e.key === 'ArrowRight' && settingsFocusArea === 'sidebar') { setSettingsFocusArea('content'); setSettingsFocusIndex(0); }
           else if (e.key === 'ArrowLeft' && settingsFocusArea === 'content') {
@@ -933,25 +940,34 @@ export default function ConsoleHome() {
             if (settingsTab === 'profile') setSettingsFocusIndex(0);
             else if (settingsTab === 'home') setSettingsFocusIndex(1);
             else if (settingsTab === 'sync') setSettingsFocusIndex(2);
+            else if (settingsTab === 'support') setSettingsFocusIndex(3);
           } else if (e.key === 'Enter') {
             if (settingsFocusArea === 'sidebar') {
               if (settingsFocusIndex === 0) setSettingsTab('profile');
               else if (settingsFocusIndex === 1) setSettingsTab('home');
               else if (settingsFocusIndex === 2) setSettingsTab('sync');
-              else if (settingsFocusIndex === 3) { setSettingsVisible(false); setUserModalVisible(true); }
+              else if (settingsFocusIndex === 3) setSettingsTab('support');
+              else if (settingsFocusIndex === 4) { setSettingsVisible(false); setUserModalVisible(true); }
             } else {
               if (settingsTab === 'profile') {
                 if (settingsFocusIndex === 0) handleSelectAvatar();
                 else if (settingsFocusIndex === 1) settingsNameRef.current?.focus();
               } else if (settingsTab === 'home') {
                 if (settingsFocusIndex === 0) updateUser({ settings: { ...activeUser?.settings, autoPlayVideo: !(activeUser?.settings?.autoPlayVideo !== false) } });
-                else if (settingsFocusIndex === 1) { setSettingsVisible(false); setHomeBgModalVisible(true); }
+                else if (settingsFocusIndex === 1) updateUser({ settings: { ...activeUser?.settings, invertTransitionDirection: !activeUser?.settings?.invertTransitionDirection } });
+                else if (settingsFocusIndex === 2) { setSettingsVisible(false); setHomeBgModalVisible(true); }
+                else if (settingsFocusIndex === 3) handleSelectCaptureFolder();
+                else if (settingsFocusIndex === 4) updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any });
               } else if (settingsTab === 'sync') {
                 const currentSync = activeUser?.settings?.syncPreferences || { ratingAndSummary: 'igdb', cover: 'steamgrid', background: 'steamgrid', logo: 'steamgrid' };
                 if (settingsFocusIndex === 0) updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, ratingAndSummary: currentSync.ratingAndSummary === 'igdb' ? 'none' : 'igdb' } as any } });
                 else if (settingsFocusIndex === 1) updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, cover: currentSync.cover === 'steamgrid' ? 'igdb' : (currentSync.cover === 'igdb' ? 'none' : 'steamgrid') } as any } });
                 else if (settingsFocusIndex === 2) updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, background: currentSync.background === 'steamgrid' ? 'igdb' : (currentSync.background === 'igdb' ? 'none' : 'steamgrid') } as any } });
                 else if (settingsFocusIndex === 3) updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, logo: currentSync.logo === 'steamgrid' ? 'none' : 'steamgrid' } as any } });
+              } else if (settingsTab === 'support') {
+                if (settingsFocusIndex === 0) Linking.openURL('https://patreon.com/WPS5');
+                else if (settingsFocusIndex === 1) Linking.openURL('https://github.com/angelvc25/WPS5');
+                else if (settingsFocusIndex === 2) Linking.openURL('https://youtube.com');
               }
             }
           }
@@ -1294,7 +1310,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame, activeUser]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -1594,10 +1610,12 @@ export default function ConsoleHome() {
 
   useEffect(() => {
     if (activeIndex !== prevActiveIndexRef.current) {
-      wipeDirection.value = activeIndex > prevActiveIndexRef.current ? 1 : -1;
+      const normalDirection = activeIndex > prevActiveIndexRef.current ? 1 : -1;
+      const invert = activeUser?.settings?.invertTransitionDirection === true;
+      wipeDirection.value = (invert ? -1 * normalDirection : normalDirection) as (1 | -1);
       prevActiveIndexRef.current = activeIndex;
     }
-  }, [activeIndex]);
+  }, [activeIndex, activeUser?.settings?.invertTransitionDirection]);
 
   useEffect(() => {
     // If it's the very first time setting the background, do it immediately without delay
@@ -1714,13 +1732,13 @@ export default function ConsoleHome() {
 
   const floatingImageStyle = useAnimatedStyle(() => {
     const c = collapseAnim.value;
-    
+
     const width = interpolate(c, [0, 1], [startW.value, 60]);
     const height = interpolate(c, [0, 1], [startH.value, 60]);
     const left = interpolate(c, [0, 1], [startX.value, 50]);
     const top = interpolate(c, [0, 1], [startY.value, 40]);
     const borderRadius = interpolate(c, [0, 1], [30, 8]);
-    
+
     const opacity = c;
 
     return {
@@ -2427,6 +2445,18 @@ export default function ConsoleHome() {
                   <Text style={[styles.settingsTabTextNew, settingsTab === 'sync' && styles.settingsTabTextActiveNew]}>Sincronización</Text>
                 </TouchableOpacity>
 
+                <TouchableOpacity
+                  style={[
+                    styles.settingsTabNew,
+                    settingsTab === 'support' && styles.settingsTabActiveNew,
+                    (settingsFocusArea === 'sidebar' && settingsFocusIndex === 3) && styles.settingsTabFocusedNew
+                  ]}
+                  onPress={() => setSettingsTab('support')}
+                >
+                  <Ionicons name="heart-outline" size={24} color={settingsTab === 'support' ? '#FFF' : '#AAA'} />
+                  <Text style={[styles.settingsTabTextNew, settingsTab === 'support' && styles.settingsTabTextActiveNew]}>Apoyo al Proyecto</Text>
+                </TouchableOpacity>
+
                 <View style={{ flex: 1 }} />
 
               </View>
@@ -2600,12 +2630,29 @@ export default function ConsoleHome() {
                       </TouchableOpacity>
                     </View>
 
+                    <View style={styles.settingsOptionRowNew}>
+                      <View style={styles.settingsOptionInfoNew}>
+                        <Text style={styles.settingsOptionLabelNew}>Invertir dirección de la transición de fondos</Text>
+                        <Text style={styles.settingsOptionDescNew}>Invierte la dirección del barrido al cambiar de juego.</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => updateUser({ settings: { ...activeUser?.settings, invertTransitionDirection: !activeUser?.settings?.invertTransitionDirection } })}
+                        style={[
+                          styles.toggleContainerNew,
+                          (activeUser?.settings?.invertTransitionDirection === true) && styles.toggleContainerActiveNew,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 1) && styles.settingsElementFocusedNew
+                        ]}
+                      >
+                        <View style={[styles.toggleCircleNew, (activeUser?.settings?.invertTransitionDirection === true) && styles.toggleCircleActiveNew]} />
+                      </TouchableOpacity>
+                    </View>
+
                     <View style={styles.settingsSectionNew}>
                       <Text style={styles.settingsLabelNew}>Fondo de Pantalla</Text>
                       <TouchableOpacity
                         style={[
                           styles.settingsSecondaryBtnNew,
-                          (settingsFocusArea === 'content' && settingsFocusIndex === 1) && styles.settingsElementFocusedNew
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 2) && styles.settingsElementFocusedNew
                         ]}
                         onPress={() => {
                           setSettingsVisible(false);
@@ -2625,7 +2672,7 @@ export default function ConsoleHome() {
                       <TouchableOpacity
                         style={[
                           styles.settingsSecondaryBtnNew,
-                          (settingsFocusArea === 'content' && settingsFocusIndex === 2) && styles.settingsElementFocusedNew
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 3) && styles.settingsElementFocusedNew
                         ]}
                         onPress={handleSelectCaptureFolder}
                       >
@@ -2637,7 +2684,7 @@ export default function ConsoleHome() {
                           style={[
                             styles.settingsSecondaryBtnNew,
                             { marginTop: 10, backgroundColor: '#442222' },
-                            (settingsFocusArea === 'content' && settingsFocusIndex === 3) && styles.settingsElementFocusedNew
+                            (settingsFocusArea === 'content' && settingsFocusIndex === 4) && styles.settingsElementFocusedNew
                           ]}
                           onPress={() => updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any })}
                         >
@@ -2694,6 +2741,67 @@ export default function ConsoleHome() {
                         </View>
                       );
                     })}
+                  </ScrollView>
+                ) : settingsTab === 'support' ? (
+                  <ScrollView contentContainerStyle={styles.settingsScrollContentInnerNew} showsVerticalScrollIndicator={false}>
+                    <Text style={styles.settingsSectionTitleNew}>Apoyo al Proyecto</Text>
+
+                    <View style={styles.supportMessageContainer}>
+                      <Ionicons name="heart-circle-sharp" size={60} color="#FF3B30" style={{ marginBottom: 15, alignSelf: 'center' }} />
+                      <Text style={styles.supportTextMain}>¡Gracias por usar nuestro Launcher!</Text>
+                      <Text style={styles.supportTextSub}>
+                        Si gustas en apoyarnos puedes visitar nuestras redes sociales o unirte a nuestro canal de Patreon. Tu apoyo nos ayuda a seguir mejorando y añadiendo nuevas funcionalidades.
+                      </Text>
+                    </View>
+
+                    {/* Social links */}
+                    <View style={styles.supportLinksRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.supportLinkBtn,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 0) && styles.settingsElementFocusedNew
+                        ]}
+                        onPress={() => Linking.openURL('https://patreon.com/WPS5')}
+                      >
+                        <Ionicons name="logo-octocat" size={20} color="#FF4500" />
+                        <Text style={styles.supportLinkBtnText}>Patreon</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.supportLinkBtn,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 1) && styles.settingsElementFocusedNew
+                        ]}
+                        onPress={() => Linking.openURL('https://github.com/angelvc25/WPS5')}
+                      >
+                        <Ionicons name="logo-github" size={20} color="#FFF" />
+                        <Text style={styles.supportLinkBtnText}>GitHub</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.supportLinkBtn,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 2) && styles.settingsElementFocusedNew
+                        ]}
+                        onPress={() => Linking.openURL('https://youtube.com')}
+                      >
+                        <Ionicons name="logo-youtube" size={20} color="#FF0000" />
+                        <Text style={styles.supportLinkBtnText}>YouTube</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Patrons list / Users list */}
+                    <View style={styles.patronsSection}>
+                      <Text style={styles.settingsLabelNew}>Colaboradores y Patrocinadores</Text>
+                      <View style={styles.patronsListGrid}>
+                        {['angelvc25', 'Player 1', 'Player 2', 'Comunidad WPS5', 'Beta Tester 1', 'Sponsor Premium'].map((name, idx) => (
+                          <View key={idx} style={styles.patronCard}>
+                            <Ionicons name="star" size={14} color="#FFCC00" />
+                            <Text style={styles.patronName}>{name}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
                   </ScrollView>
                 ) : null}
               </View>
@@ -3554,5 +3662,75 @@ const styles = StyleSheet.create({
     marginTop: 'auto' as any,
     width: '100%',
     maxWidth: '100%' as any,
+  },
+  supportMessageContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 14,
+    padding: 24,
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+  },
+  supportTextMain: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '300',
+    textAlign: 'center',
+    marginBottom: 10,
+    letterSpacing: 0.5,
+  },
+  supportTextSub: {
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 600,
+  },
+  supportLinksRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 35,
+  },
+  supportLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    borderRadius: 12,
+    gap: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  supportLinkBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  patronsSection: {
+    marginTop: 10,
+  },
+  patronsListGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 15,
+  },
+  patronCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  patronName: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
