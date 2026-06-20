@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AnimatedCardWrapper from './AnimatedCardWrapper';
 import SpinningBorder from './SpinningBorderConic';
@@ -26,6 +26,7 @@ interface ConsoleCarouselProps {
   RIGHT_PADDING: number;
   media: ConsoleItem[];
   games: ConsoleItem[];
+  collapseAnim: Animated.SharedValue<number>;
 }
 
 export const ConsoleCarousel = ({
@@ -46,6 +47,7 @@ export const ConsoleCarousel = ({
   RIGHT_PADDING,
   media,
   games,
+  collapseAnim,
 }: ConsoleCarouselProps) => {
   if (currentData.length === 0) {
     return (
@@ -55,6 +57,18 @@ export const ConsoleCarousel = ({
       </View>
     );
   }
+
+  const activeImageStyle = useAnimatedStyle(() => {
+    return {
+      opacity: 1 - collapseAnim.value,
+    };
+  });
+
+  const inactiveImageStyle = useAnimatedStyle(() => {
+    return {
+      opacity: 1,
+    };
+  });
 
   return (
     <ScrollView
@@ -87,25 +101,26 @@ export const ConsoleCarousel = ({
         let cardContent;
 
         if (item.id === 'more_library') {
+          const libraryContent = (
+            <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0 }]}>
+              <Image
+                source={require('@/assets/images/Libreria.jpeg')}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                }}
+                resizeMode="cover"
+              />
+            </BlurView>
+          );
+
           cardContent = (
             <AnimatedCardWrapper key={`more-${carouselKey}`} isActive={isActive} style={{ opacity: 0.75 }} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                 {isActive && <SpinningBorder size={CARD_SIZE} />}
-
-                {/* 1. Añadimos overflow: 'hidden' a la tarjeta para que la imagen no se salga de las esquinas redondeadas */}
-                <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0 }]}>
-
-                  {/* 2. Modificamos la imagen para que llene todo el espacio */}
-                  <Image
-                    source={require('@/assets/images/Libreria.jpeg')}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                    }}
-                    resizeMode="cover" // 3. "cover" asegura que llene todo el recuadro sin deformarse
-                  />
-
-                </BlurView>
+                <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
+                  {libraryContent}
+                </Animated.View>
               </TouchableOpacity>
             </AnimatedCardWrapper>
           );
@@ -178,11 +193,16 @@ export const ConsoleCarousel = ({
           );
         } else {
           const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
+          const cardImage = (
+            <Image source={imgSource} style={[styles.card, isActive && styles.cardActive]} contentFit="cover" />
+          );
           cardContent = (
             <AnimatedCardWrapper key={`${item.id}-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                 {isActive && <SpinningBorder size={CARD_SIZE} />}
-                <Image source={imgSource} style={[styles.card, isActive && styles.cardActive]} contentFit="cover" />
+                <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
+                  {cardImage}
+                </Animated.View>
               </TouchableOpacity>
             </AnimatedCardWrapper>
           );
