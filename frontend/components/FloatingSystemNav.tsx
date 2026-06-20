@@ -102,6 +102,7 @@ export default function FloatingSystemNav({
             onPressCard={onPressCard}
             isExpanded={isCardExpanded}
             onCloseExpanded={onCloseExpanded}
+            activeNavIndex={focusedIndex}
           />
         )}
 

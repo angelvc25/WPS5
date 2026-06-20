@@ -877,7 +877,7 @@ export default function ConsoleHome() {
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
             setFocusArea('main_carousel');
           } else if (e.key === 'ArrowUp') {
-            if (systemNavLevel === 0 && modalSelectedIndex === 0) {
+            if (systemNavLevel === 0) {
               setSystemNavLevel(1);
               soundService.playNavigation();
             }
@@ -890,7 +890,7 @@ export default function ConsoleHome() {
             if (systemNavLevel === 0) {
               setModalSelectedIndex(prev => Math.min(prev + 1, 10));
             } else {
-              setSystemNavCardIndex(prev => Math.min(prev + 1, 2)); // 3 cards total
+              setSystemNavCardIndex(prev => Math.min(prev + 1, modalSelectedIndex === 5 ? 0 : 2));
             }
             soundService.playNavigation();
           } else if (e.key === 'ArrowLeft') {

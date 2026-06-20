@@ -8,6 +8,7 @@ import {
   Modal,
   Pressable,
   Platform,
+  TextInput,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -32,7 +33,7 @@ interface CardData {
   icon: keyof typeof Ionicons.glyphMap;
   imageUri?: string;
   bgColor?: string;
-  type: 'news' | 'capture' | 'discover';
+  type: 'news' | 'capture' | 'discover' | 'addGame';
 }
 
 const MOCK_CARDS: CardData[] = [
@@ -68,6 +69,7 @@ interface ControlCenterCardsProps {
   onPressCard: (index: number) => void;
   isExpanded: boolean;
   onCloseExpanded: () => void;
+  activeNavIndex?: number;
 }
 
 // ─── Animated Card ────────────────────────────────────────────────────────────
@@ -79,6 +81,7 @@ function AnimatedCard({
   isFocusedLayer,
   onPress,
   enterDelay,
+  onCloseExpanded,
 }: {
   card: CardData;
   index: number;
@@ -87,6 +90,7 @@ function AnimatedCard({
   isFocusedLayer: boolean;
   onPress: () => void;
   enterDelay: number;
+  onCloseExpanded?: () => void;
 }) {
   const translateY = useSharedValue(40);
   const opacity = useSharedValue(0);
@@ -270,7 +274,89 @@ function AnimatedCard({
       >
         {/* Inner clip wrapper */}
         <View style={styles.cardClip}>
-          {card.type === 'capture' ? (
+          {card.type === 'addGame' ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(20,20,25,0.95)' }]}>
+              {isExpanded ? (
+                <View style={[StyleSheet.absoluteFill]}>
+                  <View style={styles.expandedHeader}>
+                    <View style={styles.iconCircle}>
+                      <Ionicons name="game-controller" size={20} color="#fff" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.expandedTitle}>Agregar Juego</Text>
+                      <Text style={styles.expandedSubtitle}>Completa los detalles para añadir un juego de tu PC</Text>
+                    </View>
+                    <TouchableOpacity style={styles.closeBtn} onPress={onCloseExpanded}>
+                      <Ionicons name="close" size={20} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView style={{ padding: 24, flex: 1 }} showsVerticalScrollIndicator={false}>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600' }}>NOMBRE DEL JUEGO</Text>
+                    <TextInput
+                      style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, color: '#FFF', padding: 14, fontSize: 16, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                      placeholder="Ej: Cyberpunk 2077"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600' }}>RUTA DEL EJECUTABLE</Text>
+                    <View style={{ flexDirection: 'row', marginBottom: 20 }}>
+                      <TextInput
+                        style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderTopLeftRadius: 8, borderBottomLeftRadius: 8, color: '#FFF', padding: 14, fontSize: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRightWidth: 0 }}
+                        placeholder="C:\Juegos\Juego.exe"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                      />
+                      <TouchableOpacity style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 20, justifyContent: 'center', borderTopRightRadius: 8, borderBottomRightRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                        <Ionicons name="folder-open" size={20} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600' }}>URL DE IMAGEN (OPCIONAL)</Text>
+                    <TextInput
+                      style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, color: '#FFF', padding: 14, fontSize: 16, marginBottom: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                      placeholder="https://ejemplo.com/imagen.jpg"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+
+                    <TouchableOpacity style={{ backgroundColor: '#fff', borderRadius: 8, padding: 16, alignItems: 'center' }}>
+                      <Text style={{ color: '#000', fontSize: 16, fontWeight: 'bold' }}>Guardar Juego</Text>
+                    </TouchableOpacity>
+                  </ScrollView>
+                </View>
+              ) : (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(38, 41, 48, 0.95)', borderRadius: 16, overflow: 'hidden' }]}>
+                  <Image source={require('../assets/images/gamesGrid.png')} style={[StyleSheet.absoluteFill, { opacity: 0.8 }]} contentFit="cover" />
+                  {Platform.OS === 'web' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(to top right, rgba(38,41,48,1) 0%, rgba(38,41,48,0.7) 40%, rgba(38,41,48,0) 100%)',
+                        zIndex: 1,
+                      }}
+                    />
+                  )}
+                  {Platform.OS !== 'web' && (
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(38, 41, 48, 0.6)' }]} />
+                  )}
+                  <View style={[StyleSheet.absoluteFill, { padding: 14, justifyContent: 'space-between', zIndex: 2 }]}>
+                    <View style={{ flexDirection: 'row' }}>
+                      <View style={{ width: 26, height: 26, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="game-controller" size={13} color="#000" />
+                      </View>
+                    </View>
+                    <View>
+                      <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '500', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        Añadir Juego
+                      </Text>
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', lineHeight: 20 }}>
+                        Agrega un juego{'\n'}instalado en tu PC
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+          ) : card.type === 'capture' ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(38, 41, 48, 0.95)', padding: 16 }]}>
               {/* Icon */}
               <View style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
@@ -490,6 +576,7 @@ export default function ControlCenterCards({
   onPressCard,
   isExpanded,
   onCloseExpanded,
+  activeNavIndex,
 }: ControlCenterCardsProps) {
   const translateX = useSharedValue(0);
 
@@ -505,18 +592,34 @@ export default function ControlCenterCards({
     transform: [{ translateX: translateX.value }],
   }));
 
+  const cardsToShow = React.useMemo(() => {
+    if (activeNavIndex === 5) {
+      return [
+        {
+          id: 'add-game',
+          title: 'Agrega un juego instalado de tu PC',
+          subtitle: 'AÑADIR JUEGO',
+          icon: 'game-controller' as const,
+          type: 'addGame' as const,
+        }
+      ];
+    }
+    return MOCK_CARDS;
+  }, [activeNavIndex]);
+
   return (
     <Animated.View style={[styles.cardsRow, rowStyle]}>
-      {MOCK_CARDS.map((card, index) => (
+      {cardsToShow.map((card, index) => (
         <AnimatedCard
           key={card.id}
-          card={card}
+          card={card as CardData}
           index={index}
           isActive={isFocusedLayer && focusedIndex === index}
           isExpanded={isExpanded && focusedIndex === index}
           isFocusedLayer={isFocusedLayer}
           onPress={() => onPressCard(index)}
           enterDelay={index * 60}
+          onCloseExpanded={onCloseExpanded}
         />
       ))}
     </Animated.View>
