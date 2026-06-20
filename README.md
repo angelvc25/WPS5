@@ -1,13 +1,19 @@
 
 # WPS5
 
-<img width="1916" height="1078" alt="image" src="https://github.com/user-attachments/assets/72ca1cec-0d78-4bfc-a8d2-979fe10f4304" />
+<img width="1918" height="1079" alt="image" src="https://github.com/user-attachments/assets/58d1285a-87d7-497f-be70-111ec414077b" />
 
-<img width="1918" height="975" alt="image" src="https://github.com/user-attachments/assets/6efd997f-58b5-4df2-a4ca-c86f540969ad" />
+<img width="1917" height="1075" alt="image" src="https://github.com/user-attachments/assets/21cdc79c-2c83-4195-9ff6-f5bcbbe15dc1" />
 
-<img width="1916" height="1077" alt="image" src="https://github.com/user-attachments/assets/731bbea8-c63c-41e0-a889-7e80d955fff4" />
+<img width="1918" height="1079" alt="image" src="https://github.com/user-attachments/assets/6c1c0d43-5b13-4b95-8e98-4c63aef030d7" />
 
-<img width="1918" height="978" alt="image" src="https://github.com/user-attachments/assets/5dc22b35-0d5c-4855-b294-aea8d9c5d6f8" />
+
+# Biblioteca y Steam
+
+<img width="1913" height="1079" alt="image" src="https://github.com/user-attachments/assets/077837a6-9120-416c-ad0a-d70392b4ef91" />
+
+<img width="1908" height="1079" alt="image" src="https://github.com/user-attachments/assets/4bcff8e0-dcdc-4253-9138-c09d17ae8683" />
+
 
 
 
