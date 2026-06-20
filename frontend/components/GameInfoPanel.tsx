@@ -188,9 +188,9 @@ export const GameInfoPanel = ({
                     linear-gradient(
                       90deg,
                       rgba(207, 241, 253, 0.14) 0%,
-                      rgba(207, 240, 255, 0.06) 35%,
-                      rgba(255,255,255,0.02) 50%,
-                      rgba(255,255,255,0.00) 65%,
+                      rgba(207, 240, 255, 0.06) 50%,
+                      rgba(255,255,255,0.02) 70%,
+                      rgba(255,255,255,0.00) 90%,
                       rgba(0, 0, 0, 0) 100%
                     )
                   `,
@@ -319,9 +319,9 @@ export const GameInfoPanel = ({
                     linear-gradient(
                       90deg,
                       rgba(207, 241, 253, 0.14) 0%,
-                      rgba(207, 240, 255, 0.06) 35%,
-                      rgba(255,255,255,0.02) 50%,
-                      rgba(255,255,255,0.00) 65%,
+                      rgba(207, 240, 255, 0.06) 50%,
+                      rgba(255,255,255,0.02) 70%,
+                      rgba(255,255,255,0.00) 90%,
                       rgba(0, 0, 0, 0) 100%
                     )
                   `,
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
   infoCard: {
     padding: 16,
     borderRadius: 12,
-    backgroundColor: 'rgb(38 41 47)',
+    backgroundColor: 'rgb(10 18 33)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
     minWidth: 350,
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   } as any,
   infoCardFocused: {
-    borderColor: 'rgba(255,255,255,0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.64)',
     borderWidth: 1.5,
   } as any,
   newsSectionWrapper: {
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
     width: 500,
     height: 250,
     borderRadius: 8,
-    backgroundColor: 'rgba(20, 20, 30, 0.04)',
+    backgroundColor: 'rgba(199, 199, 226, 0.04)',
     overflow: 'hidden',
     borderWidth: 1.5,
     borderColor: 'transparent',
