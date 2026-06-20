@@ -662,6 +662,7 @@ export const WelcomeWidgets = ({
                           height: 'auto',
                           zIndex: 1,
                         }}
+                        transition={300}
                       />
                     </div>
                   </>
@@ -679,6 +680,7 @@ export const WelcomeWidgets = ({
                       bottom: 0,
                     }}
                     contentFit="cover"
+                    transition={300}
                   />
                   <View
                     style={{
@@ -835,10 +837,10 @@ export const WelcomeWidgets = ({
                   {realNews.length > 0 ? `Helldivers 2 · ${formatSteamDate(realNews[0].date)}` : 'Apex Legends | Ayer'}
                 </Text>
               </View>
-              <Image 
-                source={realNews.length > 0 && realNews[0].image_url ? { uri: realNews[0].image_url } : require("@/assets/images/Store.png")} 
-                style={{ width: 70, height: 70, borderRadius: 6 }} 
-                contentFit="cover" 
+              <Image
+                source={realNews.length > 0 && realNews[0].image_url ? { uri: realNews[0].image_url } : require("@/assets/images/Store.png")}
+                style={{ width: 70, height: 70, borderRadius: 6 }}
+                contentFit="cover"
               />
             </View>
           </TouchableOpacity>

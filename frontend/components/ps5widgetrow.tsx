@@ -394,9 +394,7 @@ export default function PS5WidgetRow() {
                                 gridRow: isExpanded ? "span 2" : "span 1",
                                 background: isFocused
                                     ? "linear-gradient(90deg, rgba(55, 65, 70, 1) 0%, rgba(12, 26, 39, 1) 100%)"
-                                    : (id === "store"
-                                        ? `linear-gradient(rgba(18, 26, 34, 0.45), rgba(18, 26, 34, 0.45)), url('${activeOffer?.image || 'https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg'}') center/cover no-repeat`
-                                        : "#121a22ef"),
+                                    : "#121a22ef",
                                 borderRadius: 12,
                                 padding: "12px 14px",
                                 cursor: "grab",
@@ -406,8 +404,23 @@ export default function PS5WidgetRow() {
                                 gap: 0,
                                 boxSizing: "border-box",
                                 overflow: "hidden",
+                                position: "relative",
                             }}
                         >
+                            {id === "store" && !isFocused && (
+                                <div
+                                    style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        backgroundImage: `linear-gradient(rgba(18, 26, 34, 0.45), rgba(18, 26, 34, 0.45)), url('${activeOffer?.image || 'https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg'}')`,
+                                        backgroundSize: "cover",
+                                        backgroundPosition: "center",
+                                        backgroundRepeat: "no-repeat",
+                                        transition: "background-image 0.6s ease-in-out",
+                                        zIndex: 0,
+                                    }}
+                                />
+                            )}
                             <div
                                 style={{
                                     display: "flex",
@@ -415,6 +428,7 @@ export default function PS5WidgetRow() {
                                     marginBottom: 4,
                                     opacity: 0.35,
                                     gap: 6,
+                                    zIndex: 1,
                                 }}
                             >
                                 <span style={{ fontSize: 9, color: "#fff", letterSpacing: "0.05em" }}>
@@ -422,7 +436,9 @@ export default function PS5WidgetRow() {
                                 </span>
                                 <span style={{ fontSize: 9, color: "#fff" }}>⠿ mover</span>
                             </div>
-                            {WIDGET_CONTENT[id](isExpanded, id === "store" ? { activeOffer, offers } : undefined)}
+                            <div style={{ zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
+                                {WIDGET_CONTENT[id](isExpanded, id === "store" ? { activeOffer, offers } : undefined)}
+                            </div>
                         </div>
                     );
                 })}
