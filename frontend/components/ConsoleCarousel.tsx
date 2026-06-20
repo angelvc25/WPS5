@@ -102,7 +102,7 @@ export const ConsoleCarousel = ({
 
         if (item.id === 'more_library') {
           const libraryContent = (
-            <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0 }]}>
+            <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0, opacity: 0.8 }]}>
               <Image
                 source={require('@/assets/images/Libreria.jpeg')}
                 style={{
@@ -215,16 +215,20 @@ export const ConsoleCarousel = ({
             style={{ position: 'relative', overflow: 'visible', zIndex: isActive ? 10 : 1, opacity: customOpacity }}
           >
             {cardContent}
-            {isActive && item.id !== 'more_library' && (
+            {isActive && (
               <Animated.View style={styles.activeLabelContainer} entering={FadeIn.delay(350).duration(450)}>
-                <View style={styles.platformBadge}>
-                  <Image source={require('@/assets/images/PS5.png')}
-                    style={{ width: 60, height: 60 }}
-                    resizeMode="contain"
-                  />
-                </View>
+                {item.id !== '1' && item.id !== 'more_library' && (
+                  <View style={styles.platformBadge}>
+                    <Image source={require('@/assets/images/PS5.png')}
+                      style={{ width: 60, height: 60 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                )}
                 <Text style={styles.activeGameTitle} numberOfLines={1}>
-                  {item.isLastPlayed ? (lastPlayedGame?.title || 'Último Jugado') : item.title}
+                  {item.id === 'more_library'
+                    ? 'Biblioteca de juegos'
+                    : (item.isLastPlayed ? (lastPlayedGame?.title || 'Último Jugado') : item.title)}
                 </Text>
 
                 {/* Options button to open context menu via mouse/click */}
