@@ -370,7 +370,7 @@ export default function ConsoleHome() {
 
   const welcomePanelLayout = useMemo(() => ({
     paddingLeft: Math.max(20, windowWidth * (150 / 1920)),
-    paddingRight: Math.max(20, windowWidth * (10 / 1920)),
+    //paddingRight: Math.max(20, windowWidth * (10 / 1920)),
     paddingTop: Math.max(8, windowHeight * (16 / 1080)),
     paddingBottom: Math.max(10, windowHeight * (10 / 1080)),
   }), [windowWidth, windowHeight]);

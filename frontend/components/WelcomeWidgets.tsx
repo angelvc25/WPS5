@@ -133,9 +133,9 @@ export const WelcomeWidgets = ({
       welcomeWidgetCard: {
         flex: 1,
         height: sH(88),
-        borderRadius: s(10),
+        borderRadius: s(12),
         padding: s(13),
-        overflow: 'hidden',
+        overflow: 'visible',
         position: 'relative',
         justifyContent: 'center',
         backgroundColor: '#0d1015',
@@ -360,55 +360,94 @@ export const WelcomeWidgets = ({
                     <>
                       <style>
                         {`
-                        @keyframes spinBorder {
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
                           100% { transform: translate(-50%, -50%) rotate(360deg); }
                         }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: -4px;
+                          left: -4px;
+                          right: -4px;
+                          bottom: -5px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 2px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 300%;
+                          height: 300%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+  @keyframes wc-content-shimmer {
+    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+    15% { opacity: 1; }
+    50% { opacity: 1; }
+    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+  }
+  .wc-shimmer-line2 {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 160%; 
+    height: 420%; 
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(255, 255, 255, 0.01) 20%,
+      rgba(255, 255, 255, 0.18) 50%, 
+      rgba(255, 255, 255, 0.01) 80%,
+      transparent 100%
+    );
+    animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+  }
                       `}
                       </style>
 
-                      <div
-                        style={{
-                          position: 'absolute',
-                          inset: -5,
-                          borderRadius: 28,
-                          pointerEvents: 'none',
-                          overflow: 'hidden',
-                          zIndex: 0,
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            width: '500%',
-                            height: '500%',
-                            left: '50%',
-                            top: '50%',
-                            background: `
-                            conic-gradient(
-                              from 0deg,
-                              rgba(255, 255, 255, 0.15) 0%,
-                              rgba(255, 255, 255, 0.79) 30%,
-                              rgba(180, 210, 255, 0.86) 33%,
-                              rgba(220, 235, 255, 0.95) 48%,
-                              rgba(255, 255, 255, 1.0) 50%,
-                              rgba(223, 248, 182, 0.95) 52%,
-                              rgba(180, 210, 255, 0.88) 57%,
-                              rgba(255, 255, 255, 0.75) 62%,
-                              rgba(255, 255, 255, 0.84) 100%
-                            )
-                          `,
-                            animation: 'spinBorder 6.8s linear infinite',
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 7,
-                            borderRadius: 12,
-                            background: '#0d1015',
-                          }}
-                        />
+                      <div className="wc-spinning-container2">
+                        {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
+                        <div className="wc-spinning-inner" />
                       </div>
                     </>
                   )}
@@ -429,6 +468,8 @@ export const WelcomeWidgets = ({
                       )
                     `,
                       pointerEvents: 'none',
+                      borderRadius: 10,
+                      overflow: "hidden",
                       zIndex: 1,
                       opacity: focusArea === 'welcome_widgets' ? 1 : 0,
                       transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -438,13 +479,22 @@ export const WelcomeWidgets = ({
 
                 {/* SHIMMER */}
                 {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 0 && (
-                  <div
-                    className="widget-shimmer-line"
+                  <View
                     style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
+                      position: 'absolute',
+                      top: 0,
+                      left: 1,
+                      right: 1,
+                      bottom: 0,
+                      borderRadius: 18,
+                      zIndex: 5,
+                      overflow: 'hidden',
+                    } as any}
+                    pointerEvents="none"
+                  >
+                    {/* @ts-ignore */}
+                    <div className="wc-shimmer-line2" />
+                  </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={{ width: 80, height: 80, justifyContent: 'center', alignItems: 'center' }}>
@@ -505,55 +555,94 @@ export const WelcomeWidgets = ({
                     <>
                       <style>
                         {`
-                        @keyframes spinBorder {
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
                           100% { transform: translate(-50%, -50%) rotate(360deg); }
+                        }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: -4px;
+                          left: -4px;
+                          right: -4px;
+                          bottom: -5px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 2px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 300%;
+                          height: 300%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+                        @keyframes wc-content-shimmer {
+                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          15% { opacity: 1; }
+                          50% { opacity: 1; }
+                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                        }
+                        .wc-shimmer-line2 {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 160%; 
+                          height: 420%; 
+                          background: linear-gradient(
+                            to right,
+                            transparent 0%,
+                            rgba(255, 255, 255, 0.01) 20%,
+                            rgba(255, 255, 255, 0.18) 50%, 
+                            rgba(255, 255, 255, 0.01) 80%,
+                            transparent 100%
+                          );
+                          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                         }
                       `}
                       </style>
 
-                      <div
-                        style={{
-                          position: 'absolute',
-                          inset: -5,
-                          borderRadius: 28,
-                          pointerEvents: 'none',
-                          overflow: 'hidden',
-                          zIndex: 0,
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            width: '500%',
-                            height: '500%',
-                            left: '50%',
-                            top: '50%',
-                            background: `
-                            conic-gradient(
-                              from 0deg,
-                              rgba(255, 255, 255, 0.15) 0%,
-                              rgba(255, 255, 255, 0.79) 30%,
-                              rgba(180, 210, 255, 0.86) 33%,
-                              rgba(220, 235, 255, 0.95) 48%,
-                              rgba(255, 255, 255, 1.0) 50%,
-                              rgba(223, 248, 182, 0.95) 52%,
-                              rgba(180, 210, 255, 0.88) 57%,
-                              rgba(255, 255, 255, 0.75) 62%,
-                              rgba(255, 255, 255, 0.84) 100%
-                            )
-                          `,
-                            animation: 'spinBorder 6.8s linear infinite',
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 7,
-                            borderRadius: 12,
-                            background: '#0d1015',
-                          }}
-                        />
+                      <div className="wc-spinning-container2">
+                        {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
+                        <div className="wc-spinning-inner" />
                       </div>
                     </>
                   )}
@@ -574,6 +663,8 @@ export const WelcomeWidgets = ({
                       )
                     `,
                       pointerEvents: 'none',
+                      borderRadius: 10,
+                      overflow: "hidden",
                       zIndex: 1,
                       opacity: focusArea === 'welcome_widgets' ? 1 : 0,
                       transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -583,13 +674,22 @@ export const WelcomeWidgets = ({
 
                 {/* SHIMMER */}
                 {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 1 && (
-                  <div
-                    className="widget-shimmer-line"
+                  <View
                     style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
+                      position: 'absolute',
+                      top: 0,
+                      left: 1,
+                      right: 1,
+                      bottom: 0,
+                      borderRadius: 18,
+                      zIndex: 5,
+                      overflow: 'hidden',
+                    } as any}
+                    pointerEvents="none"
+                  >
+                    {/* @ts-ignore */}
+                    <div className="wc-shimmer-line2" />
+                  </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -644,12 +744,94 @@ export const WelcomeWidgets = ({
                     <>
                       <style>
                         {`
-                        @keyframes spinBorder {
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
                           100% { transform: translate(-50%, -50%) rotate(360deg); }
                         }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: -4px;
+                          left: -4px;
+                          right: -4px;
+                          bottom: -5px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 2px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 300%;
+                          height: 300%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+                        @keyframes wc-content-shimmer {
+                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          15% { opacity: 1; }
+                          50% { opacity: 1; }
+                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                        }
+                        .wc-shimmer-line2 {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 160%; 
+                          height: 420%; 
+                          background: linear-gradient(
+                            to right,
+                            transparent 0%,
+                            rgba(255, 255, 255, 0.01) 20%,
+                            rgba(255, 255, 255, 0.18) 50%, 
+                            rgba(255, 255, 255, 0.01) 80%,
+                            transparent 100%
+                          );
+                          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+                        }
                       `}
                       </style>
+
+                      <div className="wc-spinning-container2">
+                        <div className="wc-spinning-inner" />
+                      </div>
 
                       <div
                         style={{
@@ -661,7 +843,7 @@ export const WelcomeWidgets = ({
                           zIndex: 0,
                         }}
                       >
-                        <div
+                        {/* <div
                           style={{
                             position: 'absolute',
                             width: '500%',
@@ -684,7 +866,7 @@ export const WelcomeWidgets = ({
                           `,
                             animation: 'spinBorder 6.8s linear infinite',
                           }}
-                        />
+                        /> */}
                         <Image
                           source={{ uri: activeOffer?.image || 'https://clan.fastly.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
                           style={{
@@ -696,6 +878,7 @@ export const WelcomeWidgets = ({
                             borderRadius: 12,
                             width: 'auto',
                             height: 'auto',
+                            overflow: 'hidden',
                             zIndex: 1,
                           }}
                           transition={300}
@@ -714,6 +897,7 @@ export const WelcomeWidgets = ({
                         left: 0,
                         right: 0,
                         bottom: 0,
+                        borderRadius: 12,
                       }}
                       contentFit="cover"
                       transition={300}
@@ -725,6 +909,7 @@ export const WelcomeWidgets = ({
                         left: 0,
                         right: 0,
                         bottom: 0,
+                        borderRadius: 10,
                         backgroundColor: 'rgba(13, 16, 21, 0.45)',
                       }}
                     />
@@ -775,12 +960,94 @@ export const WelcomeWidgets = ({
                     <>
                       <style>
                         {`
-                        @keyframes spinBorder {
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
                           100% { transform: translate(-50%, -50%) rotate(360deg); }
                         }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: -4px;
+                          left: -4px;
+                          right: -4px;
+                          bottom: -5px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 2px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 300%;
+                          height: 300%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+                        @keyframes wc-content-shimmer {
+                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          15% { opacity: 1; }
+                          50% { opacity: 1; }
+                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                        }
+                        .wc-shimmer-line2 {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 160%; 
+                          height: 420%; 
+                          background: linear-gradient(
+                            to right,
+                            transparent 0%,
+                            rgba(255, 255, 255, 0.01) 20%,
+                            rgba(255, 255, 255, 0.18) 50%, 
+                            rgba(255, 255, 255, 0.01) 80%,
+                            transparent 100%
+                          );
+                          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+                        }
                       `}
                       </style>
+
+                      <div className="wc-spinning-container2">
+                        <div className="wc-spinning-inner" />
+                      </div>
 
                       <div
                         style={{
@@ -792,30 +1059,6 @@ export const WelcomeWidgets = ({
                           zIndex: 0,
                         }}
                       >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            width: '500%',
-                            height: '500%',
-                            left: '50%',
-                            top: '50%',
-                            background: `
-                            conic-gradient(
-                              from 0deg,
-                              rgba(255, 255, 255, 0.15) 0%,
-                              rgba(255, 255, 255, 0.79) 30%,
-                              rgba(180, 210, 255, 0.86) 33%,
-                              rgba(220, 235, 255, 0.95) 48%,
-                              rgba(255, 255, 255, 1.0) 50%,
-                              rgba(223, 248, 182, 0.95) 52%,
-                              rgba(180, 210, 255, 0.88) 57%,
-                              rgba(255, 255, 255, 0.75) 62%,
-                              rgba(255, 255, 255, 0.84) 100%
-                            )
-                          `,
-                            animation: 'spinBorder 6.8s linear infinite',
-                          }}
-                        />
                         <div
                           style={{
                             position: 'absolute',
@@ -844,6 +1087,7 @@ export const WelcomeWidgets = ({
                       )
                     `,
                       pointerEvents: 'none',
+                      borderRadius: 10,
                       zIndex: 1,
                       opacity: focusArea === 'welcome_widgets' ? 1 : 0,
                       transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -853,13 +1097,22 @@ export const WelcomeWidgets = ({
 
                 {/* SHIMMER */}
                 {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 3 && (
-                  <div
-                    className="widget-shimmer-line"
+                  <View
                     style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
+                      position: 'absolute',
+                      top: 0,
+                      left: 1,
+                      right: 1,
+                      bottom: 0,
+                      borderRadius: 10,
+                      zIndex: 5,
+                      overflow: 'hidden',
+                    } as any}
+                    pointerEvents="none"
+                  >
+                    {/* @ts-ignore */}
+                    <div className="wc-shimmer-line2" />
+                  </View>
                 )}
                 <View style={{ flexDirection: 'column', alignItems: 'flex-start', flex: 1, marginRight: 8 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15 }}>
@@ -899,12 +1152,94 @@ export const WelcomeWidgets = ({
                     <>
                       <style>
                         {`
-                        @keyframes spinBorder {
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
                           100% { transform: translate(-50%, -50%) rotate(360deg); }
                         }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: -4px;
+                          left: -4px;
+                          right: -4px;
+                          bottom: -5px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 2px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 120%;
+                          height: 120%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+                        @keyframes wc-content-shimmer {
+                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          15% { opacity: 1; }
+                          50% { opacity: 1; }
+                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                        }
+                        .wc-shimmer-line2 {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 160%; 
+                          height: 420%; 
+                          background: linear-gradient(
+                            to right,
+                            transparent 0%,
+                            rgba(255, 255, 255, 0.01) 20%,
+                            rgba(255, 255, 255, 0.18) 50%, 
+                            rgba(255, 255, 255, 0.01) 80%,
+                            transparent 100%
+                          );
+                          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+                        }
                       `}
                       </style>
+
+                      <div className="wc-spinning-container2">
+                        <div className="wc-spinning-inner" />
+                      </div>
 
                       <div
                         style={{
@@ -916,30 +1251,6 @@ export const WelcomeWidgets = ({
                           zIndex: 0,
                         }}
                       >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            width: '500%',
-                            height: '500%',
-                            left: '50%',
-                            top: '50%',
-                            background: `
-                            conic-gradient(
-                              from 0deg,
-                              rgba(255, 255, 255, 0.15) 0%,
-                              rgba(255, 255, 255, 0.79) 30%,
-                              rgba(180, 210, 255, 0.86) 33%,
-                              rgba(220, 235, 255, 0.95) 48%,
-                              rgba(255, 255, 255, 1.0) 50%,
-                              rgba(223, 248, 182, 0.95) 52%,
-                              rgba(180, 210, 255, 0.88) 57%,
-                              rgba(255, 255, 255, 0.75) 62%,
-                              rgba(255, 255, 255, 0.84) 100%
-                            )
-                          `,
-                            animation: 'spinBorder 6.8s linear infinite',
-                          }}
-                        />
                         <div
                           style={{
                             position: 'absolute',
@@ -968,6 +1279,7 @@ export const WelcomeWidgets = ({
                       )
                     `,
                       pointerEvents: 'none',
+                      borderRadius: 10,
                       zIndex: 1,
                       opacity: focusArea === 'welcome_widgets' ? 1 : 0,
                       transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -977,13 +1289,22 @@ export const WelcomeWidgets = ({
 
                 {/* SHIMMER */}
                 {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 4 && (
-                  <div
-                    className="widget-shimmer-line"
+                  <View
                     style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
+                      position: 'absolute',
+                      top: 0,
+                      left: 1,
+                      right: 1,
+                      bottom: 0,
+                      borderRadius: 10,
+                      zIndex: 5,
+                      overflow: 'hidden',
+                    } as any}
+                    pointerEvents="none"
+                  >
+                    {/* @ts-ignore */}
+                    <div className="wc-shimmer-line2" />
+                  </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={styles.widgetIconWrap}>
@@ -1018,12 +1339,94 @@ export const WelcomeWidgets = ({
                     <>
                       <style>
                         {`
-                        @keyframes spinBorder {
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
                           100% { transform: translate(-50%, -50%) rotate(360deg); }
                         }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: -4px;
+                          left: -4px;
+                          right: -4px;
+                          bottom: -5px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 2px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 300%;
+                          height: 300%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+                        @keyframes wc-content-shimmer {
+                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          15% { opacity: 1; }
+                          50% { opacity: 1; }
+                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                        }
+                        .wc-shimmer-line2 {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 160%; 
+                          height: 420%; 
+                          background: linear-gradient(
+                            to right,
+                            transparent 0%,
+                            rgba(255, 255, 255, 0.01) 20%,
+                            rgba(255, 255, 255, 0.18) 50%, 
+                            rgba(255, 255, 255, 0.01) 80%,
+                            transparent 100%
+                          );
+                          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+                        }
                       `}
                       </style>
+
+                      <div className="wc-spinning-container2">
+                        <div className="wc-spinning-inner" />
+                      </div>
 
                       <div
                         style={{
@@ -1035,30 +1438,6 @@ export const WelcomeWidgets = ({
                           zIndex: 0,
                         }}
                       >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            width: '500%',
-                            height: '500%',
-                            left: '50%',
-                            top: '50%',
-                            background: `
-                            conic-gradient(
-                              from 0deg,
-                              rgba(255, 255, 255, 0.15) 0%,
-                              rgba(255, 255, 255, 0.79) 30%,
-                              rgba(180, 210, 255, 0.86) 33%,
-                              rgba(220, 235, 255, 0.95) 48%,
-                              rgba(255, 255, 255, 1.0) 50%,
-                              rgba(223, 248, 182, 0.95) 52%,
-                              rgba(180, 210, 255, 0.88) 57%,
-                              rgba(255, 255, 255, 0.75) 62%,
-                              rgba(255, 255, 255, 0.84) 100%
-                            )
-                          `,
-                            animation: 'spinBorder 6.8s linear infinite',
-                          }}
-                        />
                         <div
                           style={{
                             position: 'absolute',
@@ -1087,6 +1466,7 @@ export const WelcomeWidgets = ({
                       )
                     `,
                       pointerEvents: 'none',
+                      borderRadius: 10,
                       zIndex: 1,
                       opacity: focusArea === 'welcome_widgets' ? 1 : 0,
                       transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -1096,13 +1476,22 @@ export const WelcomeWidgets = ({
 
                 {/* SHIMMER */}
                 {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 5 && (
-                  <div
-                    className="widget-shimmer-line"
+                  <View
                     style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
+                      position: 'absolute',
+                      top: 0,
+                      left: 1,
+                      right: 1,
+                      bottom: 0,
+                      borderRadius: 10,
+                      zIndex: 5,
+                      overflow: 'hidden',
+                    } as any}
+                    pointerEvents="none"
+                  >
+                    {/* @ts-ignore */}
+                    <div className="wc-shimmer-line2" />
+                  </View>
                 )}
                 <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 5, marginBottom: 6, maxWidth: 160 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -1139,13 +1528,93 @@ export const WelcomeWidgets = ({
                     <>
                       <style>
                         {`
-                        @keyframes spinBorder {
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
                           100% { transform: translate(-50%, -50%) rotate(360deg); }
                         }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: -4px;
+                          left: -4px;
+                          right: -4px;
+                          bottom: -5px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 2px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 300%;
+                          height: 300%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+                        @keyframes wc-content-shimmer {
+                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          15% { opacity: 1; }
+                          50% { opacity: 1; }
+                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                        }
+                        .wc-shimmer-line2 {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 160%; 
+                          height: 420%; 
+                          background: linear-gradient(
+                            to right,
+                            transparent 0%,
+                            rgba(255, 255, 255, 0.01) 20%,
+                            rgba(255, 255, 255, 0.18) 50%, 
+                            rgba(255, 255, 255, 0.01) 80%,
+                            transparent 100%
+                          );
+                          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+                        }
                       `}
                       </style>
-
+                      <div className="wc-spinning-container2">
+                        <div className="wc-spinning-inner" />
+                      </div>
                       <div
                         style={{
                           position: 'absolute',
@@ -1156,30 +1625,6 @@ export const WelcomeWidgets = ({
                           zIndex: 0,
                         }}
                       >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            width: '500%',
-                            height: '500%',
-                            left: '50%',
-                            top: '50%',
-                            background: `
-                            conic-gradient(
-                              from 0deg,
-                              rgba(255, 255, 255, 0.15) 0%,
-                              rgba(255, 255, 255, 0.79) 30%,
-                              rgba(180, 210, 255, 0.86) 33%,
-                              rgba(220, 235, 255, 0.95) 48%,
-                              rgba(255, 255, 255, 1.0) 50%,
-                              rgba(223, 248, 182, 0.95) 52%,
-                              rgba(180, 210, 255, 0.88) 57%,
-                              rgba(255, 255, 255, 0.75) 62%,
-                              rgba(255, 255, 255, 0.84) 100%
-                            )
-                          `,
-                            animation: 'spinBorder 6.8s linear infinite',
-                          }}
-                        />
                         <div
                           style={{
                             position: 'absolute',
@@ -1208,6 +1653,7 @@ export const WelcomeWidgets = ({
                       )
                     `,
                       pointerEvents: 'none',
+                      borderRadius: 10,
                       zIndex: 1,
                       opacity: focusArea === 'welcome_widgets' ? 1 : 0,
                       transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -1217,13 +1663,22 @@ export const WelcomeWidgets = ({
 
                 {/* SHIMMER */}
                 {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 6 && (
-                  <div
-                    className="widget-shimmer-line"
+                  <View
                     style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
+                      position: 'absolute',
+                      top: 0,
+                      left: 1,
+                      right: 1,
+                      bottom: 0,
+                      borderRadius: 10,
+                      zIndex: 5,
+                      overflow: 'hidden',
+                    } as any}
+                    pointerEvents="none"
+                  >
+                    {/* @ts-ignore */}
+                    <div className="wc-shimmer-line2" />
+                  </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
                   <Image source={require('@/assets/images/mensajess.png')} style={{ width: 30, height: 30, resizeMode: 'contain' }} />
@@ -1262,13 +1717,93 @@ export const WelcomeWidgets = ({
                     <>
                       <style>
                         {`
-                        @keyframes spinBorder {
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
                           100% { transform: translate(-50%, -50%) rotate(360deg); }
                         }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: -4px;
+                          left: -4px;
+                          right: -4px;
+                          bottom: -5px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 2px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 300%;
+                          height: 300%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+                        @keyframes wc-content-shimmer {
+                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          15% { opacity: 1; }
+                          50% { opacity: 1; }
+                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                        }
+                        .wc-shimmer-line2 {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 160%; 
+                          height: 420%; 
+                          background: linear-gradient(
+                            to right,
+                            transparent 0%,
+                            rgba(255, 255, 255, 0.01) 20%,
+                            rgba(255, 255, 255, 0.18) 50%, 
+                            rgba(255, 255, 255, 0.01) 80%,
+                            transparent 100%
+                          );
+                          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+                        }
                       `}
                       </style>
-
+                      <div className="wc-spinning-container2">
+                        <div className="wc-spinning-inner" />
+                      </div>
                       <div
                         style={{
                           position: 'absolute',
@@ -1279,30 +1814,6 @@ export const WelcomeWidgets = ({
                           zIndex: 0,
                         }}
                       >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            width: '500%',
-                            height: '500%',
-                            left: '50%',
-                            top: '50%',
-                            background: `
-                            conic-gradient(
-                              from 0deg,
-                              rgba(255, 255, 255, 0.15) 0%,
-                              rgba(255, 255, 255, 0.79) 30%,
-                              rgba(180, 210, 255, 0.86) 33%,
-                              rgba(220, 235, 255, 0.95) 48%,
-                              rgba(255, 255, 255, 1.0) 50%,
-                              rgba(223, 248, 182, 0.95) 52%,
-                              rgba(180, 210, 255, 0.88) 57%,
-                              rgba(255, 255, 255, 0.75) 62%,
-                              rgba(255, 255, 255, 0.84) 100%
-                            )
-                          `,
-                            animation: 'spinBorder 6.8s linear infinite',
-                          }}
-                        />
                         <div
                           style={{
                             position: 'absolute',
@@ -1331,6 +1842,7 @@ export const WelcomeWidgets = ({
                       )
                     `,
                       pointerEvents: 'none',
+                      borderRadius: 10,
                       zIndex: 1,
                       opacity: focusArea === 'welcome_widgets' ? 1 : 0,
                       transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -1340,13 +1852,22 @@ export const WelcomeWidgets = ({
 
                 {/* SHIMMER */}
                 {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 7 && (
-                  <div
-                    className="widget-shimmer-line"
+                  <View
                     style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
+                      position: 'absolute',
+                      top: 0,
+                      left: 1,
+                      right: 1,
+                      bottom: 0,
+                      borderRadius: 10,
+                      zIndex: 5,
+                      overflow: 'hidden',
+                    } as any}
+                    pointerEvents="none"
+                  >
+                    {/* @ts-ignore */}
+                    <div className="wc-shimmer-line2" />
+                  </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -1411,12 +1932,95 @@ export const WelcomeWidgets = ({
                     <>
                       <style>
                         {`
-                        @keyframes spinBorder {
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
                           100% { transform: translate(-50%, -50%) rotate(360deg); }
                         }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: -4px;
+                          left: -4px;
+                          right: -4px;
+                          bottom: -5px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 2px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 300%;
+                          height: 300%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+                        @keyframes wc-content-shimmer {
+                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          15% { opacity: 1; }
+                          50% { opacity: 1; }
+                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                        }
+                        .wc-shimmer-line2 {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 160%; 
+                          height: 420%; 
+                          background: linear-gradient(
+                            to right,
+                            transparent 0%,
+                            rgba(255, 255, 255, 0.01) 20%,
+                            rgba(255, 255, 255, 0.18) 50%, 
+                            rgba(255, 255, 255, 0.01) 80%,
+                            transparent 100%
+                          );
+                          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+                        }
                       `}
+
                       </style>
+
+                      <div className="wc-spinning-container2">
+                        <div className="wc-spinning-inner" />
+                      </div>
 
                       <div
                         style={{
@@ -1428,30 +2032,6 @@ export const WelcomeWidgets = ({
                           zIndex: 0,
                         }}
                       >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            width: '500%',
-                            height: '500%',
-                            left: '50%',
-                            top: '50%',
-                            background: `
-                            conic-gradient(
-                              from 0deg,
-                              rgba(255, 255, 255, 0.15) 0%,
-                              rgba(255, 255, 255, 0.79) 30%,
-                              rgba(180, 210, 255, 0.86) 33%,
-                              rgba(220, 235, 255, 0.95) 48%,
-                              rgba(255, 255, 255, 1.0) 50%,
-                              rgba(223, 248, 182, 0.95) 52%,
-                              rgba(180, 210, 255, 0.88) 57%,
-                              rgba(255, 255, 255, 0.75) 62%,
-                              rgba(255, 255, 255, 0.84) 100%
-                            )
-                          `,
-                            animation: 'spinBorder 6.8s linear infinite',
-                          }}
-                        />
                         <div
                           style={{
                             position: 'absolute',
@@ -1480,6 +2060,7 @@ export const WelcomeWidgets = ({
                       )
                     `,
                       pointerEvents: 'none',
+                      borderRadius: 10,
                       zIndex: 1,
                       opacity: focusArea === 'welcome_widgets' ? 1 : 0,
                       transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -1489,13 +2070,22 @@ export const WelcomeWidgets = ({
 
                 {/* SHIMMER */}
                 {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 8 && (
-                  <div
-                    className="widget-shimmer-line"
+                  <View
                     style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
+                      position: 'absolute',
+                      top: 0,
+                      left: 1,
+                      right: 1,
+                      bottom: 0,
+                      borderRadius: 10,
+                      zIndex: 5,
+                      overflow: 'hidden',
+                    } as any}
+                    pointerEvents="none"
+                  >
+                    {/* @ts-ignore */}
+                    <div className="wc-shimmer-line2" />
+                  </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
                   <Ionicons name="heart" size={17} color="#ffffff" />
@@ -1523,12 +2113,94 @@ export const WelcomeWidgets = ({
                     <>
                       <style>
                         {`
-                        @keyframes spinBorder {
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
                           100% { transform: translate(-50%, -50%) rotate(360deg); }
                         }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: -4px;
+                          left: -4px;
+                          right: -4px;
+                          bottom: -5px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 2px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 120%;
+                          height: 120%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+                        @keyframes wc-content-shimmer {
+                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          15% { opacity: 1; }
+                          50% { opacity: 1; }
+                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                        }
+                        .wc-shimmer-line2 {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 160%; 
+                          height: 420%; 
+                          background: linear-gradient(
+                            to right,
+                            transparent 0%,
+                            rgba(255, 255, 255, 0.01) 20%,
+                            rgba(255, 255, 255, 0.18) 50%, 
+                            rgba(255, 255, 255, 0.01) 80%,
+                            transparent 100%
+                          );
+                          animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+                        }
                       `}
                       </style>
+
+                      <div className="wc-spinning-container2">
+                        <div className="wc-spinning-inner" />
+                      </div>
 
                       <div
                         style={{
@@ -1540,30 +2212,6 @@ export const WelcomeWidgets = ({
                           zIndex: 0,
                         }}
                       >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            width: '500%',
-                            height: '500%',
-                            left: '50%',
-                            top: '50%',
-                            background: `
-                            conic-gradient(
-                              from 0deg,
-                              rgba(255, 255, 255, 0.15) 0%,
-                              rgba(255, 255, 255, 0.79) 30%,
-                              rgba(180, 210, 255, 0.86) 33%,
-                              rgba(220, 235, 255, 0.95) 48%,
-                              rgba(255, 255, 255, 1.0) 50%,
-                              rgba(223, 248, 182, 0.95) 52%,
-                              rgba(180, 210, 255, 0.88) 57%,
-                              rgba(255, 255, 255, 0.75) 62%,
-                              rgba(255, 255, 255, 0.84) 100%
-                            )
-                          `,
-                            animation: 'spinBorder 6.8s linear infinite',
-                          }}
-                        />
                         <div
                           style={{
                             position: 'absolute',
@@ -1592,6 +2240,7 @@ export const WelcomeWidgets = ({
                       )
                     `,
                       pointerEvents: 'none',
+                      borderRadius: 10,
                       zIndex: 1,
                       opacity: focusArea === 'welcome_widgets' ? 1 : 0,
                       transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -1601,13 +2250,22 @@ export const WelcomeWidgets = ({
 
                 {/* SHIMMER */}
                 {Platform.OS === 'web' && focusArea === 'welcome_widgets' && focusIndex === 9 && (
-                  <div
-                    className="widget-shimmer-line"
+                  <View
                     style={{
-                      animationDuration: '7s',
-                      opacity: 0.8,
-                    }}
-                  />
+                      position: 'absolute',
+                      top: 0,
+                      left: 1,
+                      right: 1,
+                      bottom: 0,
+                      borderRadius: 10,
+                      zIndex: 5,
+                      overflow: 'hidden',
+                    } as any}
+                    pointerEvents="none"
+                  >
+                    {/* @ts-ignore */}
+                    <div className="wc-shimmer-line2" />
+                  </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={styles.widgetIconWrap}>
