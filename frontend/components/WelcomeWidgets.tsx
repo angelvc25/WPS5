@@ -120,6 +120,9 @@ export const WelcomeWidgets = ({
     const sH = (px: number) => Math.max(1, Math.round(px * scaleH));
     const sW = (px: number) => Math.max(1, Math.round(px * scaleW));
 
+
+    /// ANCHO WIDGETS
+
     return StyleSheet.create({
       widgetGrid: {
         paddingHorizontal: 0,
@@ -128,7 +131,7 @@ export const WelcomeWidgets = ({
         width: 'auto',
       },
       widgetTouchable: {
-        width: sW(360),
+        width: sW(370),
       },
       widgetRow: {
         flexDirection: 'row',
@@ -155,8 +158,8 @@ export const WelcomeWidgets = ({
         position: 'relative',
         justifyContent: 'center',
         backgroundColor: '#0d1015',
-        marginBottom: s(20),
-        maxWidth: sW(347),
+        marginBottom: s(50),
+        maxWidth: sW(370),
       } as any,
       welcomeWidgetCardFocused: {
         //borderColor: '#FFFFFF',
@@ -164,8 +167,8 @@ export const WelcomeWidgets = ({
       } as any,
       widgetTitle: {
         color: '#FFFFFF',
-        fontSize: s(13),
-        fontWeight: '600',
+        fontSize: s(15),
+        fontWeight: '500',
         letterSpacing: 0.1,
       },
       widgetTitle2: {
@@ -175,12 +178,12 @@ export const WelcomeWidgets = ({
         letterSpacing: 0.1,
       },
       widgetSubtitle: {
-        color: 'rgba(197, 197, 197, 1)',
+        color: 'rgba(224, 224, 224, 1)',
         fontSize: s(12),
         marginTop: 1,
       },
       widgetBadge: {
-        color: 'rgba(197, 197, 197, 1)',
+        color: 'rgba(224, 224, 224, 1)',
         fontSize: s(13),
         fontWeight: '500',
       },
@@ -1498,7 +1501,7 @@ export const WelcomeWidgets = ({
                     <div className="wc-shimmer-line2" />
                   </View>
                 )}
-                <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 5, marginBottom: 6, maxWidth: 160 }}>
+                <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 5, marginBottom: 6, maxWidth: 180 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                     <Image source={require('@/assets/images/controller.png')} style={{ width: 13, height: 13, resizeMode: 'contain', tintColor: "#FFF" }} />
                     <Text style={styles.widgetTitle}>Jugados recientemente</Text>
