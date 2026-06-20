@@ -565,13 +565,13 @@ export const GameInfoPanel = ({
 const styles = StyleSheet.create({
   gameInfoPanel: {
     paddingLeft: 150,
-    paddingTop: 24,
+    paddingTop: 1,
     maxWidth: '100%' as any,
   },
   gameLogo: {
-    width: 360,
-    height: 120,
-    marginBottom: 50,
+    width: 460,
+    height: 220,
+    marginBottom: 15,
   },
   gameTitle: {
     color: '#FFFFFF',

@@ -170,18 +170,18 @@ export const WelcomeWidgets = ({
         letterSpacing: 0.1,
       },
       widgetSubtitle: {
-        color: 'rgba(255, 255, 255, 1)',
-        fontSize: s(11),
+        color: 'rgba(197, 197, 197, 1)',
+        fontSize: s(12),
         marginTop: 1,
       },
       widgetBadge: {
-        color: 'rgba(255, 255, 255, 0.81)',
+        color: 'rgba(197, 197, 197, 1)',
         fontSize: s(13),
         fontWeight: '500',
       },
       widgetIconWrap: {
-        width: s(36),
-        height: s(36),
+        width: s(37),
+        height: s(37),
         borderRadius: s(18),
         backgroundColor: 'rgba(255,255,255,0.07)',
         alignItems: 'center',
