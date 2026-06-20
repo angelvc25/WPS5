@@ -23,12 +23,13 @@ export interface SyncPreferences {
 }
 
 export interface UserSettings {
-  autoPlayVideo: boolean;
+  autoPlayVideo?: boolean;
   syncPreferences?: SyncPreferences;
   steamApiKey?: string;
   steamId?: string;
   useSteamAvatar?: boolean;
   capturePath?: string;
+  invertTransitionDirection?: boolean;
 }
 
 export interface UserProfile {
