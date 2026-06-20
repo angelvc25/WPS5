@@ -80,6 +80,11 @@ export const WelcomeWidgets = ({
   const [realNews, setRealNews] = useState<SteamNewsItem[]>([]);
   const [storeOffers, setStoreOffers] = useState<StoreOffer[]>([]);
   const [activeOfferIndex, setActiveOfferIndex] = useState(0);
+  const total = storageInfo.percent > 0 ? storageInfo.percent : 65;
+  const seg1 = total * 0.14;   // 40% del uso = juegos
+  const seg2 = total * 0.03;  // apps
+  const seg3 = total * 0.01;  // multimedia
+  const seg4 = total * 0.11;  // sistema
 
   useEffect(() => {
     fetchSteamNewsByName('Helldivers 2').then(data => {
@@ -1885,31 +1890,34 @@ export const WelcomeWidgets = ({
                   </Text>
                 </View>
 
-                <View style={{ height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', flexDirection: 'row' }}>
+                <View style={{
+                  height: 8,                 // más fina que tu 10 actual
+                  borderRadius: 4,
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  overflow: 'hidden',        // esto redondea automáticamente el segmento izquierdo
+                  flexDirection: 'row',
+                }}>
                   <View style={{
                     height: '100%',
                     width: `${storageInfo.percent > 0 ? storageInfo.percent : 65}%`,
-                    backgroundColor: '#0070D1',
-                    borderRadius: 5,
+                    backgroundColor: '#0070D1', // azul - ej: juegos
                   }} />
                   <View style={{
                     height: '100%',
-                    width: `${Math.max(0, (storageInfo.percent > 65 ? storageInfo.percent : 63) - (storageInfo.percent > 0 ? storageInfo.percent : 65))}%`,
-                    backgroundColor: '#3c1afaff',
-                    borderRadius: 5,
+                    width: `${seg2}%`,
+                    backgroundColor: '#9B5DE5', // morado - ej: apps
                   }} />
                   <View style={{
                     height: '100%',
-                    width: `${Math.max(0, (storageInfo.percent > 63 ? storageInfo.percent : 65) - (storageInfo.percent > 0 ? storageInfo.percent : 65))}%`,
-                    backgroundColor: '#fa6c1aff',
-                    borderRadius: 5,
+                    width: `${seg3}%`,
+                    backgroundColor: '#FF8C42', // naranja - ej: multimedia
                   }} />
                   <View style={{
                     height: '100%',
-                    borderTopRightRadius: 5,
-                    borderBottomRightRadius: 5,
-                    width: `${Math.max(0, (storageInfo.percent > 65 ? storageInfo.percent : 79) - (storageInfo.percent > 0 ? storageInfo.percent : 65))}%`,
-                    backgroundColor: '#c2c2c2ff',
+                    width: `${seg4}%`,
+                    backgroundColor: '#C2C2C2', // gris - ej: sistema/otros
+                    borderTopRightRadius: 4,
+                    borderBottomRightRadius: 4, // SOLO el último segmento lleva el redondeo derecho
                   }} />
                 </View>
               </View>
