@@ -17,14 +17,12 @@ interface StoreFrontPanelProps {
   windowWidth: number;
   windowHeight: number;
   gameInfoPanelStyle: any;
-  spacerStyle: any;
 }
 
 export const StoreFrontPanel = ({
   windowWidth,
   windowHeight,
   gameInfoPanelStyle,
-  spacerStyle,
 }: StoreFrontPanelProps) => {
   const [offers, setOffers] = useState<StoreOffer[]>(LOCAL_FALLBACK_OFFERS);
   const [loading, setLoading] = useState(true);
@@ -51,7 +49,9 @@ export const StoreFrontPanel = ({
       style={[styles.container, gameInfoPanelStyle, { paddingLeft: s(150) }]}
       entering={FadeInDown.duration(400)}
     >
-      <Animated.View style={spacerStyle} />
+      {/* Spacer calibrado para StoreFront: posiciona las cards en el tercio inferior visible */}
+      <View style={{ height: Math.max(windowHeight * 0.40, 200) }} />
+
 
       {/* Must see / Ofertas */}
       <Animated.View entering={FadeInDown.duration(400).delay(60)}>
