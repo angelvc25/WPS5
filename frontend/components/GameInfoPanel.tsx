@@ -95,19 +95,23 @@ export const GameInfoPanel = ({
 
   const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds);
 
+  // Scale factor: 1.0 at 1080p, shrinks proportionally for smaller screens
+  const scale = Math.min(Math.max(windowHeight / 1080, 0.6), 1);
+  const s = (v: number) => Math.round(v * scale);
+
   return (
-    <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle]}>
+    <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }]}>
       <Animated.View style={spacerStyle}>
         <Animated.View style={topPanelStyle}>
           {/* Logo or title */}
           {displayLogo ? (
             <Animated.View key={`logo-${activeIndex}`} entering={FadeInDown.duration(400)}>
-              <Image source={displayLogo} style={styles.gameLogo} contentFit="contain" />
+              <Image source={displayLogo} style={[styles.gameLogo, { width: s(400), height: s(220) }]} contentFit="contain" />
             </Animated.View>
           ) : (
             <Animated.View key={`title-${activeIndex}`} entering={FadeInDown.duration(400)}>
               {activeItem?.id !== '1' && (
-                <Text style={styles.gameTitle} numberOfLines={2}>{displayTitle}</Text>
+                <Text style={[styles.gameTitle, { fontSize: s(38) }]} numberOfLines={2}>{displayTitle}</Text>
               )}
             </Animated.View>
           )}
@@ -119,6 +123,13 @@ export const GameInfoPanel = ({
                 id="play-btn"
                 style={[
                   styles.playBtn,
+                  {
+                    width: s(320),
+                    height: s(65),
+                    paddingHorizontal: s(52),
+                    paddingVertical: s(14),
+                    borderRadius: s(28),
+                  },
                   focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnFocused
                 ]}
                 activeOpacity={0.85}
@@ -128,6 +139,7 @@ export const GameInfoPanel = ({
               >
                 <Text style={[
                   styles.playBtnText,
+                  { fontSize: s(25) },
                   focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
                 ]}>
                   {buttonLabel}
@@ -137,6 +149,11 @@ export const GameInfoPanel = ({
                 id="more-btn"
                 style={[
                   styles.moreBtn,
+                  {
+                    width: s(62),
+                    height: s(62),
+                    borderRadius: s(31),
+                  },
                   focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnFocused
                 ]}
                 activeOpacity={0.8}
@@ -154,6 +171,7 @@ export const GameInfoPanel = ({
               >
                 <Text style={[
                   styles.moreBtnText,
+                  { fontSize: s(22) },
                   focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnTextFocused
                 ]}>···</Text>
               </TouchableOpacity>
@@ -167,12 +185,13 @@ export const GameInfoPanel = ({
         <Animated.View
           key={`cards-${activeIndex}`}
           entering={FadeInDown.duration(400).delay(120)}
-          style={[styles.infoCardsRow, infoCardsStyle]}
+          style={[styles.infoCardsRow, infoCardsStyle, { marginTop: s(20) }]}
         >
           {/* Trophies Card */}
           <View
             style={[
               styles.infoCard,
+              { padding: s(16), minWidth: s(350), borderRadius: s(16) },
               focusArea === 'game_panel' &&
               gamePanelFocusIndex === 2 &&
               styles.infoCardFocused,
@@ -220,8 +239,8 @@ export const GameInfoPanel = ({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                marginBottom: 12,
-                gap: 25,
+                marginBottom: s(12),
+                gap: s(25),
                 zIndex: 2,
               }}
             >
@@ -229,12 +248,12 @@ export const GameInfoPanel = ({
                 <Image
                   source={require('@/assets/images/platino.png')}
                   style={{
-                    width: 28,
-                    height: 28,
+                    width: s(28),
+                    height: s(28),
                     resizeMode: 'contain',
                   }}
                 />
-                <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
+                <Text style={{ color: '#FFF', fontSize: s(14), fontWeight: 'bold', marginTop: s(15) }}>
                   1
                 </Text>
               </View>
@@ -243,12 +262,12 @@ export const GameInfoPanel = ({
                 <Image
                   source={require('@/assets/images/oro.png')}
                   style={{
-                    width: 28,
-                    height: 28,
+                    width: s(28),
+                    height: s(28),
                     resizeMode: 'contain',
                   }}
                 />
-                <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
+                <Text style={{ color: '#FFF', fontSize: s(14), fontWeight: 'bold', marginTop: s(15) }}>
                   3
                 </Text>
               </View>
@@ -257,12 +276,12 @@ export const GameInfoPanel = ({
                 <Image
                   source={require('@/assets/images/plata.png')}
                   style={{
-                    width: 28,
-                    height: 28,
+                    width: s(28),
+                    height: s(28),
                     resizeMode: 'contain',
                   }}
                 />
-                <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
+                <Text style={{ color: '#FFF', fontSize: s(14), fontWeight: 'bold', marginTop: s(15) }}>
                   16
                 </Text>
               </View>
@@ -271,12 +290,12 @@ export const GameInfoPanel = ({
                 <Image
                   source={require('@/assets/images/bronce.png')}
                   style={{
-                    width: 28,
-                    height: 28,
+                    width: s(28),
+                    height: s(28),
                     resizeMode: 'contain',
                   }}
                 />
-                <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>
+                <Text style={{ color: '#FFF', fontSize: s(14), fontWeight: 'bold', marginTop: s(15) }}>
                   17
                 </Text>
               </View>
@@ -286,15 +305,15 @@ export const GameInfoPanel = ({
               <Text
                 style={{
                   color: '#FFF',
-                  fontSize: 16,
+                  fontSize: s(16),
                   fontWeight: 'bold',
-                  marginBottom: 4,
+                  marginBottom: s(4),
                 }}
               >
                 Trofeos
               </Text>
 
-              <Text style={{ color: '#ddddddff', fontSize: 17 }}>
+              <Text style={{ color: '#ddddddff', fontSize: s(17) }}>
                 37 conseguidos
               </Text>
             </View>
@@ -304,6 +323,7 @@ export const GameInfoPanel = ({
           <View
             style={[
               styles.infoCard,
+              { padding: s(16), minWidth: s(350), borderRadius: s(16) },
               focusArea === 'game_panel' &&
               gamePanelFocusIndex === 3 &&
               styles.infoCardFocused,
@@ -348,12 +368,12 @@ export const GameInfoPanel = ({
               )}
 
             {/* CONTENIDO */}
-            <View style={{ flexDirection: 'row', marginBottom: 12, zIndex: 2 }}>
+            <View style={{ flexDirection: 'row', marginBottom: s(12), zIndex: 2 }}>
               <Image
                 source={require('@/assets/images/amigos.png')}
                 style={{
-                  width: 35,
-                  height: 35,
+                  width: s(35),
+                  height: s(35),
                   resizeMode: 'contain',
                 }}
               />
@@ -363,15 +383,15 @@ export const GameInfoPanel = ({
               <Text
                 style={{
                   color: '#FFF',
-                  fontSize: 16,
+                  fontSize: s(16),
                   fontWeight: 'bold',
-                  marginBottom: 4,
+                  marginBottom: s(4),
                 }}
               >
                 Amigos que juegan
               </Text>
 
-              <Text style={{ color: '#ddddddff', fontSize: 17 }}>
+              <Text style={{ color: '#ddddddff', fontSize: s(17) }}>
                 5 amigos tienen este juego
               </Text>
             </View>
@@ -391,9 +411,9 @@ export const GameInfoPanel = ({
         <Animated.View
           key={`phrase-${activeIndex}`}
           entering={FadeInDown.duration(400).delay(120)}
-          style={{ marginTop: 20, paddingHorizontal: 50, alignItems: 'flex-start' }}
+          style={{ marginTop: s(20), paddingHorizontal: s(50), alignItems: 'flex-start' }}
         >
-          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontStyle: 'italic' }}>
+          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: s(14), fontStyle: 'italic' }}>
             La música es el fondo perfecto para cada aventura.
           </Text>
         </Animated.View>
@@ -402,15 +422,15 @@ export const GameInfoPanel = ({
       {/* Screenshots and Trailers row */}
       {canPlay && !(activeItem?.type === 'media' || isSpotify) && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-          <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Capturas y trailers</Text>
+          <Text style={{ color: '#FFF', fontSize: s(18), fontWeight: '500', marginBottom: s(16), paddingLeft: s(50) }}>Capturas y trailers</Text>
 
           {mediaLoading ? (
-            <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+            <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
               <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
             </View>
           ) : steamMedia.length === 0 ? (
-            <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+            <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
               <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
             </View>
@@ -419,14 +439,14 @@ export const GameInfoPanel = ({
               ref={mediaScrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
+              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
             >
               {steamMedia.map((item, idx) => {
                 const isMediaFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx;
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.newsCard, isMediaFocused && styles.newsCardFocused]}
+                    style={[styles.newsCard, { width: s(500), height: s(250) }, isMediaFocused && styles.newsCardFocused]}
                     activeOpacity={0.8}
                     onPress={() => {
                       setGamePanelFocusIndex(100 + idx);
@@ -459,7 +479,7 @@ export const GameInfoPanel = ({
                       />
                     )}
                     {/* Thumbnail */}
-                    <View style={styles.newsCardThumbnail}>
+                    <View style={[styles.newsCardThumbnail, { height: s(281) }]}>
                       <Image
                         source={{ uri: item.thumbnail }}
                         style={{ width: '100%', height: '100%' }}
@@ -468,7 +488,7 @@ export const GameInfoPanel = ({
                       {/* Play badge para trailers */}
                       {item.type === 'movie' && (
                         <View style={styles.mediaPlayBadge}>
-                          <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" />
+                          <Ionicons name="play-circle" size={s(32)} color="rgba(255,255,255,0.92)" />
                         </View>
                       )}
                     </View>
@@ -483,15 +503,15 @@ export const GameInfoPanel = ({
       {/* Steam News row */}
       {canPlay && !(activeItem?.type === 'media' || isSpotify) && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-          <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '500', marginBottom: 16, paddingLeft: 50 }}>Últimas noticias</Text>
+          <Text style={{ color: '#FFF', fontSize: s(18), fontWeight: '500', marginBottom: s(16), paddingLeft: s(50) }}>Últimas noticias</Text>
 
           {newsLoading ? (
-            <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+            <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
               <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
             </View>
           ) : steamNews.length === 0 ? (
-            <View style={[styles.newsLoadingRow, { paddingLeft: 50 }]}>
+            <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
               <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
             </View>
@@ -500,7 +520,7 @@ export const GameInfoPanel = ({
               ref={newsScrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: 50, paddingRight: 50 }]}
+              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
             >
               {steamNews.slice(0, 8).map((news, idx) => {
                 const isNewsFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx;
@@ -508,7 +528,7 @@ export const GameInfoPanel = ({
                 return (
                   <TouchableOpacity
                     key={news.gid}
-                    style={[styles.newsCard2, isNewsFocused && styles.newsCardFocused]}
+                    style={[styles.newsCard2, { width: s(320) }, isNewsFocused && styles.newsCardFocused]}
                     activeOpacity={0.8}
                     onPress={() => { if (news.url) Linking.openURL(news.url); }}
                   >
@@ -537,7 +557,7 @@ export const GameInfoPanel = ({
                         }}
                       />
                     )}
-                    <View style={styles.newsCardThumbnail}>
+                    <View style={[styles.newsCardThumbnail, { height: s(281) }]}>
                       <Image
                         source={
                           news.image_url
