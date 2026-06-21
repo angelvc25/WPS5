@@ -400,7 +400,7 @@ export const WelcomeWidgets = ({
                           mask-composite: exclude;
 
                           /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 2px solid transparent; 
+                          border: 3px solid transparent; 
                         }
 
                         .wc-spinning-inner {
@@ -408,7 +408,7 @@ export const WelcomeWidgets = ({
                           top: 50%;
                           left: 50%;
                           width: 300%;
-                          height: 300%;
+                          height: 400%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
@@ -494,7 +494,7 @@ export const WelcomeWidgets = ({
                       left: 1,
                       right: 1,
                       bottom: 0,
-                      borderRadius: 18,
+                      borderRadius: 10,
                       zIndex: 5,
                       overflow: 'hidden',
                     } as any}
@@ -595,7 +595,7 @@ export const WelcomeWidgets = ({
                           mask-composite: exclude;
 
                           /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 2px solid transparent; 
+                          border: 3px solid transparent; 
                         }
 
                         .wc-spinning-inner {
@@ -603,7 +603,7 @@ export const WelcomeWidgets = ({
                           top: 50%;
                           left: 50%;
                           width: 300%;
-                          height: 300%;
+                          height: 400%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
@@ -689,7 +689,7 @@ export const WelcomeWidgets = ({
                       left: 1,
                       right: 1,
                       bottom: 0,
-                      borderRadius: 18,
+                      borderRadius: 10,
                       zIndex: 5,
                       overflow: 'hidden',
                     } as any}
@@ -784,7 +784,7 @@ export const WelcomeWidgets = ({
                           mask-composite: exclude;
 
                           /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 2px solid transparent; 
+                          border: 3px solid transparent; 
                         }
 
                         .wc-spinning-inner {
@@ -792,7 +792,7 @@ export const WelcomeWidgets = ({
                           top: 50%;
                           left: 50%;
                           width: 300%;
-                          height: 300%;
+                          height: 400%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
@@ -1000,7 +1000,7 @@ export const WelcomeWidgets = ({
                           mask-composite: exclude;
 
                           /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 2px solid transparent; 
+                          border: 3px solid transparent; 
                         }
 
                         .wc-spinning-inner {
@@ -1008,7 +1008,7 @@ export const WelcomeWidgets = ({
                           top: 50%;
                           left: 50%;
                           width: 300%;
-                          height: 300%;
+                          height: 400%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
@@ -1192,7 +1192,7 @@ export const WelcomeWidgets = ({
                           mask-composite: exclude;
 
                           /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 2px solid transparent; 
+                          border: 3px solid transparent; 
                         }
 
                         .wc-spinning-inner {
@@ -1200,7 +1200,7 @@ export const WelcomeWidgets = ({
                           top: 50%;
                           left: 50%;
                           width: 120%;
-                          height: 120%;
+                          height: 400%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
@@ -1379,7 +1379,7 @@ export const WelcomeWidgets = ({
                           mask-composite: exclude;
 
                           /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 2px solid transparent; 
+                          border: 3px solid transparent; 
                         }
 
                         .wc-spinning-inner {
@@ -1387,7 +1387,7 @@ export const WelcomeWidgets = ({
                           top: 50%;
                           left: 50%;
                           width: 300%;
-                          height: 300%;
+                          height: 400%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
@@ -1568,7 +1568,7 @@ export const WelcomeWidgets = ({
                           mask-composite: exclude;
 
                           /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 2px solid transparent; 
+                          border: 3px solid transparent; 
                         }
 
                         .wc-spinning-inner {
@@ -1576,7 +1576,7 @@ export const WelcomeWidgets = ({
                           top: 50%;
                           left: 50%;
                           width: 300%;
-                          height: 300%;
+                          height: 400%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
@@ -1757,7 +1757,7 @@ export const WelcomeWidgets = ({
                           mask-composite: exclude;
 
                           /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 2px solid transparent; 
+                          border: 3px solid transparent; 
                         }
 
                         .wc-spinning-inner {
@@ -1765,7 +1765,7 @@ export const WelcomeWidgets = ({
                           top: 50%;
                           left: 50%;
                           width: 300%;
-                          height: 300%;
+                          height: 400%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
@@ -1975,7 +1975,7 @@ export const WelcomeWidgets = ({
                           mask-composite: exclude;
 
                           /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 2px solid transparent; 
+                          border: 3px solid transparent; 
                         }
 
                         .wc-spinning-inner {
@@ -1983,7 +1983,7 @@ export const WelcomeWidgets = ({
                           top: 50%;
                           left: 50%;
                           width: 300%;
-                          height: 300%;
+                          height: 400%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
@@ -2156,7 +2156,7 @@ export const WelcomeWidgets = ({
                           mask-composite: exclude;
 
                           /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 2px solid transparent; 
+                          border: 3px solid transparent; 
                         }
 
                         .wc-spinning-inner {
@@ -2164,7 +2164,7 @@ export const WelcomeWidgets = ({
                           top: 50%;
                           left: 50%;
                           width: 120%;
-                          height: 120%;
+                          height: 400%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
