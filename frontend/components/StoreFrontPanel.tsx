@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,32 +17,61 @@ interface StoreFrontPanelProps {
   windowWidth: number;
   windowHeight: number;
   gameInfoPanelStyle: any;
+  focusArea: string;
+  gamePanelFocusIndex: number;
+  offers: StoreOffer[];
+  loading: boolean;
 }
 
 export const StoreFrontPanel = ({
   windowWidth,
   windowHeight,
   gameInfoPanelStyle,
+  focusArea,
+  gamePanelFocusIndex,
+  offers,
+  loading,
 }: StoreFrontPanelProps) => {
-  const [offers, setOffers] = useState<StoreOffer[]>(LOCAL_FALLBACK_OFFERS);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchStoreOffers()
-      .then((data) => setOffers(data))
-      .finally(() => setLoading(false));
-  }, []);
+  const dealsScrollRef = useRef<ScrollView>(null);
+  const upcomingScrollRef = useRef<ScrollView>(null);
 
   // Scale factor: 1.0 at 1080p
   const scale = Math.min(Math.max(windowHeight / 1080, 0.6), 1);
   const s = (v: number) => Math.round(v * scale);
 
-  const deals = offers.filter((o) => o.type === 'offer');
-  const upcoming = offers.filter((o) => o.type === 'release');
-
   const CARD_W = s(350);
   const CARD_H = s(140);
   const CARD_RADIUS = s(0);
+
+  const deals = offers.filter((o) => o.type === 'offer');
+  const upcoming = offers.filter((o) => o.type === 'release');
+
+  // Focus check helpers
+  const isDealFocused = (index: number) => focusArea === 'game_panel' && gamePanelFocusIndex === index;
+  const isUpcomingFocused = (index: number) => focusArea === 'game_panel' && gamePanelFocusIndex === 10 + index;
+  const isFooterFocused = () => focusArea === 'game_panel' && gamePanelFocusIndex === 20;
+
+  // Horizontal scroll adjustment on focus change
+  useEffect(() => {
+    if (focusArea === 'game_panel') {
+      const cardStep = CARD_W + s(35); // CARD_W + gap
+      if (gamePanelFocusIndex < 10) {
+        const idx = gamePanelFocusIndex;
+        let xOffset = 0;
+        if (idx > 1) {
+          xOffset = (idx - 1) * cardStep;
+        }
+        dealsScrollRef.current?.scrollTo({ x: xOffset, animated: true });
+      } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+        const idx = gamePanelFocusIndex - 10;
+        let xOffset = 0;
+        if (idx > 1) {
+          xOffset = (idx - 1) * cardStep;
+        }
+        upcomingScrollRef.current?.scrollTo({ x: xOffset, animated: true });
+      }
+    }
+  }, [gamePanelFocusIndex, focusArea, CARD_W, scale]);
 
   return (
     <Animated.View
@@ -66,16 +95,21 @@ export const StoreFrontPanel = ({
           </View>
         ) : (
           <ScrollView
+            ref={dealsScrollRef}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: s(35), paddingRight: s(40) }}
           >
-            {deals.map((offer) => (
+            {deals.map((offer, index) => (
               <TouchableOpacity
                 key={offer.id}
                 activeOpacity={0.85}
                 onPress={() => { if (offer.url) Linking.openURL(offer.url); }}
-                style={[styles.card, { width: CARD_W, borderRadius: CARD_RADIUS }]}
+                style={[
+                  styles.card,
+                  { width: CARD_W, borderRadius: CARD_RADIUS },
+                  isDealFocused(index) && styles.cardFocused
+                ]}
               >
                 {/* Thumbnail */}
                 <Image
@@ -140,16 +174,21 @@ export const StoreFrontPanel = ({
           </Text>
 
           <ScrollView
+            ref={upcomingScrollRef}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: s(35), paddingRight: s(40) }}
           >
-            {upcoming.map((offer) => (
+            {upcoming.map((offer, index) => (
               <TouchableOpacity
                 key={offer.id}
                 activeOpacity={0.85}
                 onPress={() => { if (offer.url) Linking.openURL(offer.url); }}
-                style={[styles.card, { width: CARD_W, borderRadius: CARD_RADIUS }]}
+                style={[
+                  styles.card,
+                  { width: CARD_W, borderRadius: CARD_RADIUS },
+                  isUpcomingFocused(index) && styles.cardFocused
+                ]}
               >
                 <Image
                   source={{ uri: offer.image }}
@@ -194,10 +233,10 @@ export const StoreFrontPanel = ({
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => Linking.openURL('https://store.playstation.com')}
-          style={styles.storeLink}
+          style={[styles.storeLink, isFooterFocused() && styles.storeLinkFocused]}
         >
-          <Ionicons name="storefront-outline" size={s(14)} color="rgba(255,255,255,0.5)" />
-          <Text style={[styles.storeLinkText, { fontSize: s(13) }]}>
+          <Ionicons name="storefront-outline" size={s(14)} color={isFooterFocused() ? "#FFFFFF" : "rgba(255,255,255,0.5)"} />
+          <Text style={[styles.storeLinkText, { fontSize: s(13) }, isFooterFocused() && styles.storeLinkTextFocused]}>
             Ver PlayStation Store completo
           </Text>
         </TouchableOpacity>
@@ -231,6 +270,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     overflow: 'hidden',
     position: 'relative',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  } as any,
+  cardFocused: {
+    borderColor: '#cececeff',
+    //transform: [{ scale: 1.02 }],
+    //shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    //elevation: 5,
   } as any,
   cardImage: {
     width: '100%',
@@ -284,6 +334,14 @@ const styles = StyleSheet.create({
   },
   storeLinkText: {
     color: 'rgba(255,255,255,0.45)',
+    textDecorationLine: 'underline',
+  },
+  storeLinkFocused: {
+    opacity: 1,
+    transform: [{ scale: 1.02 }],
+  } as any,
+  storeLinkTextFocused: {
+    color: '#FFFFFF',
     textDecorationLine: 'underline',
   },
 });

@@ -35,6 +35,7 @@ import ConsoleCarousel from '@/components/ConsoleCarousel';
 import WelcomeWidgets from '@/components/WelcomeWidgets';
 import GameInfoPanel from '@/components/GameInfoPanel';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
+import { fetchStoreOffers, StoreOffer, LOCAL_FALLBACK_OFFERS } from '@/services/storeService';
 
 const TABS = ['Games', 'Media'];
 var Wview: string = 'block';
@@ -104,6 +105,10 @@ export default function ConsoleHome() {
   // Steam news
   const [steamNews, setSteamNews] = useState<SteamNewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
+
+  // Storefront offers
+  const [storeOffers, setStoreOffers] = useState<StoreOffer[]>(LOCAL_FALLBACK_OFFERS);
+  const [storeLoading, setStoreLoading] = useState(true);
 
   // Steam screenshots & trailers
   const [steamMedia, setSteamMedia] = useState<SteamMediaItem[]>([]);
@@ -237,6 +242,13 @@ export default function ConsoleHome() {
       -1,
       false
     );
+  }, []);
+
+  // Fetch PlayStation Storefront offers
+  useEffect(() => {
+    fetchStoreOffers()
+      .then((data) => setStoreOffers(data))
+      .finally(() => setStoreLoading(false));
   }, []);
 
   const isGamePanelFocused = focusArea === 'game_panel';
@@ -1062,14 +1074,28 @@ export default function ConsoleHome() {
             }
           }
           else if (focusArea === 'game_panel') {
-            if (gamePanelFocusIndex === 0) {
-              setGamePanelFocusIndex(1);
-            } else if (gamePanelFocusIndex === 2) {
-              setGamePanelFocusIndex(3);
-            } else if (gamePanelFocusIndex >= 100) {
-              setGamePanelFocusIndex(prev => Math.min(prev + 1, 100 + steamMedia.length - 1));
-            } else if (gamePanelFocusIndex >= 4) {
-              setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + steamNews.length - 1));
+            if (activeItem?.id === '5') {
+              const storeDeals = storeOffers.filter(o => o.type === 'offer');
+              const storeUpcoming = storeOffers.filter(o => o.type === 'release');
+              if (gamePanelFocusIndex < 10) {
+                // Deals row
+                const nextIdx = Math.min(gamePanelFocusIndex + 1, storeDeals.length - 1);
+                setGamePanelFocusIndex(nextIdx);
+              } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+                // Upcoming row
+                const nextIdx = Math.min(gamePanelFocusIndex + 1, 10 + storeUpcoming.length - 1);
+                setGamePanelFocusIndex(nextIdx);
+              }
+            } else {
+              if (gamePanelFocusIndex === 0) {
+                setGamePanelFocusIndex(1);
+              } else if (gamePanelFocusIndex === 2) {
+                setGamePanelFocusIndex(3);
+              } else if (gamePanelFocusIndex >= 100) {
+                setGamePanelFocusIndex(prev => Math.min(prev + 1, 100 + steamMedia.length - 1));
+              } else if (gamePanelFocusIndex >= 4) {
+                setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + steamNews.length - 1));
+              }
             }
           }
           else if (focusArea === 'welcome_widgets') {
@@ -1101,14 +1127,26 @@ export default function ConsoleHome() {
             }
           }
           else if (focusArea === 'game_panel') {
-            if (gamePanelFocusIndex === 1) {
-              setGamePanelFocusIndex(0);
-            } else if (gamePanelFocusIndex === 3) {
-              setGamePanelFocusIndex(2);
-            } else if (gamePanelFocusIndex >= 100) {
-              setGamePanelFocusIndex(prev => Math.max(prev - 1, 100));
-            } else if (gamePanelFocusIndex >= 4) {
-              setGamePanelFocusIndex(prev => Math.max(prev - 1, 4));
+            if (activeItem?.id === '5') {
+              if (gamePanelFocusIndex < 10) {
+                // Deals row
+                const nextIdx = Math.max(gamePanelFocusIndex - 1, 0);
+                setGamePanelFocusIndex(nextIdx);
+              } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+                // Upcoming row
+                const nextIdx = Math.max(gamePanelFocusIndex - 1, 10);
+                setGamePanelFocusIndex(nextIdx);
+              }
+            } else {
+              if (gamePanelFocusIndex === 1) {
+                setGamePanelFocusIndex(0);
+              } else if (gamePanelFocusIndex === 3) {
+                setGamePanelFocusIndex(2);
+              } else if (gamePanelFocusIndex >= 100) {
+                setGamePanelFocusIndex(prev => Math.max(prev - 1, 100));
+              } else if (gamePanelFocusIndex >= 4) {
+                setGamePanelFocusIndex(prev => Math.max(prev - 1, 4));
+              }
             }
           }
           else if (focusArea === 'welcome_widgets') {
@@ -1149,19 +1187,36 @@ export default function ConsoleHome() {
             }
           }
           else if (focusArea === 'game_panel') {
-            if (gamePanelFocusIndex === 0) {
-              setGamePanelFocusIndex(2);
-            } else if (gamePanelFocusIndex === 1) {
-              setGamePanelFocusIndex(3);
-            } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
-              if (steamMedia.length > 0) {
-                setGamePanelFocusIndex(100);
-              } else if (steamNews.length > 0) {
-                setGamePanelFocusIndex(4);
+            if (activeItem?.id === '5') {
+              const storeDeals = storeOffers.filter(o => o.type === 'offer');
+              const storeUpcoming = storeOffers.filter(o => o.type === 'release');
+              if (gamePanelFocusIndex < 10) {
+                // Moving down from Deals row
+                if (storeUpcoming.length > 0) {
+                  const targetCol = Math.min(gamePanelFocusIndex, storeUpcoming.length - 1);
+                  setGamePanelFocusIndex(10 + targetCol);
+                } else {
+                  setGamePanelFocusIndex(20);
+                }
+              } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+                // Moving down from Upcoming row to footer
+                setGamePanelFocusIndex(20);
               }
-            } else if (gamePanelFocusIndex >= 100) {
-              if (steamNews.length > 0) {
-                setGamePanelFocusIndex(4);
+            } else {
+              if (gamePanelFocusIndex === 0) {
+                setGamePanelFocusIndex(2);
+              } else if (gamePanelFocusIndex === 1) {
+                setGamePanelFocusIndex(3);
+              } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
+                if (steamMedia.length > 0) {
+                  setGamePanelFocusIndex(100);
+                } else if (steamNews.length > 0) {
+                  setGamePanelFocusIndex(4);
+                }
+              } else if (gamePanelFocusIndex >= 100) {
+                if (steamNews.length > 0) {
+                  setGamePanelFocusIndex(4);
+                }
               }
             }
           }
@@ -1183,21 +1238,40 @@ export default function ConsoleHome() {
             }
           }
           else if (focusArea === 'game_panel') {
-            if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
-              setFocusArea('main_carousel');
-              setFocusIndex(activeIndex);
-            } else if (gamePanelFocusIndex === 2) {
-              setGamePanelFocusIndex(0);
-            } else if (gamePanelFocusIndex === 3) {
-              setGamePanelFocusIndex(1);
-            } else if (gamePanelFocusIndex >= 100) {
-              setGamePanelFocusIndex(2);
-            } else if (gamePanelFocusIndex >= 4) {
-              if (steamMedia.length > 0) {
-                setGamePanelFocusIndex(100);
-              } else {
-                const newsIndex = gamePanelFocusIndex - 4;
-                setGamePanelFocusIndex(newsIndex % 2 === 0 ? 2 : 3);
+            if (activeItem?.id === '5') {
+              const storeDeals = storeOffers.filter(o => o.type === 'offer');
+              const storeUpcoming = storeOffers.filter(o => o.type === 'release');
+              if (gamePanelFocusIndex === 20) {
+                if (storeUpcoming.length > 0) {
+                  setGamePanelFocusIndex(10);
+                } else {
+                  setGamePanelFocusIndex(0);
+                }
+              } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+                const col = gamePanelFocusIndex - 10;
+                const targetCol = Math.min(col, storeDeals.length - 1);
+                setGamePanelFocusIndex(targetCol);
+              } else if (gamePanelFocusIndex < 10) {
+                setFocusArea('main_carousel');
+                setFocusIndex(activeIndex);
+              }
+            } else {
+              if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
+                setFocusArea('main_carousel');
+                setFocusIndex(activeIndex);
+              } else if (gamePanelFocusIndex === 2) {
+                setGamePanelFocusIndex(0);
+              } else if (gamePanelFocusIndex === 3) {
+                setGamePanelFocusIndex(1);
+              } else if (gamePanelFocusIndex >= 100) {
+                setGamePanelFocusIndex(2);
+              } else if (gamePanelFocusIndex >= 4) {
+                if (steamMedia.length > 0) {
+                  setGamePanelFocusIndex(100);
+                } else {
+                  const newsIndex = gamePanelFocusIndex - 4;
+                  setGamePanelFocusIndex(newsIndex % 2 === 0 ? 2 : 3);
+                }
               }
             }
           }
@@ -1240,27 +1314,45 @@ export default function ConsoleHome() {
             return;
           }
           if (focusArea === 'game_panel') {
-            if (gamePanelFocusIndex === 0) {
-              if (activeItem) { handleLaunchApp(activeItem); }
-            } else if (gamePanelFocusIndex === 1) {
-              if (activeItem) {
-                const target = activeItem.isLastPlayed ? lastPlayedGame : activeItem;
-                if (target) {
-                  setSelectedItem(target);
-                  setDetailVisible(true);
-                } else {
-                  alert('Aún no has jugado a ningún juego.');
+            if (activeItem?.id === '5') {
+              const storeDeals = storeOffers.filter(o => o.type === 'offer');
+              const storeUpcoming = storeOffers.filter(o => o.type === 'release');
+              if (gamePanelFocusIndex < 10) {
+                const deal = storeDeals[gamePanelFocusIndex];
+                if (deal && deal.url) {
+                  Linking.openURL(deal.url);
                 }
+              } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+                const item = storeUpcoming[gamePanelFocusIndex - 10];
+                if (item && item.url) {
+                  Linking.openURL(item.url);
+                }
+              } else if (gamePanelFocusIndex === 20) {
+                Linking.openURL('https://store.playstation.com');
               }
-            } else if (gamePanelFocusIndex >= 100) {
-              const mediaItem = steamMedia[gamePanelFocusIndex - 100];
-              if (mediaItem) {
-                setSelectedMediaIndex(gamePanelFocusIndex - 100);
-              }
-            } else if (gamePanelFocusIndex >= 4) {
-              const newsItem = steamNews[gamePanelFocusIndex - 4];
-              if (newsItem && newsItem.url) {
-                Linking.openURL(newsItem.url);
+            } else {
+              if (gamePanelFocusIndex === 0) {
+                if (activeItem) { handleLaunchApp(activeItem); }
+              } else if (gamePanelFocusIndex === 1) {
+                if (activeItem) {
+                  const target = activeItem.isLastPlayed ? lastPlayedGame : activeItem;
+                  if (target) {
+                    setSelectedItem(target);
+                    setDetailVisible(true);
+                  } else {
+                    alert('Aún no has jugado a ningún juego.');
+                  }
+                }
+              } else if (gamePanelFocusIndex >= 100) {
+                const mediaItem = steamMedia[gamePanelFocusIndex - 100];
+                if (mediaItem) {
+                  setSelectedMediaIndex(gamePanelFocusIndex - 100);
+                }
+              } else if (gamePanelFocusIndex >= 4) {
+                const newsItem = steamNews[gamePanelFocusIndex - 4];
+                if (newsItem && newsItem.url) {
+                  Linking.openURL(newsItem.url);
+                }
               }
             }
             return;
@@ -1312,7 +1404,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame, activeUser]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame, activeUser, storeOffers]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -2094,7 +2186,10 @@ export default function ConsoleHome() {
               windowWidth={windowWidth}
               windowHeight={windowHeight}
               gameInfoPanelStyle={gameInfoPanelStyle}
-              spacerStyle={spacerStyle}
+              focusArea={focusArea}
+              gamePanelFocusIndex={gamePanelFocusIndex}
+              offers={storeOffers}
+              loading={storeLoading}
             />
           ) : (
             <GameInfoPanel
