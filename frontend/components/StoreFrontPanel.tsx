@@ -79,7 +79,7 @@ export const StoreFrontPanel = ({
       entering={FadeInDown.duration(400)}
     >
       {/* Spacer calibrado para StoreFront: posiciona las cards en el tercio inferior visible */}
-      <View style={{ height: Math.max(windowHeight * 0.40, 200) }} />
+      <View style={{ height: Math.max(windowHeight * 0.43, 200) }} />
 
 
       {/* Must see / Ofertas */}
@@ -157,8 +157,8 @@ export const StoreFrontPanel = ({
                           position: absolute;
                           top: 50%;
                           left: 50%;
-                          width: 300%;
-                          height: 300%;
+                          width: 200%;
+                          height: 200%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
@@ -355,8 +355,8 @@ export const StoreFrontPanel = ({
                           position: absolute;
                           top: 50%;
                           left: 50%;
-                          width: 300%;
-                          height: 300%;
+                          width: 200%;
+                          height: 200%;
                           animation: wc-spin-border 9.8s linear infinite;
                           
                           background: conic-gradient(
