@@ -51,7 +51,7 @@ export const Spinningborder = ({ size }: SpinningBorderProps) => {
     top: 50%;
     left: 50%;
     width: 300%;
-    height: 300%;
+    height: 500%;
     animation: wc-spin-border 9.8s linear infinite;
     
     background: conic-gradient(
@@ -111,7 +111,7 @@ export const Spinningborder = ({ size }: SpinningBorderProps) => {
           left: 1,
           right: 1,
           bottom: 0,
-          borderRadius: 18,
+          borderRadius: 12,
           zIndex: 5,
           overflow: 'hidden',
         } as any}
