@@ -27,9 +27,9 @@ export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
     price: 'US$45.49',
     originalPrice: 'US$69.99',
     discountPercent: 35,
-    image: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2653090/header.jpg',
+    image: 'https://cdn2.steamgriddb.com/hero_thumb/74c12bbaa74d13c2b891cd7673d61370.jpg',
     type: 'offer',
-    url: 'https://store.playstation.com',
+    url: 'https://www.playstation.com/es-co/games/marvels-spider-man-2/',
   },
   {
     id: 'ghost-of-tsushima',
@@ -55,17 +55,17 @@ export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
     id: 'gta-vi',
     title: 'Grand Theft Auto VI',
     price: 'US$69.99',
-    image: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1174180/header.jpg', // GTA V as visual proxy
+    image: 'https://cdn2.steamgriddb.com/hero/b80be7960918982fceea91afaf4d5e27.png', // GTA V as visual proxy
     type: 'release',
-    url: 'https://store.playstation.com',
+    url: 'https://www.playstation.com/es-co/games/grand-theft-auto-vi/',
   },
   {
     id: 'death-stranding-2',
-    title: 'Death Stranding 2: On The Beach',
+    title: 'Marvel´s Wolverine',
     price: 'US$69.99',
-    image: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1190460/header.jpg', // Death Stranding 1 as visual proxy
+    image: 'https://cdn2.steamgriddb.com/hero_thumb/5fe904eb5337336c64944610132d5e34.jpg', // Death Stranding 1 as visual proxy
     type: 'release',
-    url: 'https://store.playstation.com',
+    url: 'https://www.playstation.com/es-co/games/marvels-wolverine/',
   }
 ];
 
@@ -74,10 +74,10 @@ export const fetchStoreOffers = async (): Promise<StoreOffer[]> => {
     // Si estamos en Electron, preferimos usar el proceso principal para evitar bloqueos de red/CORS
     if ((window as any).electronAPI && (window as any).electronAPI.fetchSteamSpecials) {
       const data = await (window as any).electronAPI.fetchSteamSpecials();
-      
+
       if (data && !data.error) {
         const offers: StoreOffer[] = [];
-        
+
         // 1. Procesar Specials (Ofertas)
         if (data.specials && data.specials.items) {
           const specialsItems = data.specials.items.slice(0, 5);
@@ -96,7 +96,7 @@ export const fetchStoreOffers = async (): Promise<StoreOffer[]> => {
             });
           });
         }
-        
+
         // 2. Procesar Coming Soon o Próximos Lanzamientos
         if (data.coming_soon && data.coming_soon.items) {
           const upcomingItems = data.coming_soon.items.slice(0, 3);
@@ -111,13 +111,13 @@ export const fetchStoreOffers = async (): Promise<StoreOffer[]> => {
             });
           });
         }
-        
+
         if (offers.length > 0) {
           return offers;
         }
       }
     }
-    
+
     // Si no estamos en Electron o el fetch falla, devolvemos el fallback local
     console.log('[StoreService] Usando fallback local para ofertas de PlayStation');
     return LOCAL_FALLBACK_OFFERS;

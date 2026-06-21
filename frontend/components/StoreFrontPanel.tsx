@@ -40,8 +40,8 @@ export const StoreFrontPanel = ({
   const deals = offers.filter((o) => o.type === 'offer');
   const upcoming = offers.filter((o) => o.type === 'release');
 
-  const CARD_W = s(410);
-  const CARD_H = s(130);
+  const CARD_W = s(350);
+  const CARD_H = s(140);
   const CARD_RADIUS = s(0);
 
   return (
@@ -55,8 +55,8 @@ export const StoreFrontPanel = ({
 
       {/* Must see / Ofertas */}
       <Animated.View entering={FadeInDown.duration(400).delay(60)}>
-        <Text style={[styles.sectionTitle, { fontSize: s(18), marginBottom: s(14) }]}>
-          Ofertas destacadas
+        <Text style={[styles.sectionTitle, { fontSize: s(25), marginBottom: s(14) }]}>
+          Debes ver
         </Text>
 
         {loading ? (
@@ -68,7 +68,7 @@ export const StoreFrontPanel = ({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: s(12), paddingRight: s(40) }}
+            contentContainerStyle={{ gap: s(35), paddingRight: s(40) }}
           >
             {deals.map((offer) => (
               <TouchableOpacity
@@ -135,14 +135,14 @@ export const StoreFrontPanel = ({
           entering={FadeInDown.duration(400).delay(120)}
           style={{ marginTop: s(24) }}
         >
-          <Text style={[styles.sectionTitle, { fontSize: s(18), marginBottom: s(14) }]}>
+          <Text style={[styles.sectionTitle, { fontSize: s(25), marginBottom: s(14) }]}>
             Próximos lanzamientos
           </Text>
 
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: s(12), paddingRight: s(40) }}
+            contentContainerStyle={{ gap: s(35), paddingRight: s(40) }}
           >
             {upcoming.map((offer) => (
               <TouchableOpacity
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: '#FFFFFF',
-    fontWeight: '500',
+    fontWeight: '200',
     letterSpacing: 0.2,
   },
   loadingRow: {
