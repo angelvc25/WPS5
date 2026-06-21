@@ -473,7 +473,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
           }
         }}
       >
-        <Ionicons name="power" size={24} color="#FFF" />
+        <Ionicons name="power" size={35} color="#FFF" />
       </TouchableOpacity>
     </View>
   );

@@ -119,11 +119,11 @@ export default function ConsoleHome() {
   const lastNavTime = useRef<number>(0);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
-  // PS5-style card sizing: smaller, square cards like the real PS5
-  const CARD_SIZE = 130;
-  const CARD_GAP = 6;
+  // PS5-style card sizing: responsive based on window dimensions
+  const CARD_SIZE = Math.round(Math.min(Math.max(windowHeight * 0.12, 90), 180));
+  const CARD_GAP = Math.round(Math.max(windowHeight * 0.006, 4));
   const ITEM_WIDTH = CARD_SIZE + CARD_GAP * 2;
-  const LEFT_PADDING = 150;
+  const LEFT_PADDING = Math.round(Math.max(windowWidth * 0.078, 80));
   const RIGHT_PADDING = Math.max(windowWidth - ITEM_WIDTH - LEFT_PADDING, 60);
 
   // States for dynamic data and clock
@@ -332,11 +332,12 @@ export default function ConsoleHome() {
   const carouselStyle = useAnimatedStyle(() => {
     const collapseAnim = Math.max(gamePanelFocusAnim.value, welcomeWidgetsFocusAnim.value);
     const heightCollapse = gamePanelFocusAnim.value;
+    const fullHeight = CARD_SIZE + 80;
     return {
       opacity: 1 - collapseAnim,
       transform: [{ translateY: interpolate(collapseAnim, [0, 1], [0, -20]) }],
-      height: interpolate(heightCollapse, [0, 1], [200, 0]),
-      overflow: 'hidden',
+      height: interpolate(heightCollapse, [0, 1], [fullHeight, 0]),
+      overflow: heightCollapse > 0.01 ? 'hidden' : 'visible',
     };
   });
 

@@ -102,7 +102,7 @@ export const ConsoleCarousel = ({
 
         if (item.id === 'more_library') {
           const libraryContent = (
-            <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0, opacity: 0.8 }]}>
+            <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0, opacity: 0.8, width: CARD_SIZE, height: CARD_SIZE }]}>
               <Image
                 source={require('@/assets/images/Libreria.jpeg')}
                 style={{
@@ -129,7 +129,7 @@ export const ConsoleCarousel = ({
             <AnimatedCardWrapper key={`grid-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                 {isActive && <SpinningBorder size={CARD_SIZE} />}
-                <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
+                <View style={[styles.card, styles.folderCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
                   <View style={styles.folderCardHeader}>
                     <MaterialCommunityIcons name="view-grid" size={14} color="rgba(255,255,255,0.7)" />
                     <Text style={styles.folderCardTitle}> Media</Text>
@@ -157,7 +157,7 @@ export const ConsoleCarousel = ({
             <AnimatedCardWrapper key={`folder-${carouselKey}`} isActive={isActive} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                 {isActive && <SpinningBorder size={CARD_SIZE} />}
-                <View style={[styles.card, styles.folderCard, isActive && styles.cardActive]}>
+                <View style={[styles.card, styles.folderCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
                   <View style={styles.folderCardHeader}>
                     <Ionicons name="heart" size={14} color="rgba(255,100,100,0.9)" />
                     <Text style={styles.folderCardTitle}> Favs</Text>
@@ -185,7 +185,7 @@ export const ConsoleCarousel = ({
             <AnimatedCardWrapper key={`lp-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
                 {isActive && <SpinningBorder size={CARD_SIZE} />}
-                <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive]}>
+                <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
                   <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
                 </BlurView>
               </TouchableOpacity>
@@ -194,7 +194,7 @@ export const ConsoleCarousel = ({
         } else {
           const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
           const cardImage = (
-            <Image source={imgSource} style={[styles.card, isActive && styles.cardActive]} contentFit="cover" />
+            <Image source={imgSource} style={[styles.card, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]} contentFit="cover" />
           );
           cardContent = (
             <AnimatedCardWrapper key={`${item.id}-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
@@ -216,7 +216,7 @@ export const ConsoleCarousel = ({
           >
             {cardContent}
             {isActive && (
-              <Animated.View style={styles.activeLabelContainer} entering={FadeIn.delay(350).duration(450)}>
+              <Animated.View style={[styles.activeLabelContainer, { top: CARD_SIZE, left: Math.round(CARD_SIZE * 1.46) + 20 }]} entering={FadeIn.delay(350).duration(450)}>
                 {item.id !== '1' && item.id !== 'more_library' && (
                   <View style={styles.platformBadge}>
                     <Image source={require('@/assets/images/PS5.png')}
@@ -225,7 +225,7 @@ export const ConsoleCarousel = ({
                     />
                   </View>
                 )}
-                <Text style={styles.activeGameTitle} numberOfLines={1}>
+                <Text style={[styles.activeGameTitle, { fontSize: Math.round(CARD_SIZE * 0.23) }]} numberOfLines={1}>
                   {item.id === 'more_library'
                     ? 'Biblioteca de juegos'
                     : (item.isLastPlayed ? (lastPlayedGame?.title || 'Último Jugado') : item.title)}

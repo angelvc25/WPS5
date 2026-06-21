@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     outlineStyle: 'solid',
     outlineWidth: 2,
-    outlineColor: '#FFFFFF',
+    outlineColor: '#929292ff',
     outlineOffset: 1,
   } as any,
   playBtnTextFocused: {
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     outlineStyle: 'solid',
     outlineWidth: 2,
-    outlineColor: '#FFFFFF',
+    outlineColor: '#929292ff',
     outlineOffset: 1,
   } as any,
   moreBtnTextFocused: {
