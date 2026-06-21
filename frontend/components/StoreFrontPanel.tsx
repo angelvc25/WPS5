@@ -40,7 +40,7 @@ export const StoreFrontPanel = ({
   const s = (v: number) => Math.round(v * scale);
 
   const CARD_W = s(290);
-  const CARD_H = s(140);
+  const CARD_H = s(160);
   const CARD_RADIUS = s(0);
 
   const deals = offers.filter((o) => o.type === 'offer');
@@ -114,8 +114,8 @@ export const StoreFrontPanel = ({
                 {/* Thumbnail */}
                 <Image
                   source={{ uri: offer.image }}
-                  style={[styles.cardImage, { height: 160, borderRadius: CARD_RADIUS }]}
-                  contentFit="contain"
+                  style={[styles.cardImage, { height: CARD_H, borderRadius: CARD_RADIUS }]}
+                  contentFit="cover"
                 />
 
                 {/* Discount badge */}
@@ -192,7 +192,7 @@ export const StoreFrontPanel = ({
               >
                 <Image
                   source={{ uri: offer.image }}
-                  style={[styles.cardImage, { height: 160, borderRadius: CARD_RADIUS }]}
+                  style={[styles.cardImage, { height: CARD_H, borderRadius: CARD_RADIUS }]}
                   contentFit="cover"
                 />
 
