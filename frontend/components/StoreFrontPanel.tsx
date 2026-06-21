@@ -115,7 +115,7 @@ export const StoreFrontPanel = ({
                 <Image
                   source={{ uri: offer.image }}
                   style={[styles.cardImage, { height: CARD_H, borderRadius: CARD_RADIUS }]}
-                  contentFit="cover"
+                  contentFit="contain"
                 />
 
                 {/* Discount badge */}
@@ -193,7 +193,7 @@ export const StoreFrontPanel = ({
                 <Image
                   source={{ uri: offer.image }}
                   style={[styles.cardImage, { height: CARD_H, borderRadius: CARD_RADIUS }]}
-                  contentFit="cover"
+                  contentFit="contain"
                 />
 
                 {/* "Próximamente" badge */}
