@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { exec, spawn } = require('child_process');
+const { exec, spawn, fork } = require('child_process');
 const { pathToFileURL } = require('url');
 const serve = require('electron-serve').default || require('electron-serve');
 
@@ -17,6 +17,49 @@ const IGDB_CLIENT_SECRET = 'q9hm9iq6ahlaccv3osl19a7y71qd3t'; // REEMPLAZAR
 const STEAMGRID_API_KEY = '6abd5716fa6f6cb81eaed8426560c5eb'; // REEMPLAZADO
 let igdbAccessToken = null;
 let mainWindow = null;
+let backendProcess = null;
+
+function startStoreBackend() {
+  if (!app.isPackaged) {
+    return;
+  }
+
+  const backendEntry = path.join(process.resourcesPath, 'backend/src/app.js');
+  const backendCwd = path.join(process.resourcesPath, 'backend');
+
+  if (!fs.existsSync(backendEntry)) {
+    console.warn('[StoreBackend] No se encontró el backend empaquetado en', backendEntry);
+    return;
+  }
+
+  backendProcess = fork(backendEntry, [], {
+    cwd: backendCwd,
+    env: {
+      ...process.env,
+      PORT: process.env.STORE_API_PORT || '3000',
+      ELECTRON_RUN_AS_NODE: '1',
+    },
+    stdio: 'inherit',
+  });
+
+  backendProcess.on('error', (error) => {
+    console.error('[StoreBackend] Error al iniciar:', error);
+  });
+
+  backendProcess.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      console.warn('[StoreBackend] Proceso finalizado con código', code);
+    }
+    backendProcess = null;
+  });
+}
+
+function stopStoreBackend() {
+  if (backendProcess) {
+    backendProcess.kill();
+    backendProcess = null;
+  }
+}
 
 
 
@@ -187,6 +230,7 @@ function getInstalledSteamAppIds() {
 
 app.whenReady().then(() => {
   initDB();
+  startStoreBackend();
 
   // Registrar protocolo personalizado para cargar imágenes locales y videos de forma segura
   // Usamos protocol.handle para mejor soporte en versiones recientes de Electron
@@ -882,5 +926,10 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', function () {
+  stopStoreBackend();
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  stopStoreBackend();
 });

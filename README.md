@@ -31,11 +31,15 @@ Para desarrollo:
 4. **Instalar las dependencias:** (Solo la primera vez)
    npm install
 5. **inciar servidor web:** npm run web
-6. **espere a que se inicie la web:**
-7. **Iniciar la aplicación (Modo Desarrollo):**
+6. **Iniciar API de PlayStation Store (primera vez):**
+   cd ../backend
+   npm install
+   cd ../frontend
+7. **espere a que se inicie la web:**
+8. **Iniciar la aplicación (Modo Desarrollo):**
    npm run electron:dev
 
-*Nota: Esto abrirá tanto el servidor de Expo como la ventana de la aplicación de escritorio.*
+*Nota: `electron:dev` levanta el backend (puerto 3000) y Electron. El panel PlayStation Store consume `GET http://localhost:3000/api/store/deals`.*
 
 ---
 

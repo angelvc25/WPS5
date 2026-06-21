@@ -9,6 +9,10 @@ export interface StoreOffer {
   url: string;
 }
 
+const STORE_API_URL =
+  (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_STORE_API_URL) ||
+  'http://localhost:3000';
+
 // Fallback local con ofertas de PlayStation reales y de alta calidad visual
 export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
   {
@@ -55,7 +59,7 @@ export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
     id: 'gta-vi',
     title: 'Grand Theft Auto VI',
     price: 'US$69.99',
-    image: 'https://cdn2.steamgriddb.com/hero/b80be7960918982fceea91afaf4d5e27.png', // GTA V as visual proxy
+    image: 'https://cdn2.steamgriddb.com/hero/b80be7960918982fceea91afaf4d5e27.png',
     type: 'release',
     url: 'https://www.playstation.com/es-co/games/grand-theft-auto-vi/',
   },
@@ -63,62 +67,63 @@ export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
     id: 'death-stranding-2',
     title: 'Marvel´s Wolverine',
     price: 'US$69.99',
-    image: 'https://cdn2.steamgriddb.com/hero_thumb/5fe904eb5337336c64944610132d5e34.jpg', // Death Stranding 1 as visual proxy
+    image: 'https://cdn2.steamgriddb.com/hero_thumb/5fe904eb5337336c64944610132d5e34.jpg',
     type: 'release',
     url: 'https://www.playstation.com/es-co/games/marvels-wolverine/',
-  }
+  },
 ];
+
+function isValidStoreOffer(value: unknown): value is StoreOffer {
+  if (!value || typeof value !== 'object') return false;
+  const offer = value as StoreOffer;
+  return (
+    typeof offer.id === 'string' &&
+    typeof offer.title === 'string' &&
+    typeof offer.price === 'string' &&
+    typeof offer.image === 'string' &&
+    (offer.type === 'offer' || offer.type === 'release') &&
+    typeof offer.url === 'string'
+  );
+}
+
+async function fetchFromStoreApi(): Promise<StoreOffer[] | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(`${STORE_API_URL}/api/store/deals`, {
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      console.warn('[StoreService] API respondió con error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (!Array.isArray(data) || data.length === 0) {
+      console.warn('[StoreService] API devolvió una lista vacía');
+      return null;
+    }
+
+    const offers = data.filter(isValidStoreOffer);
+    return offers.length > 0 ? offers : null;
+  } catch (error) {
+    console.warn('[StoreService] No se pudo contactar la API de ofertas:', error);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export const fetchStoreOffers = async (): Promise<StoreOffer[]> => {
   try {
-    // Si estamos en Electron, preferimos usar el proceso principal para evitar bloqueos de red/CORS
-    if ((window as any).electronAPI && (window as any).electronAPI.fetchSteamSpecials) {
-      const data = await (window as any).electronAPI.fetchSteamSpecials();
-
-      if (data && !data.error) {
-        const offers: StoreOffer[] = [];
-
-        // 1. Procesar Specials (Ofertas)
-        if (data.specials && data.specials.items) {
-          const specialsItems = data.specials.items.slice(0, 5);
-          specialsItems.forEach((item: any) => {
-            const finalPrice = item.final_price ? `US$${(item.final_price / 100).toFixed(2)}` : 'Ver precio';
-            const originalPrice = item.original_price ? `US$${(item.original_price / 100).toFixed(2)}` : undefined;
-            offers.push({
-              id: `steam-offer-${item.id}`,
-              title: item.name,
-              price: finalPrice,
-              originalPrice,
-              discountPercent: item.discount_percent || undefined,
-              image: item.header_image || `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${item.id}/header.jpg`,
-              type: 'offer',
-              url: `https://store.playstation.com`, // Siempre enrutar al store de Playstation ya que es WPS5
-            });
-          });
-        }
-
-        // 2. Procesar Coming Soon o Próximos Lanzamientos
-        if (data.coming_soon && data.coming_soon.items) {
-          const upcomingItems = data.coming_soon.items.slice(0, 3);
-          upcomingItems.forEach((item: any) => {
-            offers.push({
-              id: `steam-release-${item.id}`,
-              title: item.name,
-              price: item.price ? `US$${(item.price / 100).toFixed(2)}` : 'Próximamente',
-              image: item.header_image || `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${item.id}/header.jpg`,
-              type: 'release',
-              url: `https://store.playstation.com`,
-            });
-          });
-        }
-
-        if (offers.length > 0) {
-          return offers;
-        }
-      }
+    const offers = await fetchFromStoreApi();
+    if (offers) {
+      return offers;
     }
 
-    // Si no estamos en Electron o el fetch falla, devolvemos el fallback local
     console.log('[StoreService] Usando fallback local para ofertas de PlayStation');
     return LOCAL_FALLBACK_OFFERS;
   } catch (error) {

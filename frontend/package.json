@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "electron:start": "electron electron/main.js",
-    "electron:dev": "concurrently \"npm run electron:start\"",
+    "backend:dev": "npm --prefix ../backend run dev",
+    "electron:dev": "concurrently \"npm run backend:dev\" \"npm run electron:start\"",
     "electron:build": "expo export -p web && electron-builder",
     "sync-music": "node scripts/sync-music.mjs"
   },
@@ -67,6 +68,13 @@
     "directories": {
       "output": "dist-electron"
     },
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": ["**/*"]
+      }
+    ],
     "files": [
       "dist/**/*",
       "electron/**/*",
