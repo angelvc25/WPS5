@@ -34,6 +34,7 @@ import ProfileDropdownMenu from '@/components/ProfileDropdownMenu';
 import ConsoleCarousel from '@/components/ConsoleCarousel';
 import WelcomeWidgets from '@/components/WelcomeWidgets';
 import GameInfoPanel from '@/components/GameInfoPanel';
+import StoreFrontPanel from '@/components/StoreFrontPanel';
 
 const TABS = ['Games', 'Media'];
 var Wview: string = 'block';
@@ -2088,6 +2089,13 @@ export default function ConsoleHome() {
                 />
               </Animated.View>
             </Animated.View>
+          ) : activeItem?.id === '5' ? (
+            <StoreFrontPanel
+              windowWidth={windowWidth}
+              windowHeight={windowHeight}
+              gameInfoPanelStyle={gameInfoPanelStyle}
+              spacerStyle={spacerStyle}
+            />
           ) : (
             <GameInfoPanel
               activeItem={activeItem}

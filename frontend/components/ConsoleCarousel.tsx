@@ -217,7 +217,7 @@ export const ConsoleCarousel = ({
             {cardContent}
             {isActive && (
               <Animated.View style={[styles.activeLabelContainer, { top: CARD_SIZE, left: Math.round(CARD_SIZE * 1.46) + 20 }]} entering={FadeIn.delay(350).duration(450)}>
-                {item.id !== '1' && item.id !== 'more_library' && (
+                {item.id !== '1' && item.id !== '5' && item.id !== 'more_library' && (
                   <View style={styles.platformBadge}>
                     <Image source={require('@/assets/images/PS5.png')}
                       style={{ width: 60, height: 60 }}
