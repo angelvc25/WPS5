@@ -39,7 +39,7 @@ export const StoreFrontPanel = ({
   const scale = Math.min(Math.max(windowHeight / 1080, 0.6), 1);
   const s = (v: number) => Math.round(v * scale);
 
-  const CARD_W = s(350);
+  const CARD_W = s(290);
   const CARD_H = s(140);
   const CARD_RADIUS = s(0);
 
@@ -114,8 +114,8 @@ export const StoreFrontPanel = ({
                 {/* Thumbnail */}
                 <Image
                   source={{ uri: offer.image }}
-                  style={[styles.cardImage, { height: CARD_H, borderRadius: CARD_RADIUS }]}
-                  contentFit="cover"
+                  style={[styles.cardImage, { height: 160, borderRadius: CARD_RADIUS }]}
+                  contentFit="contain"
                 />
 
                 {/* Discount badge */}
@@ -192,7 +192,7 @@ export const StoreFrontPanel = ({
               >
                 <Image
                   source={{ uri: offer.image }}
-                  style={[styles.cardImage, { height: CARD_H, borderRadius: CARD_RADIUS }]}
+                  style={[styles.cardImage, { height: 160, borderRadius: CARD_RADIUS }]}
                   contentFit="cover"
                 />
 
