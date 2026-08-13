@@ -770,6 +770,27 @@ function AnimatedCard({
                 />
               )}
 
+              {/* {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
+                      linear-gradient(
+                        0deg,
+                        rgba(207, 241, 253, 0.14) 0%,
+                        rgba(207, 240, 255, 0.06) 35%,
+                        rgba(255, 255, 255, 0.02) 50%,
+                        rgba(255, 255, 255, 0.00) 65%,
+                        rgba(0, 0, 0, 0) 100%
+                      )
+                    `,
+                    pointerEvents: 'none',
+                    zIndex: 1,
+                  }}
+                />
+              )} */}
+
               {/* Card content */}
               {isExpanded && card.type === 'news' ? (
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(23, 23, 30, 1)' }]}>
@@ -850,6 +871,28 @@ function AnimatedCard({
           />
         )}
       </TouchableOpacity>
+
+      {Platform.OS === 'web' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: `
+                      linear-gradient(
+                        0deg,
+                        rgba(207, 241, 253, 0.14) 0%,
+                        rgba(207, 240, 255, 0.06) 35%,
+                        rgba(255, 255, 255, 0.02) 50%,
+                        rgba(255, 255, 255, 0.00) 65%,
+                        rgba(0, 0, 0, 0) 100%
+                      )
+                    `,
+            pointerEvents: 'none',
+            zIndex: 1,
+            borderRadius: 16,
+          }}
+        />
+      )}
 
       {/* Capture Fullscreen Modal */}
       <Modal visible={isCaptureModalVisible} transparent animationType="fade">
