@@ -18,6 +18,7 @@ const IGDB_CLIENT_SECRET = 'q9hm9iq6ahlaccv3osl19a7y71qd3t'; // REEMPLAZAR
 const STEAMGRID_API_KEY = '6abd5716fa6f6cb81eaed8426560c5eb'; // REEMPLAZADO
 let igdbAccessToken = null;
 let mainWindow = null;
+let webMediaWindow = null;
 let backendProcess = null;
 
 const THUMB_CACHE_DIR = path.join(app.getPath('userData'), 'thumbnail-cache');
@@ -137,6 +138,8 @@ function createWindow() {
     },
   });
 
+  attachExternalLinkHandlers(mainWindow);
+
   // Determinar si estamos en modo desarrollo o producción
   const isDev = !app.isPackaged;
 
@@ -188,6 +191,152 @@ function injectMediaToBase64(item) {
     } catch (e) { console.error('Error leyendo logo', e); }
   }
   return newItem;
+}
+
+function isHttpUrl(url) {
+  return typeof url === 'string' && /^https?:\/\//i.test(url);
+}
+
+function shouldOpenInDefaultBrowser(targetUrl, currentUrl) {
+  if (!isHttpUrl(targetUrl)) return false;
+  try {
+    if (!currentUrl) return true;
+    const target = new URL(targetUrl);
+    const current = new URL(currentUrl);
+    return target.origin !== current.origin;
+  } catch {
+    return true;
+  }
+}
+
+function isYouTubeUrl(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtu.be' || host.endsWith('.youtu.be');
+  } catch {
+    return false;
+  }
+}
+
+function shouldLaunchWebFullscreen(executablePath, appRecord) {
+  if (!isHttpUrl(executablePath)) return false;
+  if (appRecord?.type === 'web') return true;
+  return isYouTubeUrl(executablePath);
+}
+
+function getWebBrowserProfileDir() {
+  const profileDir = path.join(app.getPath('userData'), 'web-browser-profile');
+  if (!fs.existsSync(profileDir)) {
+    fs.mkdirSync(profileDir, { recursive: true });
+  }
+  return profileDir;
+}
+
+function tryLaunchBrowserFullscreen(url) {
+  // Perfil dedicado: si Chrome/Edge ya está abierto, los flags se ignoran sin --user-data-dir
+  const profileDir = getWebBrowserProfileDir();
+  const args = [
+    `--user-data-dir=${profileDir}`,
+    `--app=${url}`,
+    '--kiosk',
+    '--no-first-run',
+    '--no-default-browser-check',
+  ];
+
+  if (process.platform === 'win32') {
+    const browserPaths = [
+      path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    ];
+
+    for (const browserPath of browserPaths) {
+      if (browserPath && fs.existsSync(browserPath)) {
+        spawn(browserPath, args, { detached: true, stdio: 'ignore' }).unref();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  if (process.platform === 'darwin') {
+    const browserPaths = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    ];
+
+    for (const browserPath of browserPaths) {
+      if (fs.existsSync(browserPath)) {
+        spawn(browserPath, args, { detached: true, stdio: 'ignore' }).unref();
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function openElectronWebFullscreen(url) {
+  if (webMediaWindow && !webMediaWindow.isDestroyed()) {
+    webMediaWindow.close();
+  }
+
+  webMediaWindow = new BrowserWindow({
+    show: false,
+    fullscreen: true,
+    autoHideMenuBar: true,
+    backgroundColor: '#000000',
+    icon: path.join(__dirname, '../assets/images/ps5.ico'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  attachExternalLinkHandlers(webMediaWindow);
+  webMediaWindow.once('ready-to-show', () => {
+    webMediaWindow.setFullScreen(true);
+    webMediaWindow.show();
+  });
+  webMediaWindow.webContents.on('did-finish-load', () => {
+    if (webMediaWindow && !webMediaWindow.isDestroyed()) {
+      webMediaWindow.setFullScreen(true);
+    }
+  });
+  webMediaWindow.loadURL(url);
+  webMediaWindow.on('closed', () => {
+    webMediaWindow = null;
+  });
+}
+
+function openWebMediaFullscreen(url) {
+  if (tryLaunchBrowserFullscreen(url)) {
+    console.log('Web media abierto en navegador a pantalla completa:', url);
+    return;
+  }
+  console.log('Navegador no encontrado, usando ventana Electron a pantalla completa:', url);
+  openElectronWebFullscreen(url);
+}
+
+function attachExternalLinkHandlers(win) {
+  const wc = win.webContents;
+
+  wc.setWindowOpenHandler(({ url }) => {
+    if (shouldOpenInDefaultBrowser(url, wc.getURL())) {
+      shell.openExternal(url).catch(console.error);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
+  });
+
+  wc.on('will-navigate', (event, url) => {
+    if (shouldOpenInDefaultBrowser(url, wc.getURL())) {
+      event.preventDefault();
+      shell.openExternal(url).catch(console.error);
+    }
+  });
 }
 
 function getSteamInstallPath() {
@@ -459,6 +608,8 @@ app.whenReady().then(() => {
   ipcMain.handle('launch-app', async (event, id, executablePath) => {
     if (!executablePath) return;
 
+    let appRecord = null;
+
     // Actualizar timestamp de último juego en la DB si el id existe
     if (id && id !== 'last_played') {
       console.log('Actualizando lastPlayed para:', id);
@@ -466,6 +617,7 @@ app.whenReady().then(() => {
       const updateInList = (list) => {
         const item = list.find(i => i.id === id);
         if (item) {
+          appRecord = item;
           item.lastPlayed = Date.now();
           console.log('Timestamp actualizado para:', item.title);
           return true;
@@ -483,8 +635,12 @@ app.whenReady().then(() => {
 
     const lowerPath = executablePath.toLowerCase();
 
-    // URLs y protocolos (http://, steam://, epic://, etc.): abrir sin suspender
+    // URLs y protocolos (http://, steam://, epic://, etc.)
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(executablePath)) {
+      if (shouldLaunchWebFullscreen(executablePath, appRecord)) {
+        openWebMediaFullscreen(executablePath);
+        return { success: true, suspended: false, fullscreen: true };
+      }
       shell.openExternal(executablePath).catch(console.error);
       return { success: true, suspended: false };
     }
@@ -899,6 +1055,19 @@ app.whenReady().then(() => {
   });
 
   // IPC: Abrir carpeta de capturas
+  ipcMain.handle('open-external-url', async (event, url) => {
+    if (!isHttpUrl(url)) {
+      return { success: false, error: 'URL no válida' };
+    }
+    try {
+      await shell.openExternal(url);
+      return { success: true };
+    } catch (error) {
+      console.error('Error abriendo URL externa:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('open-screenshots', async () => {
     const picturesPath = app.getPath('pictures');
     const screenshotsPath = path.join(picturesPath, 'Screenshots');

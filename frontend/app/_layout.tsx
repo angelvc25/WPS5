@@ -2,7 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Linking, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -15,6 +15,7 @@ import Animated, {
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import { UserContext } from '@/contexts/UserContext';
+import { openWebLink } from '@/services/linkService';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -28,6 +29,23 @@ export default function RootLayout() {
   // Valores compartidos de Reanimated
   const splashOpacity = useSharedValue(1);
   const logoScale = useSharedValue(0.3); // Inicia pequeño para el efecto de entrada
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !(window as any).electronAPI?.openExternalUrl) return;
+
+    const defaultOpen = Linking.openURL.bind(Linking);
+    Linking.openURL = async (url: string) => {
+      if (/^https?:\/\//i.test(url)) {
+        try {
+          await openWebLink(url);
+          return;
+        } catch {
+          // fallback below
+        }
+      }
+      return defaultOpen(url);
+    };
+  }, []);
 
   useEffect(() => {
     // 1. Animación de Entrada: El logo aparece con un rebote premium (efecto consola)

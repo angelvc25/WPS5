@@ -1563,7 +1563,11 @@ export default function ConsoleHome() {
       return;
     }
     if (launchPath.startsWith('http')) {
-      Linking.openURL(launchPath);
+      if (Platform.OS === 'web' && (window as any).electronAPI) {
+        (window as any).electronAPI.launchApp(targetItem.id, launchPath).then(() => loadApps());
+      } else {
+        Linking.openURL(launchPath);
+      }
       return;
     }
     if (Platform.OS === 'web' && (window as any).electronAPI) {

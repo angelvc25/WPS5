@@ -25,6 +25,7 @@ import SpinningBorder from './Spinningborder';
 import SpinningBorderNoticias from './SpinningborderNoticias';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 import { useUser } from '../contexts/UserContext';
+import { openWebLink } from '@/services/linkService';
 
 interface CardData {
   id: string;
@@ -251,7 +252,7 @@ function AnimatedCard({
         if (card.type === 'capture') {
           setCaptureModalVisible(prev => !prev);
         } else if (card.type === 'news' && realNews.length > 0 && realNews[focusedNewsIndex]?.url) {
-          window.open(realNews[focusedNewsIndex].url, '_blank');
+          openWebLink(realNews[focusedNewsIndex].url);
         }
       } else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
         if (card.type === 'capture' && isCaptureModalVisible) {
