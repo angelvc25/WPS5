@@ -21,8 +21,9 @@ let mainWindow = null;
 let backendProcess = null;
 
 const THUMB_CACHE_DIR = path.join(app.getPath('userData'), 'thumbnail-cache');
-const THUMB_MAX_WIDTH = 400;
-const THUMB_JPEG_QUALITY = 62;
+// Ajusta calidad vs. rendimiento: más ancho = más nitidez en tiles grandes; quality 1-100
+const THUMB_MAX_WIDTH = 640;
+const THUMB_JPEG_QUALITY = 78;
 
 function ensureThumbCacheDir() {
   if (!fs.existsSync(THUMB_CACHE_DIR)) {
@@ -54,7 +55,7 @@ function getOrCreateThumbnail(sourcePath, mtimeMs) {
     let thumb = img;
     if (width > THUMB_MAX_WIDTH) {
       const targetH = Math.max(1, Math.round(height * (THUMB_MAX_WIDTH / width)));
-      thumb = img.resize({ width: THUMB_MAX_WIDTH, height: targetH, quality: 'good' });
+      thumb = img.resize({ width: THUMB_MAX_WIDTH, height: targetH, quality: 'best' });
     }
 
     fs.writeFileSync(cachePath, thumb.toJPEG(THUMB_JPEG_QUALITY));
