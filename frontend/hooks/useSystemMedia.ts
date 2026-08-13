@@ -24,9 +24,16 @@ export function useSystemMedia() {
       if (mounted) setSessions(list);
     });
 
+    const poll = setInterval(() => {
+      fetchMediaSessions().then((list) => {
+        if (mounted) setSessions(list);
+      });
+    }, 3000);
+
     return () => {
       mounted = false;
       unsubscribe();
+      clearInterval(poll);
     };
   }, []);
 

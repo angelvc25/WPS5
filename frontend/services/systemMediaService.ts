@@ -60,15 +60,21 @@ function normalizeSession(raw: RawMediaSession): SystemMediaSession {
 export function pickNowPlayingSession(
   sessions: SystemMediaSession[],
 ): SystemMediaSession | null {
-  const visible = sessions.filter(
-    (s) =>
-      (s.playbackStatus === 'playing' || s.playbackStatus === 'paused') &&
-      (s.title || s.thumbnail),
-  );
+  const visible = sessions.filter((s) => {
+    const isActive =
+      s.playbackStatus === 'playing'
+      || s.playbackStatus === 'paused'
+      || s.playbackStatus === 'opened';
+    const hasMeta = Boolean(s.title?.trim() || s.thumbnail || s.artist?.trim());
+    return isActive && hasMeta;
+  });
   if (visible.length === 0) return null;
 
   const playing = visible.find((s) => s.playbackStatus === 'playing');
-  return playing ?? visible[0];
+  if (playing) return playing;
+
+  const opened = visible.find((s) => s.playbackStatus === 'opened');
+  return opened ?? visible[0];
 }
 
 export function formatMediaTime(ms: number): string {
@@ -122,6 +128,9 @@ export function getAppIconName(appName: string): {
   const lower = appName.toLowerCase();
   if (lower.includes('spotify')) {
     return { vendor: 'material', name: 'spotify', color: '#fff', bg: '#1DB954' };
+  }
+  if (lower.includes('youtube')) {
+    return { vendor: 'material', name: 'youtube', color: '#fff', bg: '#FF0000' };
   }
   if (lower.includes('firefox')) {
     return { vendor: 'material', name: 'firefox', color: '#fff', bg: '#FF7139' };

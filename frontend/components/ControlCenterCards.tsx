@@ -1071,8 +1071,20 @@ export default function ControlCenterCards({
   const { nowPlaying } = useSystemMedia();
 
   const cardsToShow = React.useMemo(() => {
+    const nowPlayingCard: CardData | null = nowPlaying
+      ? {
+          id: 'now-playing',
+          title: nowPlaying.title,
+          subtitle: `Reproduciendo en ${nowPlaying.appName}`,
+          icon: 'musical-notes',
+          imageUri: nowPlaying.thumbnail,
+          type: 'nowPlaying',
+          mediaSession: nowPlaying,
+        }
+      : null;
+
     if (activeNavIndex === 5) {
-      return [
+      const cards: CardData[] = [
         {
           id: 'add-game',
           title: 'Agrega un juego instalado de tu PC',
@@ -1081,20 +1093,11 @@ export default function ControlCenterCards({
           type: 'addGame' as const,
         },
       ];
+      return nowPlayingCard ? [nowPlayingCard, ...cards] : cards;
     }
 
     const cards: CardData[] = [];
-    if (nowPlaying) {
-      cards.push({
-        id: 'now-playing',
-        title: nowPlaying.title,
-        subtitle: `Reproduciendo en ${nowPlaying.appName}`,
-        icon: 'musical-notes',
-        imageUri: nowPlaying.thumbnail,
-        type: 'nowPlaying',
-        mediaSession: nowPlaying,
-      });
-    }
+    if (nowPlayingCard) cards.push(nowPlayingCard);
     return [...cards, ...MOCK_CARDS];
   }, [activeNavIndex, nowPlaying]);
 

@@ -23,6 +23,31 @@ let toastOverlayWindow = null;
 let toastOverlayTimer = null;
 let backendProcess = null;
 let mediaSessionsUnsubscribe = null;
+let mediaSessionsPollTimer = null;
+let wps5WebMediaHint = null;
+let windowsMediaSessionsModule = null;
+
+const WINDOWS_MEDIA_SESSIONS_PATH = path.join(__dirname, '..', 'node_modules', 'windows-media-sessions');
+
+function getWindowsMediaSessionsModule() {
+  if (windowsMediaSessionsModule) return windowsMediaSessionsModule;
+
+  const candidates = [
+    WINDOWS_MEDIA_SESSIONS_PATH,
+    'windows-media-sessions',
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      windowsMediaSessionsModule = require(candidate);
+      return windowsMediaSessionsModule;
+    } catch (_) {
+      // try next candidate
+    }
+  }
+
+  return null;
+}
 
 /** VK codes for global media keys on Windows */
 const MEDIA_KEY_CODES = {
@@ -47,38 +72,139 @@ function sendWindowsMediaKey(vkCode) {
   exec(`powershell -NoProfile -Command "${script.replace(/"/g, '\\"')}"`, () => {});
 }
 
-function startMediaSessionsBridge() {
-  if (process.platform !== 'win32') return;
+function isMediaBrowserName(name) {
+  const lower = (name || '').toLowerCase();
+  return (
+    lower.includes('chrome')
+    || lower.includes('edge')
+    || lower.includes('firefox')
+    || lower.includes('spotify')
+    || lower.includes('groove')
+    || lower.includes('youtube')
+  );
+}
 
-  try {
-    const { onSessionsChanged, getAllSessions } = require('windows-media-sessions');
+function resolveAppRecordThumbnail(appRecord) {
+  if (!appRecord?.image || typeof appRecord.image !== 'string') return undefined;
+  if (/^https?:\/\//i.test(appRecord.image)) return appRecord.image;
+  if (fs.existsSync(appRecord.image)) return toLocalFileUri(appRecord.image);
+  return undefined;
+}
 
-    const broadcast = (sessions) => {
+function setWps5WebMediaHint(appRecord, url) {
+  const title = appRecord?.title?.trim()
+    || (isYouTubeUrl(url) ? 'YouTube' : 'Multimedia');
+  const appLabel = isYouTubeUrl(url) ? 'YouTube' : (appRecord?.platform || title);
+
+  wps5WebMediaHint = {
+    id: 'wps5-web-media-hint',
+    sourceAppUserModelId: 'wps5.web.launcher',
+    sourceAppDisplayName: isYouTubeUrl(url) ? 'Google Chrome' : appLabel,
+    title,
+    artist: appLabel,
+    thumbnail: resolveAppRecordThumbnail(appRecord),
+    playbackStatus: 'playing',
+    timeline: { positionMs: 0, durationMs: 0 },
+    controls: {
+      canPlay: true,
+      canPause: true,
+      canSkipNext: true,
+      canSkipPrevious: true,
+    },
+    launchedAt: Date.now(),
+  };
+
+  broadcastMediaSessions();
+}
+
+function clearWps5WebMediaHintIfMatched(sessions) {
+  if (!wps5WebMediaHint) return;
+
+  const hasBrowserSession = sessions.some((session) => {
+    const status = session.playbackStatus;
+    const isActive = status === 'playing' || status === 'paused' || status === 'opened';
+    return isActive && isMediaBrowserName(session.sourceAppDisplayName || session.sourceAppUserModelId);
+  });
+
+  if (hasBrowserSession) {
+    wps5WebMediaHint = null;
+  }
+}
+
+async function fetchMediaSessionsForRenderer() {
+  let sessions = [];
+  const mediaModule = getWindowsMediaSessionsModule();
+
+  if (process.platform === 'win32' && mediaModule?.getAllSessions) {
+    try {
+      sessions = await mediaModule.getAllSessions();
+      clearWps5WebMediaHintIfMatched(sessions);
+    } catch (err) {
+      console.warn('[MediaSessions] fetch:', err.message);
+    }
+  }
+
+  if (wps5WebMediaHint) {
+    const alreadyPresent = sessions.some((session) => session.id === wps5WebMediaHint.id);
+    if (!alreadyPresent) {
+      sessions = [wps5WebMediaHint, ...sessions];
+    }
+  }
+
+  return sessions;
+}
+
+function broadcastMediaSessions() {
+  fetchMediaSessionsForRenderer()
+    .then((sessions) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('media-sessions-changed', sessions);
       }
-    };
-
-    getAllSessions().then(broadcast).catch((err) => {
-      console.warn('[MediaSessions] Error al obtener sesiones iniciales:', err.message);
+    })
+    .catch((err) => {
+      console.warn('[MediaSessions] broadcast:', err.message);
     });
+}
 
-    mediaSessionsUnsubscribe = onSessionsChanged(broadcast);
+function startMediaSessionsBridge() {
+  if (process.platform !== 'win32') return;
+
+  const mediaModule = getWindowsMediaSessionsModule();
+  if (!mediaModule) {
+    console.warn(
+      '[MediaSessions] Paquete no instalado. Ejecuta: npm install windows-media-sessions',
+    );
+    mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 2500);
+    return;
+  }
+
+  try {
+    broadcastMediaSessions();
+    if (mediaModule.onSessionsChanged) {
+      mediaSessionsUnsubscribe = mediaModule.onSessionsChanged(() => {
+        broadcastMediaSessions();
+      });
+    }
+    mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 2500);
   } catch (err) {
     console.warn('[MediaSessions] No disponible:', err.message);
+    mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 2500);
   }
 }
 
 function stopMediaSessionsBridge() {
+  if (mediaSessionsPollTimer) {
+    clearInterval(mediaSessionsPollTimer);
+    mediaSessionsPollTimer = null;
+  }
   if (mediaSessionsUnsubscribe) {
     mediaSessionsUnsubscribe();
     mediaSessionsUnsubscribe = null;
   }
-  if (process.platform === 'win32') {
-    try {
-      const { shutdown } = require('windows-media-sessions');
-      shutdown().catch(() => {});
-    } catch (_) { /* ignore */ }
+
+  const mediaModule = getWindowsMediaSessionsModule();
+  if (mediaModule?.shutdown) {
+    mediaModule.shutdown().catch(() => {});
   }
 }
 
@@ -200,6 +326,9 @@ function createWindow() {
   });
 
   attachExternalLinkHandlers(mainWindow);
+  mainWindow.webContents.on('did-finish-load', () => {
+    broadcastMediaSessions();
+  });
 
   // Determinar si estamos en modo desarrollo o producción
   const isDev = !app.isPackaged;
@@ -831,6 +960,7 @@ app.whenReady().then(() => {
     // URLs y protocolos (http://, steam://, epic://, etc.)
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(executablePath)) {
       if (shouldLaunchWebFullscreen(executablePath, appRecord)) {
+        setWps5WebMediaHint(appRecord, executablePath);
         openWebMediaFullscreen(executablePath);
         return { success: true, suspended: false, fullscreen: true };
       }
@@ -1216,13 +1346,11 @@ app.whenReady().then(() => {
 
 
   ipcMain.handle('get-media-sessions', async () => {
-    if (process.platform !== 'win32') return [];
     try {
-      const { getAllSessions } = require('windows-media-sessions');
-      return await getAllSessions();
+      return await fetchMediaSessionsForRenderer();
     } catch (err) {
       console.warn('[MediaSessions] get-media-sessions:', err.message);
-      return [];
+      return wps5WebMediaHint ? [wps5WebMediaHint] : [];
     }
   });
 
