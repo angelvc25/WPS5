@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -19,6 +19,8 @@ const STEAMGRID_API_KEY = '6abd5716fa6f6cb81eaed8426560c5eb'; // REEMPLAZADO
 let igdbAccessToken = null;
 let mainWindow = null;
 let webMediaWindow = null;
+let toastOverlayWindow = null;
+let toastOverlayTimer = null;
 let backendProcess = null;
 
 const THUMB_CACHE_DIR = path.join(app.getPath('userData'), 'thumbnail-cache');
@@ -314,10 +316,141 @@ function openElectronWebFullscreen(url) {
 function openWebMediaFullscreen(url) {
   if (tryLaunchBrowserFullscreen(url)) {
     console.log('Web media abierto en navegador a pantalla completa:', url);
+    setTimeout(showWebMediaCloseToast, 700);
     return;
   }
   console.log('Navegador no encontrado, usando ventana Electron a pantalla completa:', url);
   openElectronWebFullscreen(url);
+  setTimeout(showWebMediaCloseToast, 700);
+}
+
+function showWebMediaCloseToast() {
+  if (toastOverlayTimer) {
+    clearTimeout(toastOverlayTimer);
+    toastOverlayTimer = null;
+  }
+  if (toastOverlayWindow && !toastOverlayWindow.isDestroyed()) {
+    toastOverlayWindow.close();
+  }
+
+  const display = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = display.workAreaSize;
+  const toastWidth = 420;
+  const toastHeight = 60;
+  const marginBottom = 52;
+
+  toastOverlayWindow = new BrowserWindow({
+    width: toastWidth,
+    height: toastHeight,
+    x: Math.round(display.workArea.x + (screenWidth - toastWidth) / 2),
+    y: Math.round(display.workArea.y + screenHeight - toastHeight - marginBottom),
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    focusable: false,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    hasShadow: false,
+    show: false,
+    ...(process.platform === 'win32' ? { type: 'toolbar' } : {}),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  toastOverlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  toastOverlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  .toast {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+    background: rgba(18, 18, 20, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+    animation: slideUp 0.35s ease-out;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .icon {
+    color: #60A5FA;
+    font-size: 18px;
+    line-height: 1;
+    font-weight: 700;
+  }
+  .keys { display: flex; align-items: center; gap: 6px; }
+  .key {
+    background: #2A2A2E;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 5px 10px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .plus { color: rgba(255, 255, 255, 0.5); font-size: 14px; font-weight: 600; }
+  .label { color: rgba(255, 255, 255, 0.85); font-size: 14px; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="toast">
+    <span class="icon">i</span>
+    <div class="keys">
+      <span class="key">ALT</span>
+      <span class="plus">+</span>
+      <span class="key">F4</span>
+    </div>
+    <span class="label">para cerrar</span>
+  </div>
+</body>
+</html>`;
+
+  toastOverlayWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+  toastOverlayWindow.once('ready-to-show', () => {
+    if (toastOverlayWindow && !toastOverlayWindow.isDestroyed()) {
+      toastOverlayWindow.showInactive();
+    }
+  });
+
+  toastOverlayTimer = setTimeout(() => {
+    if (toastOverlayWindow && !toastOverlayWindow.isDestroyed()) {
+      toastOverlayWindow.close();
+    }
+    toastOverlayWindow = null;
+    toastOverlayTimer = null;
+  }, 5000);
+
+  toastOverlayWindow.on('closed', () => {
+    toastOverlayWindow = null;
+    if (toastOverlayTimer) {
+      clearTimeout(toastOverlayTimer);
+      toastOverlayTimer = null;
+    }
+  });
 }
 
 function attachExternalLinkHandlers(win) {

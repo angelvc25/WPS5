@@ -16,6 +16,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import { UserContext } from '@/contexts/UserContext';
 import { openWebLink } from '@/services/linkService';
+import ToastHost from '@/components/ToastHost';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -146,6 +147,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
+        <ToastHost />
         <StatusBar style="auto" />
       </ThemeProvider>
     </UserContext.Provider>
