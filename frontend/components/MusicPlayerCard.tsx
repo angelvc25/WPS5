@@ -40,6 +40,17 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import staticTracks, { Track as StaticTrack } from '@/constants/tracks';
+import { useSystemMedia } from '@/hooks/useSystemMedia';
+import {
+  formatMediaTime,
+  getAppIconName,
+  sendMediaControl,
+  getMediaControlTarget,
+} from '@/services/systemMediaService';
+import { soundService } from '@/services/soundService';
+
+type MediaControlAction = 'prev' | 'play_pause' | 'next';
+const MEDIA_CONTROLS: MediaControlAction[] = ['prev', 'play_pause', 'next'];
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -95,6 +106,12 @@ function staticToRuntime(t: StaticTrack, index: number): RuntimeTrack {
     color: t.color ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length],
     userAdded: false,
   };
+}
+
+function getAccentFromApp(appName: string) {
+  const icon = getAppIconName(appName);
+  if (icon.bg === 'rgba(255,255,255,0.92)') return '#1DB954';
+  return icon.bg;
 }
 
 // ─── Persistencia ─────────────────────────────────────────────────────────────
@@ -183,6 +200,9 @@ async function importAudioFile(existingCount: number): Promise<RuntimeTrack | nu
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardProps) {
   const soundRef = useRef<Audio.Sound | null>(null);
+  const { nowPlaying } = useSystemMedia();
+  const systemActive = Boolean(nowPlaying);
+  const systemTarget = getMediaControlTarget(nowPlaying);
 
   const [allTracks, setAllTracks] = useState<RuntimeTrack[]>([]);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -192,8 +212,54 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
   const [isLoading, setIsLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [showList, setShowList] = useState(false);
+  const [controlFocusIndex, setControlFocusIndex] = useState(1);
 
   const track = allTracks[trackIndex];
+
+  useEffect(() => {
+    if (isFocused) setControlFocusIndex(1);
+  }, [isFocused]);
+
+  useEffect(() => {
+    if (!isFocused || Platform.OS !== 'web') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        e.stopPropagation();
+        setControlFocusIndex((prev) => Math.max(0, prev - 1));
+        soundService.playNavigation();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        e.stopPropagation();
+        setControlFocusIndex((prev) => Math.min(MEDIA_CONTROLS.length - 1, prev + 1));
+        soundService.playNavigation();
+      } else if (e.key === 'Enter' || e.key === 'x' || e.key === 'X') {
+        e.preventDefault();
+        e.stopPropagation();
+        soundService.playActivation?.();
+        const action = MEDIA_CONTROLS[controlFocusIndex];
+        if (systemActive) {
+          void sendMediaControl(action, systemTarget);
+        } else if (action === 'prev') {
+          void skipPrev();
+        } else if (action === 'next') {
+          void skipNext();
+        } else {
+          void togglePlay();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isFocused, controlFocusIndex, systemActive, systemTarget]);
+
+  useEffect(() => {
+    if (!systemActive || !soundRef.current) return;
+    soundRef.current.pauseAsync().catch(() => {});
+    setIsPlaying(false);
+  }, [systemActive, nowPlaying?.id]);
 
   // ── Cargar tracks al montar ────────────────────────────────────────────────
   useEffect(() => {
@@ -213,7 +279,7 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
 
   // ── Cargar audio cuando cambia el track ───────────────────────────────────
   useEffect(() => {
-    if (!track) return;
+    if (systemActive || !track) return;
     let cancelled = false;
 
     const load = async () => {
@@ -249,7 +315,7 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
     load();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackIndex, allTracks]);
+  }, [trackIndex, allTracks, systemActive]);
 
   const onStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) return;
@@ -263,6 +329,10 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
 
   // ── Controles de reproducción ─────────────────────────────────────────────
   const togglePlay = async () => {
+    if (systemActive) {
+      await sendMediaControl('play_pause', systemTarget);
+      return;
+    }
     if (!soundRef.current) return;
     try {
       if (isPlaying) {
@@ -275,10 +345,19 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
     }
   };
 
-  const skipNext = () =>
+  const skipNext = async () => {
+    if (systemActive) {
+      await sendMediaControl('next', systemTarget);
+      return;
+    }
     setTrackIndex(i => (i + 1) % allTracks.length);
+  };
 
   const skipPrev = async () => {
+    if (systemActive) {
+      await sendMediaControl('prev', systemTarget);
+      return;
+    }
     if (positionMs > 3000) {
       try {
         await soundRef.current?.setPositionAsync(0);
@@ -323,22 +402,55 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
 
   // ── Animación de barras ───────────────────────────────────────────────────
   const barAnim = useSharedValue(1);
+  const displayPlaying = systemActive
+    ? nowPlaying?.playbackStatus === 'playing'
+    : isPlaying;
+
   useEffect(() => {
-    barAnim.value = isPlaying
+    barAnim.value = displayPlaying
       ? withRepeat(withTiming(0.35, { duration: 480, easing: Easing.inOut(Easing.ease) }), -1, true)
       : withTiming(0.5, { duration: 200 });
-  }, [isPlaying]);
+  }, [displayPlaying]);
 
   const bar1 = useAnimatedStyle(() => ({ height: interpolate(barAnim.value, [0.35, 1], [4, 15]) }));
   const bar2 = useAnimatedStyle(() => ({ height: interpolate(barAnim.value, [0.35, 1], [15, 5]) }));
   const bar3 = useAnimatedStyle(() => ({ height: interpolate(barAnim.value, [0.35, 1], [7, 17]) }));
   const bar4 = useAnimatedStyle(() => ({ height: interpolate(barAnim.value, [0.35, 1], [12, 4]) }));
 
-  const progress = durationMs > 0 ? positionMs / durationMs : 0;
-  const accentColor = track?.color ?? '#1DB954';
+  const displayTitle = systemActive ? nowPlaying!.title : track?.title;
+  const displayArtist = systemActive ? nowPlaying!.artist : track?.artist;
+  const displayAlbum = systemActive ? nowPlaying!.albumTitle : track?.album;
+  const displayArtwork = systemActive ? nowPlaying!.thumbnail : track?.artwork;
+  const displayPositionMs = systemActive ? nowPlaying!.positionMs : positionMs;
+  const displayDurationMs = systemActive ? nowPlaying!.durationMs : durationMs;
+  const accentColor = systemActive
+    ? getAccentFromApp(nowPlaying!.appName)
+    : (track?.color ?? '#1DB954');
+  const headerLabel = systemActive
+    ? `En ${nowPlaying!.appName}`
+    : 'Música local';
+  const progress = displayDurationMs > 0 ? displayPositionMs / displayDurationMs : 0;
+  const fmtTime = (ms: number) => (systemActive ? formatMediaTime(ms) : fmt(ms));
 
-  // ── Sin tracks ────────────────────────────────────────────────────────────
-  if (allTracks.length === 0) {
+  const runControlAction = async (action: MediaControlAction) => {
+    if (action === 'prev') await skipPrev();
+    else if (action === 'next') await skipNext();
+    else await togglePlay();
+  };
+
+  const controlBtnStyle = (index: number) => [
+    styles.controlBtn,
+    isFocused && controlFocusIndex === index && styles.controlBtnFocused,
+  ];
+
+  const playBtnStyle = [
+    styles.playBtn,
+    { backgroundColor: accentColor, opacity: !systemActive && isLoading ? 0.6 : 1 },
+    isFocused && controlFocusIndex === 1 && styles.playBtnFocused,
+  ];
+
+  // ── Sin tracks ni reproducción del sistema ────────────────────────────────
+  if (!systemActive && allTracks.length === 0) {
     return (
       <View style={[styles.card, isFocused && styles.cardFocused]}>
         <View style={styles.header}>
@@ -378,30 +490,31 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
       {/* Header */}
       <View style={styles.header}>
         <Ionicons name="musical-notes" size={13} color={accentColor} />
-        <Text style={styles.headerLabel}>Música local</Text>
+        <Text style={styles.headerLabel}>{headerLabel}</Text>
 
-        {/* Botón lista */}
-        <TouchableOpacity onPress={() => setShowList(v => !v)} style={styles.iconBtn}>
-          <Ionicons
-            name={showList ? 'chevron-up' : 'list'}
-            size={14}
-            color="rgba(255,255,255,0.45)"
-          />
-        </TouchableOpacity>
+        {!systemActive && (
+          <>
+            <TouchableOpacity onPress={() => setShowList(v => !v)} style={styles.iconBtn}>
+              <Ionicons
+                name={showList ? 'chevron-up' : 'list'}
+                size={14}
+                color="rgba(255,255,255,0.45)"
+              />
+            </TouchableOpacity>
 
-        {/* Botón importar */}
-        <TouchableOpacity onPress={handleImport} disabled={isImporting} style={styles.addBtn}>
-          {isImporting
-            ? <ActivityIndicator size="small" color={accentColor} />
-            : <Ionicons name="add" size={16} color={accentColor} />}
-        </TouchableOpacity>
+            <TouchableOpacity onPress={handleImport} disabled={isImporting} style={styles.addBtn}>
+              {isImporting
+                ? <ActivityIndicator size="small" color={accentColor} />
+                : <Ionicons name="add" size={16} color={accentColor} />}
+            </TouchableOpacity>
+          </>
+        )}
 
-        {/* Estado dot */}
-        <View style={[styles.statusDot, { backgroundColor: isPlaying ? accentColor : 'rgba(255,255,255,0.15)' }]} />
+        <View style={[styles.statusDot, { backgroundColor: displayPlaying ? accentColor : 'rgba(255,255,255,0.15)' }]} />
       </View>
 
-      {/* Lista desplegable */}
-      {showList && (
+      {/* Lista desplegable (solo música local) */}
+      {!systemActive && showList && (
         <ScrollView style={styles.trackList} showsVerticalScrollIndicator={false}>
           {allTracks.map((t, i) => (
             <TouchableOpacity
@@ -434,12 +547,15 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
         </ScrollView>
       )}
 
-      {/* Portada + info + barras */}
-      {!showList && (
+      {(systemActive || !showList) && (
         <>
           <View style={styles.trackRow}>
-            {track?.artwork ? (
-              <Image source={track.artwork} style={styles.artwork} contentFit="cover" />
+            {displayArtwork ? (
+              <Image
+                source={typeof displayArtwork === 'string' ? { uri: displayArtwork } : displayArtwork}
+                style={styles.artwork}
+                contentFit="cover"
+              />
             ) : (
               <View style={[styles.artworkPlaceholder, { backgroundColor: `${accentColor}33` }]}>
                 <Ionicons name="musical-note" size={18} color={accentColor} />
@@ -447,9 +563,9 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
             )}
 
             <View style={styles.trackInfo}>
-              <Text style={styles.trackTitle} numberOfLines={1}>{track?.title ?? '—'}</Text>
-              <Text style={styles.trackArtist} numberOfLines={1}>{track?.artist ?? '—'}</Text>
-              {track?.album ? <Text style={styles.trackAlbum} numberOfLines={1}>{track.album}</Text> : null}
+              <Text style={styles.trackTitle} numberOfLines={1}>{displayTitle ?? '—'}</Text>
+              <Text style={styles.trackArtist} numberOfLines={1}>{displayArtist ?? '—'}</Text>
+              {displayAlbum ? <Text style={styles.trackAlbum} numberOfLines={1}>{displayAlbum}</Text> : null}
             </View>
 
             <View style={styles.bars}>
@@ -460,7 +576,6 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
             </View>
           </View>
 
-          {/* Progreso */}
           <View style={styles.progressSection}>
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, {
@@ -469,33 +584,38 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
               }]} />
             </View>
             <View style={styles.timeRow}>
-              <Text style={styles.timeText}>{fmt(positionMs)}</Text>
-              <Text style={styles.timeText}>{durationMs ? fmt(durationMs) : '--:--'}</Text>
+              <Text style={styles.timeText}>{fmtTime(displayPositionMs)}</Text>
+              <Text style={styles.timeText}>{displayDurationMs ? fmtTime(displayDurationMs) : '--:--'}</Text>
             </View>
           </View>
 
-          {/* Controles */}
           <View style={styles.controls}>
-            <TouchableOpacity onPress={skipPrev} style={styles.controlBtn}>
+            <TouchableOpacity
+              onPress={() => runControlAction('prev')}
+              style={controlBtnStyle(0)}
+            >
               <Ionicons name="play-skip-back" size={15} color="rgba(255,255,255,0.65)" />
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={togglePlay}
-              disabled={isLoading}
-              style={[styles.playBtn, { backgroundColor: accentColor, opacity: isLoading ? 0.6 : 1 }]}
+              onPress={() => runControlAction('play_pause')}
+              disabled={!systemActive && isLoading}
+              style={playBtnStyle}
             >
-              {isLoading
+              {!systemActive && isLoading
                 ? <ActivityIndicator size="small" color="#000" />
-                : <Ionicons name={isPlaying ? 'pause' : 'play'} size={14} color="#000" />}
+                : <Ionicons name={displayPlaying ? 'pause' : 'play'} size={14} color="#000" />}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={skipNext} style={styles.controlBtn}>
+            <TouchableOpacity
+              onPress={() => runControlAction('next')}
+              style={controlBtnStyle(2)}
+            >
               <Ionicons name="play-skip-forward" size={15} color="rgba(255,255,255,0.65)" />
             </TouchableOpacity>
           </View>
 
-          {allTracks.length > 1 && (
+          {!systemActive && allTracks.length > 1 && (
             <Text style={styles.trackCount}>{trackIndex + 1} / {allTracks.length}</Text>
           )}
         </>
@@ -625,13 +745,22 @@ const styles = StyleSheet.create({
     gap: 20,
     zIndex: 1,
   },
-  controlBtn: { padding: 4 },
+  controlBtn: { padding: 4, borderRadius: 8, borderWidth: 1.5, borderColor: 'transparent' },
+  controlBtnFocused: {
+    borderColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
   playBtn: {
     width: 34,
     height: 34,
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  playBtnFocused: {
+    borderColor: 'rgba(255,255,255,0.95)',
   },
   trackCount: {
     color: 'rgba(255,255,255,0.2)',

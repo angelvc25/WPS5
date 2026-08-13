@@ -92,12 +92,15 @@ export default function FloatingSystemNav({
           }}
         />
       </Animated.View>
-      {/* Separate pressable layer so pointer events work */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: 0 }]} pointerEvents={isFocused ? 'auto' : 'none'}>
+      {/* Backdrop to close — disabled while a card is expanded so controls stay clickable */}
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { opacity: 0 }]}
+        pointerEvents={isFocused && !isCardExpanded ? 'auto' : 'none'}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
 
-      <Animated.View style={[styles.menuContainer, menuStyle]}>
+      <Animated.View style={[styles.menuContainer, menuStyle, { zIndex: 2 }]}>
         {/* Always show cards while the menu is open */}
         {isFocused && (
           <ControlCenterCards

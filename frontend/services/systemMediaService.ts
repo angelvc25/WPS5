@@ -111,12 +111,35 @@ export function subscribeMediaSessions(
   });
 }
 
+export type MediaControlTarget = {
+  appName?: string;
+  sourceAppUserModelId?: string;
+};
+
+export function getMediaControlTarget(
+  session: SystemMediaSession | null | undefined,
+): MediaControlTarget | undefined {
+  if (!session) return undefined;
+  return {
+    appName: session.appName,
+    sourceAppUserModelId: session.sourceAppUserModelId,
+  };
+}
+
 export async function sendMediaControl(
   action: 'play_pause' | 'next' | 'prev',
+  target?: MediaControlTarget,
 ): Promise<void> {
   const api = getElectronAPI();
   if (!api?.mediaControl) return;
-  await api.mediaControl(action);
+  try {
+    const result = await api.mediaControl(action, target);
+    if (result?.success === false) {
+      console.warn('[MediaControl]', action, 'not applied', result);
+    }
+  } catch (err) {
+    console.warn('[MediaControl]', action, err);
+  }
 }
 
 export function getAppIconName(appName: string): {

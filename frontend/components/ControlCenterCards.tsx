@@ -27,10 +27,12 @@ import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../service
 import { useUser } from '../contexts/UserContext';
 import { openWebLink } from '@/services/linkService';
 import { useSystemMedia } from '@/hooks/useSystemMedia';
+import { soundService } from '@/services/soundService';
 import {
   formatMediaTime,
   getAppIconName,
   sendMediaControl,
+  getMediaControlTarget,
   SystemMediaSession,
 } from '@/services/systemMediaService';
 
@@ -44,6 +46,9 @@ interface CardData {
   type: 'news' | 'capture' | 'discover' | 'addGame' | 'nowPlaying';
   mediaSession?: SystemMediaSession;
 }
+
+type MediaControlAction = 'prev' | 'play_pause' | 'next';
+const EXPANDED_MEDIA_CONTROLS: MediaControlAction[] = ['prev', 'play_pause', 'next'];
 
 const MOCK_CARDS: CardData[] = [
   {
@@ -117,6 +122,7 @@ function AnimatedCard({
   const [focusedNewsIndex, setFocusedNewsIndex] = React.useState(0);
   const scrollRef = React.useRef<ScrollView>(null);
   const [realNews, setRealNews] = React.useState<SteamNewsItem[]>([]);
+  const [mediaControlFocus, setMediaControlFocus] = React.useState(1);
 
   const { activeUser } = useUser();
   const [captureImage, setCaptureImage] = React.useState<string | null>(null);
@@ -241,25 +247,32 @@ function AnimatedCard({
   useEffect(() => {
     if (isExpanded) {
       setFocusedNewsIndex(0);
+      if (card.type === 'nowPlaying') setMediaControlFocus(1);
     }
-  }, [isExpanded]);
+  }, [isExpanded, card.type]);
 
   useEffect(() => {
     if (!isExpanded || Platform.OS !== 'web') return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (card.type === 'nowPlaying') {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === 'ArrowLeft') {
           e.preventDefault();
           e.stopPropagation();
-          sendMediaControl('play_pause');
-        } else if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q') {
+          setMediaControlFocus((prev) => Math.max(0, prev - 1));
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowRight') {
           e.preventDefault();
           e.stopPropagation();
-          sendMediaControl('prev');
-        } else if (e.key === 'ArrowRight' || e.key === 'e' || e.key === 'E') {
+          setMediaControlFocus((prev) => Math.min(EXPANDED_MEDIA_CONTROLS.length - 1, prev + 1));
+          soundService.playNavigation();
+        } else if (e.key === 'Enter' || e.key === 'x' || e.key === 'X') {
           e.preventDefault();
           e.stopPropagation();
-          sendMediaControl('next');
+          soundService.playActivation?.();
+          sendMediaControl(
+            EXPANDED_MEDIA_CONTROLS[mediaControlFocus],
+            getMediaControlTarget(card.mediaSession),
+          );
         }
         return;
       }
@@ -289,7 +302,7 @@ function AnimatedCard({
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isExpanded, maxIndex, realNews, focusedNewsIndex, card.type, isCaptureModalVisible]);
+  }, [isExpanded, maxIndex, realNews, focusedNewsIndex, card.type, card.mediaSession, isCaptureModalVisible, mediaControlFocus]);
 
   useEffect(() => {
     if (!isActive || isExpanded || Platform.OS !== 'web') return;
@@ -383,16 +396,17 @@ function AnimatedCard({
     <Animated.View style={animStyle}>
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={isExpanded ? undefined : onPress}
+        onPress={onPress}
+        disabled={isExpanded}
         style={[styles.card, { width: '100%', height: '100%' }]}
       >
-        {/* Inner clip wrapper */}
         <View style={styles.cardClip}>
           {card.type === 'nowPlaying' && card.mediaSession ? (
             <NowPlayingCardBody
               session={card.mediaSession}
               isExpanded={isExpanded}
               isActive={isActive}
+              controlFocusIndex={mediaControlFocus}
             />
           ) : card.type === 'addGame' ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(23, 23, 30, 0.98)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
@@ -897,16 +911,26 @@ function NowPlayingCardBody({
   session,
   isExpanded,
   isActive,
+  controlFocusIndex = 1,
 }: {
   session: SystemMediaSession;
   isExpanded: boolean;
   isActive: boolean;
+  controlFocusIndex?: number;
 }) {
   const progress =
     session.durationMs > 0
       ? Math.min(1, session.positionMs / session.durationMs)
       : 0;
   const isPlaying = session.playbackStatus === 'playing';
+
+  const mediaTarget = getMediaControlTarget(session);
+
+  const focusedControlStyle = (index: number) => (
+    controlFocusIndex === index
+      ? { borderColor: 'rgba(255,255,255,0.9)', backgroundColor: 'rgba(255,255,255,0.1)' }
+      : { borderColor: 'transparent', backgroundColor: 'transparent' }
+  );
 
   if (!isExpanded) {
     return (
@@ -964,44 +988,50 @@ function NowPlayingCardBody({
         <Text style={styles.mediaTimeText}>{formatMediaTime(session.durationMs)}</Text>
       </View>
 
-      <View style={styles.mediaControlsRow}>
-        <TouchableOpacity style={styles.mediaControlBtn} onPress={() => sendMediaControl('play_pause')}>
-          <Ionicons name="volume-high" size={22} color="rgba(255,255,255,0.85)" />
-        </TouchableOpacity>
-
+      <View style={[styles.mediaControlsRow, { zIndex: 5 }]}>
         <View style={styles.mediaControlCenter}>
-          <TouchableOpacity style={styles.mediaSkipBtn} onPress={() => sendMediaControl('prev')}>
+          <TouchableOpacity
+            style={[styles.mediaSkipBtn, focusedControlStyle(0)]}
+            onPress={(e) => {
+              (e as any)?.stopPropagation?.();
+              void sendMediaControl('prev', mediaTarget);
+            }}
+          >
             <Ionicons name="play-skip-back" size={22} color="#fff" />
             <Text style={styles.mediaSkipHint}>L1</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.mediaPlayBtn}
-            onPress={() => sendMediaControl('play_pause')}
+            style={[styles.mediaPlayBtn, focusedControlStyle(1)]}
+            onPress={(e) => {
+              (e as any)?.stopPropagation?.();
+              void sendMediaControl('play_pause', mediaTarget);
+            }}
           >
             <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#fff" style={{ marginLeft: isPlaying ? 0 : 3 }} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.mediaSkipBtn} onPress={() => sendMediaControl('next')}>
+          <TouchableOpacity
+            style={[styles.mediaSkipBtn, focusedControlStyle(2)]}
+            onPress={(e) => {
+              (e as any)?.stopPropagation?.();
+              void sendMediaControl('next', mediaTarget);
+            }}
+          >
             <Ionicons name="play-skip-forward" size={22} color="#fff" />
             <Text style={styles.mediaSkipHint}>R1</Text>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity style={styles.mediaControlBtn}>
-          <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
-        </TouchableOpacity>
       </View>
 
       {isActive && (
         <View style={styles.mediaFooterHints}>
           <View style={styles.mediaHintItem}>
             <View style={styles.mediaHintCircle} />
-            <Text style={styles.mediaHintText}>Reproducir</Text>
+            <Text style={styles.mediaHintText}>Confirmar</Text>
           </View>
           <View style={styles.mediaHintItem}>
-            <View style={styles.mediaHintSquare} />
-            <Text style={styles.mediaHintText}>Opciones</Text>
+            <Text style={styles.mediaHintText}>← → navegar</Text>
           </View>
         </View>
       )}
@@ -1491,7 +1521,7 @@ const styles = StyleSheet.create({
   mediaControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginBottom: 16,
   },
   mediaControlBtn: {
@@ -1510,6 +1540,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 44,
     height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
   },
   mediaSkipHint: {
     color: 'rgba(255,255,255,0.35)',

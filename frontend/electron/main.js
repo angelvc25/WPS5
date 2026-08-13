@@ -49,27 +49,68 @@ function getWindowsMediaSessionsModule() {
   return null;
 }
 
-/** VK codes for global media keys on Windows */
-const MEDIA_KEY_CODES = {
-  play_pause: 0xB3,
-  next: 0xB0,
-  prev: 0xB1,
-};
+let winMediaControlModulePromise = null;
 
-function sendWindowsMediaKey(vkCode) {
-  if (process.platform !== 'win32') return;
-  const script = [
-    'Add-Type @"',
-    'using System;',
-    'using System.Runtime.InteropServices;',
-    'public class Wps5MediaKeys {',
-    '  [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, int flags, int extra);',
-    '}',
-    '"@',
-    `[Wps5MediaKeys]::keybd_event(${vkCode}, 0, 0, 0)`,
-    `[Wps5MediaKeys]::keybd_event(${vkCode}, 0, 2, 0)`,
-  ].join('; ');
-  exec(`powershell -NoProfile -Command "${script.replace(/"/g, '\\"')}"`, () => {});
+function getWinMediaControlModule() {
+  if (process.platform !== 'win32') return Promise.resolve(null);
+  if (!winMediaControlModulePromise) {
+    winMediaControlModulePromise = import('win-media-control').catch((err) => {
+      console.warn('[MediaControl] win-media-control no disponible:', err.message);
+      winMediaControlModulePromise = null;
+      return null;
+    });
+  }
+  return winMediaControlModulePromise;
+}
+
+function resolveMediaControlApp(target) {
+  if (!target || typeof target !== 'object') return undefined;
+
+  const appName = String(target.appName || '').trim();
+  if (appName) {
+    const lower = appName.toLowerCase();
+    if (lower.includes('chrome') || lower.includes('youtube')) return 'Chrome';
+    if (lower.includes('spotify')) return 'Spotify';
+    if (lower.includes('firefox')) return 'Firefox';
+    if (lower.includes('edge')) return 'Edge';
+    if (lower.includes('groove')) return 'Groove';
+    return appName;
+  }
+
+  const aumid = String(target.sourceAppUserModelId || '').trim();
+  return aumid || undefined;
+}
+
+async function sendMediaControlAction(action, target) {
+  if (process.platform !== 'win32') return { success: false };
+
+  const media = await getWinMediaControlModule();
+  if (!media) return { success: false, error: 'win-media-control unavailable' };
+
+  const fnByAction = {
+    play_pause: media.togglePlayPause,
+    next: media.next,
+    prev: media.previous,
+  };
+  const fn = fnByAction[action];
+  if (!fn) return { success: false, error: 'unknown action' };
+
+  const app = resolveMediaControlApp(target);
+
+  try {
+    const result = app !== undefined ? await fn(app) : await fn();
+    const ok = Array.isArray(result?.success) && result.success.length > 0;
+    if (!ok) {
+      console.warn('[MediaControl]', action, 'failed', result?.failed || 'no success');
+    } else {
+      console.log('[MediaControl]', action, 'ok', result.success.join(', '));
+    }
+    setTimeout(broadcastMediaSessions, 350);
+    return { success: ok, ...result };
+  } catch (err) {
+    console.warn('[MediaControl]', action, err.message);
+    return { success: false, error: err.message };
+  }
 }
 
 function isMediaBrowserName(name) {
@@ -1354,11 +1395,9 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('media-control', async (_event, action) => {
-    const key = MEDIA_KEY_CODES[action];
-    if (!key) return { success: false };
-    sendWindowsMediaKey(key);
-    return { success: true };
+  ipcMain.handle('media-control', async (_event, action, target) => {
+    if (!['play_pause', 'next', 'prev'].includes(action)) return { success: false };
+    return sendMediaControlAction(action, target);
   });
 
   ipcMain.handle('close-app', () => {

@@ -64,6 +64,7 @@ export const GameInfoPanel = ({
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
   const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
   const isSpotify = activeItem?.title?.toLowerCase()?.includes('spotify');
+  const isMediaSection = activeItem?.type === 'media' || activeItem?.type === 'web' || isSpotify;
 
   const mediaScrollRef = React.useRef<ScrollView>(null);
   const newsScrollRef = React.useRef<ScrollView>(null);
@@ -726,7 +727,7 @@ export const GameInfoPanel = ({
           </View>
 
           {/* Music Player Card (only visible on media/spotify) */}
-          {(activeItem?.type === 'media' || isSpotify) && (
+          {isMediaSection && (
             <MusicPlayerCard
               isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 4}
             />
@@ -735,7 +736,7 @@ export const GameInfoPanel = ({
       )}
 
       {/* Phrase for media/spotify items */}
-      {canPlay && (activeItem?.type === 'media' || isSpotify) && (
+      {canPlay && isMediaSection && (
         <Animated.View
           key={`phrase-${activeIndex}`}
           entering={FadeInDown.duration(400).delay(120)}
@@ -748,7 +749,7 @@ export const GameInfoPanel = ({
       )}
 
       {/* Screenshots and Trailers row */}
-      {canPlay && !(activeItem?.type === 'media' || isSpotify) && (
+      {canPlay && !isMediaSection && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
           <Text style={{ color: '#FFF', fontSize: s(18), fontWeight: '500', marginBottom: s(16), paddingLeft: s(50) }}>Capturas y trailers</Text>
 
@@ -936,7 +937,7 @@ export const GameInfoPanel = ({
       )}
 
       {/* Steam News row */}
-      {canPlay && !(activeItem?.type === 'media' || isSpotify) && (
+      {canPlay && !isMediaSection && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
           <Text style={{ color: '#FFF', fontSize: s(18), fontWeight: '500', marginBottom: s(16), paddingLeft: s(50) }}>Últimas noticias</Text>
 

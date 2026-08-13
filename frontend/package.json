@@ -48,6 +48,7 @@
     "react-native-webview": "^13.16.1",
     "react-native-worklets": "0.5.1",
     "react-native-youtube-iframe": "^2.4.1",
+    "win-media-control": "^0.1.1",
     "windows-media-sessions": "^1.0.3"
   },
   "devDependencies": {
@@ -82,10 +83,12 @@
       "dist/**/*",
       "electron/**/*",
       "package.json",
-      "node_modules/windows-media-sessions/**/*"
+      "node_modules/windows-media-sessions/**/*",
+      "node_modules/win-media-control/**/*"
     ],
     "asarUnpack": [
-      "node_modules/windows-media-sessions/bin/**"
+      "node_modules/windows-media-sessions/bin/**",
+      "node_modules/win-media-control/scripts/**"
     ],
     "extraMetadata": {
       "main": "electron/main.js"

@@ -769,9 +769,10 @@ export default function ConsoleHome() {
         };
         checkButton(0, 'Enter');
         checkButton(1, 'Escape');
+        checkButton(2, 'x');
         checkButton(4, 'q');
         checkButton(5, 'e');
-        checkButton(9, 'o');
+        checkButton(9, 'Home');
       } else {
         if (lastGpId.current !== null) {
           lastGpId.current = null;
@@ -859,9 +860,13 @@ export default function ConsoleHome() {
           soundService.playContextMenu();
           if (focusArea === 'header_user') {
             setFocusArea('main_carousel');
+            setSystemNavCardExpanded(false);
           } else {
             setFocusArea('header_user');
             setModalSelectedIndex(0);
+            setSystemNavCardIndex(0);
+            setSystemNavLevel(1);
+            setSystemNavCardExpanded(false);
           }
           soundService.playNavigation();
           return;
@@ -1112,7 +1117,11 @@ export default function ConsoleHome() {
               } else if (gamePanelFocusIndex >= 100) {
                 setGamePanelFocusIndex(prev => Math.min(prev + 1, 100 + steamMedia.length - 1));
               } else if (gamePanelFocusIndex >= 4) {
-                setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + steamNews.length - 1));
+                const panelItem = currentData[activeIndex];
+                const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
+                if (!(isMediaPanelItem && gamePanelFocusIndex === 4)) {
+                  setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + steamNews.length - 1));
+                }
               }
             }
           }
@@ -1166,7 +1175,11 @@ export default function ConsoleHome() {
               } else if (gamePanelFocusIndex >= 100) {
                 setGamePanelFocusIndex(prev => Math.max(prev - 1, 100));
               } else if (gamePanelFocusIndex >= 4) {
-                setGamePanelFocusIndex(prev => Math.max(prev - 1, 4));
+                const panelItem = currentData[activeIndex];
+                const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
+                if (!(isMediaPanelItem && gamePanelFocusIndex === 4)) {
+                  setGamePanelFocusIndex(prev => Math.max(prev - 1, 4));
+                }
               }
             }
           }
@@ -1232,7 +1245,11 @@ export default function ConsoleHome() {
               } else if (gamePanelFocusIndex === 1) {
                 setGamePanelFocusIndex(3);
               } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
-                if (steamMedia.length > 0) {
+                const panelItem = currentData[activeIndex];
+                const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
+                if (isMediaPanelItem) {
+                  setGamePanelFocusIndex(4);
+                } else if (steamMedia.length > 0) {
                   setGamePanelFocusIndex(100);
                 } else if (steamNews.length > 0) {
                   setGamePanelFocusIndex(4);
@@ -1294,7 +1311,11 @@ export default function ConsoleHome() {
               } else if (gamePanelFocusIndex >= 100) {
                 setGamePanelFocusIndex(2);
               } else if (gamePanelFocusIndex >= 4) {
-                if (steamMedia.length > 0) {
+                const panelItem = currentData[activeIndex];
+                const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
+                if (isMediaPanelItem && gamePanelFocusIndex === 4) {
+                  setGamePanelFocusIndex(2);
+                } else if (steamMedia.length > 0) {
                   setGamePanelFocusIndex(100);
                 } else {
                   const newsIndex = gamePanelFocusIndex - 4;
@@ -1380,7 +1401,16 @@ export default function ConsoleHome() {
                 if (mediaItem) {
                   setSelectedMediaIndex(gamePanelFocusIndex - 100);
                 }
-              } else if (gamePanelFocusIndex >= 4) {
+              } else if (gamePanelFocusIndex === 4) {
+                const panelItem = currentData[activeIndex];
+                const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
+                if (!isMediaPanelItem) {
+                  const newsItem = steamNews[gamePanelFocusIndex - 4];
+                  if (newsItem && newsItem.url) {
+                    Linking.openURL(newsItem.url);
+                  }
+                }
+              } else if (gamePanelFocusIndex > 4) {
                 const newsItem = steamNews[gamePanelFocusIndex - 4];
                 if (newsItem && newsItem.url) {
                   Linking.openURL(newsItem.url);
