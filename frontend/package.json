@@ -47,7 +47,8 @@
     "react-native-web": "~0.21.0",
     "react-native-webview": "^13.16.1",
     "react-native-worklets": "0.5.1",
-    "react-native-youtube-iframe": "^2.4.1"
+    "react-native-youtube-iframe": "^2.4.1",
+    "windows-media-sessions": "^1.0.3"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
@@ -72,13 +73,19 @@
       {
         "from": "../backend",
         "to": "backend",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "node_modules/windows-media-sessions/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/windows-media-sessions/bin/**"
     ],
     "extraMetadata": {
       "main": "electron/main.js"

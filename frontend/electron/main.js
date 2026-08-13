@@ -22,6 +22,65 @@ let webMediaWindow = null;
 let toastOverlayWindow = null;
 let toastOverlayTimer = null;
 let backendProcess = null;
+let mediaSessionsUnsubscribe = null;
+
+/** VK codes for global media keys on Windows */
+const MEDIA_KEY_CODES = {
+  play_pause: 0xB3,
+  next: 0xB0,
+  prev: 0xB1,
+};
+
+function sendWindowsMediaKey(vkCode) {
+  if (process.platform !== 'win32') return;
+  const script = [
+    'Add-Type @"',
+    'using System;',
+    'using System.Runtime.InteropServices;',
+    'public class Wps5MediaKeys {',
+    '  [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, int flags, int extra);',
+    '}',
+    '"@',
+    `[Wps5MediaKeys]::keybd_event(${vkCode}, 0, 0, 0)`,
+    `[Wps5MediaKeys]::keybd_event(${vkCode}, 0, 2, 0)`,
+  ].join('; ');
+  exec(`powershell -NoProfile -Command "${script.replace(/"/g, '\\"')}"`, () => {});
+}
+
+function startMediaSessionsBridge() {
+  if (process.platform !== 'win32') return;
+
+  try {
+    const { onSessionsChanged, getAllSessions } = require('windows-media-sessions');
+
+    const broadcast = (sessions) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('media-sessions-changed', sessions);
+      }
+    };
+
+    getAllSessions().then(broadcast).catch((err) => {
+      console.warn('[MediaSessions] Error al obtener sesiones iniciales:', err.message);
+    });
+
+    mediaSessionsUnsubscribe = onSessionsChanged(broadcast);
+  } catch (err) {
+    console.warn('[MediaSessions] No disponible:', err.message);
+  }
+}
+
+function stopMediaSessionsBridge() {
+  if (mediaSessionsUnsubscribe) {
+    mediaSessionsUnsubscribe();
+    mediaSessionsUnsubscribe = null;
+  }
+  if (process.platform === 'win32') {
+    try {
+      const { shutdown } = require('windows-media-sessions');
+      shutdown().catch(() => {});
+    } catch (_) { /* ignore */ }
+  }
+}
 
 const THUMB_CACHE_DIR = path.join(app.getPath('userData'), 'thumbnail-cache');
 // Ajusta calidad vs. rendimiento: más ancho = más nitidez en tiles grandes; quality 1-100
@@ -560,6 +619,7 @@ function getInstalledSteamAppIds() {
 app.whenReady().then(() => {
   initDB();
   startStoreBackend();
+  startMediaSessionsBridge();
 
   // Registrar protocolo personalizado para cargar imágenes locales y videos de forma segura
   // Usamos protocol.handle para mejor soporte en versiones recientes de Electron
@@ -1155,6 +1215,24 @@ app.whenReady().then(() => {
   // IPC: Cerrar la aplicación
 
 
+  ipcMain.handle('get-media-sessions', async () => {
+    if (process.platform !== 'win32') return [];
+    try {
+      const { getAllSessions } = require('windows-media-sessions');
+      return await getAllSessions();
+    } catch (err) {
+      console.warn('[MediaSessions] get-media-sessions:', err.message);
+      return [];
+    }
+  });
+
+  ipcMain.handle('media-control', async (_event, action) => {
+    const key = MEDIA_KEY_CODES[action];
+    if (!key) return { success: false };
+    sendWindowsMediaKey(key);
+    return { success: true };
+  });
+
   ipcMain.handle('close-app', () => {
     app.quit();
   });
@@ -1334,4 +1412,5 @@ app.on('window-all-closed', function () {
 
 app.on('before-quit', () => {
   stopStoreBackend();
+  stopMediaSessionsBridge();
 });

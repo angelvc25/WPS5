@@ -196,6 +196,7 @@ export default function ConsoleHome() {
 
   const [systemNavLevel, setSystemNavLevel] = useState(0); // 0 = menu, 1 = cards
   const [systemNavCardIndex, setSystemNavCardIndex] = useState(0);
+  const [systemNavMaxCardIndex, setSystemNavMaxCardIndex] = useState(2);
   const [isSystemNavCardExpanded, setSystemNavCardExpanded] = useState(false);
 
   // Background transition states
@@ -926,7 +927,7 @@ export default function ConsoleHome() {
             if (systemNavLevel === 0) {
               setModalSelectedIndex(prev => Math.min(prev + 1, 10));
             } else {
-              setSystemNavCardIndex(prev => Math.min(prev + 1, modalSelectedIndex === 5 ? 0 : 2));
+              setSystemNavCardIndex(prev => Math.min(prev + 1, modalSelectedIndex === 5 ? 0 : systemNavMaxCardIndex));
             }
             soundService.playNavigation();
           } else if (e.key === 'ArrowLeft') {
@@ -1440,7 +1441,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, isSearchVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame, activeUser, storeOffers, toolbarFocusIndex]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, isSearchVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, systemNavMaxCardIndex, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame, activeUser, storeOffers, toolbarFocusIndex]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -2350,6 +2351,7 @@ export default function ConsoleHome() {
         }}
         onCloseExpanded={() => setSystemNavCardExpanded(false)}
         onRefreshApps={loadApps}
+        onCardsCountChange={setSystemNavMaxCardIndex}
       />
 
       <FavoritesView

@@ -36,6 +36,7 @@ interface FloatingSystemNavProps {
   onPressCard?: (index: number) => void;
   onCloseExpanded?: () => void;
   onRefreshApps?: () => void;
+  onCardsCountChange?: (maxIndex: number) => void;
 }
 
 export default function FloatingSystemNav({
@@ -48,7 +49,8 @@ export default function FloatingSystemNav({
   isCardExpanded = false,
   onPressCard = () => { },
   onCloseExpanded = () => { },
-  onRefreshApps
+  onRefreshApps,
+  onCardsCountChange,
 }: FloatingSystemNavProps) {
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(50);
@@ -106,6 +108,7 @@ export default function FloatingSystemNav({
             onCloseExpanded={onCloseExpanded}
             activeNavIndex={focusedIndex}
             onRefreshApps={onRefreshApps}
+            onCardsCountChange={onCardsCountChange}
           />
         )}
 

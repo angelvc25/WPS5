@@ -30,6 +30,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSteamInstalledApps: () => ipcRenderer.invoke('get-steam-installed-apps'),
   onGameClosed: (callback) => ipcRenderer.on('game-closed', (_event, id) => callback(id)),
   removeGameClosedListener: () => ipcRenderer.removeAllListeners('game-closed'),
+  getMediaSessions: () => ipcRenderer.invoke('get-media-sessions'),
+  mediaControl: (action) => ipcRenderer.invoke('media-control', action),
+  onMediaSessionsChanged: (callback) => {
+    const listener = (_event, sessions) => callback(sessions);
+    ipcRenderer.on('media-sessions-changed', listener);
+    return () => ipcRenderer.removeListener('media-sessions-changed', listener);
+  },
 });
 
 

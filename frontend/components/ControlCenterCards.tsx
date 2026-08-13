@@ -26,6 +26,13 @@ import SpinningBorderNoticias from './SpinningborderNoticias';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 import { useUser } from '../contexts/UserContext';
 import { openWebLink } from '@/services/linkService';
+import { useSystemMedia } from '@/hooks/useSystemMedia';
+import {
+  formatMediaTime,
+  getAppIconName,
+  sendMediaControl,
+  SystemMediaSession,
+} from '@/services/systemMediaService';
 
 interface CardData {
   id: string;
@@ -34,7 +41,8 @@ interface CardData {
   icon: keyof typeof Ionicons.glyphMap;
   imageUri?: string;
   bgColor?: string;
-  type: 'news' | 'capture' | 'discover' | 'addGame';
+  type: 'news' | 'capture' | 'discover' | 'addGame' | 'nowPlaying';
+  mediaSession?: SystemMediaSession;
 }
 
 const MOCK_CARDS: CardData[] = [
@@ -72,6 +80,7 @@ interface ControlCenterCardsProps {
   onCloseExpanded: () => void;
   activeNavIndex?: number;
   onRefreshApps?: () => void;
+  onCardsCountChange?: (maxIndex: number) => void;
 }
 
 // ─── Animated Card ────────────────────────────────────────────────────────────
@@ -238,6 +247,22 @@ function AnimatedCard({
   useEffect(() => {
     if (!isExpanded || Platform.OS !== 'web') return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (card.type === 'nowPlaying') {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          sendMediaControl('play_pause');
+        } else if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q') {
+          e.preventDefault();
+          e.stopPropagation();
+          sendMediaControl('prev');
+        } else if (e.key === 'ArrowRight' || e.key === 'e' || e.key === 'E') {
+          e.preventDefault();
+          e.stopPropagation();
+          sendMediaControl('next');
+        }
+        return;
+      }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
         e.stopPropagation();
@@ -363,7 +388,13 @@ function AnimatedCard({
       >
         {/* Inner clip wrapper */}
         <View style={styles.cardClip}>
-          {card.type === 'addGame' ? (
+          {card.type === 'nowPlaying' && card.mediaSession ? (
+            <NowPlayingCardBody
+              session={card.mediaSession}
+              isExpanded={isExpanded}
+              isActive={isActive}
+            />
+          ) : card.type === 'addGame' ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(23, 23, 30, 0.98)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
               {Platform.OS === 'web' && (
                 <div
@@ -848,6 +879,136 @@ interface NewsRowProps {
   isFocused: boolean;
 }
 
+// ─── Now Playing Card (Windows SMTC) ─────────────────────────────────────────
+function AppSourceBadge({ appName }: { appName: string }) {
+  const icon = getAppIconName(appName);
+  return (
+    <View style={[styles.mediaAppBadge, { backgroundColor: icon.bg }]}>
+      {icon.vendor === 'material' ? (
+        <MaterialCommunityIcons name={icon.name as any} size={14} color={icon.color} />
+      ) : (
+        <Ionicons name={icon.name as any} size={13} color={icon.color} />
+      )}
+    </View>
+  );
+}
+
+function NowPlayingCardBody({
+  session,
+  isExpanded,
+  isActive,
+}: {
+  session: SystemMediaSession;
+  isExpanded: boolean;
+  isActive: boolean;
+}) {
+  const progress =
+    session.durationMs > 0
+      ? Math.min(1, session.positionMs / session.durationMs)
+      : 0;
+  const isPlaying = session.playbackStatus === 'playing';
+
+  if (!isExpanded) {
+    return (
+      <View style={styles.mediaCollapsedRoot}>
+        <View style={styles.mediaCollapsedTop}>
+          <AppSourceBadge appName={session.appName} />
+        </View>
+        <View style={styles.mediaArtWrap}>
+          {session.thumbnail ? (
+            <Image source={{ uri: session.thumbnail }} style={styles.mediaArtImage} contentFit="cover" />
+          ) : (
+            <View style={[styles.mediaArtImage, styles.mediaArtFallback]}>
+              <Ionicons name="musical-notes" size={48} color="rgba(255,255,255,0.25)" />
+            </View>
+          )}
+        </View>
+        <View style={styles.mediaCollapsedMeta}>
+          <Text style={styles.mediaNowPlayingLabel} numberOfLines={1}>
+            Reproduciendo en {session.appName}
+          </Text>
+          <Text style={styles.mediaTrackTitle} numberOfLines={1}>{session.title}</Text>
+          <Text style={styles.mediaTrackArtist} numberOfLines={1}>{session.artist}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.mediaExpandedRoot}>
+      <View style={styles.mediaExpandedHeader}>
+        <AppSourceBadge appName={session.appName} />
+        <Text style={styles.mediaExpandedHeaderText} numberOfLines={1}>
+          Reproduciendo en {session.appName}
+        </Text>
+      </View>
+
+      <View style={styles.mediaExpandedArtWrap}>
+        {session.thumbnail ? (
+          <Image source={{ uri: session.thumbnail }} style={styles.mediaExpandedArt} contentFit="cover" />
+        ) : (
+          <View style={[styles.mediaExpandedArt, styles.mediaArtFallback]}>
+            <Ionicons name="musical-notes" size={64} color="rgba(255,255,255,0.25)" />
+          </View>
+        )}
+      </View>
+
+      <Text style={styles.mediaExpandedTitle} numberOfLines={2}>{session.title}</Text>
+      <Text style={styles.mediaExpandedArtist} numberOfLines={1}>{session.artist}</Text>
+
+      <View style={styles.mediaProgressRow}>
+        <Text style={styles.mediaTimeText}>{formatMediaTime(session.positionMs)}</Text>
+        <View style={styles.mediaProgressTrack}>
+          <View style={[styles.mediaProgressFill, { width: `${progress * 100}%` }]} />
+        </View>
+        <Text style={styles.mediaTimeText}>{formatMediaTime(session.durationMs)}</Text>
+      </View>
+
+      <View style={styles.mediaControlsRow}>
+        <TouchableOpacity style={styles.mediaControlBtn} onPress={() => sendMediaControl('play_pause')}>
+          <Ionicons name="volume-high" size={22} color="rgba(255,255,255,0.85)" />
+        </TouchableOpacity>
+
+        <View style={styles.mediaControlCenter}>
+          <TouchableOpacity style={styles.mediaSkipBtn} onPress={() => sendMediaControl('prev')}>
+            <Ionicons name="play-skip-back" size={22} color="#fff" />
+            <Text style={styles.mediaSkipHint}>L1</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.mediaPlayBtn}
+            onPress={() => sendMediaControl('play_pause')}
+          >
+            <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#fff" style={{ marginLeft: isPlaying ? 0 : 3 }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.mediaSkipBtn} onPress={() => sendMediaControl('next')}>
+            <Ionicons name="play-skip-forward" size={22} color="#fff" />
+            <Text style={styles.mediaSkipHint}>R1</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={styles.mediaControlBtn}>
+          <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
+        </TouchableOpacity>
+      </View>
+
+      {isActive && (
+        <View style={styles.mediaFooterHints}>
+          <View style={styles.mediaHintItem}>
+            <View style={styles.mediaHintCircle} />
+            <Text style={styles.mediaHintText}>Reproducir</Text>
+          </View>
+          <View style={styles.mediaHintItem}>
+            <View style={styles.mediaHintSquare} />
+            <Text style={styles.mediaHintText}>Opciones</Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function NewsRow({ title, desc, tag, date, imageUri, icon, color, enterDelay, isFocused }: NewsRowProps) {
   const translateX = useSharedValue(-20);
   const opacity = useSharedValue(0);
@@ -904,8 +1065,42 @@ export default function ControlCenterCards({
   onCloseExpanded,
   activeNavIndex,
   onRefreshApps,
+  onCardsCountChange,
 }: ControlCenterCardsProps) {
   const translateX = useSharedValue(0);
+  const { nowPlaying } = useSystemMedia();
+
+  const cardsToShow = React.useMemo(() => {
+    if (activeNavIndex === 5) {
+      return [
+        {
+          id: 'add-game',
+          title: 'Agrega un juego instalado de tu PC',
+          subtitle: 'AÑADIR JUEGO',
+          icon: 'game-controller' as const,
+          type: 'addGame' as const,
+        },
+      ];
+    }
+
+    const cards: CardData[] = [];
+    if (nowPlaying) {
+      cards.push({
+        id: 'now-playing',
+        title: nowPlaying.title,
+        subtitle: `Reproduciendo en ${nowPlaying.appName}`,
+        icon: 'musical-notes',
+        imageUri: nowPlaying.thumbnail,
+        type: 'nowPlaying',
+        mediaSession: nowPlaying,
+      });
+    }
+    return [...cards, ...MOCK_CARDS];
+  }, [activeNavIndex, nowPlaying]);
+
+  useEffect(() => {
+    onCardsCountChange?.(Math.max(0, cardsToShow.length - 1));
+  }, [cardsToShow.length, onCardsCountChange]);
 
   useEffect(() => {
     // 260 (card width) + 14 (gap) = 274
@@ -918,21 +1113,6 @@ export default function ControlCenterCards({
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
   }));
-
-  const cardsToShow = React.useMemo(() => {
-    if (activeNavIndex === 5) {
-      return [
-        {
-          id: 'add-game',
-          title: 'Agrega un juego instalado de tu PC',
-          subtitle: 'AÑADIR JUEGO',
-          icon: 'game-controller' as const,
-          type: 'addGame' as const,
-        }
-      ];
-    }
-    return MOCK_CARDS;
-  }, [activeNavIndex]);
 
   return (
     <Animated.View style={[styles.cardsRow, rowStyle]}>
@@ -1188,5 +1368,188 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // Now Playing (Windows media)
+  mediaCollapsedRoot: {
+    flex: 1,
+    backgroundColor: '#232326',
+    padding: 14,
+  },
+  mediaCollapsedTop: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  mediaAppBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaArtWrap: {
+    flex: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  mediaArtImage: {
+    width: '100%',
+    height: '100%',
+  },
+  mediaArtFallback: {
+    backgroundColor: '#2a2a2e',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaCollapsedMeta: {
+    paddingBottom: 2,
+  },
+  mediaNowPlayingLabel: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  mediaTrackTitle: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  mediaTrackArtist: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 14,
+  },
+  mediaExpandedRoot: {
+    flex: 1,
+    backgroundColor: '#232326',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+  mediaExpandedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  mediaExpandedHeaderText: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 13,
+    flex: 1,
+  },
+  mediaExpandedArtWrap: {
+    alignSelf: 'center',
+    width: '72%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 18,
+  },
+  mediaExpandedArt: {
+    width: '100%',
+    height: '100%',
+  },
+  mediaExpandedTitle: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  mediaExpandedArtist: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 15,
+    marginBottom: 18,
+  },
+  mediaProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 22,
+  },
+  mediaProgressTrack: {
+    flex: 1,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+  },
+  mediaProgressFill: {
+    height: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 2,
+  },
+  mediaTimeText: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 12,
+    width: 36,
+    textAlign: 'center',
+  },
+  mediaControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  mediaControlBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaControlCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 18,
+  },
+  mediaSkipBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    height: 44,
+  },
+  mediaSkipHint: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 9,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  mediaPlayBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaFooterHints: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 28,
+    marginTop: 'auto' as any,
+    paddingTop: 8,
+  },
+  mediaHintItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  mediaHintCircle: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  mediaHintSquare: {
+    width: 14,
+    height: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  mediaHintText: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 12,
   },
 });
