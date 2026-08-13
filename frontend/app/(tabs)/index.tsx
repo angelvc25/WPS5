@@ -35,7 +35,10 @@ import ConsoleCarousel from '@/components/ConsoleCarousel';
 import WelcomeWidgets from '@/components/WelcomeWidgets';
 import GameInfoPanel from '@/components/GameInfoPanel';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
+import BackgroundPickerModal from '@/components/BackgroundPickerModal';
+import SearchView from '@/components/SearchView';
 import { fetchStoreOffers, StoreOffer, LOCAL_FALLBACK_OFFERS } from '@/services/storeService';
+import { UserProfile } from '@/components/UserSelectScreen';
 
 const TABS = ['Games', 'Media'];
 var Wview: string = 'block';
@@ -96,7 +99,7 @@ export default function ConsoleHome() {
   const [carouselKey, setCarouselKey] = useState(0);
 
   // Focus management
-  type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'game_panel' | 'footer' | 'welcome_widgets' | 'library_grid' | 'header_avatar';
+  type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'game_panel' | 'footer' | 'welcome_widgets' | 'welcome_toolbar' | 'library_grid' | 'header_avatar';
   const [focusArea, setFocusArea] = useState<FocusArea>('main_carousel');
   const [focusIndex, setFocusIndex] = useState(0);
   // game_panel focus: 0=Play, 1=More, 2=Trophies, 3=Friends
@@ -150,8 +153,10 @@ export default function ConsoleHome() {
   const [isUserModalVisible, setUserModalVisible] = useState(false);
   const [modalSelectedIndex, setModalSelectedIndex] = useState(0);
   const [isHomeBgModalVisible, setHomeBgModalVisible] = useState(false);
+  const [isSearchVisible, setSearchVisible] = useState(false);
+  const [searchUsers, setSearchUsers] = useState<UserProfile[]>([]);
+  const [toolbarFocusIndex, setToolbarFocusIndex] = useState(2);
   const [addModalFocusIndex, setAddModalFocusIndex] = useState(0);
-  const [bgModalFocusIndex, setBgModalFocusIndex] = useState(0);
   const [settingsFocusArea, setSettingsFocusArea] = useState<'sidebar' | 'content'>('sidebar');
   const [settingsFocusIndex, setSettingsFocusIndex] = useState(0);
 
@@ -269,7 +274,10 @@ export default function ConsoleHome() {
   }, [isLowerSectionFocused]);
 
   useEffect(() => {
-    welcomeWidgetsFocusAnim.value = withTiming(focusArea === 'welcome_widgets' ? 1 : 0, { duration: 280, easing: Easing.out(Easing.quad) });
+    welcomeWidgetsFocusAnim.value = withTiming(
+      (focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar') ? 1 : 0,
+      { duration: 280, easing: Easing.out(Easing.quad) }
+    );
   }, [focusArea]);
 
   const isScreenshotRowFocused = focusArea === 'game_panel' && gamePanelFocusIndex >= 4;
@@ -359,7 +367,7 @@ export default function ConsoleHome() {
     return {
       opacity: collapseAnim,
       transform: [{ translateY: interpolate(collapseAnim, [0, 1], [-20, 0]) }],
-      pointerEvents: (isTopHidden || focusArea === 'welcome_widgets') ? 'auto' : 'none',
+      pointerEvents: (isTopHidden || focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar') ? 'auto' : 'none',
     };
   });
 
@@ -435,6 +443,25 @@ export default function ConsoleHome() {
     const merged = override ? { ...sg, ...override } : sg;
     return { ...merged, path: resolveLaunchPath(merged) };
   });
+
+  const searchableLibraryGames = useMemo(() => {
+    const byId = new Map<string, ConsoleItem>();
+    savedGames.forEach(g => byId.set(g.id, { ...g, path: resolveLaunchPath(g) }));
+    steamGames.forEach(g => {
+      const existing = byId.get(g.id);
+      byId.set(g.id, existing ? { ...g, ...existing, path: resolveLaunchPath(existing) } : { ...g, path: resolveLaunchPath(g) });
+    });
+    return Array.from(byId.values());
+  }, [savedGames, steamGames]);
+
+  const searchableMedia = useMemo(() => media, [media]);
+
+  useEffect(() => {
+    if (!isSearchVisible || Platform.OS !== 'web' || !(window as any).electronAPI?.getUsers) return;
+    (window as any).electronAPI.getUsers().then((users: UserProfile[]) => {
+      if (Array.isArray(users) && users.length > 0) setSearchUsers(users);
+    }).catch(() => { });
+  }, [isSearchVisible]);
 
   useEffect(() => {
     if (libraryTab === 'collection' && steamGames.length === 0 && !loadingSteam) {
@@ -785,10 +812,6 @@ export default function ConsoleHome() {
   }, [isAddModalVisible]);
 
   useEffect(() => {
-    if (isHomeBgModalVisible) setBgModalFocusIndex(0);
-  }, [isHomeBgModalVisible]);
-
-  useEffect(() => {
     if (isSettingsVisible) { setSettingsFocusArea('sidebar'); setSettingsFocusIndex(0); }
   }, [isSettingsVisible]);
 
@@ -801,6 +824,7 @@ export default function ConsoleHome() {
         if (isLaunching) return;
         if (isDetailVisible || isLibraryDetailVisible) return;
         if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+        if (isSearchVisible) return;
 
         // Throttle rapid arrow key inputs (key repeats/fast tapping)
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
@@ -943,7 +967,7 @@ export default function ConsoleHome() {
               let maxIdx = 1;
               if (settingsTab === 'profile') maxIdx = 2;
               else if (settingsTab === 'sync') maxIdx = 3;
-              else if (settingsTab === 'home') maxIdx = activeUser?.settings?.capturePath ? 4 : 3;
+              else if (settingsTab === 'home') maxIdx = 4 + (activeUser?.settings?.capturePath ? 1 : 0) + (activeUser?.settings?.wallpaperPath ? 1 : 0);
               else if (settingsTab === 'support') maxIdx = 2;
               setSettingsFocusIndex(prev => Math.min(prev + 1, maxIdx));
             }
@@ -970,8 +994,10 @@ export default function ConsoleHome() {
                 if (settingsFocusIndex === 0) updateUser({ settings: { ...activeUser?.settings, autoPlayVideo: !(activeUser?.settings?.autoPlayVideo !== false) } });
                 else if (settingsFocusIndex === 1) updateUser({ settings: { ...activeUser?.settings, invertTransitionDirection: !activeUser?.settings?.invertTransitionDirection } });
                 else if (settingsFocusIndex === 2) { setSettingsVisible(false); setHomeBgModalVisible(true); }
-                else if (settingsFocusIndex === 3) handleSelectCaptureFolder();
-                else if (settingsFocusIndex === 4) updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any });
+                else if (settingsFocusIndex === 3) handleSelectWallpaperFolder();
+                else if (settingsFocusIndex === 4) handleSelectCaptureFolder();
+                else if (settingsFocusIndex === 5 && activeUser?.settings?.capturePath) updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any });
+                else if (settingsFocusIndex === (activeUser?.settings?.capturePath ? 6 : 5) && activeUser?.settings?.wallpaperPath) updateUser({ settings: { ...activeUser?.settings, wallpaperPath: '' } as any });
               } else if (settingsTab === 'sync') {
                 const currentSync = activeUser?.settings?.syncPreferences || { ratingAndSummary: 'igdb', cover: 'steamgrid', background: 'steamgrid', logo: 'steamgrid' };
                 if (settingsFocusIndex === 0) updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, ratingAndSummary: currentSync.ratingAndSummary === 'igdb' ? 'none' : 'igdb' } as any } });
@@ -1035,17 +1061,8 @@ export default function ConsoleHome() {
           }
           return;
         }
-        if (isHomeBgModalVisible) {
-          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setHomeBgModalVisible(false);
-          else if (e.key === 'ArrowDown') setBgModalFocusIndex(prev => Math.min(prev + 1, homeBackground ? 2 : 1));
-          else if (e.key === 'ArrowUp') setBgModalFocusIndex(prev => Math.max(prev - 1, 0));
-          else if (e.key === 'Enter') {
-            if (bgModalFocusIndex === 0) handleSelectHomeBg();
-            else if (bgModalFocusIndex === 1 && homeBackground) { setHomeBackground(null); localStorage.removeItem('home_background'); setHomeBgModalVisible(false); }
-            else setHomeBgModalVisible(false);
-          }
-          return;
-        }
+        if (isHomeBgModalVisible) return;
+        if (isSearchVisible) return;
         if (isRandomSelectorVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setRandomSelectorVisible(false); return; }
         if (isFavoritesVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setFavoritesVisible(false); return; }
 
@@ -1102,6 +1119,9 @@ export default function ConsoleHome() {
             if (focusIndex < 4) setFocusIndex(prev => prev + 1);
             else if (focusIndex >= 5 && focusIndex < 9) setFocusIndex(prev => prev + 1);
           }
+          else if (focusArea === 'welcome_toolbar') {
+            if (toolbarFocusIndex < 3) setToolbarFocusIndex(prev => prev + 1);
+          }
           return;
         }
         if (e.key === 'ArrowLeft') {
@@ -1152,6 +1172,9 @@ export default function ConsoleHome() {
           else if (focusArea === 'welcome_widgets') {
             if (focusIndex > 0 && focusIndex <= 4) setFocusIndex(prev => prev - 1);
             else if (focusIndex > 5 && focusIndex <= 9) setFocusIndex(prev => prev - 1);
+          }
+          else if (focusArea === 'welcome_toolbar') {
+            if (toolbarFocusIndex > 0) setToolbarFocusIndex(prev => prev - 1);
           }
           return;
         }
@@ -1223,6 +1246,10 @@ export default function ConsoleHome() {
           else if (focusArea === 'welcome_widgets') {
             if (focusIndex < 5) setFocusIndex(prev => prev + 5);
           }
+          else if (focusArea === 'welcome_toolbar') {
+            setFocusArea('welcome_widgets');
+            setFocusIndex(0);
+          }
           return;
         }
         if (e.key === 'ArrowUp') {
@@ -1281,9 +1308,13 @@ export default function ConsoleHome() {
             if (focusIndex >= 5) {
               setFocusIndex(prev => prev - 5);
             } else {
-              setFocusArea('main_carousel');
-              setFocusIndex(activeIndex);
+              setFocusArea('welcome_toolbar');
+              setToolbarFocusIndex(2);
             }
+          }
+          else if (focusArea === 'welcome_toolbar') {
+            setFocusArea('main_carousel');
+            setFocusIndex(activeIndex);
           }
           return;
         }
@@ -1297,7 +1328,7 @@ export default function ConsoleHome() {
           }
           if (focusArea === 'header_avatar') {
             if (focusIndex === 0) {
-              // Buscar — sin acción por ahora
+              setSearchVisible(true);
             } else if (focusIndex === 1) {
               setUserModalVisible(false);
               setSettingsVisible(true);
@@ -1357,6 +1388,11 @@ export default function ConsoleHome() {
             }
             return;
           }
+          if (focusArea === 'welcome_toolbar') {
+            if (toolbarFocusIndex === 2) setHomeBgModalVisible(true);
+            else if (toolbarFocusIndex === 3) setSettingsVisible(true);
+            return;
+          }
           if (focusArea === 'welcome_widgets') {
             if (focusIndex === 2) {
               Linking.openURL('https://store.playstation.com');
@@ -1404,7 +1440,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, bgModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame, activeUser, storeOffers]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, isSearchVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame, activeUser, storeOffers, toolbarFocusIndex]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -1635,14 +1671,20 @@ export default function ConsoleHome() {
     } else { alert('Por favor completa el título y la ruta del ejecutable.'); }
   };
 
+  const handleApplyHomeBg = (uri: string) => {
+    setHomeBackground({ uri });
+    localStorage.setItem('home_background', uri);
+  };
+
   const handleSelectHomeBg = async () => {
-    if ((window as any).electronAPI) {
-      const img = await (window as any).electronAPI.selectImage();
-      if (img) {
-        const bgUri = `local-file:///${img.replace(/\\/g, '/')}`;
-        setHomeBackground({ uri: bgUri });
-        localStorage.setItem('home_background', bgUri);
-        setHomeBgModalVisible(false);
+    setHomeBgModalVisible(true);
+  };
+
+  const handleSelectWallpaperFolder = async () => {
+    if (Platform.OS === 'web' && (window as any).electronAPI?.selectCaptureFolder) {
+      const folderPath = await (window as any).electronAPI.selectCaptureFolder();
+      if (folderPath) {
+        updateUser({ settings: { ...activeUser?.settings, wallpaperPath: folderPath } as any });
       }
     }
   };
@@ -1912,7 +1954,7 @@ export default function ConsoleHome() {
             position: 'fixed',
             inset: 0,
             background: 'linear-gradient(to top, rgba(0, 0, 0, 1) 10%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.15) 100%)',
-            opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+            opacity: (focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar') ? 1 : 0,
             transition: 'opacity 350ms cubic-bezier(0.22, 1, 0.36, 1)',
             pointerEvents: 'none',
             zIndex: 2,
@@ -1969,7 +2011,7 @@ export default function ConsoleHome() {
             <Image source={require('@/assets/images/Libreria.jpeg')} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} />
             <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Biblioteca de juegos</Text>
           </View>
-        ) : focusArea === 'welcome_widgets' ? (
+        ) : (focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar') ? (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Image source={currentData[activeIndex]?.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} contentFit="cover" />
             <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Welcome</Text>
@@ -1980,6 +2022,57 @@ export default function ConsoleHome() {
             <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
           </View>
         ))}
+      </Animated.View>
+
+      {/* MINI TOOLBAR — visible when welcome widgets are focused (PS5 style) */}
+      <Animated.View style={[styles.miniHeaderToolbar, topBarMiniStyle]}>
+        {focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar' ? (
+          <View style={styles.miniToolbarRow}>
+            {[
+              { id: 'edit', icon: 'create-outline' as const, type: 'ion' as const },
+              { id: 'grid', icon: require('@/assets/images/gamesGrid2.png'), type: 'img' as const },
+              { id: 'background', icon: require('@/assets/images/cambioFondo.png'), type: 'img' as const },
+              { id: 'settings', icon: require('@/assets/images/settings.png'), type: 'img' as const },
+            ].map((item, idx) => (
+              <RadarFocusWrapper
+                key={item.id}
+                id={`wtoolbar-${item.id}`}
+                isFocused={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx}
+                size={50}
+                innerSize={40}
+                borderRadius="50%"
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.headerIconBtn,
+                    focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx && styles.headerIconBtnFocused,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setFocusArea('welcome_toolbar');
+                    setToolbarFocusIndex(idx);
+                    if (idx === 2) setHomeBgModalVisible(true);
+                    else if (idx === 3) setSettingsVisible(true);
+                  }}
+                >
+                  {item.type === 'ion' ? (
+                    <Ionicons
+                      name={item.icon}
+                      size={22}
+                      color={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx ? '#000' : '#FFF'}
+                    />
+                  ) : (
+                    <Image
+                      source={item.icon}
+                      style={{ width: 24, height: 24, resizeMode: 'contain' }}
+                      tintColor={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx ? '#000' : '#FFF'}
+                    />
+                  )}
+                </TouchableOpacity>
+              </RadarFocusWrapper>
+            ))}
+          </View>
+        ) : null}
       </Animated.View>
 
       {/* === HEADER (PS5 style) — fixed on top === */}
@@ -2020,7 +2113,7 @@ export default function ConsoleHome() {
             <TouchableOpacity
               style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 0 && styles.headerIconBtnFocused]}
               activeOpacity={0.7}
-              onPress={() => { setFocusArea('header_avatar'); setFocusIndex(0); }}
+              onPress={() => { setFocusArea('header_avatar'); setFocusIndex(0); setSearchVisible(true); }}
             >
               {/* <Ionicons name="search" size={22} color="rgba(255,255,255,0.85)" /> */}
               <Image
@@ -2465,30 +2558,33 @@ export default function ConsoleHome() {
         </View>
       </Modal>
 
-      {/* HOME BG MODAL */}
-      <Modal visible={isHomeBgModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Configurar Fondo de Inicio</Text>
-            <Text style={{ color: '#AAA', textAlign: 'center', marginBottom: 20 }}>Selecciona una imagen personalizada para el fondo de tu pantalla principal.</Text>
-            <TouchableOpacity style={[styles.fileBtn, bgModalFocusIndex === 0 && styles.buttonFocused]} onPress={handleSelectHomeBg}>
-              <Ionicons name="image" size={24} color="#FFF" />
-              <Text style={styles.fileBtnText}>Seleccionar Imagen de Fondo</Text>
-            </TouchableOpacity>
-            {homeBackground && (
-              <TouchableOpacity style={[styles.fileBtn, { backgroundColor: '#442222' }, bgModalFocusIndex === 1 && styles.buttonFocused]} onPress={() => { setHomeBackground(null); localStorage.removeItem('home_background'); setHomeBgModalVisible(false); }}>
-                <Ionicons name="trash" size={24} color="#FF5555" />
-                <Text style={[styles.fileBtnText, { color: '#FF5555' }]}>Eliminar Fondo Personalizado</Text>
-              </TouchableOpacity>
-            )}
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.cancelBtn, bgModalFocusIndex === (homeBackground ? 2 : 1) && styles.buttonFocused]} onPress={() => setHomeBgModalVisible(false)}>
-                <Text style={styles.cancelBtnText}>Cerrar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* SEARCH VIEW */}
+      <SearchView
+        visible={isSearchVisible}
+        onClose={() => setSearchVisible(false)}
+        libraryGames={searchableLibraryGames}
+        mediaItems={searchableMedia.length > 0 ? searchableMedia : media}
+        storeOffers={storeOffers}
+        users={searchUsers.length > 0 ? searchUsers : (activeUser ? [activeUser] : [])}
+        onOpenGameDetail={(item) => {
+          setSelectedItem(item as ConsoleItem);
+          setDetailVisible(true);
+        }}
+      />
+
+      {/* BACKGROUND PICKER */}
+      <BackgroundPickerModal
+        visible={isHomeBgModalVisible}
+        onClose={() => setHomeBgModalVisible(false)}
+        onSelectBackground={handleApplyHomeBg}
+        currentBackgroundUri={homeBackground?.uri}
+        backdropUri={
+          homeBackground?.uri ??
+          (Platform.OS === 'web' ? localStorage.getItem('home_background') : null)
+        }
+        wallpaperPath={activeUser?.settings?.wallpaperPath}
+        capturePath={activeUser?.settings?.capturePath}
+      />
 
       {/* SETTINGS VIEW */}
       {isSettingsVisible && (
@@ -2764,8 +2860,38 @@ export default function ConsoleHome() {
                         }}
                       >
                         <Ionicons name="image-outline" size={20} color="#FFF" />
-                        <Text style={styles.settingsSecondaryBtnTextNew}>Cambiar Imagen de Fondo</Text>
+                        <Text style={styles.settingsSecondaryBtnTextNew}>Elegir Fondo de Pantalla</Text>
                       </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.settingsSectionNew}>
+                      <Text style={styles.settingsLabelNew}>Carpeta de Fondos (De PlayStation)</Text>
+                      <Text style={[styles.settingsOptionDescNew, { marginBottom: 10, color: '#888' }]}>
+                        Ruta actual: {activeUser?.settings?.wallpaperPath || 'Predeterminada (userData/wallpapers)'}
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.settingsSecondaryBtnNew,
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 3) && styles.settingsElementFocusedNew
+                        ]}
+                        onPress={handleSelectWallpaperFolder}
+                      >
+                        <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                        <Text style={styles.settingsSecondaryBtnTextNew}>Seleccionar Carpeta</Text>
+                      </TouchableOpacity>
+                      {activeUser?.settings?.wallpaperPath && (
+                        <TouchableOpacity
+                          style={[
+                            styles.settingsSecondaryBtnNew,
+                            { marginTop: 10, backgroundColor: '#442222' },
+                            (settingsFocusArea === 'content' && settingsFocusIndex === (activeUser?.settings?.capturePath ? 6 : 5)) && styles.settingsElementFocusedNew
+                          ]}
+                          onPress={() => updateUser({ settings: { ...activeUser?.settings, wallpaperPath: '' } as any })}
+                        >
+                          <Ionicons name="trash-outline" size={20} color="#FF5555" />
+                          <Text style={[styles.settingsSecondaryBtnTextNew, { color: '#FF5555' }]}>Restaurar Predeterminada</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
 
                     <View style={styles.settingsSectionNew}>
@@ -2776,7 +2902,7 @@ export default function ConsoleHome() {
                       <TouchableOpacity
                         style={[
                           styles.settingsSecondaryBtnNew,
-                          (settingsFocusArea === 'content' && settingsFocusIndex === 3) && styles.settingsElementFocusedNew
+                          (settingsFocusArea === 'content' && settingsFocusIndex === 4) && styles.settingsElementFocusedNew
                         ]}
                         onPress={handleSelectCaptureFolder}
                       >
@@ -2788,7 +2914,7 @@ export default function ConsoleHome() {
                           style={[
                             styles.settingsSecondaryBtnNew,
                             { marginTop: 10, backgroundColor: '#442222' },
-                            (settingsFocusArea === 'content' && settingsFocusIndex === 4) && styles.settingsElementFocusedNew
+                            (settingsFocusArea === 'content' && settingsFocusIndex === 5) && styles.settingsElementFocusedNew
                           ]}
                           onPress={() => updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any })}
                         >
@@ -3091,6 +3217,19 @@ const styles = StyleSheet.create({
     zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  miniHeaderToolbar: {
+    position: 'absolute',
+    top: 40,
+    right: 50,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  miniToolbarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 28,
   },
   headerLeft: {
     flexDirection: 'row',

@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { exec, spawn, fork } = require('child_process');
 const { pathToFileURL } = require('url');
 const serve = require('electron-serve').default || require('electron-serve');
@@ -18,6 +19,51 @@ const STEAMGRID_API_KEY = '6abd5716fa6f6cb81eaed8426560c5eb'; // REEMPLAZADO
 let igdbAccessToken = null;
 let mainWindow = null;
 let backendProcess = null;
+
+const THUMB_CACHE_DIR = path.join(app.getPath('userData'), 'thumbnail-cache');
+const THUMB_MAX_WIDTH = 400;
+const THUMB_JPEG_QUALITY = 62;
+
+function ensureThumbCacheDir() {
+  if (!fs.existsSync(THUMB_CACHE_DIR)) {
+    fs.mkdirSync(THUMB_CACHE_DIR, { recursive: true });
+  }
+}
+
+function toLocalFileUri(filePath) {
+  return `local-file:///${filePath.replace(/\\/g, '/')}`;
+}
+
+function getThumbCachePath(sourcePath, mtimeMs) {
+  const hash = crypto.createHash('md5').update(`${sourcePath}|${mtimeMs}|${THUMB_MAX_WIDTH}`).digest('hex');
+  return path.join(THUMB_CACHE_DIR, `${hash}.jpg`);
+}
+
+function getOrCreateThumbnail(sourcePath, mtimeMs) {
+  ensureThumbCacheDir();
+  const cachePath = getThumbCachePath(sourcePath, mtimeMs);
+  if (fs.existsSync(cachePath)) {
+    return toLocalFileUri(cachePath);
+  }
+
+  try {
+    const img = nativeImage.createFromPath(sourcePath);
+    if (img.isEmpty()) return null;
+
+    const { width, height } = img.getSize();
+    let thumb = img;
+    if (width > THUMB_MAX_WIDTH) {
+      const targetH = Math.max(1, Math.round(height * (THUMB_MAX_WIDTH / width)));
+      thumb = img.resize({ width: THUMB_MAX_WIDTH, height: targetH, quality: 'good' });
+    }
+
+    fs.writeFileSync(cachePath, thumb.toJPEG(THUMB_JPEG_QUALITY));
+    return toLocalFileUri(cachePath);
+  } catch (error) {
+    console.error('Error creating thumbnail:', sourcePath, error);
+    return null;
+  }
+}
 
 function startStoreBackend() {
   if (!app.isPackaged) {
@@ -568,6 +614,59 @@ app.whenReady().then(() => {
       return result.filePaths[0];
     }
     return null;
+  });
+
+  // IPC: Listar imágenes de una carpeta (fondos, capturas, etc.)
+  ipcMain.handle('list-folder-images', async (event, folderPath) => {
+    try {
+      if (!folderPath || !fs.existsSync(folderPath)) return [];
+
+      const files = fs.readdirSync(folderPath);
+      const entries = [];
+
+      for (const file of files) {
+        const ext = path.extname(file).toLowerCase();
+        if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) {
+          const fullPath = path.join(folderPath, file);
+          try {
+            const stats = fs.statSync(fullPath);
+            entries.push({
+              fullPath,
+              name: file,
+              mtime: stats.mtimeMs,
+            });
+          } catch (_) { /* skip unreadable files */ }
+        }
+      }
+
+      entries.sort((a, b) => b.mtime - a.mtime);
+
+      const images = entries.map(({ fullPath, name, mtime }) => {
+        const uri = toLocalFileUri(fullPath);
+        const thumbnail = getOrCreateThumbnail(fullPath, mtime) || uri;
+        return { uri, thumbnail, name, mtime };
+      });
+
+      return images;
+    } catch (error) {
+      console.error('Error listing folder images:', error);
+      return [];
+    }
+  });
+
+  // IPC: Carpeta predeterminada de fondos de PlayStation
+  ipcMain.handle('get-default-wallpaper-folder', async () => {
+    const folder = path.join(app.getPath('userData'), 'wallpapers');
+    if (!fs.existsSync(folder)) {
+      fs.mkdirSync(folder, { recursive: true });
+    }
+    return folder;
+  });
+
+  // IPC: Carpeta predeterminada de capturas
+  ipcMain.handle('get-default-capture-folder', async () => {
+    const folder = path.join(app.getPath('pictures'), 'Screenshots');
+    return folder;
   });
 
   // IPC: Obtener última captura de un directorio

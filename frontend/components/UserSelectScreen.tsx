@@ -29,6 +29,7 @@ export interface UserSettings {
   steamId?: string;
   useSteamAvatar?: boolean;
   capturePath?: string;
+  wallpaperPath?: string;
   invertTransitionDirection?: boolean;
 }
 
