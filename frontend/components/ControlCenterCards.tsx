@@ -728,7 +728,7 @@ function AnimatedCard({
               )}
             </View>
           ) : card.type === 'capture' ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(38, 41, 48, 0.95)', padding: 16 }]}>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0d1015', padding: 16 }]}>
               {/* Icon */}
               <View style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
                 <Ionicons name="scan" size={18} color="#000" />
@@ -1103,14 +1103,14 @@ export default function ControlCenterCards({
   const cardsToShow = React.useMemo(() => {
     const nowPlayingCard: CardData | null = nowPlaying
       ? {
-          id: 'now-playing',
-          title: nowPlaying.title,
-          subtitle: `Reproduciendo en ${nowPlaying.appName}`,
-          icon: 'musical-notes',
-          imageUri: nowPlaying.thumbnail,
-          type: 'nowPlaying',
-          mediaSession: nowPlaying,
-        }
+        id: 'now-playing',
+        title: nowPlaying.title,
+        subtitle: `Reproduciendo en ${nowPlaying.appName}`,
+        icon: 'musical-notes',
+        imageUri: nowPlaying.thumbnail,
+        type: 'nowPlaying',
+        mediaSession: nowPlaying,
+      }
       : null;
 
     if (activeNavIndex === 5) {
@@ -1214,7 +1214,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     overflow: 'visible',
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#0d1015',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
@@ -1275,7 +1275,7 @@ const styles = StyleSheet.create({
     width: '58%',
     maxWidth: 700,
     height: '68%',
-    backgroundColor: '#0e0f14',
+    backgroundColor: '#0d1015',
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
@@ -1406,7 +1406,7 @@ const styles = StyleSheet.create({
   // Now Playing (Windows media)
   mediaCollapsedRoot: {
     flex: 1,
-    backgroundColor: '#232326',
+    backgroundColor: '#0d1015',
     padding: 14,
   },
   mediaCollapsedTop: {
@@ -1422,8 +1422,11 @@ const styles = StyleSheet.create({
   },
   mediaArtWrap: {
     flex: 1,
-    borderRadius: 10,
+    borderRadius: 8,
     overflow: 'hidden',
+    width: '65%',
+    height: '40%',
+    margin: 'auto',
     marginBottom: 12,
   },
   mediaArtImage: {
@@ -1439,14 +1442,15 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   mediaNowPlayingLabel: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.78)',
+    fontSize: 16,
+    fontWeight: '300',
     marginBottom: 4,
   },
   mediaTrackTitle: {
-    color: '#fff',
+    color: '#ffffffe8',
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: 2,
   },
   mediaTrackArtist: {
@@ -1455,7 +1459,7 @@ const styles = StyleSheet.create({
   },
   mediaExpandedRoot: {
     flex: 1,
-    backgroundColor: '#232326',
+    backgroundColor: '#0d1015',
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 16,
@@ -1468,14 +1472,14 @@ const styles = StyleSheet.create({
   },
   mediaExpandedHeaderText: {
     color: 'rgba(255,255,255,0.65)',
-    fontSize: 13,
+    fontSize: 19,
     flex: 1,
   },
   mediaExpandedArtWrap: {
     alignSelf: 'center',
     width: '72%',
     aspectRatio: 1,
-    borderRadius: 12,
+    borderRadius: 0,
     overflow: 'hidden',
     marginBottom: 18,
   },
@@ -1485,12 +1489,12 @@ const styles = StyleSheet.create({
   },
   mediaExpandedTitle: {
     color: '#fff',
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 25,
+    fontWeight: '200',
     marginBottom: 4,
   },
   mediaExpandedArtist: {
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 15,
     marginBottom: 18,
   },
