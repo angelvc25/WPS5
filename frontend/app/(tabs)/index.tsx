@@ -2058,13 +2058,13 @@ export default function ConsoleHome() {
                   {item.type === 'ion' ? (
                     <Ionicons
                       name={item.icon}
-                      size={22}
+                      size={30}
                       color={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx ? '#000' : '#FFF'}
                     />
                   ) : (
                     <Image
                       source={item.icon}
-                      style={{ width: 24, height: 24, resizeMode: 'contain' }}
+                      style={{ width: 30, height: 30, resizeMode: 'contain' }}
                       tintColor={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx ? '#000' : '#FFF'}
                     />
                   )}
