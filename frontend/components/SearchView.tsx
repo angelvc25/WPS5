@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { Video, ResizeMode } from 'expo-av';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
@@ -666,7 +667,12 @@ const SearchView: React.FC<SearchViewProps> = ({
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <Animated.View style={ui.root} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
-        <View style={ui.spotlight} pointerEvents="none" />
+        <Image
+          source={require('@/assets/images/wavesFondo.jpeg')}
+          style={StyleSheet.absoluteFillObject}
+        />
+        {/* <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11, 12, 16, 0.85)' }} pointerEvents="none" />
+        <View style={ui.spotlight} pointerEvents="none" /> */}
 
         <View style={ui.content}>
           <View style={ui.tabsRow}>
