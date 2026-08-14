@@ -77,10 +77,16 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "dist",
+        "to": "dist",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "files": [
-      "dist/**/*",
       "electron/**/*",
       "package.json",
       "node_modules/windows-media-sessions/**/*",

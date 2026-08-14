@@ -6,7 +6,11 @@ const { exec, spawn, fork } = require('child_process');
 const { pathToFileURL } = require('url');
 const serve = require('electron-serve').default || require('electron-serve');
 
-const loadURL = serve({ directory: path.join(__dirname, '../dist') });
+const distPath = app.isPackaged
+  ? path.join(process.resourcesPath, 'dist')
+  : path.join(__dirname, '../dist');
+
+const loadURL = serve({ directory: distPath });
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -271,7 +275,7 @@ function stopMediaSessionsBridge() {
 
   const mediaModule = getWindowsMediaSessionsModule();
   if (mediaModule?.shutdown) {
-    mediaModule.shutdown().catch(() => {});
+    mediaModule.shutdown().catch(() => { });
   }
 }
 
@@ -1224,11 +1228,11 @@ app.whenReady().then(() => {
         targetPath = path.join(app.getPath('pictures'), 'Screenshots');
       }
       if (!fs.existsSync(targetPath)) return null;
-      
+
       const files = fs.readdirSync(targetPath);
       let latestFile = null;
       let latestTime = 0;
-      
+
       for (const file of files) {
         const ext = path.extname(file).toLowerCase();
         if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
@@ -1240,7 +1244,7 @@ app.whenReady().then(() => {
           }
         }
       }
-      
+
       if (latestFile) {
         return `local-file:///${latestFile.replace(/\\/g, '/')}`;
       }
@@ -1529,10 +1533,10 @@ app.whenReady().then(() => {
       // Iniciar servidor temporal en el puerto 31415
       const PORT = 31415;
       const returnUrl = `http://localhost:${PORT}/auth/steam/return`;
-      
+
       const server = http.createServer((req, res) => {
         const parsedUrl = parse(req.url, true);
-        
+
         if (parsedUrl.pathname === '/auth/steam/return') {
           try {
             const claimedId = parsedUrl.query['openid.claimed_id'];
@@ -1572,7 +1576,7 @@ app.whenReady().then(() => {
 
       server.listen(PORT, '127.0.0.1', () => {
         const openIdUrl = `https://steamcommunity.com/openid/login?openid.ns=http://specs.openid.net/auth/2.0&openid.mode=checkid_setup&openid.return_to=${returnUrl}&openid.realm=http://localhost:${PORT}&openid.identity=http://specs.openid.net/auth/2.0/identifier_select&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select`;
-        
+
         // Abrir la URL en el navegador predeterminado del sistema (Chrome, Edge, etc.)
         shell.openExternal(openIdUrl).catch(err => {
           server.close();
