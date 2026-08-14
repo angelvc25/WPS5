@@ -7,8 +7,12 @@
 
 <img width="1919" height="1079" alt="Captura de pantalla 2026-08-13 182141" src="https://github.com/user-attachments/assets/e8446195-3103-4ec4-be06-a65641edea15" />
 
+<img width="1919" height="1079" alt="Captura de pantalla 2026-08-13 165214" src="https://github.com/user-attachments/assets/4755e89b-e5ad-4064-81c5-603962ff8d5e" />
 
-<img width="1918" height="1079" alt="image" src="https://github.com/user-attachments/assets/6c1c0d43-5b13-4b95-8e98-4c63aef030d7" />
+
+
+<img width="1227" height="728" alt="Captura de pantalla 2026-08-13 151133" src="https://github.com/user-attachments/assets/ef804b17-f7d0-464f-a364-5efa23121de2" />
+
 
 
 # Biblioteca y Steam
