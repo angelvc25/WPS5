@@ -9,6 +9,7 @@ const serve = require('electron-serve').default || require('electron-serve');
 const loadURL = serve({ directory: path.join(__dirname, '../dist') });
 
 protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
   { scheme: 'local-file', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
 ]);
 
@@ -28,6 +29,20 @@ let wps5WebMediaHint = null;
 let windowsMediaSessionsModule = null;
 
 const WINDOWS_MEDIA_SESSIONS_PATH = path.join(__dirname, '..', 'node_modules', 'windows-media-sessions');
+
+// Si la aplicación está empaquetada, redirigimos el backend ejecutable al directorio unpacked de ASAR
+if (app.isPackaged && process.platform === 'win32') {
+  const backendPath = path.join(
+    __dirname.replace('app.asar', 'app.asar.unpacked'),
+    '..',
+    'node_modules',
+    'windows-media-sessions',
+    'bin',
+    'win-x64',
+    'windows-media-sessions-backend.exe'
+  );
+  process.env.WINDOWS_MEDIA_SESSIONS_BACKEND = backendPath;
+}
 
 function getWindowsMediaSessionsModule() {
   if (windowsMediaSessionsModule) return windowsMediaSessionsModule;
@@ -54,7 +69,18 @@ let winMediaControlModulePromise = null;
 function getWinMediaControlModule() {
   if (process.platform !== 'win32') return Promise.resolve(null);
   if (!winMediaControlModulePromise) {
-    winMediaControlModulePromise = import('win-media-control').catch((err) => {
+    let modulePath = 'win-media-control';
+    if (app.isPackaged) {
+      modulePath = path.join(
+        __dirname.replace('app.asar', 'app.asar.unpacked'),
+        '..',
+        'node_modules',
+        'win-media-control',
+        'index.js'
+      );
+    }
+    const importUrl = pathToFileURL(modulePath).href;
+    winMediaControlModulePromise = import(importUrl).catch((err) => {
       console.warn('[MediaControl] win-media-control no disponible:', err.message);
       winMediaControlModulePromise = null;
       return null;
