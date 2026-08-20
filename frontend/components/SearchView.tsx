@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
 import { StoreOffer } from '@/services/storeService';
 import { UserProfile } from '@/components/UserSelectScreen';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export interface SearchGameItem {
   id: string;
@@ -55,27 +56,27 @@ interface SearchViewProps {
   onOpenGameDetail: (item: SearchGameItem) => void;
 }
 
-const TABS: { id: SearchTab; label: string }[] = [
-  { id: 'games', label: 'Juegos' },
-  { id: 'media', label: 'Multimedia' },
-  { id: 'players', label: 'Jugadores' },
+const TABS: { id: SearchTab; labelKey: any }[] = [
+  { id: 'games', labelKey: 'search.games' },
+  { id: 'media', labelKey: 'search.media' },
+  { id: 'players', labelKey: 'search.players' },
 ];
 
-const SUBSCRIPTIONS: Omit<SearchEntry, 'platformLabel'>[] = [
+const SUBSCRIPTIONS = [
   {
     id: 'sub-psplus',
     title: 'PlayStation Plus',
-    subtitle: 'Suscripción',
+    subtitleKey: 'search.subscription',
     image: require('@/assets/images/psplus.png'),
-    kind: 'subscription',
+    kind: 'subscription' as const,
     url: 'https://www.playstation.com/ps-plus/',
   },
   {
     id: 'sub-eaplay',
     title: 'EA Play',
-    subtitle: 'Suscripción',
+    subtitleKey: 'search.subscription',
     image: null,
-    kind: 'subscription',
+    kind: 'subscription' as const,
     url: 'https://www.ea.com/ea-play',
   },
 ];
@@ -176,6 +177,7 @@ const SearchView: React.FC<SearchViewProps> = ({
   onOpenGameDetail,
 }) => {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<SearchTab>('games');
   const [query, setQuery] = useState('');
   const [focusArea, setFocusArea] = useState<'tabs' | 'search' | 'results' | 'subscriptions'>('search');
@@ -218,7 +220,7 @@ const SearchView: React.FC<SearchViewProps> = ({
         return {
           id: `store-${offer.id}`,
           title: offer.title,
-          subtitle: inLibrary ? 'En la biblioteca' : offer.price,
+          subtitle: inLibrary ? t('search.inLibrary') : offer.price,
           image: { uri: offer.image },
           platformLabel: 'PS5',
           kind: 'store' as const,
@@ -231,7 +233,7 @@ const SearchView: React.FC<SearchViewProps> = ({
       return mediaItems.map(item => ({
         id: item.id,
         title: item.title,
-        subtitle: item.time || 'Multimedia',
+        subtitle: item.time || t('search.media'),
         image: item.image,
         platformLabel: item.platform,
         kind: 'media' as const,
@@ -241,7 +243,7 @@ const SearchView: React.FC<SearchViewProps> = ({
     return users.map(user => ({
       id: user.id,
       title: user.name,
-      subtitle: 'Jugador',
+      subtitle: t('search.player'),
       image: user.avatarBase64 ? { uri: user.avatarBase64 } : (user.avatar?.startsWith('http') || user.avatar?.startsWith('local-file')
         ? { uri: user.avatar }
         : require('@/assets/images/ProfilePicture.png')),
@@ -267,7 +269,7 @@ const SearchView: React.FC<SearchViewProps> = ({
           results.push({
             id: item.id,
             title: item.title,
-            subtitle: 'En la biblioteca',
+            subtitle: t('search.inLibrary'),
             image: item.image,
             platformLabel: platformBadge(item),
             kind: 'library',
@@ -285,7 +287,7 @@ const SearchView: React.FC<SearchViewProps> = ({
           results.push({
             id: `store-${offer.id}`,
             title: offer.title,
-            subtitle: inLibrary ? 'En la biblioteca' : offer.price,
+            subtitle: inLibrary ? t('search.inLibrary') : offer.price,
             image: { uri: offer.image },
             platformLabel: 'PS5',
             kind: 'store',
@@ -303,7 +305,7 @@ const SearchView: React.FC<SearchViewProps> = ({
         .map(item => ({
           id: item.id,
           title: item.title,
-          subtitle: item.time || 'Multimedia',
+          subtitle: item.time || t('search.media'),
           image: item.image,
           platformLabel: item.platform,
           kind: 'media' as const,
@@ -316,7 +318,7 @@ const SearchView: React.FC<SearchViewProps> = ({
       .map(user => ({
         id: user.id,
         title: user.name,
-        subtitle: 'Jugador',
+        subtitle: t('search.player'),
         image: user.avatarBase64 ? { uri: user.avatarBase64 } : (user.avatar?.startsWith('http') || user.avatar?.startsWith('local-file')
           ? { uri: user.avatar }
           : require('@/assets/images/ProfilePicture.png')),
@@ -657,12 +659,12 @@ const SearchView: React.FC<SearchViewProps> = ({
   if (!visible) return null;
 
   const sectionLabel = query.trim()
-    ? (searchResults.length > 0 ? 'Resultados' : 'Sin resultados')
+    ? (searchResults.length > 0 ? t('search.results') : t('search.noResults'))
     : activeTab === 'games'
-      ? 'Tendencias en juegos'
+      ? t('search.trendingGames')
       : activeTab === 'media'
-        ? 'Aplicaciones multimedia'
-        : 'Jugadores';
+        ? t('search.mediaApps')
+        : t('search.players');
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
@@ -689,7 +691,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                     setFocusArea('tabs');
                   }}
                 >
-                  <Text style={[ui.tabText, isActive && ui.tabTextActive]}>{tab.label}</Text>
+                  <Text style={[ui.tabText, isActive && ui.tabTextActive]}>{t(tab.labelKey)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -703,7 +705,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                 style={ui.searchInput}
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Buscar juegos, complementos y aplicaciones"
+                placeholder={t('search.placeholder')}
                 placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 onFocus={() => setFocusArea('search')}
                 autoCorrect={false}
@@ -756,14 +758,14 @@ const SearchView: React.FC<SearchViewProps> = ({
           ) : (
             <View style={ui.emptyWrap}>
               <Text style={ui.emptyText}>
-                {query.trim() ? 'No se encontraron coincidencias.' : 'No hay contenido para mostrar.'}
+                {query.trim() ? t('search.noMatches') : t('search.empty')}
               </Text>
             </View>
           )}
 
           {!query.trim() && activeTab === 'games' ? (
             <>
-              <Text style={ui.subsTitle}>PlayStation Plus y otras suscripciones</Text>
+              <Text style={ui.subsTitle}>{t('search.subscriptionsTitle')}</Text>
               <View style={ui.subsRow}>
                 {SUBSCRIPTIONS.map((sub, idx) => (
                   <TouchableOpacity
@@ -779,6 +781,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                       </View>
                     )}
                     <Text style={ui.subTitle}>{sub.title}</Text>
+                    <Text style={[ui.subTitle, { fontSize: s(13), opacity: 0.6, marginTop: -s(2) }]}>{t(sub.subtitleKey)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -790,7 +793,7 @@ const SearchView: React.FC<SearchViewProps> = ({
           <Text style={ui.footerKey}>[L1]</Text>
           <Text style={ui.footerText}>/</Text>
           <Text style={ui.footerKey}>[R1]</Text>
-          <Text style={ui.footerText}>Cambiar pestañas</Text>
+          <Text style={ui.footerText}>{t('search.changeTabs')}</Text>
         </View>
       </Animated.View>
     </Modal>

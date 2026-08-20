@@ -174,6 +174,10 @@ const es = {
   'search.placeholder': 'Buscar juegos, complementos y aplicaciones',
   'search.noMatches': 'No se encontraron coincidencias.',
   'search.empty': 'No hay contenido para mostrar.',
+  'search.results': 'Resultados',
+  'search.noResults': 'Sin resultados',
+  'search.trendingGames': 'Tendencias en juegos',
+  'search.mediaApps': 'Aplicaciones multimedia',
 
   'bg.change': 'Cambiar fondo',
   'bg.sortByDate': 'Ordenar por: Fecha en que se agregó (nuevo - antiguo)',
@@ -463,6 +467,10 @@ const en: Record<TranslationKey, string> = {
   'search.placeholder': 'Search games, add-ons and apps',
   'search.noMatches': 'No matches found.',
   'search.empty': 'No content to show.',
+  'search.results': 'Results',
+  'search.noResults': 'No results',
+  'search.trendingGames': 'Trending games',
+  'search.mediaApps': 'Media applications',
 
   'bg.change': 'Change background',
   'bg.sortByDate': 'Sort by: Date added (new - old)',
@@ -752,6 +760,10 @@ const pt: Record<TranslationKey, string> = {
   'search.placeholder': 'Pesquisar jogos, complementos e aplicações',
   'search.noMatches': 'Nenhuma correspondência encontrada.',
   'search.empty': 'Não há conteúdo para mostrar.',
+  'search.results': 'Resultados',
+  'search.noResults': 'Sem resultados',
+  'search.trendingGames': 'Tendências em jogos',
+  'search.mediaApps': 'Aplicações multimédia',
 
   'bg.change': 'Mudar fundo',
   'bg.sortByDate': 'Ordenar por: Data em que foi adicionado (novo - antigo)',
