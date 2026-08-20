@@ -983,6 +983,29 @@ app.whenReady().then(() => {
     return { success: true };
   });
 
+  // Los procesos hijos heredan variables de Electron/Chromium que hacen
+  // crashar (0xC0000005) a muchos juegos al cargar DLLs o Crashpad.
+  function envForExternalApp() {
+    const env = { ...process.env };
+    const strip = [
+      'ELECTRON_RUN_AS_NODE',
+      'ELECTRON_NO_ASAR',
+      'ELECTRON_NO_ATTACH_CONSOLE',
+      'CHROME_CRASHPAD_PIPE_NAME',
+      'NODE_OPTIONS',
+      'NODE_SKIP_PLATFORM_CHECK',
+    ];
+    for (const key of strip) delete env[key];
+    return env;
+  }
+
+  function formatExitCode(code) {
+    if (code === 3221225477) return ' — acceso inválido a memoria (0xC0000005)';
+    if (code === 3221225781) return ' — DLL no encontrada (0xC0000135)';
+    if (code === 3221226505) return ' — stack buffer overrun (0xC0000409)';
+    return '';
+  }
+
   // Helper: Resolver acceso directo .lnk a su ruta real (Windows)
   function resolveLnkTarget(lnkPath) {
     return new Promise((resolve) => {
@@ -1094,10 +1117,17 @@ app.whenReady().then(() => {
 
     // Lanzar el juego y monitorear el proceso
     try {
-      const child = spawn(`"${targetExe}"`, [], {
-        shell: true,
+      const gameCwd = path.dirname(targetExe);
+      console.log('Lanzando:', targetExe);
+      console.log('Directorio de trabajo:', gameCwd);
+
+      const child = spawn(targetExe, [], {
+        cwd: gameCwd,
+        env: envForExternalApp(),
+        detached: true,
         stdio: 'ignore',
         windowsHide: false,
+        windowsVerbatimArguments: true,
       });
 
       child.on('error', (err) => {
@@ -1106,7 +1136,7 @@ app.whenReady().then(() => {
       });
 
       child.on('close', (code) => {
-        console.log(`Juego cerrado (código: ${code})`);
+        console.log(`Juego cerrado (código: ${code})${formatExitCode(code)}`);
         resumeLauncher();
       });
     } catch (err) {
