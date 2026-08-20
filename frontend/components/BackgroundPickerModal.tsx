@@ -113,14 +113,14 @@ BackgroundTile.displayName = 'BackgroundTile';
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#07080c',
+    backgroundColor: '#07080cff',
   },
   backdropImage: {
     ...StyleSheet.absoluteFillObject,
   },
   backdropDim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(7, 8, 12, 0.94)',
+    backgroundColor: 'rgba(7, 8, 12, 0.12)',
   },
   content: {
     flex: 1,
