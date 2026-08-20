@@ -318,7 +318,7 @@ export const WelcomeWidgets = ({
                 <Image source={require('@/assets/images/psplus.png')} style={{ width: 13, height: 13, resizeMode: 'contain' }} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.widgetTitle2} numberOfLines={1}>
-                    Descubre lo nuevo de PlayStation Plus
+                    {t('widgets.discoverPsPlus')}
                   </Text>
                 </View>
               </View>
@@ -1867,7 +1867,7 @@ export const WelcomeWidgets = ({
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                   <Text style={styles.widgetSubtitle}>
-                    <MaterialCommunityIcons name="circle" size={13} color="rgba(255,255,255,0.4)" style={{ marginRight: 5 }} /> Espacio libre
+                    <MaterialCommunityIcons name="circle" size={13} color="rgba(255,255,255,0.4)" style={{ marginRight: 5 }} /> {t('widgets.freeSpace')}
                   </Text>
                   <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>
                     {storageInfo.freeGB > 0 ? `${storageInfo.freeGB.toFixed(1)} GB` : '36.47 GB'}
@@ -2081,9 +2081,9 @@ export const WelcomeWidgets = ({
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
                   <Ionicons name="heart" size={17} color="#ffffff" />
-                  <Text style={styles.widgetTitle}>Lista de deseos</Text>
+                  <Text style={styles.widgetTitle}>{t('widgets.wishlist')}</Text>
                 </View>
-                <Text style={styles.widgetSubtitle}>Ver tu lista de deseos</Text>
+                <Text style={styles.widgetSubtitle}>{t('widgets.viewWishlist')}</Text>
               </View>
             </TouchableOpacity>
 

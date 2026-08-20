@@ -12,6 +12,7 @@ import { Image } from 'expo-image';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { fetchStoreOffers, StoreOffer, LOCAL_FALLBACK_OFFERS } from '../services/storeService';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface StoreFrontPanelProps {
   windowWidth: number;
@@ -34,6 +35,7 @@ export const StoreFrontPanel = ({
 }: StoreFrontPanelProps) => {
   const dealsScrollRef = useRef<ScrollView>(null);
   const upcomingScrollRef = useRef<ScrollView>(null);
+  const { t } = useTranslation();
 
   // Scale factor: 1.0 at 1080p
   const scale = Math.min(Math.max(windowHeight / 1080, 0.6), 1);
@@ -85,13 +87,13 @@ export const StoreFrontPanel = ({
       {/* Must see / Ofertas */}
       <Animated.View entering={FadeInDown.duration(400).delay(60)}>
         <Text style={[styles.sectionTitle, { fontSize: s(25), marginBottom: s(14) }]}>
-          Debes ver
+          {t('store.mustSee')}
         </Text>
 
         {loading ? (
           <View style={styles.loadingRow}>
             <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.4)" />
-            <Text style={styles.loadingText}>Cargando ofertas...</Text>
+            <Text style={styles.loadingText}>{t('store.loadingOffers')}</Text>
           </View>
         ) : (
           <ScrollView
@@ -288,7 +290,7 @@ export const StoreFrontPanel = ({
           style={{ marginTop: s(24) }}
         >
           <Text style={[styles.sectionTitle, { fontSize: s(25), marginBottom: s(14) }]}>
-            Próximos lanzamientos
+            {t('store.nextLaunch')}
           </Text>
 
           <ScrollView
@@ -436,7 +438,7 @@ export const StoreFrontPanel = ({
 
                 {/* "Próximamente" badge */}
                 <View style={[styles.soonBadge, { borderRadius: s(5), padding: s(4) }]}>
-                  <Text style={[styles.soonText, { fontSize: s(11) }]}>Próximamente</Text>
+                  <Text style={[styles.soonText, { fontSize: s(11) }]}>{t('store.comingSoon')}</Text>
                 </View>
 
                 <View style={[styles.cardInfo, { paddingHorizontal: s(8), paddingVertical: s(6), gap: s(2) }]}>

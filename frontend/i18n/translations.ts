@@ -157,6 +157,7 @@ const es = {
   'widgets.messages': 'Mensajes',
   'widgets.yesterday': 'Ayer',
   'widgets.storage': 'Almacenamiento',
+  'widgets.freeSpace': 'Espacio libre',
   'widgets.wishlist': 'Lista de deseos',
   'widgets.viewWishlist': 'Ver tu lista de deseos',
   'widgets.changeBg': 'Cambiar Fondo',
@@ -274,6 +275,8 @@ const es = {
 
   'store.loadingOffers': 'Cargando ofertas...',
   'store.comingSoon': 'Próximamente',
+  'store.mustSee': 'Debes ver',
+  'store.nextLaunch': 'Próximos lanzamientos',
 
   'alert.appError': 'Error: {error}',
   'alert.noPath': 'La aplicación no tiene ruta asignada.',
@@ -443,6 +446,7 @@ const en: Record<TranslationKey, string> = {
   'widgets.messages': 'Messages',
   'widgets.yesterday': 'Yesterday',
   'widgets.storage': 'Storage',
+  'widgets.freeSpace': 'Free space',
   'widgets.wishlist': 'Wishlist',
   'widgets.viewWishlist': 'View your wishlist',
   'widgets.changeBg': 'Change Background',
@@ -560,6 +564,8 @@ const en: Record<TranslationKey, string> = {
 
   'store.loadingOffers': 'Loading offers...',
   'store.comingSoon': 'Coming soon',
+  'store.mustSee': 'Must see',
+  'store.nextLaunch': 'Next launches',
 
   'alert.appError': 'Error: {error}',
   'alert.noPath': 'The application has no assigned path.',
@@ -729,6 +735,7 @@ const pt: Record<TranslationKey, string> = {
   'widgets.messages': 'Mensagens',
   'widgets.yesterday': 'Ontem',
   'widgets.storage': 'Armazenamento',
+  'widgets.freeSpace': 'Espaço livre',
   'widgets.wishlist': 'Lista de desejos',
   'widgets.viewWishlist': 'Ver a sua lista de desejos',
   'widgets.changeBg': 'Mudar Fundo',
@@ -846,6 +853,8 @@ const pt: Record<TranslationKey, string> = {
 
   'store.loadingOffers': 'Carregando ofertas...',
   'store.comingSoon': 'Em breve',
+  'store.mustSee': 'Deve ver',
+  'store.nextLaunch': 'Próximos lançamentos',
 
   'alert.appError': 'Erro: {error}',
   'alert.noPath': 'A aplicação não tem um caminho atribuído.',
