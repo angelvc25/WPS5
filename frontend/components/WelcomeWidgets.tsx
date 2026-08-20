@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 import { fetchStoreOffers, StoreOffer } from '../services/storeService';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface WelcomeWidgetsProps {
   focusArea: string;
@@ -43,6 +44,7 @@ export const WelcomeWidgets = ({
   widgetContainerStyle2,
   wviewStyle,
 }: WelcomeWidgetsProps) => {
+  const { t } = useTranslation();
   const horizontalScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -530,16 +532,20 @@ export const WelcomeWidgets = ({
                     )}
                     <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ color: "#FFF", fontSize: 12, marginBottom: 2 }}>{gamepadInfo.connected ? "1" : "-"}</Text>
-                      <Image source={require('@/assets/images/controller.png')} style={{ width: 25, height: 25, resizeMode: 'contain', tintColor: "#FFF", marginBottom: 2 }} />
+                      <Ionicons
+                        name="game-controller"
+                        size={45}
+                        color="#FFF"
+                      />
                       <Ionicons name={batteryIcon as any} size={11} color={gamepadInfo.connected ? batteryColor : "#fff"} />
                     </View>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.widgetTitle} numberOfLines={1}>
-                      {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : 'Control inalambrico DualSense'}
-                    </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
-                      <Text style={styles.widgetSubtitle}>{gamepadInfo.connected ? `${batteryPct}%` : 'Desconectado'}</Text>
+                    <View style={styles.textStack}>
+                      <Text style={[styles.widgetSubtitle, { color: '#FFF' }]}>
+                        {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : t('widgets.controller')}
+                      </Text>
+                      <Text style={styles.widgetSubtitle}>{gamepadInfo.connected ? `${batteryPct}%` : t('widgets.disconnected')}</Text>
                     </View>
                   </View>
                 </View>
@@ -702,7 +708,7 @@ export const WelcomeWidgets = ({
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                     <Image source={require('@/assets/images/logo-trophy.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
-                    <Text style={styles.widgetTitle}>Trofeos</Text>
+                    <Text style={styles.widgetTitle}>{t('widgets.trophies')}</Text>
                   </View>
                   <Text style={styles.widgetBadge}>Total: 457</Text>
                 </View>
@@ -851,30 +857,6 @@ export const WelcomeWidgets = ({
                           zIndex: 0,
                         }}
                       >
-                        {/* <div
-                          style={{
-                            position: 'absolute',
-                            width: '500%',
-                            height: '500%',
-                            left: '50%',
-                            top: '50%',
-                            background: `
-                            conic-gradient(
-                              from 0deg,
-                              rgba(255, 255, 255, 0.15) 0%,
-                              rgba(255, 255, 255, 0.79) 30%,
-                              rgba(180, 210, 255, 0.86) 33%,
-                              rgba(220, 235, 255, 0.95) 48%,
-                              rgba(255, 255, 255, 1.0) 50%,
-                              rgba(223, 248, 182, 0.95) 52%,
-                              rgba(180, 210, 255, 0.88) 57%,
-                              rgba(255, 255, 255, 0.75) 62%,
-                              rgba(255, 255, 255, 0.84) 100%
-                            )
-                          `,
-                            animation: 'spinBorder 6.8s linear infinite',
-                          }}
-                        /> */}
                         <Image
                           source={{ uri: activeOffer?.image || 'https://clan.fastly.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
                           style={{
@@ -925,11 +907,13 @@ export const WelcomeWidgets = ({
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                   <Image source={require('@/assets/images/PlaystationStore_copi.png')} style={{ width: 18, height: 18, resizeMode: 'cover' }} />
-                  <Text style={styles.widgetTitle}>PlayStation Store</Text>
+                  <View>
+                    <Text style={styles.widgetTitle}>{t('widgets.store')}</Text>
+                    <Text style={styles.widgetSubtitle} numberOfLines={1}>
+                      {activeOffer ? activeOffer.title : t('widgets.latestOffers')}
+                    </Text>
+                  </View>
                 </View>
-                <Text style={styles.widgetSubtitle} numberOfLines={1}>
-                  {activeOffer ? activeOffer.title : 'Últimas ofertas disponibles'}
-                </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, zIndex: 10 }}>
                   {activeOffer?.discountPercent && (
                     <View style={{ backgroundColor: '#0070D1', paddingHorizontal: 3, paddingVertical: 1, borderRadius: 3 }}>
@@ -1122,16 +1106,13 @@ export const WelcomeWidgets = ({
                     <div className="wc-shimmer-line2" />
                   </View>
                 )}
-                <View style={{ flexDirection: 'column', alignItems: 'flex-start', flex: 1, marginRight: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15 }}>
-                    <Ionicons name="newspaper" size={13} color="rgba(255,255,255,0.8)" />
-                    <Text style={styles.widgetTitle}>Noticias</Text>
-                  </View>
-                  <Text style={[styles.widgetSubtitle, { fontWeight: 'bold', width: '100%' }]} numberOfLines={2}>
-                    {realNews.length > 0 ? realNews[0].title : 'Descubre juegos nuevos'}
+                <View style={{ flex: 1, marginRight: 10 }}>
+                  <Text style={styles.widgetTitle}>{t('widgets.news')}</Text>
+                  <Text style={styles.widgetSubtitle} numberOfLines={1}>
+                    {realNews.length > 0 ? realNews[0].title : t('widgets.discoverGames')}
                   </Text>
-                  <Text style={[styles.widgetSubtitle, { opacity: 0.7, width: '100%', fontSize: 9 }]} numberOfLines={1}>
-                    {realNews.length > 0 ? `Helldivers 2 · ${formatSteamDate(realNews[0].date)}` : 'Apex Legends | Ayer'}
+                  <Text style={[styles.widgetSubtitle, { opacity: 0.6 }]} numberOfLines={1}>
+                    {realNews.length > 0 ? `Helldivers 2 — ${formatSteamDate(realNews[0].date)}` : 'Apex Legends | Ayer'}
                   </Text>
                 </View>
                 <Image
@@ -1318,9 +1299,9 @@ export const WelcomeWidgets = ({
                   <View style={styles.widgetIconWrap}>
                     <Ionicons name="add" size={20} color="#FFF" />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.widgetTitle}>Agregar Juego</Text>
-                    <Text style={styles.widgetSubtitle} numberOfLines={1}>Accesos directos</Text>
+                  <View>
+                    <Text style={styles.widgetTitle}>{t('widgets.addGame')}</Text>
+                    <Text style={styles.widgetSubtitle} numberOfLines={1}>{t('widgets.shortcuts')}</Text>
                   </View>
                 </View>
               </View>
@@ -1504,9 +1485,9 @@ export const WelcomeWidgets = ({
                 <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 5, marginBottom: 6, maxWidth: 180 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                     <Image source={require('@/assets/images/controller.png')} style={{ width: 13, height: 13, resizeMode: 'contain', tintColor: "#FFF" }} />
-                    <Text style={styles.widgetTitle}>Jugados recientemente</Text>
+                    <Text style={styles.widgetTitle}>{t('widgets.recentlyPlayed')}</Text>
                   </View>
-                  <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '400', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : 'Sin juegos recientes'}</Text>
+                  <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '400', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : t('widgets.noRecent')}</Text>
                   <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600', flex: 1 }}><MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />2 horas</Text>
                 </View>
                 {lastPlayedGame ? (
@@ -1514,7 +1495,7 @@ export const WelcomeWidgets = ({
                     <Image source={lastPlayedGame.image} style={{ width: 70, height: 70, borderRadius: 0 }} contentFit="cover" />
                   </View>
                 ) : (
-                  <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontStyle: 'italic' }}>Sin juegos recientes</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontStyle: 'italic' }}>{t('widgets.noRecent')}</Text>
                 )}
               </View>
             </TouchableOpacity>
@@ -1690,19 +1671,19 @@ export const WelcomeWidgets = ({
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
                   <Image source={require('@/assets/images/mensajess.png')} style={{ width: 30, height: 30, resizeMode: 'contain' }} />
-                  <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>Mensajes</Text>
+                  <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>{t('widgets.messages')}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <View style={{ width: 36, height: 36, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                    {activeUser?.avatar ? (
+                    {activeUser?.avatar || activeUser?.avatarBase64 ? (
                       <Image source={{ uri: activeUser.avatarBase64 || activeUser.avatar }} style={styles.avatarMensajes} />
                     ) : (
                       <Image source={require('@/assets/images/ProfilePicture.png')} style={styles.avatarMensajes} />
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }} numberOfLines={1}>{activeUser?.name || 'Usuario'}</Text>
-                    <Text style={styles.widgetSubtitle}>Ayer</Text>
+                    <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }} numberOfLines={1}>{activeUser?.name || t('alert.userFallback')}</Text>
+                    <Text style={styles.widgetSubtitle}>{t('widgets.yesterday')}</Text>
                   </View>
                 </View>
               </View>
@@ -1880,7 +1861,7 @@ export const WelcomeWidgets = ({
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                     <MaterialCommunityIcons name="harddisk" size={13} color="rgba(255,255,255,0.8)" />
-                    <Text style={styles.widgetTitle}>Almacenamiento</Text>
+                    <Text style={styles.widgetTitle}>{t('widgets.storage')}</Text>
                   </View>
                 </View>
 
@@ -2282,9 +2263,9 @@ export const WelcomeWidgets = ({
                   <View style={styles.widgetIconWrap}>
                     <Image source={require('@/assets/images/cambioFondo.png')} style={{ width: 30, height: 30, resizeMode: 'contain' }} />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.widgetTitle}>Cambiar Fondo</Text>
-                    <Text style={styles.widgetSubtitle} numberOfLines={1}>Personaliza tu consola</Text>
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <Text style={styles.widgetTitle}>{t('widgets.changeBg')}</Text>
+                    <Text style={styles.widgetSubtitle} numberOfLines={1}>{t('widgets.customize')}</Text>
                   </View>
                 </View>
               </View>

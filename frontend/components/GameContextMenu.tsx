@@ -1,4 +1,7 @@
 import React, { useEffect, useRef } from 'react';
+import { BlurView } from 'expo-blur';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { TranslationKey } from '@/i18n/translations';
 import {
   View,
   Text,
@@ -30,12 +33,12 @@ function ShimmerOverlay() {
           }
 
           70% {
-            transform: translate(130%, -50%) rotate(48deg);
+            transform: translate(130%, -50%) rotate(-48deg);
             opacity: 0;
           }
 
           100% {
-            transform: translate(130%, -50%) rotate(48deg);
+            transform: translate(130%, -50%) rotate(-48deg);
             opacity: 0;
           }
         }
@@ -83,10 +86,12 @@ export default function GameContextMenu({
   focusedIndex,
   onPressItem,
 }: GameContextMenuProps) {
+  const { t } = useTranslation();
+
   const options = [
-    { label: 'Administrar contenido del juego' },
-    { label: 'Ubicación del juego' },
-    { label: 'Eliminar' },
+    { labelKey: 'context.manage' as TranslationKey },
+    { labelKey: 'context.location' as TranslationKey },
+    { labelKey: 'context.delete' as TranslationKey },
   ];
 
   // ─── Animated opacity per item for smooth focus glow transition ───────────
@@ -171,7 +176,7 @@ export default function GameContextMenu({
                   isFocused && styles.labelFocused,
                 ]}
               >
-                {opt.label}
+                {t(opt.labelKey)}
               </Text>
             </TouchableOpacity>
           );

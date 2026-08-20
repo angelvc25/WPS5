@@ -6,6 +6,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MusicPlayerCard from './MusicPlayerCard';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { getGameActionLabel } from '../services/steamLaunchService';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface GameInfoPanelProps {
   activeItem: ConsoleItem;
@@ -60,7 +61,8 @@ export const GameInfoPanel = ({
   topPanelStyle,
   installedSteamAppIds = null,
 }: GameInfoPanelProps) => {
-  const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : 'Último Jugado') : activeItem?.title;
+  const { t } = useTranslation();
+  const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : t('lastPlayed.title')) : activeItem?.title;
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
   const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
   const isSpotify = activeItem?.title?.toLowerCase()?.includes('spotify');
@@ -283,7 +285,7 @@ export const GameInfoPanel = ({
                       setSelectedItem(target);
                       setDetailVisible(true);
                     } else {
-                      alert('Aún no has jugado a ningún juego.');
+                      alert(t('game.noPlayedGame'));
                     }
                   }
                 }}
@@ -534,11 +536,11 @@ export const GameInfoPanel = ({
                   marginBottom: s(4),
                 }}
               >
-                Trofeos
+                {t('game.trophies')}
               </Text>
 
               <Text style={{ color: '#ddddddff', fontSize: s(17) }}>
-                37 conseguidos
+                {t('game.trophiesCount', { count: 37 })}
               </Text>
             </View>
           </View>
@@ -717,11 +719,11 @@ export const GameInfoPanel = ({
                   marginBottom: s(4),
                 }}
               >
-                Amigos que juegan
+                {t('game.friendsPlaying')}
               </Text>
 
               <Text style={{ color: '#ddddddff', fontSize: s(17) }}>
-                5 amigos tienen este juego
+                {t('game.friendsCount', { count: 5 })}
               </Text>
             </View>
           </View>
@@ -743,7 +745,16 @@ export const GameInfoPanel = ({
           style={{ marginTop: s(20), paddingHorizontal: s(50), alignItems: 'flex-start' }}
         >
           <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: s(14), fontStyle: 'italic' }}>
-            La música es el fondo perfecto para cada aventura.
+            {t('game.musicQuote')}
+          </Text>
+        </Animated.View>
+      )}
+
+      {!canPlay && (
+        <Animated.View style={[styles.musicQuoteContainer, { width: windowWidth }]} entering={FadeInDown.duration(800).delay(300)}>
+          <Ionicons name="musical-notes-outline" size={s(28)} color="rgba(255,255,255,0.4)" style={{ marginBottom: s(12) }} />
+          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: s(14), fontStyle: 'italic' }}>
+            {t('game.musicQuote')}
           </Text>
         </Animated.View>
       )}
@@ -751,17 +762,17 @@ export const GameInfoPanel = ({
       {/* Screenshots and Trailers row */}
       {canPlay && !isMediaSection && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-          <Text style={{ color: '#FFF', fontSize: s(18), fontWeight: '500', marginBottom: s(16), paddingLeft: s(50) }}>Capturas y trailers</Text>
+          <Text style={{ color: '#FFF', fontSize: s(18), fontWeight: '500', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.capturesAndTrailers')}</Text>
 
           {mediaLoading ? (
             <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-              <Text style={styles.newsEmptyText}>Cargando capturas...</Text>
+              <Text style={styles.newsEmptyText}>{t('game.loadingCaptures')}</Text>
             </View>
           ) : steamMedia.length === 0 ? (
             <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
-              <Text style={styles.newsEmptyText}>No hay capturas disponibles en Steam</Text>
+              <Text style={styles.newsEmptyText}>{t('game.noCaptures')}</Text>
             </View>
           ) : (
             <ScrollView
@@ -939,17 +950,17 @@ export const GameInfoPanel = ({
       {/* Steam News row */}
       {canPlay && !isMediaSection && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-          <Text style={{ color: '#FFF', fontSize: s(18), fontWeight: '500', marginBottom: s(16), paddingLeft: s(50) }}>Últimas noticias</Text>
+          <Text style={{ color: '#FFF', fontSize: s(18), fontWeight: '500', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.latestNews')}</Text>
 
           {newsLoading ? (
             <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-              <Text style={styles.newsEmptyText}>Buscando contenido...</Text>
+              <Text style={styles.newsEmptyText}>{t('game.searchingContent')}</Text>
             </View>
           ) : steamNews.length === 0 ? (
             <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
-              <Text style={styles.newsEmptyText}>No hay noticias disponibles</Text>
+              <Text style={styles.newsEmptyText}>{t('game.noNews')}</Text>
             </View>
           ) : (
             <ScrollView

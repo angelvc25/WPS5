@@ -67,22 +67,20 @@ export interface ConsoleItem {
   platform?: string;
 }
 
-const DATA_GAMES: ConsoleItem[] = [
-  { id: '1', title: 'Welcome', time: 'WConsole - Home', image: require('@/assets/images/Home.png'), description: 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.', rating: 5.0 },
-  { id: 'last_played', title: 'Último Jugado', time: 'No ejecutado aún', image: require('@/assets/images/Home.gif'), isLastPlayed: true },
-  // { id: '3', title: 'Favoritos Juegos', time: 'Folder - Colección', isFolder: true },
-  // { id: '4', title: 'Favoritos Media', time: 'Aplicaciones de Streaming', isGrid: true },
-  { id: '5', title: 'PlayStation Store', time: 'Tienda', image: require('@/assets/images/Store.png'), backgroundImage: require('@/assets/images/StoreFondo.jpg') }
+const getInitialGames = (t: any): ConsoleItem[] => [
+  { id: '1', title: t('home.welcome'), time: 'WConsole - Home', image: require('@/assets/images/Home.png'), description: t('home.welcomeDesc'), rating: 5.0 },
+  { id: 'last_played', title: t('lastPlayed.title'), time: t('lastPlayed.noGamesYet'), image: require('@/assets/images/Home.gif'), isLastPlayed: true },
+  { id: '5', title: 'PlayStation Store', time: t('home.store'), image: require('@/assets/images/Store.png'), backgroundImage: require('@/assets/images/StoreFondo.jpg') }
 ];
 
-const DATA_MEDIA: ConsoleItem[] = [
+const getInitialMedia = (t: any): ConsoleItem[] => [
   {
     id: 'spotify_default',
     title: 'Spotify',
-    time: 'Música',
+    time: t('home.music'),
     type: 'media',
     platform: 'Spotify',
-    description: 'Reproductor de Música. Inicia sesión para escuchar tus canciones favoritas.',
+    description: t('home.musicDesc'),
     image: require('@/assets/images/spotify_portada.png'),
     logo: require('@/assets/images/spotify_logo.png'),
     backgroundImage: require('@/assets/images/spotify_fondo.png')
@@ -143,8 +141,8 @@ export default function ConsoleHome() {
   const RIGHT_PADDING = Math.max(windowWidth - ITEM_WIDTH - LEFT_PADDING, 60);
 
   // States for dynamic data and clock
-  const [games, setGames] = useState<ConsoleItem[]>(DATA_GAMES);
-  const [media, setMedia] = useState<ConsoleItem[]>(DATA_MEDIA);
+  const [games, setGames] = useState<ConsoleItem[]>(() => getInitialGames(t));
+  const [media, setMedia] = useState<ConsoleItem[]>(() => getInitialMedia(t));
   const [lastPlayedGame, setLastPlayedGame] = useState<ConsoleItem | null>(null);
   const [currentTime, setCurrentTime] = useState('');
   const [gamepadInfo, setGamepadInfo] = useState({ connected: false, name: '', battery: 0 });
@@ -435,8 +433,8 @@ export default function ConsoleHome() {
     currentData = nonSteamGames.slice(0, GAMES_LIMIT);
     currentData.push({
       id: 'more_library',
-      title: 'Ver Biblioteca',
-      time: 'Ver todos los juegos',
+      title: t('library.viewLibrary'),
+      time: t('library.viewAllGames'),
       image: null,
     } as any);
   }
@@ -485,7 +483,7 @@ export default function ConsoleHome() {
             title: g.name,
             time: 'Steam',
             image: { uri: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900_2x.jpg` },
-            description: `Tiempo jugado: ${Math.round(g.playtime_forever / 60)} horas`,
+            description: t('game.playedTime', { hours: Math.round(g.playtime_forever / 60) }),
             platform: 'Steam',
             path: buildSteamRunUrl(g.appid),
           }));
@@ -539,7 +537,7 @@ export default function ConsoleHome() {
         const formatApp = (app: any) => ({
           id: app.id,
           title: app.title,
-          time: app.type === 'game' ? (app.platform || 'Juego') : (app.type === 'web' ? 'Web App' : 'Media'),
+          time: app.type === 'game' ? (app.platform || t('cc.typeGame')) : (app.type === 'web' ? 'Web App' : 'Media'),
           image: app.imageBase64
             ? { uri: app.imageBase64 }
             : (app.image
@@ -555,7 +553,7 @@ export default function ConsoleHome() {
             ),
           video: app.video ? (app.video.startsWith('http') ? { uri: app.video } : { uri: `local-file:///${app.video.replace(/\\/g, '/')}` }) : null,
           path: app.path,
-          description: app.description || (app.id === 'spotify_default' ? 'Reproductor de Música. Inicia sesión para escuchar tus canciones favoritas.' : ''),
+          description: app.description || (app.id === 'spotify_default' ? t('home.musicDesc') : ''),
           rating: app.rating,
           isFavorite: app.isFavorite,
           lastPlayed: app.lastPlayed,
@@ -566,11 +564,12 @@ export default function ConsoleHome() {
         const gamesList = (data.games || []).map(formatApp);
         const mediaList = (data.media || []).map(formatApp);
 
-        const home = DATA_GAMES.find(g => g.id === '1');
-        const lastPlayed = DATA_GAMES.find(g => g.id === 'last_played');
-        const favGames = DATA_GAMES.find(g => g.id === '3');
-        const favMedia = DATA_GAMES.find(g => g.id === '4');
-        const ps5store = DATA_GAMES.find(g => g.id === '5');
+        const initialGames = getInitialGames(t);
+        const home = initialGames.find(g => g.id === '1');
+        const lastPlayed = initialGames.find(g => g.id === 'last_played');
+        const favGames = initialGames.find(g => g.id === '3');
+        const favMedia = initialGames.find(g => g.id === '4');
+        const ps5store = initialGames.find(g => g.id === '5');
 
         const baseItems = [ps5store, home, lastPlayed, favGames, favMedia].filter(Boolean) as ConsoleItem[];
 
@@ -594,7 +593,8 @@ export default function ConsoleHome() {
 
         setGames([...baseItems, ...sortedGames]);
 
-        const filteredDataMedia = DATA_MEDIA.filter((defaultItem: any) =>
+        const initialMedia = getInitialMedia(t);
+        const filteredDataMedia = initialMedia.filter((defaultItem: any) =>
           !mediaList.some((userItem: any) => userItem.id === defaultItem.id)
         );
         setMedia([...filteredDataMedia, ...mediaList.reverse()]);
@@ -712,7 +712,7 @@ export default function ConsoleHome() {
     } else if (idx === 2) {
       // Trofeos
       soundService.playActivation?.();
-      alert(`🏆 Trofeos de ${activeUser?.name || 'Usuario'}\n\nTotal: 457\n🥇 Oro: 13 | 🥈 Plata: 45 | 🥉 Bronce: 399`);
+      alert(t('alert.trophies', { name: activeUser?.name || t('alert.userFallback') }));
     } else if (idx === 3) {
       // Cambiar usuario
       changeUser();
@@ -721,7 +721,7 @@ export default function ConsoleHome() {
       if (Platform.OS === 'web' && (window as any).electronAPI) {
         (window as any).electronAPI.closeApp();
       } else {
-        alert("Cerrando la consola WPS5...");
+        alert(t('alert.closingConsole'));
       }
     }
   };
@@ -1733,7 +1733,7 @@ export default function ConsoleHome() {
       if (item.isFolder || item.isGrid) { setFavoritesVisible(true); return; }
       if (item.isLastPlayed) {
         if (lastPlayedGame) { handleLaunchApp(lastPlayedGame); }
-        else alert('Aún no has jugado a ningún juego.');
+        else alert(t('lastPlayed.noGamesYet'));
         return;
       }
       if (!item.isGrid) { handleLaunchApp(item); }
@@ -1777,7 +1777,7 @@ export default function ConsoleHome() {
       setAddModalVisible(false);
       setNewApp({ title: '', path: '', image: '', type: 'game', platform: '' });
       loadApps();
-    } else { alert('Por favor completa el título y la ruta del ejecutable.'); }
+    } else { alert(t('add.completeFields')); }
   };
 
   const handleApplyHomeBg = (uri: string) => {
@@ -2502,24 +2502,24 @@ export default function ConsoleHome() {
               />
             )}
             <View style={{ zIndex: 2 }}>
-              <Text style={styles.modalTitle}>Añadir Nueva Aplicación</Text>
+              <Text style={styles.modalTitle}>{t('add.title')}</Text>
               <TextInput
                 ref={addModalTitleRef}
                 style={[styles.input, addModalFocusIndex === 0 && styles.inputFocused]}
-                placeholder="Nombre de la Aplicación"
+                placeholder={t('add.appName')}
                 placeholderTextColor="rgba(255,255,255,0.3)"
                 value={newApp.title}
                 onChangeText={(text) => setNewApp({ ...newApp, title: text })}
               />
               <View style={styles.pickerRow}>
                 <TouchableOpacity style={[styles.typeBtn, newApp.type === 'game' && styles.typeBtnActive, addModalFocusIndex === 1 && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, type: 'game' })}>
-                  <Text style={[styles.typeBtnText, newApp.type === 'game' && styles.typeBtnTextActive]}>Games</Text>
+                  <Text style={[styles.typeBtnText, newApp.type === 'game' && styles.typeBtnTextActive]}>{t('cc.typeGames')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.typeBtn, newApp.type === 'media' && styles.typeBtnActive, addModalFocusIndex === 2 && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, type: 'media', platform: '' })}>
-                  <Text style={[styles.typeBtnText, newApp.type === 'media' && styles.typeBtnTextActive]}>Media</Text>
+                  <Text style={[styles.typeBtnText, newApp.type === 'media' && styles.typeBtnTextActive]}>{t('cc.typeMedia')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.typeBtn, newApp.type === 'web' && styles.typeBtnActive, addModalFocusIndex === 3 && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, type: 'web', platform: '' })}>
-                  <Text style={[styles.typeBtnText, newApp.type === 'web' && styles.typeBtnTextActive]}>Web</Text>
+                  <Text style={[styles.typeBtnText, newApp.type === 'web' && styles.typeBtnTextActive]}>{t('cc.typeWeb')}</Text>
                 </TouchableOpacity>
               </View>
               {newApp.type === 'game' && (
@@ -2542,19 +2542,19 @@ export default function ConsoleHome() {
               ) : (
                 <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 11 && styles.inputFocused]} onPress={handleSelectExecutable}>
                   <Ionicons name="folder-open" size={20} color="rgba(255,255,255,0.7)" />
-                  <Text style={styles.fileBtnText}>{newApp.path ? 'Ruta: ...' + newApp.path.slice(-20) : 'Seleccionar Ejecutable (.exe)'}</Text>
+                  <Text style={styles.fileBtnText}>{newApp.path ? t('add.path', { path: newApp.path.slice(-20) }) : t('add.selectExe')}</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 12 && styles.inputFocused]} onPress={handleSelectImage}>
                 <Ionicons name="image" size={20} color="rgba(255,255,255,0.7)" />
-                <Text style={styles.fileBtnText}>{newApp.image ? 'Portada: ...' + newApp.image.slice(-20) : 'Portada (Opcional - Auto-fetch)'}</Text>
+                <Text style={styles.fileBtnText}>{newApp.image ? t('add.cover', { path: newApp.image.slice(-20) }) : t('add.coverOptional')}</Text>
               </TouchableOpacity>
               <View style={styles.modalActions}>
                 <TouchableOpacity style={[styles.cancelBtn, isSaving && { opacity: 0.5 }, addModalFocusIndex === 13 && styles.inputFocused]} onPress={() => !isSaving && setAddModalVisible(false)} disabled={isSaving}>
-                  <Text style={styles.cancelBtnText}>Cancelar</Text>
+                  <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.saveBtn, isSaving && { backgroundColor: 'rgba(255,255,255,0.05)' }, addModalFocusIndex === 14 && styles.inputFocused]} onPress={handleSaveApp} disabled={isSaving}>
-                  <Text style={styles.saveBtnText}>{isSaving ? 'Buscando assets...' : 'Guardar'}</Text>
+                  <Text style={styles.saveBtnText}>{isSaving ? t('edit.searchingAssetsShort') : t('common.save')}</Text>
                 </TouchableOpacity>
               </View>
             </View>

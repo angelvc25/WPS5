@@ -5,24 +5,26 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import ControlCenterCards from './ControlCenterCards';
 import RadarFocusWrapper from './RadarFocusWrapper';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { TranslationKey } from '@/i18n/translations';
 
 export interface NavItem {
   icon: keyof typeof Ionicons.glyphMap;
-  label: string;
+  labelKey: TranslationKey;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { icon: 'home', label: 'Inicio' },
-  { icon: 'albums-outline', label: 'Cambiador' },
-  { icon: 'notifications-outline', label: 'Notificaciones' },
-  { icon: 'people-outline', label: 'Game Base' },
-  { icon: 'musical-notes-outline', label: 'Música' },
-  { icon: 'download-outline', label: 'Descargas' },
-  { icon: 'volume-high-outline', label: 'Sonido' },
-  { icon: 'mic-outline', label: 'Micrófono' },
-  { icon: 'game-controller-outline', label: 'Accesorios' },
-  { icon: 'person-circle-outline', label: 'Perfil' },
-  { icon: 'power-outline', label: 'Alimentación' },
+  { icon: 'home', labelKey: 'nav.home' },
+  { icon: 'albums-outline', labelKey: 'nav.switcher' },
+  { icon: 'notifications-outline', labelKey: 'nav.notifications' },
+  { icon: 'people-outline', labelKey: 'nav.gameBase' },
+  { icon: 'musical-notes-outline', labelKey: 'nav.music' },
+  { icon: 'download-outline', labelKey: 'nav.downloads' },
+  { icon: 'volume-high-outline', labelKey: 'nav.sound' },
+  { icon: 'mic-outline', labelKey: 'nav.mic' },
+  { icon: 'game-controller-outline', labelKey: 'nav.accessories' },
+  { icon: 'person-circle-outline', labelKey: 'nav.profile' },
+  { icon: 'power-outline', labelKey: 'nav.power' },
 ];
 
 interface FloatingSystemNavProps {
@@ -52,6 +54,7 @@ export default function FloatingSystemNav({
   onRefreshApps,
   onCardsCountChange,
 }: FloatingSystemNavProps) {
+  const { t } = useTranslation();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(50);
 
@@ -152,7 +155,7 @@ export default function FloatingSystemNav({
                 )}
                 {isActive && (
                   <View style={styles.tooltip}>
-                    <Text style={styles.tooltipText}>{item.label}</Text>
+                    <Text style={styles.tooltipText}>{t(item.labelKey)}</Text>
                   </View>
                 )}
               </TouchableOpacity>

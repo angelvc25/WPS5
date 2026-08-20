@@ -8,7 +8,10 @@ import {
   Animated,
   Image as RNImage,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { TranslationKey } from '@/i18n/translations';
 import { UserProfile } from './UserSelectScreen';
 
 // ─── Shimmer que barre todo el menú (igual que en GameContextMenu) ────────────
@@ -78,31 +81,33 @@ export default function ProfileDropdownMenu({
   activeUser,
   isOnline,
 }: ProfileDropdownMenuProps) {
+  const { t } = useTranslation();
+  
   const options = [
     {
-      label: 'Estado online',
+      labelKey: 'profile.onlineStatus' as TranslationKey,
       icon: 'person' as const,
       rightComponent: (
         <View style={styles.statusContainer}>
           <View style={[styles.statusDot, { backgroundColor: isOnline ? '#4CD964' : '#8E8E93' }]} />
-          <Text style={styles.statusText}>{isOnline ? 'Online' : 'Invisible'}</Text>
+          <Text style={styles.statusText}>{isOnline ? t('common.online') : t('common.invisible')}</Text>
         </View>
       ),
     },
     {
-      label: 'Perfil',
+      labelKey: 'profile.profile' as TranslationKey,
       image: require('@/assets/images/ProfilePicture.png'),
     },
     {
-      label: 'Trofeos',
+      labelKey: 'profile.trophies' as TranslationKey,
       image: require('@/assets/images/logo-trophy.png'),
     },
     {
-      label: 'Cambiar usuario',
+      labelKey: 'profile.switchUser' as TranslationKey,
       icon: 'person' as const,
     },
     {
-      label: 'Salir',
+      labelKey: 'profile.exit' as TranslationKey,
       icon: 'log-out-outline' as const,
     },
   ];
@@ -215,12 +220,13 @@ export default function ProfileDropdownMenu({
                     isFocused && styles.labelFocused,
                   ]}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </Text>
               </View>
 
+              {/* Right Side component (e.g., status pill) */}
               {opt.rightComponent && (
-                <View style={styles.itemRight}>
+                <View style={styles.rightComponentWrapper}>
                   {opt.rightComponent}
                 </View>
               )}

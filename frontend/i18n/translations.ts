@@ -98,6 +98,8 @@ const es = {
   'home.welcome': 'Welcome',
   'home.welcomeDesc': 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.',
   'home.store': 'Tienda',
+  'home.music': 'Música',
+  'home.musicDesc': 'Reproductor de Música. Inicia sesión para escuchar tus canciones favoritas.',
 
   'context.manage': 'Administrar contenido del juego',
   'context.location': 'Ubicación del juego',
@@ -279,6 +281,21 @@ const es = {
   'alert.trophies': '🏆 Trofeos de {name}\n\nTotal: 457\n🥇 Oro: 13 | 🥈 Plata: 45 | 🥉 Bronce: 399',
   'alert.closingConsole': 'Cerrando la consola WPS5...',
   'alert.userFallback': 'Usuario',
+
+  'widgets.latestOffers': 'Últimas ofertas disponibles',
+  'widgets.discoverGames': 'Descubre juegos nuevos',
+  'widgets.controller': 'Control inalámbrico DualSense',
+  'widgets.disconnected': 'Desconectado',
+  'widgets.discoverPsPlus': 'Descubre lo nuevo de PlayStation Plus',
+  'game.playedTime': 'Tiempo jugado: {hours} horas',
+  'game.trophies': 'Trofeos',
+  'game.trophiesCount': '{count} conseguidos',
+  'game.friendsPlaying': 'Amigos que juegan',
+  'game.friendsCount': '{count} amigos tienen este juego',
+  'game.noPlayedGame': 'Aún no has jugado a ningún juego.',
+  'cc.typeGame': 'Juego',
+
+  'edit.searchingAssetsShort': 'Buscando assets...',
 } as const;
 
 export type TranslationKey = keyof typeof es;
@@ -550,6 +567,23 @@ const en: Record<TranslationKey, string> = {
   'alert.trophies': "🏆 {name}'s Trophies\n\nTotal: 457\n🥇 Gold: 13 | 🥈 Silver: 45 | 🥉 Bronze: 399",
   'alert.closingConsole': 'Closing WPS5 console...',
   'alert.userFallback': 'User',
+
+  'widgets.latestOffers': 'Latest offers available',
+  'widgets.discoverGames': 'Discover new games',
+  'widgets.controller': 'DualSense wireless controller',
+  'widgets.disconnected': 'Disconnected',
+  'widgets.discoverPsPlus': "Discover what's new on PlayStation Plus",
+  'game.playedTime': 'Time played: {hours} hours',
+  'game.trophies': 'Trophies',
+  'game.trophiesCount': '{count} earned',
+  'game.friendsPlaying': 'Friends playing',
+  'game.friendsCount': '{count} friends own this game',
+  'game.noPlayedGame': "You haven't played any games yet.",
+  'cc.typeGame': 'Game',
+  'cc.typeGames': 'Games',
+  'cc.typeMedia': 'Media',
+  'cc.typeWeb': 'Web',
+  'edit.searchingAssetsShort': 'Searching assets...',
 };
 
 const pt: Record<TranslationKey, string> = {
@@ -819,6 +853,21 @@ const pt: Record<TranslationKey, string> = {
   'alert.trophies': '🏆 Troféus de {name}\n\nTotal: 457\n🥇 Ouro: 13 | 🥈 Prata: 45 | 🥉 Bronze: 399',
   'alert.closingConsole': 'Fechando o console WPS5...',
   'alert.userFallback': 'Usuário',
+
+  'widgets.latestOffers': 'Últimas ofertas disponíveis',
+  'widgets.discoverGames': 'Descubra novos jogos',
+  'widgets.controller': 'Controle sem fio DualSense',
+  'widgets.disconnected': 'Desconectado',
+  'widgets.discoverPsPlus': 'Descubra as novidades do PlayStation Plus',
+  'game.playedTime': 'Tempo jogado: {hours} horas',
+  'game.trophies': 'Troféus',
+  'game.trophiesCount': '{count} conquistados',
+  'game.friendsPlaying': 'Amigos a jogar',
+  'game.friendsCount': '{count} amigos têm este jogo',
+  'game.noPlayedGame': 'Ainda não jogou nenhum jogo.',
+  'cc.typeGame': 'Jogo',
+
+  'edit.searchingAssetsShort': 'Procurando assets...',
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {

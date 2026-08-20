@@ -8,6 +8,7 @@ import { ConsoleItem } from '../app/(tabs)/index';
 import { useEffect } from 'react';
 import GameDetailView from './GameDetailView';
 import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface LibraryGridProps {
   games: ConsoleItem[];
@@ -241,6 +242,7 @@ export default function LibraryGrid({
   gridActive = isFocused,
   tabsFocused = false,
 }: LibraryGridProps) {
+  const { t } = useTranslation();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [selectedGame, setSelectedGame] = useState<ConsoleItem | null>(null);
 
@@ -341,12 +343,12 @@ export default function LibraryGrid({
           <View style={styles.tabsContainer}>
             <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('installed'); }}>
               <View style={[styles.tabPill, tabsFocused && activeTab === 'installed' && styles.tabPillFocused]}>
-                <Text style={[styles.tabText, activeTab === 'installed' && styles.tabTextActive]}>Instalados</Text>
+                <Text style={[styles.tabText, activeTab === 'installed' && styles.tabTextActive]}>{t('library.installed')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('collection'); }}>
               <View style={[styles.tabPill, tabsFocused && activeTab === 'collection' && styles.tabPillFocused]}>
-                <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>Tu Colección</Text>
+                <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>{t('library.collection')}</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -354,10 +356,11 @@ export default function LibraryGrid({
       </View>
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {activeTab === 'installed' ? 'Almacenamiento de la consola: ' : 'Tus juegos de Steam: '}
-          {filteredGames.length}
-        </Text>
+        {filteredGames.length > 0 && (
+          <Text style={styles.headerTitle}>
+            {activeTab === 'installed' ? t('library.consoleStorage', { count: filteredGames.length }) : t('library.steamGames', { count: filteredGames.length })}
+          </Text>
+        )}
       </View>
 
       <View style={{ height: windowHeight - 220, overflow: 'hidden', paddingTop: 20, marginTop: -20, paddingHorizontal: 20, marginHorizontal: -20 }}>
@@ -376,21 +379,21 @@ export default function LibraryGrid({
           />
         )}
 
-        {isLoading ? (
-          <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Cargando juegos de Steam...</Text>
-          </Animated.View>
-        ) : (!filteredGames || filteredGames.length === 0) ? (
-          <Animated.View entering={FadeInDown.duration(400)} style={styles.emptyContainer}>
-            <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-            <MaterialCommunityIcons name="folder-outline" size={48} color="rgba(255,255,255,0.4)" />
-            <Text style={styles.emptyText}>La biblioteca está vacía.</Text>
-          </Animated.View>
+        {filteredGames.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            {isLoading ? (
+              <Text style={styles.emptyText}>{t('library.loadingSteam')}</Text>
+            ) : (
+              <>
+                <MaterialCommunityIcons name="folder-outline" size={64} color="rgba(255,255,255,0.3)" />
+                <Text style={styles.emptyText}>{t('library.empty')}</Text>
+              </>
+            )}
+          </View>
         ) : (
           <Animated.View style={animatedGridStyle}>
             <View style={styles.grid}>
               {(() => {
-                // 5. IMPORTANTE: Ahora usamos filteredGames en todo el grid
                 const totalRows = Math.ceil(filteredGames.length / COLUMNS);
                 const visibleRowCount = Math.ceil((windowHeight - 220) / rowHeight);
                 const BUFFER = 3;
