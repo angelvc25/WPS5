@@ -2713,7 +2713,7 @@ export default function ConsoleHome() {
 
           <View style={styles.settingsContentContainer}>
             {/* Title Header */}
-            <Text style={styles.settingsMainTitleLarge}>Ajustes</Text>
+            <Text style={styles.settingsMainTitleLarge}>{t('settings.title')}</Text>
 
             {/* Two Column Layout */}
             <View style={styles.settingsTwoColumns}>
@@ -2728,7 +2728,7 @@ export default function ConsoleHome() {
                   onPress={() => setSettingsTab('profile')}
                 >
                   <Ionicons name="person-outline" size={24} color={settingsTab === 'profile' ? '#FFF' : '#AAA'} />
-                  <Text style={[styles.settingsTabTextNew, settingsTab === 'profile' && styles.settingsTabTextActiveNew]}>Perfil</Text>
+                  <Text style={[styles.settingsTabTextNew, settingsTab === 'profile' && styles.settingsTabTextActiveNew]}>{t('settings.profile')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -2740,7 +2740,7 @@ export default function ConsoleHome() {
                   onPress={() => setSettingsTab('home')}
                 >
                   <Ionicons name="home-outline" size={24} color={settingsTab === 'home' ? '#FFF' : '#AAA'} />
-                  <Text style={[styles.settingsTabTextNew, settingsTab === 'home' && styles.settingsTabTextActiveNew]}>Inicio</Text>
+                  <Text style={[styles.settingsTabTextNew, settingsTab === 'home' && styles.settingsTabTextActiveNew]}>{t('settings.home')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -2752,7 +2752,7 @@ export default function ConsoleHome() {
                   onPress={() => setSettingsTab('sync')}
                 >
                   <Ionicons name="sync-circle-outline" size={24} color={settingsTab === 'sync' ? '#FFF' : '#AAA'} />
-                  <Text style={[styles.settingsTabTextNew, settingsTab === 'sync' && styles.settingsTabTextActiveNew]}>Sincronización</Text>
+                  <Text style={[styles.settingsTabTextNew, settingsTab === 'sync' && styles.settingsTabTextActiveNew]}>{t('settings.sync')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -2764,7 +2764,7 @@ export default function ConsoleHome() {
                   onPress={() => setSettingsTab('support')}
                 >
                   <Ionicons name="heart-outline" size={24} color={settingsTab === 'support' ? '#FFF' : '#AAA'} />
-                  <Text style={[styles.settingsTabTextNew, settingsTab === 'support' && styles.settingsTabTextActiveNew]}>Apoyo al Proyecto</Text>
+                  <Text style={[styles.settingsTabTextNew, settingsTab === 'support' && styles.settingsTabTextActiveNew]}>{t('settings.support')}</Text>
                 </TouchableOpacity>
 
                 <View style={{ flex: 1 }} />
@@ -2868,7 +2868,7 @@ export default function ConsoleHome() {
                     </View>
 
                     <View style={styles.settingsSectionNew}>
-                      <Text style={styles.settingsLabelNew}>Cuenta de Steam</Text>
+                      <Text style={styles.settingsLabelNew}>{t('settings.steamAccount')}</Text>
                       {activeUser?.settings?.steamId ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -2960,12 +2960,12 @@ export default function ConsoleHome() {
                   </ScrollView>
                 ) : settingsTab === 'home' ? (
                   <ScrollView contentContainerStyle={styles.settingsScrollContentInnerNew} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.settingsSectionTitleNew}>Configuración de Inicio</Text>
+                    <Text style={styles.settingsSectionTitleNew}>{t('settings.homeConfig')}</Text>
 
                     <View style={styles.settingsOptionRowNew}>
                       <View style={styles.settingsOptionInfoNew}>
-                        <Text style={styles.settingsOptionLabelNew}>Reproducción automática de video</Text>
-                        <Text style={styles.settingsOptionDescNew}>Reproduce trailers de juegos automáticamente cuando seleccionas un juego en el carrusel principal.</Text>
+                        <Text style={styles.settingsOptionLabelNew}>{t('settings.autoPlayVideo')}</Text>
+                        <Text style={styles.settingsOptionDescNew}>{t('settings.autoPlayVideoDesc')}</Text>
                       </View>
                       <TouchableOpacity
                         onPress={() => updateUser({ settings: { ...activeUser?.settings, autoPlayVideo: !(activeUser?.settings?.autoPlayVideo !== false) } })}
@@ -2981,8 +2981,8 @@ export default function ConsoleHome() {
 
                     <View style={styles.settingsOptionRowNew}>
                       <View style={styles.settingsOptionInfoNew}>
-                        <Text style={styles.settingsOptionLabelNew}>Invertir dirección de la transición de fondos</Text>
-                        <Text style={styles.settingsOptionDescNew}>Invierte la dirección del barrido al cambiar de juego.</Text>
+                        <Text style={styles.settingsOptionLabelNew}>{t('settings.invertTransition')}</Text>
+                        <Text style={styles.settingsOptionDescNew}>{t('settings.invertTransitionDesc')}</Text>
                       </View>
                       <TouchableOpacity
                         onPress={() => updateUser({ settings: { ...activeUser?.settings, invertTransitionDirection: !activeUser?.settings?.invertTransitionDirection } })}
@@ -2997,7 +2997,7 @@ export default function ConsoleHome() {
                     </View>
 
                     <View style={styles.settingsSectionNew}>
-                      <Text style={styles.settingsLabelNew}>Fondo de Pantalla</Text>
+                      <Text style={styles.settingsLabelNew}>{t('settings.wallpaper')}</Text>
                       <TouchableOpacity
                         style={[
                           styles.settingsSecondaryBtnNew,
@@ -3009,14 +3009,14 @@ export default function ConsoleHome() {
                         }}
                       >
                         <Ionicons name="image-outline" size={20} color="#FFF" />
-                        <Text style={styles.settingsSecondaryBtnTextNew}>Elegir Fondo de Pantalla</Text>
+                        <Text style={styles.settingsSecondaryBtnTextNew}>{t('settings.chooseWallpaper')}</Text>
                       </TouchableOpacity>
                     </View>
 
                     <View style={styles.settingsSectionNew}>
-                      <Text style={styles.settingsLabelNew}>Carpeta de Fondos (De PlayStation)</Text>
+                      <Text style={styles.settingsLabelNew}>{t('settings.wallpaperFolder')}</Text>
                       <Text style={[styles.settingsOptionDescNew, { marginBottom: 10, color: '#888' }]}>
-                        Ruta actual: {activeUser?.settings?.wallpaperPath || 'Predeterminada (userData/wallpapers)'}
+                        {t('settings.currentPath', { path: activeUser?.settings?.wallpaperPath || t('settings.defaultWallpapers') })}
                       </Text>
                       <TouchableOpacity
                         style={[
@@ -3026,7 +3026,7 @@ export default function ConsoleHome() {
                         onPress={handleSelectWallpaperFolder}
                       >
                         <Ionicons name="folder-open-outline" size={20} color="#FFF" />
-                        <Text style={styles.settingsSecondaryBtnTextNew}>Seleccionar Carpeta</Text>
+                        <Text style={styles.settingsSecondaryBtnTextNew}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
                       {activeUser?.settings?.wallpaperPath && (
                         <TouchableOpacity
@@ -3038,15 +3038,15 @@ export default function ConsoleHome() {
                           onPress={() => updateUser({ settings: { ...activeUser?.settings, wallpaperPath: '' } as any })}
                         >
                           <Ionicons name="trash-outline" size={20} color="#FF5555" />
-                          <Text style={[styles.settingsSecondaryBtnTextNew, { color: '#FF5555' }]}>Restaurar Predeterminada</Text>
+                          <Text style={[styles.settingsSecondaryBtnTextNew, { color: '#FF5555' }]}>{t('settings.restoreDefault')}</Text>
                         </TouchableOpacity>
                       )}
                     </View>
 
                     <View style={styles.settingsSectionNew}>
-                      <Text style={styles.settingsLabelNew}>Carpeta de Capturas</Text>
+                      <Text style={styles.settingsLabelNew}>{t('settings.capturesFolder')}</Text>
                       <Text style={[styles.settingsOptionDescNew, { marginBottom: 10, color: '#888' }]}>
-                        Ruta actual: {activeUser?.settings?.capturePath || 'Predeterminada (Imágenes/Screenshots)'}
+                        {t('settings.currentPath', { path: activeUser?.settings?.capturePath || t('settings.defaultCaptures') })}
                       </Text>
                       <TouchableOpacity
                         style={[
@@ -3056,7 +3056,7 @@ export default function ConsoleHome() {
                         onPress={handleSelectCaptureFolder}
                       >
                         <Ionicons name="folder-open-outline" size={20} color="#FFF" />
-                        <Text style={styles.settingsSecondaryBtnTextNew}>Seleccionar Carpeta</Text>
+                        <Text style={styles.settingsSecondaryBtnTextNew}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
                       {activeUser?.settings?.capturePath && (
                         <TouchableOpacity
@@ -3068,21 +3068,21 @@ export default function ConsoleHome() {
                           onPress={() => updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any })}
                         >
                           <Ionicons name="trash-outline" size={20} color="#FF5555" />
-                          <Text style={[styles.settingsSecondaryBtnTextNew, { color: '#FF5555' }]}>Restaurar Predeterminada</Text>
+                          <Text style={[styles.settingsSecondaryBtnTextNew, { color: '#FF5555' }]}>{t('settings.restoreDefault')}</Text>
                         </TouchableOpacity>
                       )}
                     </View>
                   </ScrollView>
                 ) : settingsTab === 'sync' ? (
                   <ScrollView contentContainerStyle={styles.settingsScrollContentInnerNew} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.settingsSectionTitleNew}>Sincronización Inteligente</Text>
-                    <Text style={[styles.settingsOptionDescNew, { marginBottom: 20, color: '#888' }]}>Elige la fuente de datos predeterminada para cada tipo de contenido cuando uses el botón "Sincronizar Datos".</Text>
+                    <Text style={styles.settingsSectionTitleNew}>{t('settings.smartSync')}</Text>
+                    <Text style={[styles.settingsOptionDescNew, { marginBottom: 20, color: '#888' }]}>{t('settings.smartSyncDesc')}</Text>
 
                     {[
-                      { key: 'ratingAndSummary', label: 'Resumen y Rating', options: [{ id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
-                      { key: 'cover', label: 'Portada (Cover)', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
-                      { key: 'background', label: 'Fondo (Background)', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'igdb', label: 'IGDB' }, { id: 'none', label: 'Ninguno' }] },
-                      { key: 'logo', label: 'Logo', options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'none', label: 'Ninguno' }] }
+                      { key: 'ratingAndSummary', label: t('settings.ratingAndSummary'), options: [{ id: 'igdb', label: 'IGDB' }, { id: 'none', label: t('settings.none') }] },
+                      { key: 'cover', label: t('settings.cover'), options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'igdb', label: 'IGDB' }, { id: 'none', label: t('settings.none') }] },
+                      { key: 'background', label: t('settings.background'), options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'igdb', label: 'IGDB' }, { id: 'none', label: t('settings.none') }] },
+                      { key: 'logo', label: t('settings.logo'), options: [{ id: 'steamgrid', label: 'SteamGrid' }, { id: 'none', label: t('settings.none') }] }
                     ].map((pref, index) => {
                       const currentSync = activeUser?.settings?.syncPreferences || { ratingAndSummary: 'igdb', cover: 'steamgrid', background: 'steamgrid', logo: 'steamgrid' };
                       const currentValue = (currentSync as any)[pref.key];
@@ -3123,13 +3123,13 @@ export default function ConsoleHome() {
                   </ScrollView>
                 ) : settingsTab === 'support' ? (
                   <ScrollView contentContainerStyle={styles.settingsScrollContentInnerNew} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.settingsSectionTitleNew}>Apoyo al Proyecto</Text>
+                    <Text style={styles.settingsSectionTitleNew}>{t('settings.supportTitle')}</Text>
 
                     <View style={styles.supportMessageContainer}>
                       <Ionicons name="heart-circle-sharp" size={60} color="#FF3B30" style={{ marginBottom: 15, alignSelf: 'center' }} />
-                      <Text style={styles.supportTextMain}>¡Gracias por usar nuestro Launcher!</Text>
+                      <Text style={styles.supportTextMain}>{t('settings.thanks')}</Text>
                       <Text style={styles.supportTextSub}>
-                        Si gustas en apoyarnos puedes visitar nuestras redes sociales o unirte a nuestro canal de Patreon. Tu apoyo nos ayuda a seguir mejorando y añadiendo nuevas funcionalidades.
+                        {t('settings.supportBody')}
                       </Text>
                     </View>
 
@@ -3171,7 +3171,7 @@ export default function ConsoleHome() {
 
                     {/* Patrons list / Users list */}
                     <View style={styles.patronsSection}>
-                      <Text style={styles.settingsLabelNew}>Colaboradores y Patrocinadores</Text>
+                      <Text style={styles.settingsLabelNew}>{t('settings.patrons')}</Text>
                       <View style={styles.patronsListGrid}>
                         {['angelvc25', 'Crizz_Vc',].map((name, idx) => (
                           <View key={idx} style={styles.patronCard}>
