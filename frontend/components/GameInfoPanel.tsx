@@ -96,7 +96,12 @@ export const GameInfoPanel = ({
     };
   }, [gamePanelFocusIndex, focusArea]);
 
-  const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds);
+  const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds, {
+    play: t('action.play'),
+    playMedia: t('action.playMedia'),
+    assignPath: t('action.assignPath'),
+    download: t('action.download'),
+  });
 
   // Scale factor: 1.0 at 1080p, shrinks proportionally for smaller screens
   const scale = Math.min(Math.max(windowHeight / 1080, 0.6), 1);

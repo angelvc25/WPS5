@@ -42,7 +42,10 @@ import { UserProfile } from '@/components/UserSelectScreen';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { LANGUAGE_OPTIONS, isLanguage, Language } from '@/i18n/translations';
 
-const TABS = ['Games', 'Media'];
+const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
+  { id: 'Games', labelKey: 'tabs.games' },
+  { id: 'Media', labelKey: 'tabs.media' },
+];
 var Wview: string = 'block';
 
 export interface ConsoleItem {
@@ -1417,7 +1420,7 @@ export default function ConsoleHome() {
         if (e.key === 'Enter') {
           soundService.playActivation();
           if (focusArea === 'header_tabs') {
-            setActiveTab(TABS[focusIndex]);
+            setActiveTab(TABS[focusIndex].id);
             setActiveIndex(0);
             setFocusArea('main_carousel');
             return;
@@ -1528,12 +1531,12 @@ export default function ConsoleHome() {
           soundService.playTab();
           const direction = (e.key === 'q' || e.key === 'Q') ? -1 : 1;
           setActiveTab(prev => {
-            const idx = TABS.indexOf(prev);
+            const idx = TABS.findIndex(t => t.id === prev);
             const nextIdx = idx + direction;
             if (nextIdx >= 0 && nextIdx < TABS.length) {
               setActiveIndex(0);
               if (focusArea === 'header_tabs') setFocusIndex(nextIdx);
-              return TABS[nextIdx];
+              return TABS[nextIdx].id;
             }
             return prev;
           });
@@ -2191,11 +2194,11 @@ export default function ConsoleHome() {
           {/* <ControlPrompt btn="L" label="" inputMode={inputMode} /> */}
           {TABS.map((tab, idx) => (
             <TouchableOpacity
-              key={tab}
-              id={`tab-${tab.toLowerCase()}`}
+              key={tab.id}
+              id={`tab-${tab.id.toLowerCase()}`}
               onPress={(e) => {
                 (e.currentTarget as any)?.blur?.();
-                setActiveTab(tab);
+                setActiveTab(tab.id);
                 setActiveIndex(0);
                 setFocusArea('main_carousel');
               }}
@@ -2204,10 +2207,10 @@ export default function ConsoleHome() {
             >
               <Text style={[
                 styles.navItem,
-                activeTab === tab && styles.navItemActive,
+                activeTab === tab.id && styles.navItemActive,
                 (focusArea === 'header_tabs' && focusIndex === idx) && styles.tabFocused
               ]}>
-                {tab}
+                {t(tab.labelKey)}
               </Text>
             </TouchableOpacity>
           ))}
