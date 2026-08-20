@@ -62,26 +62,42 @@ export function resolveSteamLaunchPath(
   return resolveLaunchPath(item);
 }
 
-export function getGameActionLabel(
+export type GameActionKind = 'play' | 'playMedia' | 'assignPath' | 'download';
+
+export function getGameActionKind(
   item: { id?: string; title?: string; type?: string; isLastPlayed?: boolean; platform?: string; path?: string } | null | undefined,
   installedSteamAppIds?: Set<string> | null
-): string {
-  if (!item) return 'Jugar';
+): GameActionKind {
+  if (!item) return 'play';
 
   const isSpotify = item.title?.toLowerCase()?.includes('spotify');
   const isMedia = isSpotify || item.type === 'media';
 
   if (item.isLastPlayed) {
-    return isMedia ? 'Reproducir' : 'Jugar';
+    return isMedia ? 'playMedia' : 'play';
   }
 
   if (!resolveLaunchPath(item as { id: string; platform?: string; path?: string })) {
-    return 'Asignar ruta';
+    return 'assignPath';
   }
 
   if (isSteamGame(item) && installedSteamAppIds && !isSteamGameInstalled(item as { id: string }, installedSteamAppIds)) {
-    return 'Descargar';
+    return 'download';
   }
 
-  return isMedia ? 'Reproducir' : 'Jugar';
+  return isMedia ? 'playMedia' : 'play';
+}
+
+export function getGameActionLabel(
+  item: { id?: string; title?: string; type?: string; isLastPlayed?: boolean; platform?: string; path?: string } | null | undefined,
+  installedSteamAppIds?: Set<string> | null,
+  labels?: Record<GameActionKind, string>
+): string {
+  const kind = getGameActionKind(item, installedSteamAppIds);
+  if (labels) return labels[kind];
+
+  if (kind === 'playMedia') return 'Reproducir';
+  if (kind === 'assignPath') return 'Asignar ruta';
+  if (kind === 'download') return 'Descargar';
+  return 'Jugar';
 }

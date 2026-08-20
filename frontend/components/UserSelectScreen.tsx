@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import ControlPrompt from './ControlPrompt';
 import { soundService } from '../services/soundService';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export interface SyncPreferences {
   ratingAndSummary: 'igdb' | 'none';
@@ -31,6 +32,7 @@ export interface UserSettings {
   capturePath?: string;
   wallpaperPath?: string;
   invertTransitionDirection?: boolean;
+  language?: 'es' | 'en' | 'pt';
 }
 
 export interface UserProfile {
@@ -130,6 +132,7 @@ function startRadarAnimation(canvasId: string): () => void {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function UserSelectScreen({ onUserSelected }: UserSelectScreenProps) {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [homeBg, setHomeBg] = useState<string | null>(null);
@@ -400,8 +403,8 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
       {/* TITLE */}
       <View style={styles.titleArea}>
-        <Text style={styles.title}>Welcome to FifthStation UI</Text>
-        <Text style={styles.subtitle}>Who's playing today?</Text>
+        <Text style={styles.title}>{t('userSelect.title')}</Text>
+        <Text style={styles.subtitle}>{t('userSelect.subtitle')}</Text>
       </View>
 
       {/* USER CARDS */}
@@ -425,7 +428,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
                 <Ionicons name="add" size={40} color="#FFF" />
               </View>
             </View>
-            <Text style={styles.userName}>Add User</Text>
+            <Text style={styles.userName}>{t('userSelect.addUser')}</Text>
           </TouchableOpacity>
         </Animated.View>
 

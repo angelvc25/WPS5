@@ -39,6 +39,8 @@ import BackgroundPickerModal from '@/components/BackgroundPickerModal';
 import SearchView from '@/components/SearchView';
 import { fetchStoreOffers, StoreOffer, LOCAL_FALLBACK_OFFERS } from '@/services/storeService';
 import { UserProfile } from '@/components/UserSelectScreen';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { LANGUAGE_OPTIONS, isLanguage, Language } from '@/i18n/translations';
 
 const TABS = ['Games', 'Media'];
 var Wview: string = 'block';
@@ -91,6 +93,11 @@ const DATA_MEDIA: ConsoleItem[] = [
 
 export default function ConsoleHome() {
   const { activeUser, changeUser, updateUser } = useUser();
+  const { t, language, setLanguage } = useTranslation();
+  const changeLanguage = (lang: Language) => {
+    setLanguage(lang);
+    updateUser({ settings: { ...activeUser?.settings, language: lang } });
+  };
   const [activeTab, setActiveTab] = useState('Games');
   const [currentRenderedTab, setCurrentRenderedTab] = useState('Games');
   const [activeIndex, setActiveIndex] = useState(1);
@@ -973,7 +980,11 @@ export default function ConsoleHome() {
               let maxIdx = 1;
               if (settingsTab === 'profile') maxIdx = 2;
               else if (settingsTab === 'sync') maxIdx = 3;
-              else if (settingsTab === 'home') maxIdx = 4 + (activeUser?.settings?.capturePath ? 1 : 0) + (activeUser?.settings?.wallpaperPath ? 1 : 0);
+              else if (settingsTab === 'home') {
+                maxIdx = 5
+                  + (activeUser?.settings?.capturePath ? 1 : 0)
+                  + (activeUser?.settings?.wallpaperPath ? 1 : 0);
+              }
               else if (settingsTab === 'support') maxIdx = 2;
               setSettingsFocusIndex(prev => Math.min(prev + 1, maxIdx));
             }
@@ -997,13 +1008,76 @@ export default function ConsoleHome() {
                 if (settingsFocusIndex === 0) handleSelectAvatar();
                 else if (settingsFocusIndex === 1) settingsNameRef.current?.focus();
               } else if (settingsTab === 'home') {
-                if (settingsFocusIndex === 0) updateUser({ settings: { ...activeUser?.settings, autoPlayVideo: !(activeUser?.settings?.autoPlayVideo !== false) } });
-                else if (settingsFocusIndex === 1) updateUser({ settings: { ...activeUser?.settings, invertTransitionDirection: !activeUser?.settings?.invertTransitionDirection } });
-                else if (settingsFocusIndex === 2) { setSettingsVisible(false); setHomeBgModalVisible(true); }
-                else if (settingsFocusIndex === 3) handleSelectWallpaperFolder();
-                else if (settingsFocusIndex === 4) handleSelectCaptureFolder();
-                else if (settingsFocusIndex === 5 && activeUser?.settings?.capturePath) updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any });
-                else if (settingsFocusIndex === (activeUser?.settings?.capturePath ? 6 : 5) && activeUser?.settings?.wallpaperPath) updateUser({ settings: { ...activeUser?.settings, wallpaperPath: '' } as any });
+                if (settingsFocusIndex === 0) {
+                  // Idioma
+                  const currentIndex = LANGUAGE_OPTIONS.findIndex(
+                    option => option.id === language
+                  );
+
+                  const nextIndex =
+                    currentIndex >= 0
+                      ? (currentIndex + 1) % LANGUAGE_OPTIONS.length
+                      : 0;
+
+                  changeLanguage(LANGUAGE_OPTIONS[nextIndex].id);
+
+                } else if (settingsFocusIndex === 1) {
+                  // Reproducción automática
+                  updateUser({
+                    settings: {
+                      ...activeUser?.settings,
+                      autoPlayVideo: !(
+                        activeUser?.settings?.autoPlayVideo !== false
+                      )
+                    }
+                  });
+
+                } else if (settingsFocusIndex === 2) {
+                  // Invertir transición
+                  updateUser({
+                    settings: {
+                      ...activeUser?.settings,
+                      invertTransitionDirection:
+                        !activeUser?.settings?.invertTransitionDirection
+                    }
+                  });
+
+                } else if (settingsFocusIndex === 3) {
+                  // Fondo de pantalla
+                  setSettingsVisible(false);
+                  setHomeBgModalVisible(true);
+
+                } else if (settingsFocusIndex === 4) {
+                  // Carpeta de fondos
+                  handleSelectWallpaperFolder();
+
+                } else if (settingsFocusIndex === 5) {
+                  // Carpeta de capturas
+                  handleSelectCaptureFolder();
+
+                } else if (
+                  settingsFocusIndex === 6 &&
+                  activeUser?.settings?.capturePath
+                ) {
+                  updateUser({
+                    settings: {
+                      ...activeUser?.settings,
+                      capturePath: ''
+                    } as any
+                  });
+
+                } else if (
+                  settingsFocusIndex ===
+                  (activeUser?.settings?.capturePath ? 7 : 6) &&
+                  activeUser?.settings?.wallpaperPath
+                ) {
+                  updateUser({
+                    settings: {
+                      ...activeUser?.settings,
+                      wallpaperPath: ''
+                    } as any
+                  });
+                }
               } else if (settingsTab === 'sync') {
                 const currentSync = activeUser?.settings?.syncPreferences || { ratingAndSummary: 'igdb', cover: 'steamgrid', background: 'steamgrid', logo: 'steamgrid' };
                 if (settingsFocusIndex === 0) updateUser({ settings: { autoPlayVideo: activeUser?.settings?.autoPlayVideo ?? true, syncPreferences: { ...currentSync, ratingAndSummary: currentSync.ratingAndSummary === 'igdb' ? 'none' : 'igdb' } as any } });
@@ -2701,10 +2775,10 @@ export default function ConsoleHome() {
               <View style={styles.settingsMainNew}>
                 {settingsTab === 'profile' ? (
                   <ScrollView contentContainerStyle={styles.settingsScrollContentInnerNew} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.settingsSectionTitleNew}>Configuración de Perfil</Text>
+                    <Text style={styles.settingsSectionTitleNew}>{t('settings.profileConfig')}</Text>
 
                     <View style={styles.settingsSectionNew}>
-                      <Text style={styles.settingsLabelNew}>Foto de Perfil</Text>
+                      <Text style={styles.settingsLabelNew}>{t('settings.profilePhoto')}</Text>
                       <TouchableOpacity
                         onPress={handleSelectAvatar}
                         style={[
@@ -2728,8 +2802,8 @@ export default function ConsoleHome() {
 
                     <View style={styles.settingsOptionRowNew}>
                       <View style={styles.settingsOptionInfoNew}>
-                        <Text style={styles.settingsOptionLabelNew}>Usar Foto de Perfil de Steam</Text>
-                        <Text style={styles.settingsOptionDescNew}>Usa tu avatar de Steam en lugar de la foto local. Requiere API Key y Steam ID.</Text>
+                        <Text style={styles.settingsOptionLabelNew}>{t('settings.useSteamAvatar')}</Text>
+                        <Text style={styles.settingsOptionDescNew}>{t('settings.useSteamAvatarDesc')}</Text>
                       </View>
                       <TouchableOpacity
                         onPress={handleToggleSteamAvatar}
@@ -2744,7 +2818,7 @@ export default function ConsoleHome() {
                     </View>
 
                     <View style={styles.settingsSectionNew}>
-                      <Text style={styles.settingsLabelNew}>Nombre de Usuario</Text>
+                      <Text style={styles.settingsLabelNew}>{t('settings.username')}</Text>
                       <TextInput
                         ref={settingsNameRef}
                         style={[
@@ -2753,13 +2827,13 @@ export default function ConsoleHome() {
                         ]}
                         value={activeUser?.name || ''}
                         onChangeText={(text) => updateUser({ name: text })}
-                        placeholder="Ingresa tu nombre"
+                        placeholder={t('settings.usernamePlaceholder')}
                         placeholderTextColor="#666"
                       />
                     </View>
 
                     <View style={styles.settingsSectionNew}>
-                      <Text style={styles.settingsLabelNew}>Color de Perfil</Text>
+                      <Text style={styles.settingsLabelNew}>{t('settings.profileColor')}</Text>
                       <View style={styles.colorPickerContainerNew}>
                         {['#FF3B30', '#00D4FF', '#FFCC00', '#4CD964', '#AF52DE', '#FF9500'].map((color) => (
                           <TouchableOpacity
@@ -2802,12 +2876,14 @@ export default function ConsoleHome() {
                             <Text style={{ color: '#FFF', fontSize: 18, fontWeight: 'bold' }}>Steam</Text>
                           </View>
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, marginRight: 15 }}>Conectado (ID: {activeUser.settings.steamId})</Text>
+                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, marginRight: 15 }}>{t('settings.steamConnected', {
+                              id: activeUser.settings.steamId
+                            })}</Text>
                             <TouchableOpacity
                               style={{ backgroundColor: '#FF3333', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
                               onPress={() => updateUser({ settings: { ...activeUser.settings, steamId: null } as any })}
                             >
-                              <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Desvincular</Text>
+                              <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{t('settings.unlink')}</Text>
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -2828,10 +2904,14 @@ export default function ConsoleHome() {
                                 if (res.success && res.steamId) {
                                   updateUser({ settings: { ...activeUser?.settings, steamId: res.steamId } as any });
                                 } else if (res.error && res.error !== 'Ventana de inicio de sesión cerrada') {
-                                  alert('Error al iniciar sesión en Steam: ' + res.error);
+                                  alert(
+                                    t('settings.steamLoginError', {
+                                      error: res.error
+                                    })
+                                  );
                                 }
                               } else {
-                                alert('Esta función solo está disponible en la versión de escritorio.');
+                                alert(t('settings.desktopOnly'));
                               }
                             }}
                           >
@@ -2843,6 +2923,39 @@ export default function ConsoleHome() {
                           </TouchableOpacity>
                         </View>
                       )}
+                    </View>
+                    <View style={styles.settingsSectionNew}>
+                      <Text style={styles.settingsLabelNew}>
+                        {t('settings.language')}
+                      </Text>
+
+                      <Text style={styles.settingsOptionDescNew}>
+                        {t('settings.languageDesc')}
+                      </Text>
+
+                      <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                        {LANGUAGE_OPTIONS.map((option) => (
+                          <TouchableOpacity
+                            key={option.id}
+                            style={[
+                              styles.platformBtnNew,
+                              language === option.id && styles.platformBtnActiveNew,
+                              (settingsFocusArea === 'content' && settingsFocusIndex === 0) &&
+                              styles.settingsElementFocusedNew
+                            ]}
+                            onPress={() => changeLanguage(option.id)}
+                          >
+                            <Text
+                              style={[
+                                styles.platformBtnTextNew,
+                                language === option.id && styles.platformBtnTextActiveNew
+                              ]}
+                            >
+                              {option.nativeName}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
                     </View>
                   </ScrollView>
                 ) : settingsTab === 'home' ? (

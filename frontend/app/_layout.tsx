@@ -15,6 +15,8 @@ import Animated, {
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import { UserContext } from '@/contexts/UserContext';
+import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
+import { isLanguage } from '@/i18n/translations';
 import { openWebLink } from '@/services/linkService';
 import ToastHost from '@/components/ToastHost';
 
@@ -23,7 +25,16 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
+  return (
+    <LanguageProvider>
+      <RootLayoutInner />
+    </LanguageProvider>
+  );
+}
+
+function RootLayoutInner() {
   const colorScheme = useColorScheme();
+  const { setLanguage } = useTranslation();
   const [activeUser, setActiveUser] = useState<UserProfile | null>(null);
   const [showSplash, setShowSplash] = useState(true);
 
@@ -92,7 +103,12 @@ export default function RootLayout() {
           }
         ` }} />
 
-        <UserSelectScreen onUserSelected={(user) => setActiveUser(user)} />
+        <UserSelectScreen onUserSelected={(user) => {
+          setActiveUser(user);
+          if (isLanguage(user.settings?.language)) {
+            setLanguage(user.settings.language);
+          }
+        }} />
 
         {showSplash && (
           <Animated.View style={[
