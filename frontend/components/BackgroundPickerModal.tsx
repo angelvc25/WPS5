@@ -397,13 +397,14 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     content: {
       flex: 1,
       paddingTop: s(48),
-      paddingHorizontal: s(92),
+      paddingHorizontal: s(100),
       paddingBottom: s(40),
     },
     title: {
       color: '#FFF',
       fontSize: s(28),
       fontWeight: '300',
+      marginLeft: s(-50),
       marginBottom: s(44),
     },
     tabsRow: {
