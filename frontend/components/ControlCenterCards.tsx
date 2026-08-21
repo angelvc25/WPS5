@@ -478,7 +478,7 @@ function AnimatedCard({
                               boxShadow: isSelected ? '0 0 10px rgba(255, 255, 255, 0.2)' : 'none',
                             }}
                           >
-                            <Ionicons name={tItem.icon as any} size={16} color={isSelected ? '#fff' : 'rgba(255, 255, 255, 0.5)'} />
+                            <Ionicons name={tItem.icon as any} size={16} color={isSelected ? '#ffffffff' : 'rgba(255, 255, 255, 0.5)'} />
                             <Text style={{ color: isSelected ? '#fff' : 'rgba(255, 255, 255, 0.6)', fontWeight: isSelected ? '700' : '400', fontSize: 14 }}>
                               {tItem.label}
                             </Text>
@@ -1480,7 +1480,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 8,
     overflow: 'hidden',
-    width: '65%',
+    width: '70%',
     height: '40%',
     margin: 'auto',
     marginBottom: 12,

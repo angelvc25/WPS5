@@ -104,7 +104,7 @@ export function subscribeMediaSessions(
   callback: (sessions: SystemMediaSession[]) => void,
 ): () => void {
   const api = getElectronAPI();
-  if (!api?.onMediaSessionsChanged) return () => {};
+  if (!api?.onMediaSessionsChanged) return () => { };
 
   return api.onMediaSessionsChanged((raw: RawMediaSession[]) => {
     callback(raw.map(normalizeSession));
@@ -150,7 +150,7 @@ export function getAppIconName(appName: string): {
 } {
   const lower = appName.toLowerCase();
   if (lower.includes('spotify')) {
-    return { vendor: 'material', name: 'spotify', color: '#fff', bg: '#1DB954' };
+    return { vendor: 'material', name: 'spotify', color: '#1DB954', bg: '#000000ff' };
   }
   if (lower.includes('youtube')) {
     return { vendor: 'material', name: 'youtube', color: '#fff', bg: '#FF0000' };
