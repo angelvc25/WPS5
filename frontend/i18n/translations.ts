@@ -68,9 +68,9 @@ const es = {
   'common.back': 'Atrás',
   'common.closeToExit': 'para cerrar',
 
-  'userSelect.title': 'Bienvenido a FifthStation UI',
-  'userSelect.subtitle': '¿Quién juega hoy?',
-  'userSelect.addUser': 'Añadir usuario',
+  'userSelect.title': 'Te damos la bienvenida nuevamente a FifthStation UI',
+  'userSelect.subtitle': '¿Quién está usando este control?',
+  'userSelect.addUser': 'Agregar usuario',
 
   'tabs.games': 'Juegos',
   'tabs.media': 'Multimedia',
@@ -371,8 +371,8 @@ const en: Record<TranslationKey, string> = {
   'common.back': 'Back',
   'common.closeToExit': 'to close',
 
-  'userSelect.title': 'Welcome to FifthStation UI',
-  'userSelect.subtitle': "Who's playing today?",
+  'userSelect.title': 'Welcome back to FifthStation UI',
+  'userSelect.subtitle': "Who's using this controller?",
   'userSelect.addUser': 'Add User',
 
   'tabs.games': 'Games',
@@ -669,8 +669,8 @@ const pt: Record<TranslationKey, string> = {
   'common.back': 'Voltar',
   'common.closeToExit': 'para fechar',
 
-  'userSelect.title': 'Bem-vindo ao FifthStation UI',
-  'userSelect.subtitle': 'Quem joga hoje?',
+  'userSelect.title': 'Bem-vindo de volta ao FifthStation UI',
+  'userSelect.subtitle': 'Quem está usando este controle?',
   'userSelect.addUser': 'Adicionar usuário',
 
   'tabs.games': 'Jogos',

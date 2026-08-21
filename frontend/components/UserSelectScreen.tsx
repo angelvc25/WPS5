@@ -387,7 +387,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     <View style={styles.container}>
       {/* BACKGROUND */}
       <Video
-        source={require('@/assets/video/waves_ajustes.mp4')}
+        source={require('@/assets/video/particles.mp4')}
         style={StyleSheet.absoluteFillObject}
         resizeMode={ResizeMode.COVER}
         shouldPlay
@@ -450,7 +450,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
                 onPress={() => handleSelect(user)}
               >
                 {/* ¡Toda la magia ocurre aquí dentro de manera limpia! */}
-                <RadarFocusWrapper id={user.id} isFocused={isFocused} size={164} innerSize={isFocused ? 150 : 130}>
+                <RadarFocusWrapper id={user.id} isFocused={isFocused} size={194} innerSize={isFocused ? 180 : 160}>
                   <View style={[styles.card, isFocused && styles.cardFocused]}>
                     <Image
                       source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
@@ -524,8 +524,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   subtitle: {
-    color: '#AAA',
-    fontSize: 18,
+    color: '#c0c0c0ff',
+    fontSize: 23,
     fontWeight: '300',
     letterSpacing: 0.5,
   },
@@ -533,12 +533,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 40,
+    gap: 50,
   },
   cardWrapper: {
     alignItems: 'center',
-    width: 164,
-    height: 250,
+    width: 194,
+    height: 280,
     justifyContent: 'center',
   },
   // Outer container that holds the canvas + circle (no overflow clip here)
@@ -550,9 +550,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   card: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,        // 50% via number
+    width: 160,
+    height: 160,
+    borderRadius: 80,        // 50% via number
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -561,9 +561,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   cardFocused: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 20,
@@ -589,8 +589,8 @@ const styles = StyleSheet.create({
   },
   userNameFocused: {
     color: '#FFF',
-    fontWeight: '600',
-    fontStyle: 'italic',
+    fontWeight: '400',
+    //fontStyle: 'italic',
   },
   optionsHint: {
     position: 'absolute',
