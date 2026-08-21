@@ -397,9 +397,10 @@ function AnimatedCard({
   return (
     <Animated.View style={animStyle}>
       <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={onPress}
-        disabled={isExpanded}
+        activeOpacity={isExpanded ? 1 : 0.85}
+        onPress={() => {
+          if (!isExpanded) onPress();
+        }}
         style={[styles.card, { width: '100%', height: '100%' }]}
       >
         <View style={styles.cardClip}>

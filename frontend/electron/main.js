@@ -73,17 +73,19 @@ let winMediaControlModulePromise = null;
 function getWinMediaControlModule() {
   if (process.platform !== 'win32') return Promise.resolve(null);
   if (!winMediaControlModulePromise) {
-    let modulePath = 'win-media-control';
+    let importUrl;
     if (app.isPackaged) {
-      modulePath = path.join(
+      const modulePath = path.join(
         __dirname.replace('app.asar', 'app.asar.unpacked'),
         '..',
         'node_modules',
         'win-media-control',
         'index.js'
       );
+      importUrl = pathToFileURL(modulePath).href;
+    } else {
+      importUrl = 'win-media-control';
     }
-    const importUrl = pathToFileURL(modulePath).href;
     winMediaControlModulePromise = import(importUrl).catch((err) => {
       console.warn('[MediaControl] win-media-control no disponible:', err.message);
       winMediaControlModulePromise = null;
