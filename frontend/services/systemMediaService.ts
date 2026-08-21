@@ -150,7 +150,7 @@ export function getAppIconName(appName: string): {
 } {
   const lower = appName.toLowerCase();
   if (lower.includes('spotify')) {
-    return { vendor: 'material', name: 'spotify', color: '#1DB954', bg: '#000000ff' };
+    return { vendor: 'material', name: 'spotify', color: '#1DB954', bg: '#1d1d1dff' };
   }
   if (lower.includes('youtube')) {
     return { vendor: 'material', name: 'youtube', color: '#fff', bg: '#FF0000' };
