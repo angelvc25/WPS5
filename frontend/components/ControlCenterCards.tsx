@@ -35,6 +35,7 @@ import {
   getMediaControlTarget,
   SystemMediaSession,
 } from '@/services/systemMediaService';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface CardData {
   id: string;
@@ -56,7 +57,7 @@ const MOCK_CARDS: CardData[] = [
     title: 'Noticias oficiales',
     subtitle: '10 historias de tus juegos',
     icon: 'megaphone',
-    imageUri: 'https://images.igdb.com/igdb/image/upload/t_original/ar7l1.jpg',
+    imageUri: 'https://tierragamer.com/wp-content/uploads/2023/09/PS5-Exito.webp',
     type: 'news',
   },
   {
@@ -123,6 +124,7 @@ function AnimatedCard({
   const scrollRef = React.useRef<ScrollView>(null);
   const [realNews, setRealNews] = React.useState<SteamNewsItem[]>([]);
   const [mediaControlFocus, setMediaControlFocus] = React.useState(1);
+  const { t } = useTranslation();
 
   const { activeUser } = useUser();
   const [captureImage, setCaptureImage] = React.useState<string | null>(null);
@@ -160,7 +162,7 @@ function AnimatedCard({
 
   const handleSaveApp = async () => {
     if (!title || !path) {
-      alert('Por favor completa el nombre y la ruta del ejecutable o URL.');
+      alert(t('cc.completeFields'));
       return;
     }
     setIsSaving(true);
@@ -436,8 +438,8 @@ function AnimatedCard({
                       <Ionicons name="game-controller" size={20} color="#fff" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.expandedTitle}>Agregar Juego / Aplicación</Text>
-                      <Text style={styles.expandedSubtitle}>Completa los detalles para añadir un elemento a tu biblioteca</Text>
+                      <Text style={styles.expandedTitle}>{t('cc.addGameFormTitle')}</Text>
+                      <Text style={styles.expandedSubtitle}>{t('cc.addGameFormSubtitle')}</Text>
                     </View>
                     <TouchableOpacity style={styles.closeBtn} onPress={onCloseExpanded}>
                       <Ionicons name="close" size={20} color="#fff" />
@@ -446,20 +448,20 @@ function AnimatedCard({
                   <ScrollView style={{ paddingHorizontal: 24, paddingVertical: 20, flex: 1 }} showsVerticalScrollIndicator={false}>
                     {/* TIPO DE APLICACIÓN */}
                     <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600', letterSpacing: 0.5 }}>
-                      TIPO DE APLICACIÓN
+                      {t('cc.appType')}
                     </Text>
                     <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
                       {[
-                        { id: 'game', label: 'Juegos', icon: 'game-controller' },
-                        { id: 'media', label: 'Media', icon: 'musical-notes' },
-                        { id: 'web', label: 'Web', icon: 'globe' }
-                      ].map((t) => {
-                        const isSelected = type === t.id;
+                        { id: 'game', label: t('cc.typeGames'), icon: 'game-controller' },
+                        { id: 'media', label: t('cc.typeMedia'), icon: 'musical-notes' },
+                        { id: 'web', label: t('cc.typeWeb'), icon: 'globe' }
+                      ].map((tItem) => {
+                        const isSelected = type === tItem.id;
                         return (
                           <TouchableOpacity
-                            key={t.id}
+                            key={tItem.id}
                             activeOpacity={0.8}
-                            onPress={() => setType(t.id as any)}
+                            onPress={() => setType(tItem.id as any)}
                             style={{
                               flex: 1,
                               flexDirection: 'row',
@@ -475,9 +477,9 @@ function AnimatedCard({
                               boxShadow: isSelected ? '0 0 10px rgba(255, 255, 255, 0.2)' : 'none',
                             }}
                           >
-                            <Ionicons name={t.icon as any} size={16} color={isSelected ? '#fff' : 'rgba(255, 255, 255, 0.5)'} />
+                            <Ionicons name={tItem.icon as any} size={16} color={isSelected ? '#fff' : 'rgba(255, 255, 255, 0.5)'} />
                             <Text style={{ color: isSelected ? '#fff' : 'rgba(255, 255, 255, 0.6)', fontWeight: isSelected ? '700' : '400', fontSize: 14 }}>
-                              {t.label}
+                              {tItem.label}
                             </Text>
                           </TouchableOpacity>
                         );
@@ -486,7 +488,7 @@ function AnimatedCard({
 
                     {/* NOMBRE */}
                     <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600', letterSpacing: 0.5 }}>
-                      {type === 'game' ? 'NOMBRE DEL JUEGO' : 'NOMBRE DE LA APLICACIÓN'}
+                      {type === 'game' ? t('cc.gameName') : t('cc.appName')}
                     </Text>
                     <TextInput
                       style={{
@@ -511,7 +513,7 @@ function AnimatedCard({
                     {type === 'game' && (
                       <View style={{ marginBottom: 20 }}>
                         <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600', letterSpacing: 0.5 }}>
-                          PLATAFORMA
+                          {t('cc.platform')}
                         </Text>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                           {[
@@ -560,7 +562,7 @@ function AnimatedCard({
 
                     {/* RUTA / URL */}
                     <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600', letterSpacing: 0.5 }}>
-                      {type === 'web' ? 'URL DE LA PÁGINA WEB' : 'RUTA DEL EJECUTABLE'}
+                      {type === 'web' ? t('cc.webUrl') : t('cc.exePath')}
                     </Text>
                     {type === 'web' ? (
                       <TextInput
@@ -596,7 +598,7 @@ function AnimatedCard({
                             borderColor: focusedField === 'path' ? 'rgba(120, 255, 255, 0.4)' : 'rgba(255,255,255,0.1)',
                             borderRightWidth: 0,
                           }}
-                          placeholder={type === 'media' ? "C:\\Media\\video.mp4 o URL" : "C:\\Juegos\\Juego.exe"}
+                          placeholder={type === 'media' ? t('cc.phMediaUrl') : t('cc.phGameUrl')}
                           placeholderTextColor="rgba(255,255,255,0.3)"
                           value={path}
                           onChangeText={setPath}
@@ -623,7 +625,7 @@ function AnimatedCard({
 
                     {/* PORTADA (OPCIONAL) */}
                     <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 8, fontWeight: '600', letterSpacing: 0.5 }}>
-                      PORTADA (OPCIONAL - AUTO-FETCH EN JUEGOS)
+                      {t('cc.coverOptional')}
                     </Text>
                     <View style={{ flexDirection: 'row', marginBottom: 30 }}>
                       <TextInput
@@ -639,7 +641,7 @@ function AnimatedCard({
                           borderColor: focusedField === 'image' ? 'rgba(120, 255, 255, 0.4)' : 'rgba(255,255,255,0.1)',
                           borderRightWidth: 0,
                         }}
-                        placeholder="https://ejemplo.com/imagen.jpg o ruta local"
+                        placeholder={t('cc.phCover')}
                         placeholderTextColor="rgba(255,255,255,0.3)"
                         value={image}
                         onChangeText={setImage}
@@ -688,7 +690,7 @@ function AnimatedCard({
                       }}
                     >
                       <Text style={{ color: '#000', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 }}>
-                        {isSaving ? 'Buscando assets y guardando...' : (type === 'game' ? 'Guardar Juego' : 'Guardar Aplicación')}
+                        {isSaving ? t('cc.savingApp') : (type === 'game' ? t('cc.saveGame') : t('cc.saveApp'))}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -717,10 +719,10 @@ function AnimatedCard({
                     </View>
                     <View>
                       <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '500', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                        Añadir Juego
+                        {t('cc.addGameSubtitle')}
                       </Text>
                       <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', lineHeight: 20 }}>
-                        Agrega un juego{'\n'}instalado en tu PC
+                        {t('cc.addGameTitle')}
                       </Text>
                     </View>
                   </View>
@@ -764,7 +766,7 @@ function AnimatedCard({
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: card.bgColor }]} />
               ) : (
                 <Image
-                  source={{ uri: card.imageUri }}
+                  source={require('@/assets/images/noticias.png')}
                   style={StyleSheet.absoluteFill}
                   contentFit="cover"
                 />
@@ -966,6 +968,7 @@ function NowPlayingCardBody({
       ? Math.min(1, session.positionMs / session.durationMs)
       : 0;
   const isPlaying = session.playbackStatus === 'playing';
+  const { t } = useTranslation();
 
   const mediaTarget = getMediaControlTarget(session);
 
@@ -992,7 +995,7 @@ function NowPlayingCardBody({
         </View>
         <View style={styles.mediaCollapsedMeta}>
           <Text style={styles.mediaNowPlayingLabel} numberOfLines={1}>
-            Reproduciendo en {session.appName}
+            {t('cc.playingOn')} {session.appName}
           </Text>
           <Text style={styles.mediaTrackTitle} numberOfLines={1}>{session.title}</Text>
           <Text style={styles.mediaTrackArtist} numberOfLines={1}>{session.artist}</Text>
@@ -1006,7 +1009,7 @@ function NowPlayingCardBody({
       <View style={styles.mediaExpandedHeader}>
         <AppSourceBadge appName={session.appName} />
         <Text style={styles.mediaExpandedHeaderText} numberOfLines={1}>
-          Reproduciendo en {session.appName}
+          {t('cc.playingOn')} {session.appName}
         </Text>
       </View>
 
@@ -1142,13 +1145,14 @@ export default function ControlCenterCards({
 }: ControlCenterCardsProps) {
   const translateX = useSharedValue(0);
   const { nowPlaying } = useSystemMedia();
+  const { t } = useTranslation();
 
   const cardsToShow = React.useMemo(() => {
     const nowPlayingCard: CardData | null = nowPlaying
       ? {
         id: 'now-playing',
         title: nowPlaying.title,
-        subtitle: `Reproduciendo en ${nowPlaying.appName}`,
+        subtitle: `${t('cc.playingOn')} ${nowPlaying.appName}`,
         icon: 'musical-notes',
         imageUri: nowPlaying.thumbnail,
         type: 'nowPlaying',
@@ -1160,8 +1164,8 @@ export default function ControlCenterCards({
       const cards: CardData[] = [
         {
           id: 'add-game',
-          title: 'Agrega un juego instalado de tu PC',
-          subtitle: 'AÑADIR JUEGO',
+          title: t('cc.addGameTitle'),
+          subtitle: t('cc.addGameSubtitle'),
           icon: 'game-controller' as const,
           type: 'addGame' as const,
         },
@@ -1171,8 +1175,16 @@ export default function ControlCenterCards({
 
     const cards: CardData[] = [];
     if (nowPlayingCard) cards.push(nowPlayingCard);
-    return [...cards, ...MOCK_CARDS];
-  }, [activeNavIndex, nowPlaying]);
+
+    const translatedMockCards = MOCK_CARDS.map(card => {
+      if (card.id === 'c1') return { ...card, title: t('cc.officialNews'), subtitle: t('cc.newsSubtitle') };
+      if (card.id === 'c2') return { ...card, title: t('cc.newCapture'), subtitle: t('cc.recentlyCreated') };
+      if (card.id === 'c3') return { ...card, title: t('cc.featured'), subtitle: t('cc.discover') };
+      return card;
+    });
+
+    return [...cards, ...translatedMockCards];
+  }, [activeNavIndex, nowPlaying, t]);
 
   useEffect(() => {
     onCardsCountChange?.(Math.max(0, cardsToShow.length - 1));

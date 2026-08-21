@@ -129,7 +129,7 @@ const es = {
   'cc.recentlyCreated': 'Creado recientemente',
   'cc.featured': 'Sugerencias destacadas',
   'cc.discover': 'Descubrir',
-  'cc.playingOn': 'Reproduciendo en {app}',
+  'cc.playingOn': 'Reproduciendo en',
   'cc.addGameTitle': 'Agrega un juego instalado de tu PC',
   'cc.addGameSubtitle': 'AÑADIR JUEGO',
   'cc.addGameFormTitle': 'Agregar Juego / Aplicación',
@@ -146,6 +146,12 @@ const es = {
   'cc.coverOptional': 'PORTADA (OPCIONAL - AUTO-FETCH EN JUEGOS)',
   'cc.completeFields': 'Por favor completa el nombre y la ruta del ejecutable o URL.',
   'cc.justNow': 'Justo ahora',
+  'cc.phMediaUrl': 'C:\\Media\\video.mp4 o URL',
+  'cc.phGameUrl': 'C:\\Juegos\\Juego.exe',
+  'cc.phCover': 'https://ejemplo.com/imagen.jpg o ruta local',
+  'cc.saveGame': 'Guardar Juego',
+  'cc.saveApp': 'Guardar Aplicación',
+  'cc.savingApp': 'Buscando assets y guardando...',
 
   'widgets.trophies': 'Trofeos',
   'widgets.store': 'PlayStation Store',
@@ -302,7 +308,9 @@ const es = {
   'game.noPlayedGame': 'Aún no has jugado a ningún juego.',
   'cc.typeGame': 'Juego',
 
-  'edit.searchingAssetsShort': 'Buscando assets...',
+  'edit.searchingAssetsShort': 'Buscando recursos...',
+  'home.music': 'Música',
+  'home.musicDesc': 'Reproduce tu música favorita directamente en la consola',
 } as const;
 
 export type TranslationKey = keyof typeof es;
@@ -422,7 +430,7 @@ const en: Record<TranslationKey, string> = {
   'cc.recentlyCreated': 'Recently created',
   'cc.featured': 'Featured suggestions',
   'cc.discover': 'Discover',
-  'cc.playingOn': 'Playing on {app}',
+  'cc.playingOn': 'Playing on',
   'cc.addGameTitle': 'Add an installed game from your PC',
   'cc.addGameSubtitle': 'ADD GAME',
   'cc.addGameFormTitle': 'Add Game / App',
@@ -439,6 +447,12 @@ const en: Record<TranslationKey, string> = {
   'cc.coverOptional': 'COVER (OPTIONAL - AUTO-FETCH FOR GAMES)',
   'cc.completeFields': 'Please fill in the name and the executable path or URL.',
   'cc.justNow': 'Just now',
+  'cc.phMediaUrl': 'C:\\Media\\video.mp4 or URL',
+  'cc.phGameUrl': 'C:\\Games\\Game.exe',
+  'cc.phCover': 'https://example.com/image.jpg or local path',
+  'cc.saveGame': 'Save Game',
+  'cc.saveApp': 'Save App',
+  'cc.savingApp': 'Fetching assets and saving...',
 
   'widgets.trophies': 'Trophies',
   'widgets.store': 'PlayStation Store',
@@ -594,10 +608,9 @@ const en: Record<TranslationKey, string> = {
   'game.friendsCount': '{count} friends own this game',
   'game.noPlayedGame': "You haven't played any games yet.",
   'cc.typeGame': 'Game',
-  'cc.typeGames': 'Games',
-  'cc.typeMedia': 'Media',
-  'cc.typeWeb': 'Web',
   'edit.searchingAssetsShort': 'Searching assets...',
+  'home.music': 'Music',
+  'home.musicDesc': 'Play your favorite music directly on the console',
 };
 
 const pt: Record<TranslationKey, string> = {
@@ -715,7 +728,7 @@ const pt: Record<TranslationKey, string> = {
   'cc.recentlyCreated': 'Criado recentemente',
   'cc.featured': 'Sugestões em destaque',
   'cc.discover': 'Descobrir',
-  'cc.playingOn': 'Reproduzindo em {app}',
+  'cc.playingOn': 'Reproduzindo em',
   'cc.addGameTitle': 'Adicione um jogo instalado do seu PC',
   'cc.addGameSubtitle': 'ADICIONAR JOGO',
   'cc.addGameFormTitle': 'Adicionar Jogo / Aplicação',
@@ -730,8 +743,14 @@ const pt: Record<TranslationKey, string> = {
   'cc.webUrl': 'URL DA PÁGINA WEB',
   'cc.exePath': 'CAMINHO DO EXECUTÁVEL',
   'cc.coverOptional': 'CAPA (OPCIONAL - AUTO-FETCH EM JOGOS)',
-  'cc.completeFields': 'Por favor preencha o nome e o caminho do executável ou URL.',
+  'cc.completeFields': 'Por favor, preencha o nome e o caminho do executável ou URL.',
   'cc.justNow': 'Agora mesmo',
+  'cc.phMediaUrl': 'C:\\Media\\video.mp4 ou URL',
+  'cc.phGameUrl': 'C:\\Jogos\\Jogo.exe',
+  'cc.phCover': 'https://exemplo.com/imagem.jpg ou caminho local',
+  'cc.saveGame': 'Salvar Jogo',
+  'cc.saveApp': 'Salvar Aplicação',
+  'cc.savingApp': 'Buscando recursos e salvando...',
 
   'widgets.trophies': 'Troféus',
   'widgets.store': 'PlayStation Store',

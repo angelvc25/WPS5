@@ -257,7 +257,7 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
 
   useEffect(() => {
     if (!systemActive || !soundRef.current) return;
-    soundRef.current.pauseAsync().catch(() => {});
+    soundRef.current.pauseAsync().catch(() => { });
     setIsPlaying(false);
   }, [systemActive, nowPlaying?.id]);
 
