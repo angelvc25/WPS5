@@ -155,7 +155,6 @@ const styles = StyleSheet.create({
   },
 });
 
-const LAZY_WINDOW = 9;
 
 const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
   visible,
@@ -513,12 +512,6 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     slideshow: 'Las diapositivas estarán disponibles próximamente.',
   };
 
-  const lazyRange = useMemo(() => {
-    const start = Math.max(0, gridFocusIndex - LAZY_WINDOW);
-    const end = Math.min(images.length - 1, gridFocusIndex + LAZY_WINDOW);
-    return { start, end };
-  }, [gridFocusIndex, images.length]);
-
   return (
     <Modal
       visible={visible}
@@ -584,7 +577,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
                     previewUri={img.thumbnail || img.uri}
                     isFocused={focusArea === 'grid' && gridFocusIndex === idx}
                     isSelected={currentBackgroundUri === img.uri}
-                    shouldLoad={idx >= lazyRange.start && idx <= lazyRange.end}
+                    shouldLoad={true}
                     tileWidth={tileWidth}
                     tileHeight={tileHeight}
                     onFocus={() => {
