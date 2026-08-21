@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
   tileFocused: {
-    borderColor: '#FFF',
+    borderColor: '#ffffff93',
   },
   tileSelected: {
     borderColor: 'rgba(255,255,255,0.45)',
@@ -184,9 +184,9 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
   const scale = useMemo(() => Math.min(windowWidth / 1920, windowHeight / 1080), [windowWidth, windowHeight]);
   const s = (v: number) => Math.round(v * scale);
   const columns = windowWidth >= 1400 ? 3 : windowWidth >= 900 ? 2 : 1;
-  const tileWidth = (windowWidth - s(72) * 2 - s(16) * (columns - 1)) / columns;
-  const tileHeight = s(180);
-  const tileStrideY = tileHeight + s(16);
+  const tileWidth = (windowWidth - s(100) * 2 - s(20) * (columns - 1)) / columns;
+  const tileHeight = s(320);
+  const tileStrideY = tileHeight + s(20);
 
   focusAreaRef.current = focusArea;
   tabFocusIndexRef.current = tabFocusIndex;
@@ -397,20 +397,20 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     content: {
       flex: 1,
       paddingTop: s(48),
-      paddingHorizontal: s(72),
+      paddingHorizontal: s(92),
       paddingBottom: s(40),
     },
     title: {
       color: '#FFF',
       fontSize: s(28),
       fontWeight: '300',
-      marginBottom: s(24),
+      marginBottom: s(44),
     },
     tabsRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: s(12),
-      marginBottom: s(20),
+      marginBottom: s(30),
     },
     tab: {
       paddingHorizontal: s(18),
