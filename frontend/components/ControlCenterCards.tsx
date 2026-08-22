@@ -121,6 +121,9 @@ function AnimatedCard({
   const animHeight = useSharedValue(260);
 
   const [focusedNewsIndex, setFocusedNewsIndex] = React.useState(0);
+  const [selectedDiscoverCategory, setSelectedDiscoverCategory] = React.useState<number | null>(null);
+  const [focusedDiscoverIndex, setFocusedDiscoverIndex] = React.useState(0);
+  const [focusedDiscoverTip, setFocusedDiscoverTip] = React.useState(0);
   const scrollRef = React.useRef<ScrollView>(null);
   const [realNews, setRealNews] = React.useState<SteamNewsItem[]>([]);
   const [mediaControlFocus, setMediaControlFocus] = React.useState(1);
@@ -249,6 +252,9 @@ function AnimatedCard({
   useEffect(() => {
     if (isExpanded) {
       setFocusedNewsIndex(0);
+      setFocusedDiscoverIndex(0);
+      setSelectedDiscoverCategory(null);
+      setFocusedDiscoverTip(0);
       if (card.type === 'nowPlaying') setMediaControlFocus(1);
     }
   }, [isExpanded, card.type]);
@@ -256,6 +262,44 @@ function AnimatedCard({
   useEffect(() => {
     if (!isExpanded || Platform.OS !== 'web') return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (card.type === 'discover') {
+        if (selectedDiscoverCategory === null) {
+          if (e.key === 'ArrowUp') {
+            e.preventDefault(); e.stopPropagation();
+            setFocusedDiscoverIndex((prev) => Math.max(0, prev - 1));
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault(); e.stopPropagation();
+            setFocusedDiscoverIndex((prev) => Math.min(DISCOVER_CATEGORIES.length - 1, prev + 1));
+            soundService.playNavigation();
+          } else if (e.key === 'Enter' || e.key === 'x' || e.key === 'X') {
+            e.preventDefault(); e.stopPropagation();
+            setSelectedDiscoverCategory(focusedDiscoverIndex);
+            setFocusedDiscoverTip(0);
+            soundService.playActivation?.();
+          } else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+            e.preventDefault(); e.stopPropagation();
+            soundService.playBack?.();
+            onCloseExpanded?.();
+          }
+        } else {
+          const tips = DISCOVER_CATEGORIES[selectedDiscoverCategory]?.tips || [];
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault(); e.stopPropagation();
+            setFocusedDiscoverTip((prev) => Math.max(0, prev - 1));
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault(); e.stopPropagation();
+            setFocusedDiscoverTip((prev) => Math.min(tips.length - 1, prev + 1));
+            soundService.playNavigation();
+          } else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+            e.preventDefault(); e.stopPropagation();
+            setSelectedDiscoverCategory(null);
+            soundService.playBack?.();
+          }
+        }
+        return;
+      }
       if (card.type === 'nowPlaying') {
         if (e.key === 'ArrowLeft') {
           e.preventDefault();
@@ -304,7 +348,7 @@ function AnimatedCard({
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isExpanded, maxIndex, realNews, focusedNewsIndex, card.type, card.mediaSession, isCaptureModalVisible, mediaControlFocus]);
+  }, [isExpanded, maxIndex, realNews, focusedNewsIndex, card.type, card.mediaSession, isCaptureModalVisible, mediaControlFocus, selectedDiscoverCategory, focusedDiscoverIndex, focusedDiscoverTip, onCloseExpanded]);
 
   useEffect(() => {
     if (!isActive || isExpanded || Platform.OS !== 'web') return;
@@ -795,7 +839,214 @@ function AnimatedCard({
               )} */}
 
               {/* Card content */}
-              {isExpanded && card.type === 'news' ? (
+              {isExpanded && card.type === 'discover' ? (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(23, 23, 30, 0.98)', borderRadius: 16, overflow: 'hidden' }]}>
+                  {Platform.OS === 'web' && (
+                    <div
+                      style={{
+                        position: 'absolute', inset: 0,
+                        background: `linear-gradient(45deg, rgba(232, 249, 255, 0.14) 0%, rgba(120,220,255,0.03) 40%, rgba(255,255,255,0.01) 60%, rgba(0,0,0,0.00) 100%)`,
+                        pointerEvents: 'none', zIndex: 1,
+                      }}
+                    />
+                  )}
+                  <View style={{ flex: 1, zIndex: 2, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 16 }}>
+                    {selectedDiscoverCategory === null ? (
+                      <>
+                        {/* Header */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Ionicons name="sparkles" size={20} color="#fff" />
+                            <Text style={styles.expandedTitle}>Descubrir</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.closeBtn}
+                            onPress={onCloseExpanded}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="close" size={18} color="#fff" />
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Category List */}
+                        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                          {DISCOVER_CATEGORIES.map((cat, i) => {
+                            const isFocused = focusedDiscoverIndex === i;
+                            return (
+                              <TouchableOpacity
+                                key={cat.id}
+                                activeOpacity={0.85}
+                                onPress={() => {
+                                  setFocusedDiscoverIndex(i);
+                                  setSelectedDiscoverCategory(i);
+                                  setFocusedDiscoverTip(0);
+                                  soundService.playActivation?.();
+                                }}
+                                style={{
+                                  marginBottom: 14,
+                                  borderRadius: 4,
+                                  overflow: 'hidden',
+                                  backgroundColor: '#005bb5',
+                                  height: 140,
+                                  borderWidth: 2,
+                                  borderColor: isFocused ? '#ffffffa2' : 'rgba(255, 255, 255, 0.1)',
+                                  // @ts-ignore
+                                  //boxShadow: isFocused ? '0 0 16px rgba(255, 255, 255, 0.35)' : 'none',
+                                }}
+                              >
+                                {Platform.OS === 'web' && (
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      inset: 0,
+                                      background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(0,0,0,0.15) 100%)',
+                                      pointerEvents: 'none',
+                                    }}
+                                  />
+                                )}
+                                <View style={{ padding: 18, minHeight: 128, justifyContent: 'flex-end' }}>
+                                  <Text style={{ color: '#fff', fontSize: 17, fontWeight: '400', letterSpacing: 0.3 }}>
+                                    {cat.title}
+                                  </Text>
+                                  <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 15, marginTop: 4, lineHeight: 18 }}>
+                                    {cat.subtitle}
+                                  </Text>
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+
+                        {/* Footer Hints */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}>
+                          <Ionicons name="list" size={14} color="rgba(255,255,255,0.6)" />
+                          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>Opciones</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <View style={{ flex: 1 }}>
+                        {/* Sub Header */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                          <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}
+                            activeOpacity={0.7}
+                            onPress={() => {
+                              setSelectedDiscoverCategory(null);
+                              soundService.playBack?.();
+                            }}
+                          >
+                            <Ionicons name="arrow-back" size={18} color="#fff" />
+                            <Ionicons name="sparkles" size={18} color="#fff" />
+                            <Text style={[styles.expandedTitle, { flexShrink: 1 }]} numberOfLines={1}>
+                              {DISCOVER_CATEGORIES[selectedDiscoverCategory].title}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.closeBtn}
+                            onPress={onCloseExpanded}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="close" size={18} color="#fff" />
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Tip Content */}
+                        <View style={{ flex: 1 }}>
+                          {/* L1 / R1 Pagination Bar */}
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingHorizontal: 4 }}>
+                            <TouchableOpacity
+                              activeOpacity={0.7}
+                              onPress={() => {
+                                setFocusedDiscoverTip((prev) => Math.max(0, prev - 1));
+                                soundService.playNavigation();
+                              }}
+                              disabled={focusedDiscoverTip === 0}
+                              style={{
+                                backgroundColor: focusedDiscoverTip === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.2)',
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                              }}
+                            >
+                              <Text style={{ color: focusedDiscoverTip === 0 ? 'rgba(255,255,255,0.3)' : '#fff', fontWeight: 'bold', fontSize: 12 }}>L1</Text>
+                            </TouchableOpacity>
+
+                            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600', letterSpacing: 1 }}>
+                              {focusedDiscoverTip + 1}/{DISCOVER_CATEGORIES[selectedDiscoverCategory].tips.length}
+                            </Text>
+
+                            <TouchableOpacity
+                              activeOpacity={0.7}
+                              onPress={() => {
+                                const maxTips = DISCOVER_CATEGORIES[selectedDiscoverCategory].tips.length - 1;
+                                setFocusedDiscoverTip((prev) => Math.min(maxTips, prev + 1));
+                                soundService.playNavigation();
+                              }}
+                              disabled={focusedDiscoverTip === DISCOVER_CATEGORIES[selectedDiscoverCategory].tips.length - 1}
+                              style={{
+                                backgroundColor: focusedDiscoverTip === DISCOVER_CATEGORIES[selectedDiscoverCategory].tips.length - 1 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.2)',
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                              }}
+                            >
+                              <Text style={{ color: focusedDiscoverTip === DISCOVER_CATEGORIES[selectedDiscoverCategory].tips.length - 1 ? 'rgba(255,255,255,0.3)' : '#fff', fontWeight: 'bold', fontSize: 12 }}>R1</Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          {/* Screenshot preview */}
+                          <View style={{
+                            width: '100%',
+                            height: 210,
+                            borderRadius: 12,
+                            overflow: 'hidden',
+                            marginBottom: 16,
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.2)',
+                            backgroundColor: '#000',
+                          }}>
+                            <Image
+                              source={{ uri: DISCOVER_CATEGORIES[selectedDiscoverCategory].tips[focusedDiscoverTip]?.image }}
+                              style={StyleSheet.absoluteFill}
+                              contentFit="cover"
+                            />
+                          </View>
+
+                          {/* Text description */}
+                          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700', marginBottom: 8, lineHeight: 23 }}>
+                              {DISCOVER_CATEGORIES[selectedDiscoverCategory].tips[focusedDiscoverTip]?.title}
+                            </Text>
+                            <Text style={{ color: 'rgba(255,255,255,0.78)', fontSize: 14, lineHeight: 21 }}>
+                              {DISCOVER_CATEGORIES[selectedDiscoverCategory].tips[focusedDiscoverTip]?.description}
+                            </Text>
+                          </ScrollView>
+
+                          {/* Footer Hints */}
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}>
+                            <TouchableOpacity
+                              activeOpacity={0.7}
+                              onPress={() => {
+                                setSelectedDiscoverCategory(null);
+                                soundService.playBack?.();
+                              }}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            >
+                              <Ionicons name="arrow-back-circle-outline" size={16} color="rgba(255,255,255,0.6)" />
+                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>Atrás</Text>
+                            </TouchableOpacity>
+
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Ionicons name="list" size={14} color="rgba(255,255,255,0.6)" />
+                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>Opciones</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ) : isExpanded && card.type === 'news' ? (
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(23, 23, 30, 1)' }]}>
                   {Platform.OS === 'web' && (
                     <div
@@ -1255,6 +1506,66 @@ const NEWS_ITEMS = [
     tag: 'COLABORACIÓN', tagColor: '#b8860b', color: '#3a2a1a',
     icon: 'star-outline' as const, date: 'Hace 1 semana',
   },
+];
+
+const DISCOVER_CATEGORIES = [
+  {
+    id: 'easy',
+    title: 'Fácil de usar',
+    subtitle: 'Haz que tu PC sea más accesible',
+    color: '#0055A5',
+    icon: 'accessibility',
+    tips: [
+      {
+        image: 'https://private-user-images.githubusercontent.com/135089633/639775513-8512be4f-9453-4037-99f2-8a7b72a31ba2.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjY0MDksIm5iZiI6MTc4NzM2NjEwOSwicGF0aCI6Ii8xMzUwODk2MzMvNjM5Nzc1NTEzLTg1MTJiZTRmLTk0NTMtNDAzNy05OWYyLThhN2I3MmEzMWJhMi5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjM1MDlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT02OTVlNTVkMjU0NGUwOTEyNDg1OTIwY2QxMDk0NjhjZGNjZDU3MTZlNGYwMWQ5ZWY5MmU2MmY3YzBkZTI1NTY2JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.LxHnkUPZy9hV5xC5BEdwqIsOoBpPJGyozkzqCLxb0rQ',
+        title: 'Menu flotante',
+        description: 'Activa o desactiva el menu flotante con la tecla Inicio o con el botón options del mando.',
+      }
+    ]
+  },
+  {
+    id: 'discover',
+    title: 'Descubre más',
+    subtitle: 'Aprovecha al máximo tu PC',
+    color: '#0066CC',
+    icon: 'compass',
+    tips: [
+      {
+        image: 'https://private-user-images.githubusercontent.com/135089633/639783148-6ec006f9-7fd4-4b14-bb9c-41ab5424224d.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjYwOTEsIm5iZiI6MTc4NzM2NTc5MSwicGF0aCI6Ii8xMzUwODk2MzMvNjM5NzgzMTQ4LTZlYzAwNmY5LTdmZDQtNGIxNC1iYjljLTQxYWI1NDI0MjI0ZC5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjI5NTFaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT03OWQ0YWVhZDAzNWMxNWEyZTA2MTcwNzhlMzhmYjMwNzJhMzlhYjllMTgwOGJlZTUxYjE3MDVkZTg3NjBlYjU5JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.cg1cZnKXS5sUovQL3uukHvJxtxujA-K4537UmqVOFHM',
+        title: 'Añade juegos manualmente',
+        description: 'Si un juego no aparece automáticamente, puedes añadirlo desde la tarjeta "Añadir Juego" en el Centro de Control.',
+      },
+      {
+        image: 'https://private-user-images.githubusercontent.com/135089633/639784060-7f429f34-9c46-44ad-9ac1-5c5e8136741b.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjY0MDksIm5iZiI6MTc4NzM2NjEwOSwicGF0aCI6Ii8xMzUwODk2MzMvNjM5Nzg0MDYwLTdmNDI5ZjM0LTljNDYtNDRhZC05YWMxLTVjNWU4MTM2NzQxYi5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjM1MDlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1hMWUzODhlMDg3Yjk2ZWI2YTc4YTZlMjY5ZTZhYTA2NjlhYjBlOGM2OTVkZDdiZmJkMTYxOTBiMjA0N2Q2MzM5JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.yFybtHGIGqGL7ZykNRzN2eF3ehq2sp0Hx1Xe7iTj_Zo',
+        title: 'Personaliza tu fondo',
+        description: 'Ve a la configuración de perfil para cambiar el fondo de pantalla animado y hacerlo tuyo.',
+      },
+      {
+        image: 'https://private-user-images.githubusercontent.com/135089633/639784636-04a2f324-576b-4410-81c4-139e23b8aae5.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjY0MDksIm5iZiI6MTc4NzM2NjEwOSwicGF0aCI6Ii8xMzUwODk2MzMvNjM5Nzg0NjM2LTA0YTJmMzI0LTU3NmItNDQxMC04MWM0LTEzOWUyM2I4YWFlNS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjM1MDlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT02MzYyM2YwMzBmN2JhNzIxZjU1MmJjZjhhYTZkMmJmOTQxZWY0N2FjMTNkZmM5MTUxODYxMDcwNGUwY2I0NTQ2JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.bgDeBdZWdceigVzW6PvY__0dnl6GKCfi6fjWgAjPjko',
+        title: 'Personaliza tu fondo desde los widget',
+        description: 'Ve al centro de control y sube hasta el icono de "Wallpaper" para cambiar el fondo de pantalla animado y hacerlo tuyo.',
+      }
+    ]
+  },
+  {
+    id: 'improve',
+    title: 'Mejora tu juego',
+    subtitle: 'Herramientas para mejorar tus sesiones de juego',
+    color: '#0077E6',
+    icon: 'game-controller',
+    tips: [
+      {
+        image: 'https://private-user-images.githubusercontent.com/135089633/639780399-2e204329-92fd-44f4-9f09-23848fce3fc5.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjU5MDQsIm5iZiI6MTc4NzM2NTYwNCwicGF0aCI6Ii8xMzUwODk2MzMvNjM5NzgwMzk5LTJlMjA0MzI5LTkyZmQtNDRmNC05ZjA5LTIzODQ4ZmNlM2ZjNS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjI2NDRaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT03ZGY1MTBkYWNlZGE0MjM3OWFhMWI1NWJmMThkOWRiM2UxYzAyYjNmZDlmNjRhMmM1NzZiNTFjZjEwOTVmMzk5JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.PZ97ylFVI4r5m1Vir81qC6g_lofDIVUpQw3lEkUsXbA',
+        title: 'Controla tu música',
+        description: 'Usa la tarjeta de reproducción multimedia para controlar tu música sin salir del juego. Compatible con Spotify y Windows Media.',
+      },
+      {
+        image: 'https://private-user-images.githubusercontent.com/135089633/639774874-172be2d6-f0db-47e4-9c91-228ebccf07f9.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjQwNTcsIm5iZiI6MTc4NzM2Mzc1NywicGF0aCI6Ii8xMzUwODk2MzMvNjM5Nzc0ODc0LTE3MmJlMmQ2LWYwZGItNDdlNC05YzkxLTIyOGViY2NmMDdmOS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMTU1NTdaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1iMDA5YjM3NjVhNzU3YTk1MjgwODA2ZTlmZjBiZWY3M2VhYjBlYTI4NTI2YTk5ZWQwZmI3ZGRhNDg2ZjczNWU2JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.WJWImIS0o31lzZ-3JaOJwiztARatnuxXpa99CncQqCs',
+        title: 'Ajustes de juego',
+        description: 'Pulsa la tecla X sobre un juego del carrusel de juegos para acceder a sus ajustes.',
+      }
+    ]
+  }
 ];
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
