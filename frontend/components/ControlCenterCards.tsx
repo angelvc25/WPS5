@@ -944,13 +944,12 @@ function AnimatedCard({
                                 }}
                                 style={{
                                   marginBottom: 14,
-                                  borderRadius: 4,
-                                  overflow: 'hidden',
+                                  borderRadius: 12,
                                   backgroundColor: '#005bb5',
                                   height: 140,
-                                  borderWidth: 2,
-                                  borderColor: isFocused ? '#ffffffa2' : 'rgba(255, 255, 255, 0.1)',
                                   position: 'relative',
+                                  zIndex: isFocused ? 30 : 1,
+                                  overflow: 'visible',
                                 }}
                               >
                                 {Platform.OS === 'web' && (
@@ -958,6 +957,7 @@ function AnimatedCard({
                                     style={{
                                       position: 'absolute',
                                       inset: 0,
+                                      borderRadius: 12,
                                       background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(0,0,0,0.15) 100%)',
                                       pointerEvents: 'none',
                                     }}
@@ -972,7 +972,12 @@ function AnimatedCard({
                                   </Text>
                                 </View>
                                 {isFocused && (
-                                  <SpinningborderDiscover borderRadius={4} />
+                                  <SpinningBorderNoticias
+                                    width={'100%'}
+                                    height={'100%'}
+                                    borderRadius={12}
+                                    id={`discover-${i}`}
+                                  />
                                 )}
                               </TouchableOpacity>
                             );
