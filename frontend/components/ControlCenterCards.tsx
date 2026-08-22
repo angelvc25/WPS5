@@ -38,6 +38,8 @@ import {
   SystemMediaSession,
 } from '@/services/systemMediaService';
 import { useTranslation } from '@/contexts/LanguageContext';
+import PSIcon from './PSIcon';
+import { PSIcons } from '@/constants/psIcons';
 
 interface CardData {
   id: string;
@@ -1044,13 +1046,15 @@ function AnimatedCard({
                               }}
                               disabled={focusedDiscoverTip === 0}
                               style={{
-                                backgroundColor: focusedDiscoverTip === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.2)',
-                                paddingHorizontal: 10,
-                                paddingVertical: 4,
-                                borderRadius: 6,
+                                paddingHorizontal: 4,
+                                paddingVertical: 2,
                               }}
                             >
-                              <Text style={{ color: focusedDiscoverTip === 0 ? 'rgba(255,255,255,0.3)' : '#fff', fontWeight: 'bold', fontSize: 12 }}>L1</Text>
+                              <PSIcon
+                                char={PSIcons.r1}
+                                size={26}
+                                color={focusedDiscoverTip === 0 ? 'rgba(255,255,255,0.25)' : '#fff'}
+                              />
                             </TouchableOpacity>
 
                             <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600', letterSpacing: 1 }}>
@@ -1066,13 +1070,15 @@ function AnimatedCard({
                               }}
                               disabled={focusedDiscoverTip === DISCOVER_CATEGORIES[selectedDiscoverCategory].tips.length - 1}
                               style={{
-                                backgroundColor: focusedDiscoverTip === DISCOVER_CATEGORIES[selectedDiscoverCategory].tips.length - 1 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.2)',
-                                paddingHorizontal: 10,
-                                paddingVertical: 4,
-                                borderRadius: 6,
+                                paddingHorizontal: 4,
+                                paddingVertical: 2,
                               }}
                             >
-                              <Text style={{ color: focusedDiscoverTip === DISCOVER_CATEGORIES[selectedDiscoverCategory].tips.length - 1 ? 'rgba(255,255,255,0.3)' : '#fff', fontWeight: 'bold', fontSize: 12 }}>R1</Text>
+                              <PSIcon
+                                char={PSIcons.l1}
+                                size={26}
+                                color={focusedDiscoverTip === DISCOVER_CATEGORIES[selectedDiscoverCategory].tips.length - 1 ? 'rgba(255,255,255,0.25)' : '#fff'}
+                              />
                             </TouchableOpacity>
                           </View>
 
@@ -1137,7 +1143,7 @@ function AnimatedCard({
                               }}
                               style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                             >
-                              <Ionicons name="arrow-back-circle-outline" size={16} color="rgba(255,255,255,0.6)" />
+                              <PSIcon char={PSIcons.circle} size={20} color="rgba(255,255,255,0.75)" />
                               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>{t('common.back')}</Text>
                             </TouchableOpacity>
 
@@ -1560,7 +1566,7 @@ function NowPlayingCardBody({
             }}
           >
             <Ionicons name="play-skip-back" size={22} color="#fff" />
-            <Text style={styles.mediaSkipHint}>L1</Text>
+            <PSIcon char={PSIcons.r1} size={20} color="rgba(255,255,255,0.5)" style={{ marginTop: 2 }} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1581,7 +1587,7 @@ function NowPlayingCardBody({
             }}
           >
             <Ionicons name="play-skip-forward" size={22} color="#fff" />
-            <Text style={styles.mediaSkipHint}>R1</Text>
+            <PSIcon char={PSIcons.l1} size={20} color="rgba(255,255,255,0.5)" style={{ marginTop: 2 }} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1589,11 +1595,13 @@ function NowPlayingCardBody({
       {isActive && (
         <View style={styles.mediaFooterHints}>
           <View style={styles.mediaHintItem}>
-            <View style={styles.mediaHintCircle} />
+            <PSIcon char={PSIcons.square} size={20} color="rgba(255,255,255,0.75)" />
             <Text style={styles.mediaHintText}>Confirmar</Text>
           </View>
           <View style={styles.mediaHintItem}>
-            <Text style={styles.mediaHintText}>← → navegar</Text>
+            <PSIcon char={PSIcons.dpadLeft} size={20} color="rgba(255,255,255,0.75)" />
+            <PSIcon char={PSIcons.dpadRight} size={20} color="rgba(255,255,255,0.75)" />
+            <Text style={styles.mediaHintText}>navegar</Text>
           </View>
         </View>
       )}

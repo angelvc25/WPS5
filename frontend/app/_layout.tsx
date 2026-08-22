@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { useState, useEffect } from 'react';
 import { View, StyleSheet, Linking, Platform } from 'react-native';
 import Animated, {
@@ -25,6 +26,14 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    PSIcons: require('../assets/fonts/PSIcons.ttf'),
+  });
+
+  if (!fontsLoaded) {
+    return <View style={{ flex: 1, backgroundColor: '#000' }} />;
+  }
+
   return (
     <LanguageProvider>
       <RootLayoutInner />
