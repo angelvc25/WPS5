@@ -8,11 +8,10 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSequence,
-  withSpring,
   runOnJS
 } from 'react-native-reanimated';
 
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import { UserContext } from '@/contexts/UserContext';
@@ -49,7 +48,6 @@ function RootLayoutInner() {
 
   // Valores compartidos de Reanimated
   const splashOpacity = useSharedValue(1);
-  const logoScale = useSharedValue(0.3); // Inicia pequeño para el efecto de entrada
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.openExternalUrl) return;
@@ -68,33 +66,21 @@ function RootLayoutInner() {
     };
   }, []);
 
-  useEffect(() => {
-    // 1. Animación de Entrada: El logo aparece con un rebote premium (efecto consola)
-    logoScale.value = withSpring(1, { damping: 0, stiffness: 20 });
-
-    // 2. Temporizador para la secuencia de salida
-    const timer = setTimeout(() => {
-      // Desvanecer el fondo
-      splashOpacity.value = withTiming(0, { duration: 600 });
-
-      // El logo se expande masivamente hacia la pantalla (efecto "entrar al sistema")
-      logoScale.value = withTiming(2.5, { duration: 600 }, (finished) => {
+  // Animación de Entrada: el video de Launch se reproduce una sola vez.
+  // Cuando termina, se desvanece el splash y se revela la pantalla de usuarios.
+  const handleSplashVideoStatusUpdate = (status: AVPlaybackStatus) => {
+    if (status.isLoaded && status.didJustFinish) {
+      splashOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
         if (finished) {
           runOnJS(setShowSplash)(false);
         }
       });
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  };
 
   // Estilos animados
   const animatedSplashStyle = useAnimatedStyle(() => ({
     opacity: splashOpacity.value,
-  }));
-
-  const animatedLogoStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }],
   }));
 
   if (!activeUser) {
@@ -125,10 +111,14 @@ function RootLayoutInner() {
             styles.splashContainer,
             animatedSplashStyle
           ]}>
-            <Animated.Image
-              source={require('../assets/images/applogo.png')}
-              style={[styles.logo, animatedLogoStyle]}
-              resizeMode="contain"
+            <Video
+              source={require('../assets/video/Launch2.mp4')}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode={ResizeMode.COVER}
+              shouldPlay
+              isLooping={false}
+              isMuted={false}
+              onPlaybackStatusUpdate={handleSplashVideoStatusUpdate}
             />
           </Animated.View>
         )}
@@ -186,8 +176,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 9999
   },
-  logo: {
-    width: 150,
-    height: 150
-  }
 });
