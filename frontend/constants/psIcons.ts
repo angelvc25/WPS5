@@ -9,6 +9,8 @@ export const PSIcons = {
   square: ')',   // □
   circle: 'O',   // ○
   cross: 'X',    // ✕
+  share: 'share',   // ◂
+  options: 'options',    // ▸
 
   // Gatillos / bumpers
   l1: '%',

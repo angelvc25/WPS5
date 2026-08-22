@@ -20,6 +20,9 @@ import { soundService } from '@/services/soundService';
 import { StoreOffer } from '@/services/storeService';
 import { UserProfile } from '@/components/UserSelectScreen';
 import { useTranslation } from '@/contexts/LanguageContext';
+import PSIcon from './PSIcon';
+import { PSIcons } from '@/constants/psIcons';
+import SpinningBorderSearch from './SpinningBorderSearch';
 
 export interface SearchGameItem {
   id: string;
@@ -117,9 +120,9 @@ const ResultTile = React.memo<ResultTileProps>(({ entry, isFocused, cardSize, fo
         height: cardSize + focusPad * 2,
         padding: focusPad,
       },
-      isFocused && styles.tileOuterFocused,
     ]}
   >
+    {isFocused && <SpinningBorderSearch size={cardSize} spread={22} borderRadius={14} />}
     <TouchableOpacity
       style={[styles.resultTile, { width: cardSize, height: cardSize }]}
       onPress={onPress}
@@ -669,9 +672,14 @@ const SearchView: React.FC<SearchViewProps> = ({
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <Animated.View style={ui.root} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
-        <Image
-          source={require('@/assets/images/wavesFondo.jpeg')}
+        <Video
+          source={require('@/assets/video/particles.mp4')}
           style={StyleSheet.absoluteFillObject}
+          resizeMode={ResizeMode.COVER}
+          isLooping
+          shouldPlay
+          isMuted
+          useNativeControls={false}
         />
         {/* <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11, 12, 16, 0.85)' }} pointerEvents="none" />
         <View style={ui.spotlight} pointerEvents="none" /> */}
@@ -728,7 +736,7 @@ const SearchView: React.FC<SearchViewProps> = ({
           <Text style={ui.sectionTitle}>{sectionLabel}</Text>
 
           {searchResults.length > 0 ? (
-            <View style={{ minHeight: cardOuterSize + s(12), overflow: 'visible' }}>
+            <View style={{ minHeight: cardOuterSize + s(60), overflow: 'visible' }}>
               <ScrollView
                 ref={resultsScrollRef}
                 horizontal
@@ -736,7 +744,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                 style={{ overflow: 'visible' } as any}
                 contentContainerStyle={{
                   gap: cardGap,
-                  paddingVertical: s(8),
+                  paddingVertical: s(30),
                   paddingHorizontal: s(0),
                   paddingBottom: s(20),
                   paddingRight: s(12),
@@ -790,9 +798,17 @@ const SearchView: React.FC<SearchViewProps> = ({
         </View>
 
         <View style={ui.footer}>
-          <Text style={ui.footerKey}>[L1]</Text>
+          <PSIcon
+            char={PSIcons.r1}
+            size={26}
+            color={'#fff'}
+          />
           <Text style={ui.footerText}>/</Text>
-          <Text style={ui.footerKey}>[R1]</Text>
+          <PSIcon
+            char={PSIcons.l1}
+            size={26}
+            color={'#fff'}
+          />
           <Text style={ui.footerText}>{t('search.changeTabs')}</Text>
         </View>
       </Animated.View>

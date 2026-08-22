@@ -1143,7 +1143,7 @@ function AnimatedCard({
                               }}
                               style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                             >
-                              <PSIcon char={PSIcons.circle} size={20} color="rgba(255,255,255,0.75)" />
+                              <PSIcon char={PSIcons.circle} size={20} color="rgba(255, 255, 255, 0.9)" />
                               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>{t('common.back')}</Text>
                             </TouchableOpacity>
 
@@ -1595,12 +1595,12 @@ function NowPlayingCardBody({
       {isActive && (
         <View style={styles.mediaFooterHints}>
           <View style={styles.mediaHintItem}>
-            <PSIcon char={PSIcons.square} size={20} color="rgba(255,255,255,0.75)" />
+            <PSIcon char={PSIcons.square} size={20} color="rgba(255, 255, 255, 0.9)" />
             <Text style={styles.mediaHintText}>Confirmar</Text>
           </View>
           <View style={styles.mediaHintItem}>
-            <PSIcon char={PSIcons.dpadLeft} size={20} color="rgba(255,255,255,0.75)" />
-            <PSIcon char={PSIcons.dpadRight} size={20} color="rgba(255,255,255,0.75)" />
+            <PSIcon char={PSIcons.dpadLeft} size={20} color="rgba(255, 255, 255, 0.9)" />
+            <PSIcon char={PSIcons.dpadRight} size={20} color="rgba(255, 255, 255, 0.9)" />
             <Text style={styles.mediaHintText}>navegar</Text>
           </View>
         </View>
@@ -1792,6 +1792,16 @@ const getDiscoverCategories = (t: (key: string) => string) => [
         image: 'https://private-user-images.githubusercontent.com/135089633/639775513-8512be4f-9453-4037-99f2-8a7b72a31ba2.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjY0MDksIm5iZiI6MTc4NzM2NjEwOSwicGF0aCI6Ii8xMzUwODk2MzMvNjM5Nzc1NTEzLTg1MTJiZTRmLTk0NTMtNDAzNy05OWYyLThhN2I3MmEzMWJhMi5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjM1MDlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT02OTVlNTVkMjU0NGUwOTEyNDg1OTIwY2QxMDk0NjhjZGNjZDU3MTZlNGYwMWQ5ZWY5MmU2MmY3YzBkZTI1NTY2JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.LxHnkUPZy9hV5xC5BEdwqIsOoBpPJGyozkzqCLxb0rQ',
         title: t('cc.floatingMenu'),
         description: t('cc.floatingMenuDesc'),
+      },
+      {
+        image: 'https://private-user-images.githubusercontent.com/135089633/639921225-51e54b2f-e4ec-4e0a-a15c-08551189e67b.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODc0MjEyMjAsIm5iZiI6MTc4NzQyMDkyMCwicGF0aCI6Ii8xMzUwODk2MzMvNjM5OTIxMjI1LTUxZTU0YjJmLWU0ZWMtNGUwYS1hMTVjLTA4NTUxMTg5ZTY3Yi5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQxNzQ4NDBaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT0zNTMxMzgzYThiOThiMDM4MzcwZTExMWIxM2E2ZTQ1ZmRjY2Q4YWQ4ZTY3YmVkMjI1M2U5NDE5MTdjNWE1MGM2JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.U1Mitgzvz0_u6wb31IO7aF2kMMLAGswIaRwnORHdAJo',
+        title: t('cc.search'),
+        description: (
+          <>
+            {t('cc.searchDesc')}{' '}
+            <PSIcon char={PSIcons.triangle} size={20} color="rgba(255, 255, 255, 0.9)" style={{ verticalAlign: 'middle' }} />
+          </>
+        ),
       }
     ]
   },
@@ -1834,7 +1844,12 @@ const getDiscoverCategories = (t: (key: string) => string) => [
       {
         image: 'https://private-user-images.githubusercontent.com/135089633/639774874-172be2d6-f0db-47e4-9c91-228ebccf07f9.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjQwNTcsIm5iZiI6MTc4NzM2Mzc1NywicGF0aCI6Ii8xMzUwODk2MzMvNjM5Nzc0ODc0LTE3MmJlMmQ2LWYwZGItNDdlNC05YzkxLTIyOGViY2NmMDdmOS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMTU1NTdaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1iMDA5YjM3NjVhNzU3YTk1MjgwODA2ZTlmZjBiZWY3M2VhYjBlYTI4NTI2YTk5ZWQwZmI3ZGRhNDg2ZjczNWU2JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.WJWImIS0o31lzZ-3JaOJwiztARatnuxXpa99CncQqCs',
         title: t('cc.settingGames'),
-        description: t('cc.settingGamesDesc'),
+        description: (
+          <>
+            {t('cc.settingGamesDesc')}{' '}
+            <PSIcon char={PSIcons.share} size={10} color="rgba(255, 255, 255, 0.9)" style={{ verticalAlign: 'middle' }} />
+          </>
+        ),
       }
     ]
   }

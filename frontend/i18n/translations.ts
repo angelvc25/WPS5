@@ -172,10 +172,12 @@ const es = {
   'cc.controlMusic': 'Controla tu música',
   'cc.controlMusicDesc': 'Usa la tarjeta de reproducción multimedia para controlar tu música sin salir del juego. Compatible con Spotify y Windows Media.',
   'cc.settingGames': 'Ajustes de juego',
-  'cc.settingGamesDesc': 'Pulsa la tecla X sobre un juego del carrusel de juegos para acceder a sus ajustes.',
+  'cc.settingGamesDesc': 'Pulsa la tecla X sobre un juego del carrusel de juegos para acceder a sus ajustes. Para el mando pulsa el botón ',
   'cc.zoom': 'Ampliar',
   'cc.zoomImage': 'Ampliar imagen',
   'cc.options': 'Opciones',
+  'cc.search': 'Buscar',
+  'cc.searchDesc': 'Busca juegos, aplicaciones y más con el botón del mando ',
 
   'widgets.trophies': 'Trofeos',
   'widgets.store': 'PlayStation Store',
@@ -501,6 +503,8 @@ const en: Record<TranslationKey, string> = {
   'cc.zoom': 'Zoom',
   'cc.zoomImage': 'Zoom image',
   'cc.options': 'Options',
+  'cc.search': 'Search',
+  'cc.searchDesc': 'Search for games, applications and more with the controller button ',
 
   'widgets.trophies': 'Trophies',
   'widgets.store': 'PlayStation Store',
@@ -823,6 +827,8 @@ const pt: Record<TranslationKey, string> = {
   'cc.zoom': 'Ampliar',
   'cc.zoomImage': 'Ampliar imagem',
   'cc.options': 'Opções',
+  'cc.search': 'Pesquisar',
+  'cc.searchDesc': 'Pesquise jogos, aplicativos e mais com o botão do controle',
 
   'widgets.trophies': 'Troféus',
   'widgets.store': 'PlayStation Store',

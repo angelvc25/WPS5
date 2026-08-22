@@ -780,8 +780,10 @@ export default function ConsoleHome() {
         checkButton(0, 'Enter');
         checkButton(1, 'Escape');
         checkButton(2, 'x');
+        checkButton(3, 't'); // Triángulo -> Buscar
         checkButton(4, 'q');
         checkButton(5, 'e');
+        checkButton(8, 's'); // Share/Create -> Menú contextual
         checkButton(9, 'Home');
       } else {
         if (lastGpId.current !== null) {
@@ -882,6 +884,26 @@ export default function ConsoleHome() {
           return;
         }
 
+        // Triángulo -> Buscar, desde cualquier parte del home
+        if (e.key === 't' || e.key === 'T') {
+          if (
+            !isContextMenuOpen &&
+            !isProfileMenuOpen &&
+            !isAddModalVisible &&
+            !isSettingsVisible &&
+            !isUserModalVisible &&
+            !isFavoritesVisible &&
+            !isRandomSelectorVisible &&
+            focusArea !== 'header_user'
+          ) {
+            soundService.playContextMenu();
+            setFocusArea('header_avatar');
+            setFocusIndex(0);
+            setSearchVisible(true);
+          }
+          return;
+        }
+
         if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
           soundService.playExitMenu();
           if (!isContextMenuOpen && !(focusArea === 'header_user')) {
@@ -964,7 +986,7 @@ export default function ConsoleHome() {
         }
 
         // 3. Option Action Keys (Open Context Menu)
-        if (e.key === 'x' || e.key === 'X' || e.key === 'm' || e.key === 'M') {
+        if (e.key === 'x' || e.key === 'X' || e.key === 'm' || e.key === 'M' || e.key === 's' || e.key === 'S') {
           soundService.playContextMenu();
           if (focusArea === 'main_carousel') {
             const item = currentData[activeIndex];
