@@ -9,6 +9,7 @@ import {
   Pressable,
   Platform,
   TextInput,
+  useWindowDimensions,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -115,14 +116,20 @@ function AnimatedCard({
   onCloseExpanded?: () => void;
   onRefreshApps?: () => void;
 }) {
+  const { width: winW, height: winH } = useWindowDimensions();
+  // Tamaños responsive para la card expandida: máximo ~30% ancho, ~70% alto
+  const EXPANDED_W = Math.round(Math.min(Math.max(winW * 0.22, 320), 520));
+  const EXPANDED_H = Math.round(Math.min(Math.max(winH * 0.65, 480), 720));
+  const COLLAPSED_SIZE = Math.round(Math.min(Math.max(winH * 0.22, 200), 280));
+
   const translateY = useSharedValue(40);
   const opacity = useSharedValue(0);
 
   const scale = useSharedValue(1);
   const scaleX = useSharedValue(1);
   const focusLift = useSharedValue(0);
-  const animWidth = useSharedValue(260);
-  const animHeight = useSharedValue(260);
+  const animWidth = useSharedValue(COLLAPSED_SIZE);
+  const animHeight = useSharedValue(COLLAPSED_SIZE);
 
   const [focusedNewsIndex, setFocusedNewsIndex] = React.useState(0);
   const [selectedDiscoverCategory, setSelectedDiscoverCategory] = React.useState<number | null>(null);
@@ -162,12 +169,11 @@ function AnimatedCard({
   }));
 
   const lightboxImageAnimStyle = useAnimatedStyle(() => {
-    const scale = interpolate(discoverLightboxAnim.value, [0, 1], [0.4, 1.8]);
-    const translateX = interpolate(discoverLightboxAnim.value, [0, 1], [-260, 0]);
-    const translateY = interpolate(discoverLightboxAnim.value, [0, 1], [80, 0]);
+    const scale = interpolate(discoverLightboxAnim.value, [0, 1], [0.55, 1.0]);
+    const translateY = interpolate(discoverLightboxAnim.value, [0, 1], [40, 0]);
     return {
       opacity: discoverLightboxAnim.value,
-      transform: [{ translateX }, { translateY }, { scale }],
+      transform: [{ translateY }, { scale }],
     };
   });
 
@@ -438,16 +444,16 @@ function AnimatedCard({
     );
   }, []);
 
-  // Size on expand
+  // Size on expand — responsive
   useEffect(() => {
     if (isActive && isExpanded) {
-      animWidth.value = withTiming(450, { duration: 300, easing: Easing.out(Easing.cubic) });
-      animHeight.value = withTiming(650, { duration: 300, easing: Easing.out(Easing.cubic) });
+      animWidth.value = withTiming(EXPANDED_W, { duration: 300, easing: Easing.out(Easing.cubic) });
+      animHeight.value = withTiming(EXPANDED_H, { duration: 300, easing: Easing.out(Easing.cubic) });
     } else {
-      animWidth.value = withTiming(260, { duration: 300, easing: Easing.out(Easing.cubic) });
-      animHeight.value = withTiming(260, { duration: 300, easing: Easing.out(Easing.cubic) });
+      animWidth.value = withTiming(COLLAPSED_SIZE, { duration: 300, easing: Easing.out(Easing.cubic) });
+      animHeight.value = withTiming(COLLAPSED_SIZE, { duration: 300, easing: Easing.out(Easing.cubic) });
     }
-  }, [isActive, isExpanded]);
+  }, [isActive, isExpanded, EXPANDED_W, EXPANDED_H, COLLAPSED_SIZE]);
 
   // Scale on focus
   useEffect(() => {
@@ -1235,8 +1241,8 @@ function AnimatedCard({
         {/* SpinningBorder — outside clip, draws over card border */}
         {isActive && !isExpanded && (
           <SpinningBorder
-            width={260}
-            height={260}
+            width={COLLAPSED_SIZE}
+            height={COLLAPSED_SIZE}
             borderRadius={16}
             id={`ctrl-card-${card.id}`}
           />
@@ -1303,10 +1309,12 @@ function AnimatedCard({
               style={[
                 {
                   position: 'absolute',
-                  left: 380,
-                  top: '27%',
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
                   justifyContent: 'center',
-                  alignItems: 'flex-start',
+                  alignItems: 'center',
                   pointerEvents: 'box-none',
                 },
                 lightboxImageAnimStyle,
@@ -1314,8 +1322,8 @@ function AnimatedCard({
             >
               <View
                 style={{
-                  width: 780,
-                  maxWidth: '96%',
+                  width: Math.round(Math.min(winW * 0.55, 920)),
+                  maxWidth: winW - 80,
                   aspectRatio: 16 / 9,
                   borderRadius: 16,
                   overflow: 'hidden',
@@ -1566,7 +1574,7 @@ function NowPlayingCardBody({
             }}
           >
             <Ionicons name="play-skip-back" size={22} color="#fff" />
-            <PSIcon char={PSIcons.r1} size={20} color="rgba(255,255,255,0.5)" style={{ marginTop: 2 }} />
+            <PSIcon char={PSIcons.r1} size={20} color="rgba(255, 255, 255, 0.9)" style={{ marginTop: 2 }} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1587,7 +1595,7 @@ function NowPlayingCardBody({
             }}
           >
             <Ionicons name="play-skip-forward" size={22} color="#fff" />
-            <PSIcon char={PSIcons.l1} size={20} color="rgba(255,255,255,0.5)" style={{ marginTop: 2 }} />
+            <PSIcon char={PSIcons.l1} size={20} color="rgba(255, 255, 255, 0.9)" style={{ marginTop: 2 }} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1668,6 +1676,10 @@ export default function ControlCenterCards({
   onCardsCountChange,
 }: ControlCenterCardsProps) {
   const translateX = useSharedValue(0);
+  const { width: winW, height: winH } = useWindowDimensions();
+  const COLLAPSED_SIZE = Math.round(Math.min(Math.max(winH * 0.22, 200), 280));
+  const cardStep = COLLAPSED_SIZE + 14;
+
   const { nowPlaying } = useSystemMedia();
   const { t } = useTranslation();
 
@@ -1715,19 +1727,18 @@ export default function ControlCenterCards({
   }, [cardsToShow.length, onCardsCountChange]);
 
   useEffect(() => {
-    // 260 (card width) + 14 (gap) = 274
-    translateX.value = withTiming(-focusedIndex * 274, {
+    translateX.value = withTiming(-focusedIndex * cardStep, {
       duration: 250,
       easing: Easing.out(Easing.ease),
     });
-  }, [focusedIndex]);
+  }, [focusedIndex, cardStep]);
 
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
   }));
 
   return (
-    <Animated.View style={[styles.cardsRow, rowStyle]}>
+    <Animated.View style={[styles.cardsRow, rowStyle, { paddingLeft: Math.max(winW * 0.05, 40), width: '100%' }]}>
       {cardsToShow.map((card, index) => (
         <AnimatedCard
           key={card.id}

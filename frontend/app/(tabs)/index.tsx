@@ -332,12 +332,12 @@ export default function ConsoleHome() {
       lowerSectionFocusAnim.value,
       [0, 1],
       [
-        interpolate(gamePanelFocusAnim.value, [0, 1], [windowHeight - 420, windowHeight * 0.5 + 200]),
+        interpolate(gamePanelFocusAnim.value, [0, 1], [windowHeight - 388, windowHeight * 0.5 + 200]),
         deepHeight
       ]
     );
     // When welcome_widgets is focused: keep spacer constant
-    const welcomeHeight = Math.max(30, windowHeight - 655);
+    const welcomeHeight = Math.max(30, windowHeight - 623);
     return {
       minHeight: isWelcome ? welcomeHeight : Math.max(0, targetMinHeight),
       justifyContent: 'flex-end',
@@ -352,9 +352,9 @@ export default function ConsoleHome() {
     return {
       opacity: 1 - collapseAnim,
       transform: [{ translateY: interpolate(collapseAnim, [0, 1], [0, -20]) }],
-      maxHeight: interpolate(heightCollapse, [0, 1], [120, 0]),
-      paddingTop: interpolate(heightCollapse, [0, 1], [40, 0]),
-      paddingBottom: interpolate(heightCollapse, [0, 1], [12, 0]),
+      maxHeight: interpolate(heightCollapse, [0, 1], [100, 0]),
+      paddingTop: interpolate(heightCollapse, [0, 1], [16, 0]),
+      paddingBottom: interpolate(heightCollapse, [0, 1], [4, 0]),
       overflow: 'hidden',
     };
   });
@@ -3380,13 +3380,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 50,
-    paddingTop: 40,
-    paddingBottom: 12,
+    paddingTop: 16,
+    paddingBottom: 4,
     zIndex: 5,
   },
   miniHeader: {
     position: 'absolute',
-    top: 40,
+    top: 16,
     left: 50,
     zIndex: 10,
     flexDirection: 'row',
@@ -3394,7 +3394,7 @@ const styles = StyleSheet.create({
   },
   miniHeaderToolbar: {
     position: 'absolute',
-    top: 40,
+    top: 16,
     right: 50,
     zIndex: 10,
     flexDirection: 'row',
