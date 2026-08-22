@@ -11,7 +11,8 @@
 
 <img width="1227" height="728" alt="Captura de pantalla 2026-08-13 151133" src="https://github.com/user-attachments/assets/ef804b17-f7d0-464f-a364-5efa23121de2" />
 
-<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/2ea34fa6-0f6e-4512-93d4-90ac8fe3e2c5" />
+<img width="919" height="517" alt="ajustes_emergentes" src="https://github.com/user-attachments/assets/172be2d6-f0db-47e4-9c91-228ebccf07f9" />
+
 
 
 
