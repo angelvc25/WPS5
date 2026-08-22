@@ -484,7 +484,10 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
         }} />
       )}
       {Platform.OS === 'web' && isFocused && (
-        <div className="widget-shimmer-line" style={{ animationDuration: '7s', opacity: 0.8 }} />
+        <div
+          className="widget-shimmer-line"
+          style={{ animationDuration: '7s', opacity: 0.8, pointerEvents: 'none' }}
+        />
       )}
 
       {/* Header */}

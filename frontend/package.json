@@ -94,7 +94,7 @@
     ],
     "asarUnpack": [
       "node_modules/windows-media-sessions/bin/**",
-      "node_modules/win-media-control/scripts/**"
+      "node_modules/win-media-control/**"
     ],
     "extraMetadata": {
       "main": "electron/main.js"

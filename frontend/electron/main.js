@@ -70,22 +70,29 @@ function getWindowsMediaSessionsModule() {
 
 let winMediaControlModulePromise = null;
 
+function resolveWinMediaControlImportUrl() {
+  if (!app.isPackaged) return 'win-media-control';
+
+  const candidates = [
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'win-media-control', 'index.js'),
+    path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), '..', 'node_modules', 'win-media-control', 'index.js'),
+  ];
+
+  for (const modulePath of candidates) {
+    if (fs.existsSync(modulePath)) {
+      console.log('[MediaControl] Cargando win-media-control desde:', modulePath);
+      return pathToFileURL(modulePath).href;
+    }
+  }
+
+  console.warn('[MediaControl] win-media-control/index.js no encontrado en rutas unpacked:', candidates);
+  return 'win-media-control';
+}
+
 function getWinMediaControlModule() {
   if (process.platform !== 'win32') return Promise.resolve(null);
   if (!winMediaControlModulePromise) {
-    let importUrl;
-    if (app.isPackaged) {
-      const modulePath = path.join(
-        __dirname.replace('app.asar', 'app.asar.unpacked'),
-        '..',
-        'node_modules',
-        'win-media-control',
-        'index.js'
-      );
-      importUrl = pathToFileURL(modulePath).href;
-    } else {
-      importUrl = 'win-media-control';
-    }
+    const importUrl = resolveWinMediaControlImportUrl();
     winMediaControlModulePromise = import(importUrl).catch((err) => {
       console.warn('[MediaControl] win-media-control no disponible:', err.message);
       winMediaControlModulePromise = null;
@@ -130,8 +137,16 @@ async function sendMediaControlAction(action, target) {
   const app = resolveMediaControlApp(target);
 
   try {
-    const result = app !== undefined ? await fn(app) : await fn();
-    const ok = Array.isArray(result?.success) && result.success.length > 0;
+    let result = app !== undefined ? await fn(app) : await fn();
+    let ok = Array.isArray(result?.success) && result.success.length > 0;
+
+    // Si el control por app falla, reintentar con la sesión activa del sistema
+    if (!ok && app !== undefined) {
+      console.warn('[MediaControl]', action, 'falló para app', app, '- reintentando sesión actual');
+      result = await fn();
+      ok = Array.isArray(result?.success) && result.success.length > 0;
+    }
+
     if (!ok) {
       console.warn('[MediaControl]', action, 'failed', result?.failed || 'no success');
     } else {
