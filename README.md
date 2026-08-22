@@ -13,6 +13,7 @@
 
 <img width="919" height="517" alt="ajustes_emergentes" src="https://github.com/user-attachments/assets/172be2d6-f0db-47e4-9c91-228ebccf07f9" />
 
+<img width="1377" height="774" alt="Captura de pantalla 2026-08-21 205713" src="https://github.com/user-attachments/assets/8512be4f-9453-4037-99f2-8a7b72a31ba2" />
 
 
 
