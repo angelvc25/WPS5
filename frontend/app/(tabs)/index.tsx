@@ -942,7 +942,7 @@ export default function ConsoleHome() {
             if (systemNavLevel === 0) {
               setModalSelectedIndex(prev => Math.min(prev + 1, 10));
             } else {
-              setSystemNavCardIndex(prev => Math.min(prev + 1, modalSelectedIndex === 5 ? 0 : systemNavMaxCardIndex));
+              setSystemNavCardIndex(prev => Math.min(prev + 1, systemNavMaxCardIndex));
             }
             soundService.playNavigation();
           } else if (e.key === 'ArrowLeft') {

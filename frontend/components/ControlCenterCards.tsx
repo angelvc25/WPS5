@@ -499,6 +499,15 @@ function AnimatedCard({
     ],
   }));
 
+  // Counter-scale for the badge: cancels the parent card's asymmetric scale so the badge stays square
+  const badgeCounterStyle = useAnimatedStyle(() => ({
+    alignSelf: 'flex-start' as const,
+    transform: [
+      { scaleX: 1 / scaleX.value },
+      { scaleY: 1 / scale.value },
+    ],
+  }));
+
   return (
     <Animated.View style={animStyle}>
       <TouchableOpacity
@@ -515,6 +524,7 @@ function AnimatedCard({
               isExpanded={isExpanded}
               isActive={isActive}
               controlFocusIndex={mediaControlFocus}
+              badgeCounterStyle={badgeCounterStyle}
             />
           ) : card.type === 'addGame' ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(23, 23, 30, 0.98)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }]}>
@@ -819,9 +829,11 @@ function AnimatedCard({
                   )}
                   <View style={[StyleSheet.absoluteFill, { padding: 14, justifyContent: 'space-between', zIndex: 2 }]}>
                     <View style={{ flexDirection: 'row' }}>
-                      <View style={{ width: 26, height: 26, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="game-controller" size={13} color="#000" />
-                      </View>
+                      <Animated.View style={badgeCounterStyle}>
+                        <View style={{ width: 26, height: 26, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="game-controller" size={13} color="#000" />
+                        </View>
+                      </Animated.View>
                     </View>
                     <View>
                       <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '500', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -838,9 +850,11 @@ function AnimatedCard({
           ) : card.type === 'capture' ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0d1015', padding: 16 }]}>
               {/* Icon */}
-              <View style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                <Ionicons name="scan" size={18} color="#000" />
-              </View>
+              <Animated.View style={[badgeCounterStyle, { marginBottom: 12 }]}>
+                <View style={{ width: 26, height: 26, borderRadius: 6, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="scan" size={18} color="#000" />
+                </View>
+              </Animated.View>
 
               {/* Image Container */}
               <View style={{ flex: 1, borderRadius: 8, overflow: 'hidden' }}>
@@ -1196,9 +1210,11 @@ function AnimatedCard({
               ) : (
                 <View style={styles.cardContent} pointerEvents="none">
                   <View style={styles.cardTopBar}>
-                    <View style={styles.smallIcon}>
-                      <Ionicons name={card.icon} size={13} color="#000" />
-                    </View>
+                    <Animated.View style={badgeCounterStyle}>
+                      <View style={styles.smallIcon}>
+                        <Ionicons name={card.icon} size={13} color="#000" />
+                      </View>
+                    </Animated.View>
                   </View>
                   <View style={styles.cardBottom}>
                     <Text style={styles.cardSubtitle} numberOfLines={1}>{card.subtitle}</Text>
@@ -1435,16 +1451,18 @@ interface NewsRowProps {
 }
 
 // ─── Now Playing Card (Windows SMTC) ─────────────────────────────────────────
-function AppSourceBadge({ appName }: { appName: string }) {
+function AppSourceBadge({ appName, counterStyle }: { appName: string; counterStyle?: any }) {
   const icon = getAppIconName(appName);
   return (
-    <View style={[styles.mediaAppBadge, { backgroundColor: icon.bg }]}>
-      {icon.vendor === 'material' ? (
-        <MaterialCommunityIcons name={icon.name as any} size={14} color={icon.color} />
-      ) : (
-        <Ionicons name={icon.name as any} size={13} color={icon.color} />
-      )}
-    </View>
+    <Animated.View style={[counterStyle, { alignSelf: 'flex-start' }]}>
+      <View style={[styles.mediaAppBadge, { backgroundColor: icon.bg }]}>
+        {icon.vendor === 'material' ? (
+          <MaterialCommunityIcons name={icon.name as any} size={17} color={icon.color} />
+        ) : (
+          <Ionicons name={icon.name as any} size={13} color={icon.color} />
+        )}
+      </View>
+    </Animated.View>
   );
 }
 
@@ -1453,11 +1471,13 @@ function NowPlayingCardBody({
   isExpanded,
   isActive,
   controlFocusIndex = 1,
+  badgeCounterStyle,
 }: {
   session: SystemMediaSession;
   isExpanded: boolean;
   isActive: boolean;
   controlFocusIndex?: number;
+  badgeCounterStyle?: any;
 }) {
   const progress =
     session.durationMs > 0
@@ -1478,7 +1498,7 @@ function NowPlayingCardBody({
     return (
       <View style={styles.mediaCollapsedRoot}>
         <View style={styles.mediaCollapsedTop}>
-          <AppSourceBadge appName={session.appName} />
+          <AppSourceBadge appName={session.appName} counterStyle={badgeCounterStyle} />
         </View>
         <View style={styles.mediaArtWrap}>
           {session.thumbnail ? (
@@ -2025,8 +2045,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   mediaAppBadge: {
-    width: 26,
-    height: 26,
+    width: 27,
+    height: 27,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
