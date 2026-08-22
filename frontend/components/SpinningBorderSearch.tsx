@@ -51,8 +51,8 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 300%;
-    height: 300%;
+    width: 10000%;
+    height: 10000%;
     animation: wcs-spin-border 9.8s linear infinite;
 
     background: conic-gradient(

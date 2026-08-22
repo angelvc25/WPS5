@@ -122,7 +122,7 @@ const ResultTile = React.memo<ResultTileProps>(({ entry, isFocused, cardSize, fo
       },
     ]}
   >
-    {isFocused && <SpinningBorderSearch size={cardSize} spread={3} borderRadius={0} />}
+    {isFocused && <SpinningBorderSearch size={cardSize} spread={4} borderRadius={0} />}
     <TouchableOpacity
       style={[styles.resultTile, { width: cardSize, height: cardSize }]}
       onPress={onPress}
@@ -575,7 +575,7 @@ const SearchView: React.FC<SearchViewProps> = ({
       borderBottomWidth: 2,
       borderBottomColor: 'transparent',
     },
-    tabActive: { borderBottomColor: '#FFF' },
+    tabActive: { borderBottomColor: '#ffffff' },
     tabFocused: { borderBottomColor: 'rgba(255,255,255,0.65)' },
     tabText: { color: 'rgba(255,255,255,0.45)', fontSize: s(16), fontWeight: '400' },
     tabTextActive: { color: '#FFF' },
@@ -596,7 +596,7 @@ const SearchView: React.FC<SearchViewProps> = ({
       borderWidth: 2,
       borderColor: 'transparent',
     },
-    searchBarFocused: { borderColor: 'rgba(255,255,255,0.35)' },
+    //searchBarFocused: { borderColor: 'rgba(255,255,255,0.35)' },
     searchSpinnerWrap: {
       width: s(28),
       height: s(28),
@@ -707,6 +707,7 @@ const SearchView: React.FC<SearchViewProps> = ({
 
           <View style={ui.searchRow}>
             <View style={[ui.searchBar, focusArea === 'search' && ui.searchBarFocused]}>
+              {focusArea === 'search' && <SpinningBorderSearch size={s(56)} spread={3} borderRadius={s(4) + 3} />}
               <Ionicons name="search" size={s(20)} color="rgba(255, 255, 255, 0.6)" />
               <TextInput
                 ref={inputRef}
@@ -775,23 +776,27 @@ const SearchView: React.FC<SearchViewProps> = ({
             <>
               <Text style={ui.subsTitle}>{t('search.subscriptionsTitle')}</Text>
               <View style={ui.subsRow}>
-                {SUBSCRIPTIONS.map((sub, idx) => (
-                  <TouchableOpacity
-                    key={sub.id}
-                    style={[ui.subTile, focusArea === 'subscriptions' && subscriptionFocusIndex === idx && ui.subTileFocused]}
-                    onPress={() => sub.url && Linking.openURL(sub.url)}
-                  >
-                    {sub.image ? (
-                      <Image source={sub.image} style={ui.subIcon} contentFit="contain" />
-                    ) : (
-                      <View style={[ui.subIcon, { alignItems: 'center', justifyContent: 'center' }]}>
-                        <Ionicons name="play-circle-outline" size={s(55)} color="#FFF" />
-                      </View>
-                    )}
-                    <Text style={ui.subTitle}>{sub.title}</Text>
-                    <Text style={[ui.subTitle, { fontSize: s(13), opacity: 0.6, marginTop: -s(2) }]}>{t(sub.subtitleKey)}</Text>
-                  </TouchableOpacity>
-                ))}
+                {SUBSCRIPTIONS.map((sub, idx) => {
+                  const isSubFocused = focusArea === 'subscriptions' && subscriptionFocusIndex === idx;
+                  return (
+                    <TouchableOpacity
+                      key={sub.id}
+                      style={[ui.subTile, isSubFocused && ui.subTileFocused]}
+                      onPress={() => sub.url && Linking.openURL(sub.url)}
+                    >
+                      {isSubFocused && <SpinningBorderSearch size={s(112)} spread={3} borderRadius={3} />}
+                      {sub.image ? (
+                        <Image source={sub.image} style={ui.subIcon} contentFit="contain" />
+                      ) : (
+                        <View style={[ui.subIcon, { alignItems: 'center', justifyContent: 'center' }]}>
+                          <Ionicons name="play-circle-outline" size={s(55)} color="#FFF" />
+                        </View>
+                      )}
+                      <Text style={ui.subTitle}>{sub.title}</Text>
+                      <Text style={[ui.subTitle, { fontSize: s(13), opacity: 0.6, marginTop: -s(2) }]}>{t(sub.subtitleKey)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </>
           ) : null}
