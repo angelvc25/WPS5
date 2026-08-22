@@ -2035,7 +2035,7 @@ export default function ConsoleHome() {
           <Video
             source={currentBackgroundVideo}
             style={StyleSheet.absoluteFillObject}
-            resizeMode={ResizeMode.COVER}
+            resizeMode={ResizeMode.STRETCH}
             shouldPlay
             isLooping
             isMuted

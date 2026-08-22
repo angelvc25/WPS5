@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import ControlPrompt from './ControlPrompt';
 import { soundService } from '../services/soundService';
+import { toastService } from '@/services/toastService';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 export interface SyncPreferences {
@@ -356,7 +357,13 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     };
   }, [hoveredId, users]);
 
-  const handleSelect = (user: UserProfile) => onUserSelected(user);
+  const handleSelect = (user: UserProfile) => {
+    soundService.playActivation?.();
+    setTimeout(() => {
+      toastService.show('Logged in to your PS5.');
+    }, 700);
+    onUserSelected(user);
+  };
 
   const bgInterpolate = bgPulse.interpolate({
     inputRange: [0, 1],
@@ -389,7 +396,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       <Video
         source={require('@/assets/video/particles.mp4')}
         style={StyleSheet.absoluteFillObject}
-        resizeMode={ResizeMode.COVER}
+        resizeMode={ResizeMode.STRETCH}
         shouldPlay
         isLooping
         isMuted

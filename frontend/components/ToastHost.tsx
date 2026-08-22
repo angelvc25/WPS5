@@ -3,29 +3,31 @@ import { View, Text, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { toastService } from '@/services/toastService';
+import { soundService } from '@/services/soundService';
 
 const TOAST_DURATION_MS = 5000;
 
 export default function ToastHost() {
   const [message, setMessage] = useState<string | null>(null);
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(24);
+  const translateX = useSharedValue(24);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hide = useCallback(() => {
     opacity.value = withTiming(0, { duration: 280 });
-    translateY.value = withTiming(24, { duration: 280 }, (finished) => {
+    translateX.value = withTiming(24, { duration: 280 }, (finished) => {
       if (finished) runOnJS(setMessage)(null);
     });
-  }, [opacity, translateY]);
+  }, [opacity, translateX]);
 
   const show = useCallback((msg: string) => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setMessage(msg);
+    soundService.playNotification();
     opacity.value = withTiming(1, { duration: 280 });
-    translateY.value = withTiming(0, { duration: 280 });
+    translateX.value = withTiming(0, { duration: 280 });
     timerRef.current = setTimeout(hide, TOAST_DURATION_MS);
-  }, [hide, opacity, translateY]);
+  }, [hide, opacity, translateX]);
 
   useEffect(() => {
     return toastService.subscribe(show);
@@ -37,7 +39,7 @@ export default function ToastHost() {
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateX: translateX.value }],
   }));
 
   if (!message) return null;
@@ -45,13 +47,7 @@ export default function ToastHost() {
   return (
     <Animated.View style={[styles.container, animatedStyle]} pointerEvents="none">
       <View style={styles.toast}>
-        <Ionicons name="information-circle-outline" size={20} color="#60A5FA" style={styles.icon} />
-        <View style={styles.keysRow}>
-          <View style={styles.key}><Text style={styles.keyText}>ALT</Text></View>
-          <Text style={styles.plus}>+</Text>
-          <View style={styles.key}><Text style={styles.keyText}>F4</Text></View>
-        </View>
-        <Text style={styles.label}>para cerrar</Text>
+        <Text style={styles.label}>{message}</Text>
       </View>
     </Animated.View>
   );
@@ -60,35 +56,28 @@ export default function ToastHost() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 48,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+    top: 35,
+    right: 40,
     zIndex: 99999,
   },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(18, 18, 20, 0.92)',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    gap: 10,
-  },
-  icon: {
-    marginRight: 2,
+    backgroundColor: 'rgba(25, 25, 25, 0.95)',
+    borderRadius: 8,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    minWidth: 320,
+    //shadowColor: '#000',
+    //shadowOffset: { width: 0, height: 10 },
+    //shadowOpacity: 0.6,
+    //shadowRadius: 20,
   },
   label: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.3,
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.2,
   },
   keysRow: {
     flexDirection: 'row',

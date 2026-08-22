@@ -9,6 +9,7 @@ class SoundService {
   private startHomeSound: Audio.Sound | null = null;
   private contextMenuSound: Audio.Sound | null = null;
   private exitMenuSound: Audio.Sound | null = null;
+  private notificationSound: Audio.Sound | null = null;
   private isMuted: boolean = false;
   private isInitialized: boolean = false; // Candado para evitar duplicados
 
@@ -61,6 +62,11 @@ class SoundService {
         require('@/assets/sounds/salir.mp3')
       );
       this.exitMenuSound = exitMenuSound;
+
+      const { sound: notificationSound } = await Audio.Sound.createAsync(
+        require('@/assets/sounds/notification.mp3')
+      );
+      this.notificationSound = notificationSound;
 
       this.isInitialized = true;
     } catch (error) {
@@ -122,6 +128,11 @@ class SoundService {
     try { await this.exitMenuSound.replayAsync(); } catch (e) { }
   }
 
+  async playNotification() {
+    if (this.isMuted || !this.notificationSound) return;
+    try { await this.notificationSound.replayAsync(); } catch (e) { }
+  }
+
   // Ahora es una función asíncrona que cambia el estado real del audio en reproducción
   async setMuted(muted: boolean) {
     this.isMuted = muted;
@@ -147,6 +158,7 @@ class SoundService {
       if (this.backSound) await this.backSound.unloadAsync();
       if (this.contextMenuSound) await this.contextMenuSound.unloadAsync();
       if (this.exitMenuSound) await this.exitMenuSound.unloadAsync();
+      if (this.notificationSound) await this.notificationSound.unloadAsync();
 
       this.isInitialized = false;
     } catch (e) { }
