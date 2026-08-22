@@ -29,11 +29,11 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
 
   .wcs-spinning-container {
     position: absolute;
-    top: 0px;
-    left: 0px;
-    right: -6px;
-    bottom: -7px;
-    border-radius: 4px;
+    top: -${resolvedSpread}px;
+    left: -${resolvedSpread}px;
+    right: -${resolvedSpread}px;
+    bottom: -${resolvedSpread}px;
+    border-radius: ${resolvedRadius}px;
     z-index: 20;
     overflow: visible;
 
@@ -105,11 +105,11 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
       <View
         style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          right: -6,
-          bottom: -7,
-          borderRadius: 4,
+          top: -resolvedSpread,
+          left: -resolvedSpread,
+          right: -resolvedSpread,
+          bottom: -resolvedSpread,
+          borderRadius: resolvedRadius,
           zIndex: 5,
           overflow: 'hidden',
         } as any}

@@ -118,11 +118,11 @@ const ResultTile = React.memo<ResultTileProps>(({ entry, isFocused, cardSize, fo
       {
         width: cardSize + focusPad * 2,
         height: cardSize + focusPad * 2,
-        padding: focusPad,
+        padding: focusPad - 3,
       },
     ]}
   >
-    {isFocused && <SpinningBorderSearch size={cardSize} spread={22} borderRadius={14} />}
+    {isFocused && <SpinningBorderSearch size={cardSize} spread={3} borderRadius={0} />}
     <TouchableOpacity
       style={[styles.resultTile, { width: cardSize, height: cardSize }]}
       onPress={onPress}
@@ -736,7 +736,7 @@ const SearchView: React.FC<SearchViewProps> = ({
           <Text style={ui.sectionTitle}>{sectionLabel}</Text>
 
           {searchResults.length > 0 ? (
-            <View style={{ minHeight: cardOuterSize + s(60), overflow: 'visible' }}>
+            <View style={{ minHeight: cardOuterSize + s(24), overflow: 'visible' }}>
               <ScrollView
                 ref={resultsScrollRef}
                 horizontal
@@ -744,7 +744,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                 style={{ overflow: 'visible' } as any}
                 contentContainerStyle={{
                   gap: cardGap,
-                  paddingVertical: s(30),
+                  paddingVertical: s(14),
                   paddingHorizontal: s(0),
                   paddingBottom: s(20),
                   paddingRight: s(12),
