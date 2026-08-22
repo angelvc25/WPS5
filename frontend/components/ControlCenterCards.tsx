@@ -1378,9 +1378,9 @@ function AnimatedCard({
                       pointerEvents: 'none',
                     }}
                   >
-                    <div style={{ color: '#fff', fontSize: 18, fontWeight: 700, letterSpacing: '0.3px', textShadow: '0 2px 8px rgba(0,0,0,0.9)' }}>
+                    {/* <div style={{ color: '#fff', fontSize: 18, fontWeight: 400, letterSpacing: '0.3px', textShadow: '0 2px 8px rgba(0,0,0,0.9)' }}>
                       {DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips[focusedDiscoverTip]?.title}
-                    </div>
+                    </div> */}
                   </div>
                 )}
 
