@@ -18,11 +18,13 @@ import Animated, {
   withDelay,
   Easing,
   interpolate,
+  runOnJS,
 } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import SpinningBorder from './Spinningborder';
 import SpinningBorderNoticias from './SpinningborderNoticias';
+import SpinningborderDiscover from './SpinningborderDiscover';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 import { useUser } from '../contexts/UserContext';
 import { openWebLink } from '@/services/linkService';
@@ -124,10 +126,47 @@ function AnimatedCard({
   const [selectedDiscoverCategory, setSelectedDiscoverCategory] = React.useState<number | null>(null);
   const [focusedDiscoverIndex, setFocusedDiscoverIndex] = React.useState(0);
   const [focusedDiscoverTip, setFocusedDiscoverTip] = React.useState(0);
+  const [isDiscoverLightboxOpen, setIsDiscoverLightboxOpen] = React.useState(false);
+  const discoverLightboxAnim = useSharedValue(0);
   const scrollRef = React.useRef<ScrollView>(null);
   const [realNews, setRealNews] = React.useState<SteamNewsItem[]>([]);
   const [mediaControlFocus, setMediaControlFocus] = React.useState(1);
   const { t } = useTranslation();
+
+  const openDiscoverLightbox = () => {
+    setIsDiscoverLightboxOpen(true);
+    discoverLightboxAnim.value = withTiming(1, {
+      duration: 300,
+      easing: Easing.out(Easing.cubic),
+    });
+    soundService.playActivation?.();
+  };
+
+  const closeDiscoverLightbox = () => {
+    discoverLightboxAnim.value = withTiming(0, {
+      duration: 220,
+      easing: Easing.in(Easing.cubic),
+    }, (finished) => {
+      if (finished) {
+        runOnJS(setIsDiscoverLightboxOpen)(false);
+      }
+    });
+    soundService.playBack?.();
+  };
+
+  const lightboxBackdropStyle = useAnimatedStyle(() => ({
+    opacity: discoverLightboxAnim.value,
+  }));
+
+  const lightboxImageAnimStyle = useAnimatedStyle(() => {
+    const scale = interpolate(discoverLightboxAnim.value, [0, 1], [0.4, 1.8]);
+    const translateX = interpolate(discoverLightboxAnim.value, [0, 1], [-260, 0]);
+    const translateY = interpolate(discoverLightboxAnim.value, [0, 1], [80, 0]);
+    return {
+      opacity: discoverLightboxAnim.value,
+      transform: [{ translateX }, { translateY }, { scale }],
+    };
+  });
 
   const { activeUser } = useUser();
   const [captureImage, setCaptureImage] = React.useState<string | null>(null);
@@ -255,6 +294,8 @@ function AnimatedCard({
       setFocusedDiscoverIndex(0);
       setSelectedDiscoverCategory(null);
       setFocusedDiscoverTip(0);
+      setIsDiscoverLightboxOpen(false);
+      discoverLightboxAnim.value = 0;
       if (card.type === 'nowPlaying') setMediaControlFocus(1);
     }
   }, [isExpanded, card.type]);
@@ -263,6 +304,22 @@ function AnimatedCard({
     if (!isExpanded || Platform.OS !== 'web') return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (card.type === 'discover') {
+        if (isDiscoverLightboxOpen) {
+          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B' || e.key === 'Enter' || e.key === 'x' || e.key === 'X') {
+            e.preventDefault(); e.stopPropagation();
+            closeDiscoverLightbox();
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault(); e.stopPropagation();
+            setFocusedDiscoverTip((prev) => Math.max(0, prev - 1));
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault(); e.stopPropagation();
+            const maxTips = (DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips.length || 1) - 1;
+            setFocusedDiscoverTip((prev) => Math.min(maxTips, prev + 1));
+            soundService.playNavigation();
+          }
+          return;
+        }
         if (selectedDiscoverCategory === null) {
           if (e.key === 'ArrowUp') {
             e.preventDefault(); e.stopPropagation();
@@ -292,6 +349,9 @@ function AnimatedCard({
             e.preventDefault(); e.stopPropagation();
             setFocusedDiscoverTip((prev) => Math.min(tips.length - 1, prev + 1));
             soundService.playNavigation();
+          } else if (e.key === 'Enter' || e.key === 'x' || e.key === 'X') {
+            e.preventDefault(); e.stopPropagation();
+            openDiscoverLightbox();
           } else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
             e.preventDefault(); e.stopPropagation();
             setSelectedDiscoverCategory(null);
@@ -348,7 +408,7 @@ function AnimatedCard({
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isExpanded, maxIndex, realNews, focusedNewsIndex, card.type, card.mediaSession, isCaptureModalVisible, mediaControlFocus, selectedDiscoverCategory, focusedDiscoverIndex, focusedDiscoverTip, onCloseExpanded]);
+  }, [isExpanded, maxIndex, realNews, focusedNewsIndex, card.type, card.mediaSession, isCaptureModalVisible, mediaControlFocus, selectedDiscoverCategory, focusedDiscoverIndex, focusedDiscoverTip, onCloseExpanded, isDiscoverLightboxOpen]);
 
   useEffect(() => {
     if (!isActive || isExpanded || Platform.OS !== 'web') return;
@@ -890,8 +950,7 @@ function AnimatedCard({
                                   height: 140,
                                   borderWidth: 2,
                                   borderColor: isFocused ? '#ffffffa2' : 'rgba(255, 255, 255, 0.1)',
-                                  // @ts-ignore
-                                  //boxShadow: isFocused ? '0 0 16px rgba(255, 255, 255, 0.35)' : 'none',
+                                  position: 'relative',
                                 }}
                               >
                                 {Platform.OS === 'web' && (
@@ -904,7 +963,7 @@ function AnimatedCard({
                                     }}
                                   />
                                 )}
-                                <View style={{ padding: 18, minHeight: 128, justifyContent: 'flex-end' }}>
+                                <View style={{ padding: 18, minHeight: 128, justifyContent: 'flex-end', zIndex: 2 }}>
                                   <Text style={{ color: '#fff', fontSize: 17, fontWeight: '400', letterSpacing: 0.3 }}>
                                     {cat.title}
                                   </Text>
@@ -912,6 +971,9 @@ function AnimatedCard({
                                     {cat.subtitle}
                                   </Text>
                                 </View>
+                                {isFocused && (
+                                  <SpinningborderDiscover borderRadius={4} />
+                                )}
                               </TouchableOpacity>
                             );
                           })}
@@ -994,23 +1056,46 @@ function AnimatedCard({
                             </TouchableOpacity>
                           </View>
 
-                          {/* Screenshot preview */}
-                          <View style={{
-                            width: '100%',
-                            height: 210,
-                            borderRadius: 12,
-                            overflow: 'hidden',
-                            marginBottom: 16,
-                            borderWidth: 1,
-                            borderColor: 'rgba(255,255,255,0.2)',
-                            backgroundColor: '#000',
-                          }}>
+                          {/* Screenshot preview with expand growth action */}
+                          <TouchableOpacity
+                            activeOpacity={0.88}
+                            onPress={openDiscoverLightbox}
+                            style={{
+                              width: '100%',
+                              height: 210,
+                              borderRadius: 12,
+                              overflow: 'hidden',
+                              marginBottom: 16,
+                              borderWidth: 1,
+                              borderColor: 'rgba(255,255,255,0.2)',
+                              backgroundColor: '#000',
+                              position: 'relative',
+                            }}
+                          >
                             <Image
                               source={{ uri: DISCOVER_CATEGORIES[selectedDiscoverCategory].tips[focusedDiscoverTip]?.image }}
                               style={StyleSheet.absoluteFill}
                               contentFit="cover"
                             />
-                          </View>
+                            {/* Expand Badge Overlay */}
+                            <View style={{
+                              position: 'absolute',
+                              bottom: 10,
+                              right: 10,
+                              backgroundColor: 'rgba(0,0,0,0.68)',
+                              paddingHorizontal: 10,
+                              paddingVertical: 5,
+                              borderRadius: 8,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 6,
+                              borderWidth: 1,
+                              borderColor: 'rgba(255,255,255,0.18)',
+                            }}>
+                              <Ionicons name="scan-outline" size={14} color="#fff" />
+                              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Ampliar</Text>
+                            </View>
+                          </TouchableOpacity>
 
                           {/* Text description */}
                           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
@@ -1036,10 +1121,14 @@ function AnimatedCard({
                               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>Atrás</Text>
                             </TouchableOpacity>
 
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Ionicons name="list" size={14} color="rgba(255,255,255,0.6)" />
-                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>Opciones</Text>
-                            </View>
+                            <TouchableOpacity
+                              activeOpacity={0.7}
+                              onPress={openDiscoverLightbox}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            >
+                              <Ionicons name="scan" size={14} color="rgba(255,255,255,0.6)" />
+                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>Ampliar imagen</Text>
+                            </TouchableOpacity>
                           </View>
                         </View>
                       </View>
@@ -1171,6 +1260,155 @@ function AnimatedCard({
           </View>
         </View>
       </Modal>
+
+      {/* Discover Tip Fullscreen Image Modal with Smooth Growth Animation from Initial Position to Side */}
+      {isDiscoverLightboxOpen && (
+        <Modal visible={true} transparent animationType="none">
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'transparent' }]} pointerEvents="box-none">
+            {/* Transparent click catcher to close when clicking outside */}
+            <Pressable
+              style={StyleSheet.absoluteFillObject}
+              onPress={closeDiscoverLightbox}
+            />
+
+            <Animated.View
+              style={[
+                {
+                  position: 'absolute',
+                  left: 380,
+                  top: '27%',
+                  justifyContent: 'center',
+                  alignItems: 'flex-start',
+                  pointerEvents: 'box-none',
+                },
+                lightboxImageAnimStyle,
+              ]}
+            >
+              <View
+                style={{
+                  width: 780,
+                  maxWidth: '96%',
+                  aspectRatio: 16 / 9,
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  backgroundColor: '#000',
+                  borderWidth: 1.5,
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  // @ts-ignore
+                  boxShadow: '0 25px 60px rgba(0,0,0,0.85), 0 0 20px rgba(0,0,0,0.5)',
+                  position: 'relative',
+                }}
+              >
+                <Image
+                  source={{ uri: DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips[focusedDiscoverTip]?.image }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                />
+
+                {/* Navigation arrows on sides if multiple tips */}
+                {(DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips.length || 0) > 1 && (
+                  <>
+                    {focusedDiscoverTip > 0 && (
+                      <TouchableOpacity
+                        style={{
+                          position: 'absolute',
+                          left: 16,
+                          top: '50%',
+                          transform: [{ translateY: -22 }],
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: 'rgba(0,0,0,0.65)',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,255,255,0.25)',
+                          zIndex: 10,
+                        }}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setFocusedDiscoverTip((prev) => Math.max(0, prev - 1));
+                          soundService.playNavigation();
+                        }}
+                      >
+                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                      </TouchableOpacity>
+                    )}
+
+                    {focusedDiscoverTip < (DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips.length || 1) - 1 && (
+                      <TouchableOpacity
+                        style={{
+                          position: 'absolute',
+                          right: 16,
+                          top: '50%',
+                          transform: [{ translateY: -22 }],
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: 'rgba(0,0,0,0.65)',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,255,255,0.25)',
+                          zIndex: 10,
+                        }}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          const maxTips = (DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips.length || 1) - 1;
+                          setFocusedDiscoverTip((prev) => Math.min(maxTips, prev + 1));
+                          soundService.playNavigation();
+                        }}
+                      >
+                        <Ionicons name="chevron-forward" size={24} color="#FFF" />
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+
+                {/* Title overlay at bottom */}
+                {Platform.OS === 'web' && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      padding: '20px 24px',
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0) 100%)',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <div style={{ color: '#fff', fontSize: 18, fontWeight: 700, letterSpacing: '0.3px', textShadow: '0 2px 8px rgba(0,0,0,0.9)' }}>
+                      {DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips[focusedDiscoverTip]?.title}
+                    </div>
+                  </div>
+                )}
+
+                {/* Close button inside the card image top-right */}
+                <TouchableOpacity
+                  style={{
+                    position: 'absolute',
+                    top: 14,
+                    right: 14,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: 'rgba(0,0,0,0.65)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.25)',
+                    zIndex: 10,
+                  }}
+                  onPress={closeDiscoverLightbox}
+                >
+                  <Ionicons name="close" size={20} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
+      )}
     </Animated.View>
   );
 }
