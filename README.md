@@ -11,6 +11,21 @@
 
 <img width="1227" height="728" alt="Captura de pantalla 2026-08-13 151133" src="https://github.com/user-attachments/assets/ef804b17-f7d0-464f-a364-5efa23121de2" />
 
+<img width="919" height="517" alt="ajustes_emergentes" src="https://github.com/user-attachments/assets/172be2d6-f0db-47e4-9c91-228ebccf07f9" />
+
+<img width="1377" height="774" alt="Captura de pantalla 2026-08-21 205713" src="https://github.com/user-attachments/assets/8512be4f-9453-4037-99f2-8a7b72a31ba2" />
+
+<img width="1353" height="810" alt="image" src="https://github.com/user-attachments/assets/2e204329-92fd-44f4-9f09-23848fce3fc5" />
+
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/b6be74e0-10ec-4e45-b5f2-0f616b68e62c" />
+
+<img width="1267" height="713" alt="Captura de pantalla 2026-08-21 212909" src="https://github.com/user-attachments/assets/6ec006f9-7fd4-4b14-bb9c-41ab5424224d" />
+
+<img width="1849" height="1014" alt="image" src="https://github.com/user-attachments/assets/7f429f34-9c46-44ad-9ac1-5c5e8136741b" />
+
+<img width="1913" height="1079" alt="image" src="https://github.com/user-attachments/assets/04a2f324-576b-4410-81c4-139e23b8aae5" />
+
+
 
 
 # Biblioteca y Steam
