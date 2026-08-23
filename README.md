@@ -1,23 +1,28 @@
 
-# WPS5
+# WPS5 Home
 
 <img width="1917" height="1079" alt="image" src="https://github.com/user-attachments/assets/c0711ef9-d5ae-4e50-bc9f-06c4f9268023" />
 
 <img width="1227" height="728" alt="Captura de pantalla 2026-08-13 151133" src="https://github.com/user-attachments/assets/ef804b17-f7d0-464f-a364-5efa23121de2" />
 
-<img width="1377" height="774" alt="Captura de pantalla 2026-08-21 205713" src="https://github.com/user-attachments/assets/8512be4f-9453-4037-99f2-8a7b72a31ba2" />
+# Floating Menu
 
-<img width="1353" height="810" alt="image" src="https://github.com/user-attachments/assets/2e204329-92fd-44f4-9f09-23848fce3fc5" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/c1d4d9b0-58ba-4565-b65f-d8049e461613" />
+
+# Wallpaper selector
 
 <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/b6be74e0-10ec-4e45-b5f2-0f616b68e62c" />
 
-<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/51e54b2f-e4ec-4e0a-a15c-08551189e67b" />
+# Search
+
+<img width="1919" height="1079" alt="SearchGuide" src="https://github.com/user-attachments/assets/b4cb842a-aaa8-4cd5-acb3-4568d1108c89" />
 
 
 
 
 
-# Biblioteca y Steam
+
+# Library & Steam
 
 <img width="1913" height="1079" alt="image" src="https://github.com/user-attachments/assets/077837a6-9120-416c-ad0a-d70392b4ef91" />
 
