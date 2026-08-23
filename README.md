@@ -3,6 +3,14 @@
 
 <img width="1917" height="1079" alt="image" src="https://github.com/user-attachments/assets/c0711ef9-d5ae-4e50-bc9f-06c4f9268023" />
 
+# Custom your Home
+
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/c49200b0-ee0d-40fe-bfab-e13d4e20fda2" />
+
+# Profile
+<img width="1918" height="1078" alt="image" src="https://github.com/user-attachments/assets/d04ed85a-2b9f-45d6-8a18-1f7c465d04e9" />
+
+# Media
 <img width="1227" height="728" alt="Captura de pantalla 2026-08-13 151133" src="https://github.com/user-attachments/assets/ef804b17-f7d0-464f-a364-5efa23121de2" />
 
 # Floating Menu
