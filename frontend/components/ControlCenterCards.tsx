@@ -1105,7 +1105,7 @@ function AnimatedCard({
                             }}
                           >
                             <Image
-                              source={{ uri: DISCOVER_CATEGORIES[selectedDiscoverCategory].tips[focusedDiscoverTip]?.image }}
+                              source={DISCOVER_CATEGORIES[selectedDiscoverCategory].tips[focusedDiscoverTip]?.image}
                               style={StyleSheet.absoluteFill}
                               contentFit="cover"
                             />
@@ -1336,7 +1336,7 @@ function AnimatedCard({
                 }}
               >
                 <Image
-                  source={{ uri: DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips[focusedDiscoverTip]?.image }}
+                  source={DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips[focusedDiscoverTip]?.image}
                   style={StyleSheet.absoluteFill}
                   contentFit="cover"
                 />
@@ -1800,17 +1800,22 @@ const getDiscoverCategories = (t: (key: string) => string) => [
     icon: 'accessibility',
     tips: [
       {
-        image: 'https://private-user-images.githubusercontent.com/135089633/639775513-8512be4f-9453-4037-99f2-8a7b72a31ba2.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjY0MDksIm5iZiI6MTc4NzM2NjEwOSwicGF0aCI6Ii8xMzUwODk2MzMvNjM5Nzc1NTEzLTg1MTJiZTRmLTk0NTMtNDAzNy05OWYyLThhN2I3MmEzMWJhMi5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjM1MDlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT02OTVlNTVkMjU0NGUwOTEyNDg1OTIwY2QxMDk0NjhjZGNjZDU3MTZlNGYwMWQ5ZWY5MmU2MmY3YzBkZTI1NTY2JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.LxHnkUPZy9hV5xC5BEdwqIsOoBpPJGyozkzqCLxb0rQ',
+        image: require('@/assets/images/ControlPanel.png'),
         title: t('cc.floatingMenu'),
         description: t('cc.floatingMenuDesc'),
       },
       {
-        image: 'https://private-user-images.githubusercontent.com/135089633/639921225-51e54b2f-e4ec-4e0a-a15c-08551189e67b.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODc0MjEyMjAsIm5iZiI6MTc4NzQyMDkyMCwicGF0aCI6Ii8xMzUwODk2MzMvNjM5OTIxMjI1LTUxZTU0YjJmLWU0ZWMtNGUwYS1hMTVjLTA4NTUxMTg5ZTY3Yi5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQxNzQ4NDBaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT0zNTMxMzgzYThiOThiMDM4MzcwZTExMWIxM2E2ZTQ1ZmRjY2Q4YWQ4ZTY3YmVkMjI1M2U5NDE5MTdjNWE1MGM2JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.U1Mitgzvz0_u6wb31IO7aF2kMMLAGswIaRwnORHdAJo',
+        image: require('@/assets/images/SearchGuide.png'),
         title: t('cc.search'),
         description: (
           <>
             {t('cc.searchDesc')}{' '}
-            <PSIcon char={PSIcons.triangle} size={20} color="rgba(255, 255, 255, 0.9)" style={{ verticalAlign: 'middle' }} />
+            <PSIcon
+              char={PSIcons.triangle}
+              size={20}
+              color="rgba(255, 255, 255, 0.9)"
+              style={{ verticalAlign: 'middle' }}
+            />
           </>
         ),
       }
@@ -1824,17 +1829,22 @@ const getDiscoverCategories = (t: (key: string) => string) => [
     icon: 'compass',
     tips: [
       {
-        image: 'https://private-user-images.githubusercontent.com/135089633/639783148-6ec006f9-7fd4-4b14-bb9c-41ab5424224d.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjYwOTEsIm5iZiI6MTc4NzM2NTc5MSwicGF0aCI6Ii8xMzUwODk2MzMvNjM5NzgzMTQ4LTZlYzAwNmY5LTdmZDQtNGIxNC1iYjljLTQxYWI1NDI0MjI0ZC5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjI5NTFaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT03OWQ0YWVhZDAzNWMxNWEyZTA2MTcwNzhlMzhmYjMwNzJhMzlhYjllMTgwOGJlZTUxYjE3MDVkZTg3NjBlYjU5JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.cg1cZnKXS5sUovQL3uukHvJxtxujA-K4537UmqVOFHM',
+        image: require('@/assets/images/addGames.png'),
         title: t('cc.addGameManually'),
         description: t('cc.addGameManuallyDesc'),
       },
       {
-        image: 'https://private-user-images.githubusercontent.com/135089633/639784060-7f429f34-9c46-44ad-9ac1-5c5e8136741b.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjY0MDksIm5iZiI6MTc4NzM2NjEwOSwicGF0aCI6Ii8xMzUwODk2MzMvNjM5Nzg0MDYwLTdmNDI5ZjM0LTljNDYtNDRhZC05YWMxLTVjNWU4MTM2NzQxYi5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjM1MDlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1hMWUzODhlMDg3Yjk2ZWI2YTc4YTZlMjY5ZTZhYTA2NjlhYjBlOGM2OTVkZDdiZmJkMTYxOTBiMjA0N2Q2MzM5JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.yFybtHGIGqGL7ZykNRzN2eF3ehq2sp0Hx1Xe7iTj_Zo',
+        image: require('@/assets/images/settingGuide.png'),
         title: t('cc.personalizeBg'),
         description: t('cc.personalizeBgDesc'),
       },
       {
-        image: 'https://private-user-images.githubusercontent.com/135089633/639784636-04a2f324-576b-4410-81c4-139e23b8aae5.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjY0MDksIm5iZiI6MTc4NzM2NjEwOSwicGF0aCI6Ii8xMzUwODk2MzMvNjM5Nzg0NjM2LTA0YTJmMzI0LTU3NmItNDQxMC04MWM0LTEzOWUyM2I4YWFlNS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjM1MDlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT02MzYyM2YwMzBmN2JhNzIxZjU1MmJjZjhhYTZkMmJmOTQxZWY0N2FjMTNkZmM5MTUxODYxMDcwNGUwY2I0NTQ2JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.bgDeBdZWdceigVzW6PvY__0dnl6GKCfi6fjWgAjPjko',
+        image: require('@/assets/images/PersonalizeBg2.png'),
+        title: t('cc.personalizeBg2'),
+        description: t('cc.personalizeBg2Desc'),
+      },
+      {
+        image: require('@/assets/images/Fondoss.png'),
         title: t('cc.personalizeBg2'),
         description: t('cc.personalizeBg2Desc'),
       }
@@ -1848,17 +1858,22 @@ const getDiscoverCategories = (t: (key: string) => string) => [
     icon: 'game-controller',
     tips: [
       {
-        image: 'https://private-user-images.githubusercontent.com/135089633/639780399-2e204329-92fd-44f4-9f09-23848fce3fc5.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjU5MDQsIm5iZiI6MTc4NzM2NTYwNCwicGF0aCI6Ii8xMzUwODk2MzMvNjM5NzgwMzk5LTJlMjA0MzI5LTkyZmQtNDRmNC05ZjA5LTIzODQ4ZmNlM2ZjNS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMjI2NDRaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT03ZGY1MTBkYWNlZGE0MjM3OWFhMWI1NWJmMThkOWRiM2UxYzAyYjNmZDlmNjRhMmM1NzZiNTFjZjEwOTVmMzk5JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.PZ97ylFVI4r5m1Vir81qC6g_lofDIVUpQw3lEkUsXbA',
+        image: require('@/assets/images/music.png'),
         title: t('cc.controlMusic'),
         description: t('cc.controlMusicDesc'),
       },
       {
-        image: 'https://private-user-images.githubusercontent.com/135089633/639774874-172be2d6-f0db-47e4-9c91-228ebccf07f9.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODczNjQwNTcsIm5iZiI6MTc4NzM2Mzc1NywicGF0aCI6Ii8xMzUwODk2MzMvNjM5Nzc0ODc0LTE3MmJlMmQ2LWYwZGItNDdlNC05YzkxLTIyOGViY2NmMDdmOS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwODIyJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDgyMlQwMTU1NTdaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1iMDA5YjM3NjVhNzU3YTk1MjgwODA2ZTlmZjBiZWY3M2VhYjBlYTI4NTI2YTk5ZWQwZmI3ZGRhNDg2ZjczNWU2JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.WJWImIS0o31lzZ-3JaOJwiztARatnuxXpa99CncQqCs',
+        image: require('@/assets/images/SettingGames.png'),
         title: t('cc.settingGames'),
         description: (
           <>
             {t('cc.settingGamesDesc')}{' '}
-            <PSIcon char={PSIcons.share} size={10} color="rgba(255, 255, 255, 0.9)" style={{ verticalAlign: 'middle' }} />
+            <PSIcon
+              char={PSIcons.share}
+              size={10}
+              color="rgba(255, 255, 255, 0.9)"
+              style={{ verticalAlign: 'middle' }}
+            />
           </>
         ),
       }
