@@ -23,6 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { Video, ResizeMode } from 'expo-av';
 import SpinningBorder from './Spinningborder';
 import SpinningBorderNoticias from './SpinningborderNoticias';
 import SpinningborderDiscover from './SpinningborderDiscover';
@@ -92,6 +93,60 @@ interface ControlCenterCardsProps {
   activeNavIndex?: number;
   onRefreshApps?: () => void;
   onCardsCountChange?: (maxIndex: number) => void;
+}
+
+// ─── Discover Tip Video ─────────────────────────────────────────────────────
+// En web, expo-av envuelve el <video> real dentro de un <div> contenedor y
+// no le pasa width/height al <video> interno (elemento "reemplazado"), por
+// lo que un <video> con position:absolute + inset:0 no llena el recuadro.
+// Por eso en web renderizamos el tag <video> nativo directamente, con
+// width/height: 100% puesto en el propio elemento. En nativo (iOS/Android)
+// ese problema no existe, así que ahí seguimos usando expo-av normalmente.
+function DiscoverTipVideo({
+  source,
+  resizeMode,
+  muted = true,
+  showControls = false,
+}: {
+  source: any;
+  resizeMode: 'cover' | 'contain';
+  muted?: boolean;
+  showControls?: boolean;
+}) {
+  if (Platform.OS === 'web') {
+    const uri = typeof source === 'string' ? source : source?.uri;
+    return (
+      // @ts-ignore - tag HTML crudo, solo se renderiza en web via react-native-web
+      <video
+        src={uri}
+        autoPlay
+        loop
+        muted={muted}
+        controls={showControls}
+        playsInline
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: resizeMode,
+        }}
+      />
+    );
+  }
+
+  return (
+    <Video
+      source={source}
+      style={StyleSheet.absoluteFill}
+      resizeMode={resizeMode === 'cover' ? ResizeMode.COVER : ResizeMode.CONTAIN}
+      isLooping
+      shouldPlay
+      isMuted={muted}
+      useNativeControls={showControls}
+    />
+  );
 }
 
 // ─── Animated Card ────────────────────────────────────────────────────────────
@@ -1094,7 +1149,7 @@ function AnimatedCard({
                             onPress={openDiscoverLightbox}
                             style={{
                               width: '100%',
-                              height: 210,
+                              aspectRatio: 16 / 9,
                               borderRadius: 12,
                               overflow: 'hidden',
                               marginBottom: 16,
@@ -1104,11 +1159,19 @@ function AnimatedCard({
                               position: 'relative',
                             }}
                           >
-                            <Image
-                              source={DISCOVER_CATEGORIES[selectedDiscoverCategory].tips[focusedDiscoverTip]?.image}
-                              style={StyleSheet.absoluteFill}
-                              contentFit="cover"
-                            />
+                            {DISCOVER_CATEGORIES[selectedDiscoverCategory].tips[focusedDiscoverTip]?.video ? (
+                              <DiscoverTipVideo
+                                source={DISCOVER_CATEGORIES[selectedDiscoverCategory].tips[focusedDiscoverTip]?.video}
+                                resizeMode="cover"
+                                muted
+                              />
+                            ) : (
+                              <Image
+                                source={DISCOVER_CATEGORIES[selectedDiscoverCategory].tips[focusedDiscoverTip]?.image}
+                                style={StyleSheet.absoluteFill}
+                                contentFit="cover"
+                              />
+                            )}
                             {/* Expand Badge Overlay */}
                             <View style={{
                               position: 'absolute',
@@ -1335,11 +1398,20 @@ function AnimatedCard({
                   position: 'relative',
                 }}
               >
-                <Image
-                  source={DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips[focusedDiscoverTip]?.image}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="cover"
-                />
+                {DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips[focusedDiscoverTip]?.video ? (
+                  <DiscoverTipVideo
+                    source={DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips[focusedDiscoverTip]?.video}
+                    resizeMode="contain"
+                    muted={false}
+                    showControls
+                  />
+                ) : (
+                  <Image
+                    source={DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips[focusedDiscoverTip]?.image}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                  />
+                )}
 
                 {/* Navigation arrows on sides if multiple tips */}
                 {(DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips.length || 0) > 1 && (
@@ -1800,9 +1872,19 @@ const getDiscoverCategories = (t: (key: string) => string) => [
     icon: 'accessibility',
     tips: [
       {
-        image: require('@/assets/images/ControlPanel.png'),
+        video: require('@/assets/video/controlCenter.mp4'),
         title: t('cc.floatingMenu'),
-        description: t('cc.floatingMenuDesc'),
+        description: (
+          <>
+            {t('cc.floatingMenuDesc')}{' '}
+            <PSIcon
+              char={PSIcons.options}
+              size={10}
+              color="rgba(255, 255, 255, 0.9)"
+              style={{ verticalAlign: 'middle' }}
+            />
+          </>
+        ),
       },
       {
         image: require('@/assets/images/SearchGuide.png'),
@@ -1829,9 +1911,19 @@ const getDiscoverCategories = (t: (key: string) => string) => [
     icon: 'compass',
     tips: [
       {
-        image: require('@/assets/images/addGames.png'),
+        video: require('@/assets/video/addGames.mp4'),
         title: t('cc.addGameManually'),
-        description: t('cc.addGameManuallyDesc'),
+        description: (
+          <>
+            {t('cc.addGameManuallyDesc')}{' '}
+            <PSIcon
+              char={PSIcons.options}
+              size={10}
+              color="rgba(255, 255, 255, 0.9)"
+              style={{ verticalAlign: 'middle' }}
+            />
+          </>
+        ),
       },
       {
         image: require('@/assets/images/settingGuide.png'),
@@ -1839,12 +1931,7 @@ const getDiscoverCategories = (t: (key: string) => string) => [
         description: t('cc.personalizeBgDesc'),
       },
       {
-        image: require('@/assets/images/PersonalizeBg2.png'),
-        title: t('cc.personalizeBg2'),
-        description: t('cc.personalizeBg2Desc'),
-      },
-      {
-        image: require('@/assets/images/Fondoss.png'),
+        video: require('@/assets/video/wallpaper.mp4'),
         title: t('cc.personalizeBg2'),
         description: t('cc.personalizeBg2Desc'),
       }
