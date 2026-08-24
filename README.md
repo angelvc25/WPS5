@@ -1,37 +1,36 @@
 
-# WPS5
+# WPS5 Home
 
 <img width="1917" height="1079" alt="image" src="https://github.com/user-attachments/assets/c0711ef9-d5ae-4e50-bc9f-06c4f9268023" />
 
-<img width="1919" height="1079" alt="Captura de pantalla 2026-08-13 182141" src="https://github.com/user-attachments/assets/e8446195-3103-4ec4-be06-a65641edea15" />
+# Custom your Home
 
-<img width="1919" height="1079" alt="Captura de pantalla 2026-08-13 165214" src="https://github.com/user-attachments/assets/4755e89b-e5ad-4064-81c5-603962ff8d5e" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/c49200b0-ee0d-40fe-bfab-e13d4e20fda2" />
 
-<img width="1917" height="1075" alt="image" src="https://github.com/user-attachments/assets/21cdc79c-2c83-4195-9ff6-f5bcbbe15dc1" />
+# Profile
+<img width="1918" height="1078" alt="image" src="https://github.com/user-attachments/assets/d04ed85a-2b9f-45d6-8a18-1f7c465d04e9" />
 
+# Media
 <img width="1227" height="728" alt="Captura de pantalla 2026-08-13 151133" src="https://github.com/user-attachments/assets/ef804b17-f7d0-464f-a364-5efa23121de2" />
 
-<img width="919" height="517" alt="ajustes_emergentes" src="https://github.com/user-attachments/assets/172be2d6-f0db-47e4-9c91-228ebccf07f9" />
+# Floating Menu
 
-<img width="1377" height="774" alt="Captura de pantalla 2026-08-21 205713" src="https://github.com/user-attachments/assets/8512be4f-9453-4037-99f2-8a7b72a31ba2" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/c1d4d9b0-58ba-4565-b65f-d8049e461613" />
 
-<img width="1353" height="810" alt="image" src="https://github.com/user-attachments/assets/2e204329-92fd-44f4-9f09-23848fce3fc5" />
+# Wallpaper selector
 
 <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/b6be74e0-10ec-4e45-b5f2-0f616b68e62c" />
 
-<img width="1267" height="713" alt="Captura de pantalla 2026-08-21 212909" src="https://github.com/user-attachments/assets/6ec006f9-7fd4-4b14-bb9c-41ab5424224d" />
+# Search
 
-<img width="1849" height="1014" alt="image" src="https://github.com/user-attachments/assets/7f429f34-9c46-44ad-9ac1-5c5e8136741b" />
-
-<img width="1913" height="1079" alt="image" src="https://github.com/user-attachments/assets/04a2f324-576b-4410-81c4-139e23b8aae5" />
-
-<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/51e54b2f-e4ec-4e0a-a15c-08551189e67b" />
+<img width="1919" height="1079" alt="SearchGuide" src="https://github.com/user-attachments/assets/b4cb842a-aaa8-4cd5-acb3-4568d1108c89" />
 
 
 
 
 
-# Biblioteca y Steam
+
+# Library & Steam
 
 <img width="1913" height="1079" alt="image" src="https://github.com/user-attachments/assets/077837a6-9120-416c-ad0a-d70392b4ef91" />
 
