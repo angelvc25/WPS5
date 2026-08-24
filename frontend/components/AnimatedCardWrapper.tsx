@@ -44,6 +44,14 @@ export const AnimatedCardWrapper = React.memo(({
     entryOpacity.value = withDelay(delay, withTiming(1, { duration: 700, easing }));
     entryScale.value = withDelay(delay, withTiming(1, { duration: 700, easing }));
     entryTranslateX.value = withDelay(delay, withTiming(0, { duration: 700, easing }));
+
+    // En producción (Electron) Reanimated a veces no dispara el primer withDelay.
+    const fallback = setTimeout(() => {
+      entryOpacity.value = 1;
+      entryScale.value = 1;
+      entryTranslateX.value = 0;
+    }, delay + 900);
+    return () => clearTimeout(fallback);
   }, []);
 
   const animStyle = useAnimatedStyle(() => ({

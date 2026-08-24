@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
+import MediaImage from './MediaImage';
 import Animated, { FadeIn, useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AnimatedCardWrapper from './AnimatedCardWrapper';
@@ -138,11 +139,11 @@ export const ConsoleCarousel = ({
                     {(() => {
                       const favs = media.filter(m => m.isFavorite);
                       if (favs.length === 0) return <Ionicons name="apps-outline" size={28} color="rgba(255,255,255,0.2)" />;
-                      if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" />;
+                      if (favs.length === 1) return <MediaImage source={favs[0].image} recyclingKey={`${favs[0].id}-${favs[0].mediaRevision || ''}`} style={{ width: '100%', height: '100%' }} contentFit="cover" />;
                       return (
                         <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
                           {favs.slice(0, 4).map((f, fi) => (
-                            <Image key={fi} source={f.image} style={{ width: '50%', height: '50%' }} contentFit="cover" />
+                            <MediaImage key={fi} source={f.image} recyclingKey={`${f.id}-${f.mediaRevision || ''}`} style={{ width: '50%', height: '50%' }} contentFit="cover" />
                           ))}
                         </View>
                       );
@@ -166,11 +167,11 @@ export const ConsoleCarousel = ({
                     {(() => {
                       const favs = games.filter(g => g.isFavorite);
                       if (favs.length === 0) return <Ionicons name="star-outline" size={28} color="rgba(255,255,255,0.2)" />;
-                      if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" />;
+                      if (favs.length === 1) return <MediaImage source={favs[0].image} recyclingKey={`${favs[0].id}-${favs[0].mediaRevision || ''}`} style={{ width: '100%', height: '100%' }} contentFit="cover" />;
                       return (
                         <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
                           {favs.slice(0, 4).map((f, fi) => (
-                            <Image key={fi} source={f.image} style={{ width: '50%', height: '50%' }} contentFit="cover" />
+                            <MediaImage key={fi} source={f.image} recyclingKey={`${f.id}-${f.mediaRevision || ''}`} style={{ width: '50%', height: '50%' }} contentFit="cover" />
                           ))}
                         </View>
                       );
@@ -193,8 +194,11 @@ export const ConsoleCarousel = ({
           );
         } else {
           const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
+          const revision = item.isLastPlayed
+            ? `${lastPlayedGame?.id || item.id}-${lastPlayedGame?.mediaRevision || item.mediaRevision || ''}`
+            : `${item.id}-${item.mediaRevision || ''}`;
           const cardImage = (
-            <Image source={imgSource} style={[styles.card, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]} contentFit="cover" />
+            <MediaImage source={imgSource} recyclingKey={revision} style={[styles.card, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]} contentFit="cover" />
           );
           cardContent = (
             <AnimatedCardWrapper key={`${item.id}-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>

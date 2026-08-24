@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity, useWindowDimensions, Image as RNImage } from 'react-native';
 import { Image } from 'expo-image';
+import MediaImage from './MediaImage';
 import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
@@ -438,7 +439,12 @@ export default function LibraryGrid({
                       >
                         <View style={styles.imageContainer}>
                           {game.image ? (
-                            <Image source={game.image} style={styles.gameImage} contentFit="cover" />
+                            <MediaImage
+                              source={game.image}
+                              recyclingKey={`${game.id}-${game.mediaRevision || ''}`}
+                              style={styles.gameImage}
+                              contentFit="cover"
+                            />
                           ) : (
                             <View style={styles.placeholderImage}>
                               <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Linking } from 'react-native';
 import { Image } from 'expo-image';
+import MediaImage from './MediaImage';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MusicPlayerCard from './MusicPlayerCard';
@@ -114,7 +115,7 @@ export const GameInfoPanel = ({
           {/* Logo or title */}
           {displayLogo ? (
             <Animated.View key={`logo-${activeIndex}`} entering={FadeInDown.duration(400)}>
-              <Image source={displayLogo} style={[styles.gameLogo, { width: s(400), height: s(220) }]} contentFit="contain" />
+              <MediaImage source={displayLogo} recyclingKey={`${activeItem?.id}-${activeItem?.mediaRevision || ''}-logo`} style={[styles.gameLogo, { width: s(400), height: s(220) }]} contentFit="contain" />
             </Animated.View>
           ) : (
             <Animated.View key={`title-${activeIndex}`} entering={FadeInDown.duration(400)}>

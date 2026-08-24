@@ -68,6 +68,7 @@ export interface ConsoleItem {
   youtubeId?: string;
   type?: 'game' | 'media' | 'web';
   platform?: string;
+  mediaRevision?: string;
 }
 
 const getInitialGames = (t: any): ConsoleItem[] => [
@@ -537,24 +538,37 @@ export default function ConsoleHome() {
   const loadApps = () => {
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       (window as any).electronAPI.getApps().then((data: any) => {
-        const formatApp = (app: any) => ({
+        const formatApp = (app: any) => {
+          const mediaRevision = String(app.mediaRevision || app.updatedAt || [app.image, app.logo, app.backgroundImage].filter(Boolean).join('|'));
+          const bust = (uri?: string) => {
+            if (!uri || uri.startsWith('data:')) return uri;
+            const sep = uri.includes('?') ? '&' : '?';
+            return `${uri}${sep}v=${encodeURIComponent(mediaRevision)}`;
+          };
+          const toSource = (value?: string, fallback?: any) => {
+            if (!value) return fallback;
+            if (value.startsWith('http') || value.startsWith('data:')) return { uri: bust(value) };
+            return { uri: bust(`local-file:///${value.replace(/\\/g, '/')}`) };
+          };
+          return {
           id: app.id,
           title: app.title,
           time: app.type === 'game' ? (app.platform || t('cc.typeGame')) : (app.type === 'web' ? 'Web App' : 'Media'),
+          mediaRevision,
           image: app.imageBase64
             ? { uri: app.imageBase64 }
-            : (app.image
-              ? (app.image.startsWith('http') ? { uri: app.image } : { uri: `local-file:///${app.image.replace(/\\/g, '/')}` })
-              : (app.id === 'spotify_default' ? require('@/assets/images/spotify_portada.png') : (app.type === 'web' ? require('@/assets/images/web_default.jpg') : require('@/assets/images/Home.gif')))
+            : toSource(
+              app.image,
+              app.id === 'spotify_default' ? require('@/assets/images/spotify_portada.png') : (app.type === 'web' ? require('@/assets/images/web_default.jpg') : require('@/assets/images/Home.gif'))
             ),
-          logo: app.logoBase64 ? { uri: app.logoBase64 } : (app.logo ? (app.logo.startsWith('http') ? { uri: app.logo } : { uri: `local-file:///${app.logo.replace(/\\/g, '/')}` }) : (app.id === 'spotify_default' ? require('@/assets/images/spotify_logo.png') : null)),
+          logo: app.logoBase64 ? { uri: app.logoBase64 } : toSource(app.logo, app.id === 'spotify_default' ? require('@/assets/images/spotify_logo.png') : null),
           backgroundImage: app.backgroundImageBase64
             ? { uri: app.backgroundImageBase64 }
-            : (app.backgroundImage
-              ? (app.backgroundImage.startsWith('http') ? { uri: app.backgroundImage } : { uri: `local-file:///${app.backgroundImage.replace(/\\/g, '/')}` })
-              : (app.id === 'spotify_default' ? require('@/assets/images/spotify_fondo.png') : require('@/assets/images/FondoDefault2.jpg'))
+            : toSource(
+              app.backgroundImage,
+              app.id === 'spotify_default' ? require('@/assets/images/spotify_fondo.png') : require('@/assets/images/FondoDefault2.jpg')
             ),
-          video: app.video ? (app.video.startsWith('http') ? { uri: app.video } : { uri: `local-file:///${app.video.replace(/\\/g, '/')}` }) : null,
+          video: app.video ? (app.video.startsWith('http') ? { uri: bust(app.video) } : { uri: bust(`local-file:///${app.video.replace(/\\/g, '/')}`) }) : null,
           path: app.path,
           description: app.description || (app.id === 'spotify_default' ? t('home.musicDesc') : ''),
           rating: app.rating,
@@ -563,7 +577,8 @@ export default function ConsoleHome() {
           youtubeId: app.youtubeId,
           type: app.type,
           platform: app.platform
-        });
+        };
+        };
         const gamesList = (data.games || []).map(formatApp);
         const mediaList = (data.media || []).map(formatApp);
 
@@ -602,7 +617,11 @@ export default function ConsoleHome() {
         );
         setMedia([...filteredDataMedia, ...mediaList.reverse()]);
 
-        if (latestGame) setLastPlayedGame(latestGame);
+        setLastPlayedGame(latestGame);
+        setSelectedItem(prev => {
+          if (!prev) return prev;
+          return allFormatted.find((i: any) => String(i.id) === String(prev.id)) || null;
+        });
       });
     }
   };
@@ -619,6 +638,12 @@ export default function ConsoleHome() {
       });
     }
   }, []);
+
+  useEffect(() => {
+    if (!selectedItem && isDetailVisible) {
+      setDetailVisible(false);
+    }
+  }, [selectedItem, isDetailVisible]);
 
   const openContextMenu = () => {
     const item = currentData[activeIndex];

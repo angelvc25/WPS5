@@ -1,4 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage, screen } = require('electron');
+
+// El splash y las animaciones de entrada usan <video>/Web Audio; sin este
+// switch Chromium bloquea autoplay en el primer arranque (Ctrl+R sí cuenta como gesto).
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -410,6 +414,7 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: false, // Permitir carga de assets locales y externos sin restricciones de CORS/CSP en este entorno de consola
+      backgroundThrottling: false,
     },
   });
 
@@ -432,8 +437,26 @@ function createWindow() {
 }
 
 // Función para inyectar Base64 de imágenes locales
+function fileRevision(filePath) {
+  try {
+    if (filePath && typeof filePath === 'string' && fs.existsSync(filePath)) {
+      return fs.statSync(filePath).mtimeMs;
+    }
+  } catch (_) { }
+  return 0;
+}
+
 function injectMediaToBase64(item) {
   const newItem = { ...item };
+  newItem.mediaRevision = [
+    newItem.updatedAt || '',
+    fileRevision(newItem.image || newItem.avatar),
+    fileRevision(newItem.logo),
+    fileRevision(newItem.backgroundImage),
+    newItem.image || newItem.avatar || '',
+    newItem.logo || '',
+    newItem.backgroundImage || '',
+  ].join('|');
   // Portada / Avatar
   const imageField = newItem.avatar ? 'avatar' : 'image';
   const targetPath = newItem[imageField];
@@ -843,6 +866,8 @@ app.whenReady().then(() => {
   protocol.handle('local-file', async (request) => {
     try {
       let filePath = decodeURIComponent(request.url.replace('local-file://', ''));
+      const queryIndex = filePath.indexOf('?');
+      if (queryIndex !== -1) filePath = filePath.slice(0, queryIndex);
 
       // En Windows, las rutas pueden venir como /C:/ o C/ o C:/
       if (process.platform === 'win32') {
@@ -852,9 +877,19 @@ app.whenReady().then(() => {
         }
       }
 
-      // Convertimos la ruta a un formato de URL de archivo válido
-      const fileUrl = pathToFileURL(path.normalize(filePath)).toString();
-      return net.fetch(fileUrl);
+      const normalized = path.normalize(filePath);
+      const fileUrl = pathToFileURL(normalized).toString();
+      const response = await net.fetch(fileUrl);
+      const headers = new Headers(response.headers);
+      headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      headers.set('Pragma', 'no-cache');
+      headers.delete('ETag');
+      headers.delete('Last-Modified');
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
     } catch (err) {
       console.error('Protocol error:', err);
       return new Response('Error loading local file', { status: 500 });
@@ -907,6 +942,7 @@ app.whenReady().then(() => {
   ipcMain.handle('save-app', (event, appData) => {
     const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
     appData.id = Date.now().toString();
+    appData.updatedAt = Date.now();
 
     if (appData.type === 'game') {
       data.games = data.games || [];
@@ -933,13 +969,13 @@ app.whenReady().then(() => {
     const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
 
     const updateInList = (list) => {
-      const index = list.findIndex(item => item.id === updatedApp.id);
+      const index = list.findIndex(item => String(item.id) === String(updatedApp.id));
       if (index !== -1) {
         // Filtramos campos vacíos para no borrar datos existentes accidentalmente
         const filteredUpdate = Object.fromEntries(
           Object.entries(updatedApp).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
         );
-        list[index] = { ...list[index], ...filteredUpdate };
+        list[index] = { ...list[index], ...filteredUpdate, updatedAt: Date.now() };
         return true;
       }
       return false;
@@ -982,13 +1018,13 @@ app.whenReady().then(() => {
 
     if (data.games) {
       const initialLength = data.games.length;
-      data.games = data.games.filter(item => item.id !== id);
+      data.games = data.games.filter(item => String(item.id) !== String(id));
       if (data.games.length < initialLength) found = true;
     }
 
     if (!found && data.media) {
       const initialLength = data.media.length;
-      data.media = data.media.filter(item => item.id !== id);
+      data.media = data.media.filter(item => String(item.id) !== String(id));
       if (data.media.length < initialLength) found = true;
     }
 

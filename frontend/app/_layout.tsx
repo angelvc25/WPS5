@@ -2,7 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, Linking, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -11,7 +11,7 @@ import Animated, {
   runOnJS
 } from 'react-native-reanimated';
 
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import WebSafeVideo from '@/components/WebSafeVideo';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import { UserContext } from '@/contexts/UserContext';
@@ -66,17 +66,20 @@ function RootLayoutInner() {
     };
   }, []);
 
-  // Animación de Entrada: el video de Launch se reproduce una sola vez.
-  // Cuando termina, se desvanece el splash y se revela la pantalla de usuarios.
-  const handleSplashVideoStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded && status.didJustFinish) {
-      splashOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
-        if (finished) {
-          runOnJS(setShowSplash)(false);
-        }
-      });
-    }
-  };
+  const dismissSplash = useCallback(() => {
+    splashOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
+      if (finished) {
+        runOnJS(setShowSplash)(false);
+      }
+    });
+  }, [splashOpacity]);
+
+  // Si el video no arranca (autoplay/codec/caché), no dejar la UI congelada.
+  useEffect(() => {
+    if (!showSplash) return;
+    const fallback = setTimeout(() => dismissSplash(), 10000);
+    return () => clearTimeout(fallback);
+  }, [showSplash, dismissSplash]);
 
   // Estilos animados
   const animatedSplashStyle = useAnimatedStyle(() => ({
@@ -111,14 +114,15 @@ function RootLayoutInner() {
             styles.splashContainer,
             animatedSplashStyle
           ]}>
-            <Video
+            <WebSafeVideo
               source={require('../assets/video/Launch2.mp4')}
               style={StyleSheet.absoluteFillObject}
-              resizeMode={ResizeMode.COVER}
+              resizeMode="cover"
               shouldPlay
               isLooping={false}
               isMuted={false}
-              onPlaybackStatusUpdate={handleSplashVideoStatusUpdate}
+              onEnded={dismissSplash}
+              onError={dismissSplash}
             />
           </Animated.View>
         )}
