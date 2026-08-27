@@ -405,11 +405,35 @@ function initDB() {
   }
 }
 
+// Estado del "warm-up" de la ventana principal. La primera carga corre en un
+// proceso de renderizado frío (shaders/JIT/decodificador de video sin
+// inicializar), así que se descarta con una recarga silenciosa (equivalente
+// al Ctrl+R que soluciona el problema manualmente) antes de mostrar nada.
+// La ventana solo se muestra cuando el renderer confirma que el splash ya
+// está reproduciendo de verdad, o por un timeout de seguridad.
+let mainWindowWarmupState = { reloadedOnce: false, shown: false, visualReadyTimer: null };
+
+function showMainWindowWhenReady(reason) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindowWarmupState.shown) return;
+  mainWindowWarmupState.shown = true;
+  if (mainWindowWarmupState.visualReadyTimer) {
+    clearTimeout(mainWindowWarmupState.visualReadyTimer);
+    mainWindowWarmupState.visualReadyTimer = null;
+  }
+  console.log('[Warmup] Mostrando ventana principal:', reason);
+  mainWindow.show();
+  mainWindow.focus();
+}
+
 function createWindow() {
+  mainWindowWarmupState = { reloadedOnce: false, shown: false, visualReadyTimer: null };
+
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
     fullscreen: true,
+    show: false, // se muestra manualmente en did-finish-load una vez "calentada"
     icon: path.join(__dirname, '../assets/images/ps5.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -419,8 +443,30 @@ function createWindow() {
   });
 
   attachExternalLinkHandlers(mainWindow);
+
   mainWindow.webContents.on('did-finish-load', () => {
     broadcastMediaSessions();
+
+    if (!mainWindowWarmupState.reloadedOnce) {
+      mainWindowWarmupState.reloadedOnce = true;
+      // Primera carga = proceso frío. Recargamos una vez de forma invisible,
+      // replicando el Ctrl+R manual, antes de que el usuario vea nada.
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.reload();
+        }
+      }, 200);
+      return;
+    }
+
+    // Segunda carga (ya "calentada"): esperamos la confirmación del renderer
+    // (evento 'renderer-visual-ready', disparado cuando el video del splash
+    // ya está reproduciendo frames reales) antes de mostrar la ventana.
+    // Timeout de seguridad por si nunca llega (autoplay bloqueado, error de
+    // video, etc.) para no dejar la ventana oculta indefinidamente.
+    mainWindowWarmupState.visualReadyTimer = setTimeout(() => {
+      showMainWindowWhenReady('timeout de seguridad');
+    }, 4000);
   });
 
   // Determinar si estamos en modo desarrollo o producción
@@ -1515,6 +1561,12 @@ app.whenReady().then(() => {
 
   ipcMain.handle('close-app', () => {
     app.quit();
+  });
+
+  // IPC: el renderer confirma que el contenido visual (splash) ya se está
+  // reproduciendo realmente — momento seguro para mostrar la ventana.
+  ipcMain.on('renderer-visual-ready', () => {
+    showMainWindowWhenReady('renderer-visual-ready');
   });
 
   // IPC: Obtener info de almacenamiento (Windows)

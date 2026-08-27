@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectVideo: () => ipcRenderer.invoke('select-video'),
   updateApp: (appData) => ipcRenderer.invoke('update-app', appData),
   closeApp: () => ipcRenderer.invoke('close-app'),
+  notifyVisualReady: () => ipcRenderer.send('renderer-visual-ready'),
   fetchGameData: (title) => ipcRenderer.invoke('fetch-game-data', title),
   fetchSteamGridData: (title) => ipcRenderer.invoke('fetch-steamgrid-data', title),
   fetchSteamGridAssets: (title) => ipcRenderer.invoke('fetch-steamgrid-assets', title),
@@ -38,6 +39,3 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('media-sessions-changed', listener);
   },
 });
-
-
-

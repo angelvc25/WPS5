@@ -31,6 +31,10 @@ interface WebSafeVideoProps {
   isMuted?: boolean;
   onEnded?: () => void;
   onError?: () => void;
+  // Se dispara la primera vez que el video empieza a reproducir frames reales
+  // (no solo "solicitado a reproducir"). Útil para saber cuándo es seguro
+  // mostrar la ventana de Electron sin que el usuario vea un frame trabado.
+  onPlaying?: () => void;
 }
 
 export default function WebSafeVideo({
@@ -42,9 +46,15 @@ export default function WebSafeVideo({
   isMuted = false,
   onEnded,
   onError,
+  onPlaying,
 }: WebSafeVideoProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const notifiedPlayingRef = useRef(false);
   const uri = resolveUri(source);
+
+  useEffect(() => {
+    notifiedPlayingRef.current = false;
+  }, [uri]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !shouldPlay) return;
@@ -82,6 +92,12 @@ export default function WebSafeVideo({
           if (!isLooping) onEnded?.();
         }}
         onError={() => onError?.()}
+        onPlaying={() => {
+          if (!notifiedPlayingRef.current) {
+            notifiedPlayingRef.current = true;
+            onPlaying?.();
+          }
+        }}
         style={{
           position: 'absolute',
           top: 0,
@@ -97,7 +113,12 @@ export default function WebSafeVideo({
   }
 
   const handleStatus = (status: AVPlaybackStatus) => {
-    if (status.isLoaded && status.didJustFinish && !isLooping) {
+    if (!status.isLoaded) return;
+    if (status.isPlaying && !notifiedPlayingRef.current) {
+      notifiedPlayingRef.current = true;
+      onPlaying?.();
+    }
+    if (status.didJustFinish && !isLooping) {
       onEnded?.();
     }
   };

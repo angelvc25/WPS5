@@ -122,7 +122,15 @@ function RootLayoutInner() {
               isLooping={false}
               isMuted={false}
               onEnded={dismissSplash}
-              onError={dismissSplash}
+              onError={() => {
+                // Si el video falla, igual avisamos a Electron para no dejar
+                // la ventana oculta esperando un evento que nunca llegará.
+                (window as any).electronAPI?.notifyVisualReady?.();
+                dismissSplash();
+              }}
+              onPlaying={() => {
+                (window as any).electronAPI?.notifyVisualReady?.();
+              }}
             />
           </Animated.View>
         )}
