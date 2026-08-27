@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import WebSafeVideo from './WebSafeVideo';
+import { Video, ResizeMode } from 'expo-av';
 import ControlPrompt from './ControlPrompt';
 import { soundService } from '../services/soundService';
 import { toastService } from '@/services/toastService';
@@ -393,10 +393,10 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   return (
     <View style={styles.container}>
       {/* BACKGROUND */}
-      <WebSafeVideo
+      <Video
         source={require('@/assets/video/particles.mp4')}
         style={StyleSheet.absoluteFillObject}
-        resizeMode="stretch"
+        resizeMode={ResizeMode.STRETCH}
         shouldPlay
         isLooping
         isMuted

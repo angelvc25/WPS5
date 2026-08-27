@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, TextInput, ScrollView, useWindowDimensions, Linking } from 'react-native';
 import { Image } from 'expo-image';
-import MediaImage from './MediaImage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
@@ -907,16 +906,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
         {/* FULLSCREEN BACKGROUND */}
         {(editData.backgroundImage || item.backgroundImage) ? (
-          <MediaImage
+          <Image
             source={resolveEditSource(editData.backgroundImage) ?? item.backgroundImage}
-            recyclingKey={`${item.id}-bg-${item.mediaRevision || editData.backgroundImage || ''}`}
             style={styles.detailBg}
             contentFit="cover"
           />
         ) : (editData.image || item.image) ? (
-          <MediaImage
+          <Image
             source={resolveEditSource(editData.image) ?? item.image}
-            recyclingKey={`${item.id}-cover-${item.mediaRevision || editData.image || ''}`}
             style={styles.detailBg}
             contentFit="cover"
           />
@@ -934,9 +931,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         {/* TOP LEFT: game cover + title (replaces back/escape button) */}
         <View style={styles.topHeader}>
           {(editData.image || item.image) && (
-            <MediaImage
+            <Image
               source={resolveEditSource(editData.image) ?? item.image}
-              recyclingKey={`${item.id}-header-${item.mediaRevision || editData.image || ''}`}
               style={styles.topHeaderImage}
               contentFit="cover"
             />
