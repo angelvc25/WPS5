@@ -44,7 +44,7 @@ export default function OverlayTab({ isVisible, onClose, title, children }: Over
 
         <Animated.View style={[styles.panel, animatedPanelStyle]}>
           <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
-          
+
           <View style={styles.header}>
             <Text style={styles.title}>{title}</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#FFF',
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: 'SSTBold',
     letterSpacing: 2,
     textTransform: 'uppercase',
   },

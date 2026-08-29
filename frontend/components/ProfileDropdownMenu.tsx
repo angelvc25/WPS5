@@ -82,7 +82,7 @@ export default function ProfileDropdownMenu({
   isOnline,
 }: ProfileDropdownMenuProps) {
   const { t } = useTranslation();
-  
+
   const options = [
     {
       labelKey: 'profile.onlineStatus' as TranslationKey,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   usernameText: {
     fontSize: 14,
     color: '#FFF',
-    fontWeight: '300',
+    fontFamily: 'SSTLight',
     letterSpacing: 0.5,
   },
   divider: {
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     color: '#e8ffff',
-    fontWeight: '300',
+    fontFamily: 'SSTLight',
     letterSpacing: 0.3,
   },
   labelFocused: {
@@ -341,9 +341,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#8E8E93',
-    fontWeight: '500',
+    fontFamily: 'SSTLight',
   },
   trophyBadge: {
     flexDirection: 'row',
@@ -356,6 +356,6 @@ const styles = StyleSheet.create({
   trophyBadgeText: {
     color: '#FFF',
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'SSTBold',
   },
 });

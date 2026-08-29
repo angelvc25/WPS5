@@ -57,6 +57,7 @@ export default function RootLayout() {
     SSTRg: require('../assets/fonts/sst/SSTRg.ttf'),
     SSTRgCn: require('../assets/fonts/sst/SSTRgCn.ttf'),
     SSTRgIt: require('../assets/fonts/sst/SSTRgIt.ttf'),
+    SSTBadge: require('../assets/fonts/sst/SSTBadge.ttf'),
   });
 
   if (!fontsLoaded) {

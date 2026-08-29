@@ -333,7 +333,7 @@ export default function LibraryGrid({
             contentFit="contain"
           />
           {sortDirection !== 'none' && (
-            <Text style={{ color: '#FFF', fontSize: 10, position: 'absolute', bottom: -18, fontWeight: 'bold' }}>
+            <Text style={{ color: '#FFF', fontSize: 12, position: 'absolute', bottom: -18, fontFamily: 'SSTBold' }}>
               {sortDirection === 'asc' ? 'A-Z' : 'Z-A'}
             </Text>
           )}
@@ -466,7 +466,7 @@ export default function LibraryGrid({
 
                                 {/* 6. NUEVO: Lógica dinámica para la imagen de plataforma */}
                                 {isSteamGame(game) ? (
-                                  <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>
+                                  <Text style={{ color: '#FFF', fontFamily: 'SSTBold', fontSize: 16, marginBottom: 8 }}>
                                     <MaterialCommunityIcons
                                       name="steam"
                                       size={20}
@@ -549,11 +549,11 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 24,
     color: 'rgba(255,255,255,0.5)',
-    fontWeight: '300',
+    fontFamily: 'SSTLight',
   },
   tabTextActive: {
     color: '#FFF',
-    fontWeight: '400',
+    fontFamily: 'SSTMedium',
   },
   tabPill: {
     paddingHorizontal: 14,
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFF',
     fontSize: 24,
-    fontWeight: '100',
+    fontFamily: 'SSTLight',
     letterSpacing: 1.2,
   },
   grid: {
@@ -687,6 +687,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: 'rgba(255,255,255,0.6)',
     fontSize: 18,
+    fontFamily: 'SSTLight',
     marginTop: 15,
   },
   focusedOverlay: {
@@ -716,7 +717,7 @@ const styles = StyleSheet.create({
   gameTitle: {
     color: '#FFF',
     fontSize: 22,
-    fontWeight: '600',
+    fontFamily: 'SSTLight',
     //paddingHorizontal: 16,
     textShadowColor: 'rgba(0,0,0,0.85)',
     textShadowOffset: { width: 0, height: 2 },
@@ -733,7 +734,7 @@ const styles = StyleSheet.create({
   gameTitleMarquee: {
     color: '#FFF',
     fontSize: 22,
-    fontWeight: '300',
+    fontFamily: 'SSTLight',
     paddingHorizontal: 10,
 
     textShadowColor: 'rgba(0,0,0,0.85)',
@@ -743,7 +744,7 @@ const styles = StyleSheet.create({
   gameTitleCentered: {
     color: '#FFF',
     fontSize: 22,
-    fontWeight: '300',
+    fontFamily: 'SSTLight',
     //paddingHorizontal: 16,
     textAlign: 'left',
 

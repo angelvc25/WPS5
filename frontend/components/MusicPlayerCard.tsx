@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
   headerLabel: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'SSTBold',
     letterSpacing: 1,
     textTransform: 'uppercase',
     flex: 1,
@@ -682,11 +682,12 @@ const styles = StyleSheet.create({
   listTitle: {
     color: 'rgba(255,255,255,0.55)',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'SSTLight',
   },
   listArtist: {
     color: 'rgba(255,255,255,0.28)',
     fontSize: 10,
+    fontFamily: 'SSTLight',
   },
   trackRow: {
     flexDirection: 'row',
@@ -708,9 +709,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   trackInfo: { flex: 1 },
-  trackTitle: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  trackArtist: { color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 1 },
-  trackAlbum: { color: 'rgba(255,255,255,0.28)', fontSize: 10, marginTop: 1 },
+  trackTitle: { color: '#fff', fontSize: 13, fontFamily: 'SSTBold' },
+  trackArtist: { color: 'rgba(255,255,255,0.5)', fontFamily: 'SSTLight', fontSize: 11, marginTop: 1 },
+  trackAlbum: { color: 'rgba(255,255,255,0.28)', fontSize: 10, fontFamily: 'SSTLight', marginTop: 1 },
   bars: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -740,6 +741,7 @@ const styles = StyleSheet.create({
   timeText: {
     color: 'rgba(255,255,255,0.28)',
     fontSize: 10,
+    fontFamily: 'SSTBold',
   },
   controls: {
     flexDirection: 'row',
@@ -768,6 +770,7 @@ const styles = StyleSheet.create({
   trackCount: {
     color: 'rgba(255,255,255,0.2)',
     fontSize: 10,
+    fontFamily: 'SSTBold',
     textAlign: 'center',
     marginTop: 8,
     zIndex: 1,
@@ -775,13 +778,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'SSTBold',
     marginBottom: 6,
     zIndex: 1,
   },
   emptyDesc: {
     color: 'rgba(255,255,255,0.22)',
     fontSize: 11,
+    fontFamily: 'SSTLight',
     lineHeight: 18,
     zIndex: 1,
   },

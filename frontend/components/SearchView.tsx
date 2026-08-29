@@ -577,7 +577,7 @@ const SearchView: React.FC<SearchViewProps> = ({
     },
     tabActive: { borderBottomColor: '#ffffff' },
     tabFocused: { borderBottomColor: 'rgba(255,255,255,0.65)' },
-    tabText: { color: 'rgba(255,255,255,0.45)', fontSize: s(16), fontWeight: '400' },
+    tabText: { color: 'rgba(255,255,255,0.45)', fontSize: s(20), fontFamily: 'SSTLight' },
     tabTextActive: { color: '#FFF' },
     searchRow: {
       flexDirection: 'row',
@@ -613,19 +613,21 @@ const SearchView: React.FC<SearchViewProps> = ({
       flex: 1,
       color: '#ffffffff',
       fontSize: s(20),
+      fontFamily: 'SSTLight',
       marginLeft: s(12),
       marginRight: s(12),
       outlineStyle: 'none',
     } as any,
     sectionTitle: {
       color: 'rgba(255,255,255,0.55)',
-      fontSize: s(14),
+      fontSize: s(16),
+      fontFamily: 'SSTLight',
       marginBottom: s(14),
     },
     subsTitle: {
       color: 'rgba(255, 255, 255, 0.71)',
       fontSize: s(16),
-      fontWeight: '200',
+      fontFamily: 'SSTLight',
       marginTop: s(28),
       marginBottom: s(14),
     },
@@ -644,9 +646,9 @@ const SearchView: React.FC<SearchViewProps> = ({
     },
     subTileFocused: { borderColor: '#FFF', backgroundColor: 'rgba(255,255,255,0.1)' },
     subIcon: { width: s(58), height: s(58), resizeMode: 'contain' },
-    subTitle: { color: '#ffffffb6', fontSize: s(17), fontWeight: '200' },
+    subTitle: { color: '#ffffffb6', fontSize: s(17), fontFamily: 'SSTLight' },
     emptyWrap: { paddingTop: s(40), alignItems: 'center' },
-    emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: s(15) },
+    emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: s(15), fontFamily: 'SSTLight' },
     footer: {
       position: 'absolute',
       bottom: s(24),
@@ -655,8 +657,8 @@ const SearchView: React.FC<SearchViewProps> = ({
       alignItems: 'center',
       gap: s(8),
     },
-    footerKey: { color: 'rgba(255,255,255,0.85)', fontSize: s(13), fontWeight: '600' },
-    footerText: { color: 'rgba(255,255,255,0.55)', fontSize: s(13) },
+    footerKey: { color: 'rgba(255,255,255,0.85)', fontSize: s(13), fontFamily: 'SSTLight' },
+    footerText: { color: 'rgba(255,255,255,0.55)', fontSize: s(13), fontFamily: 'SSTLight' },
   }), [s, windowWidth, windowHeight]);
 
   if (!visible) return null;
@@ -880,11 +882,12 @@ const styles = StyleSheet.create({
   platformBadgeText: {
     color: '#111',
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'SSTBadge',
   },
   resultTitle: {
     color: '#ffffffaf',
     fontSize: 14,
+    fontFamily: 'SSTLight',
     fontWeight: '200',
     lineHeight: 18,
     textShadowColor: 'rgba(0,0,0,0.8)',
@@ -893,6 +896,7 @@ const styles = StyleSheet.create({
   resultSubtitle: {
     color: 'rgba(255, 255, 255, 1)',
     fontSize: 12,
+    fontFamily: 'SSTMedium',
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowRadius: 4,
   },
