@@ -492,6 +492,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: '#FFFFFF',
+    fontFamily: 'SSTLight',
     fontWeight: '200',
     letterSpacing: 0.2,
   },
@@ -552,6 +553,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: '#FFFFFF',
+    fontFamily: 'SSTMedium',
     fontWeight: '500',
   },
   priceRow: {
@@ -565,6 +567,7 @@ const styles = StyleSheet.create({
   },
   finalPrice: {
     color: '#4fc3f7',
+    fontFamily: 'SSTBold',
     fontWeight: '700',
   },
   storeLink: {

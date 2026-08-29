@@ -24,9 +24,39 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+// expo-font registers fonts in the browser via the FontFace API using the exact key name.
+// After useFonts({ SSTRg: require(...) }), 'SSTRg' is a valid font-family in CSS.
+const GLOBAL_CSS_FONTS = `
+  html, body, #root, .react-native-root {
+    font-family: SSTRg, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    outline: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+`;
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     PSIcons: require('../assets/fonts/PSIcons.ttf'),
+    SSTBold: require('../assets/fonts/sst/SSTBold.ttf'),
+    SSTBoldCn: require('../assets/fonts/sst/SSTBoldCn.ttf'),
+    SSTBoldIt: require('../assets/fonts/sst/SSTBoldIt.ttf'),
+    SSTHeavy: require('../assets/fonts/sst/SSTHeavy.ttf'),
+    SSTHeavyIt: require('../assets/fonts/sst/SSTHeavyIt.ttf'),
+    SSTLight: require('../assets/fonts/sst/SSTLight.ttf'),
+    SSTLightIt: require('../assets/fonts/sst/SSTLightIt.ttf'),
+    SSTMedium: require('../assets/fonts/sst/SSTMedium.ttf'),
+    SSTMediumCn: require('../assets/fonts/sst/SSTMediumCn.ttf'),
+    SSTMediumIt: require('../assets/fonts/sst/SSTMediumIt.ttf'),
+    SSTRg: require('../assets/fonts/sst/SSTRg.ttf'),
+    SSTRgCn: require('../assets/fonts/sst/SSTRgCn.ttf'),
+    SSTRgIt: require('../assets/fonts/sst/SSTRgIt.ttf'),
   });
 
   if (!fontsLoaded) {
@@ -87,16 +117,8 @@ function RootLayoutInner() {
     return (
       <View style={{ flex: 1, backgroundColor: '#000' }}>
         <style dangerouslySetInnerHTML={{
-          __html: `
-          * {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            outline: none;
-          }
-          *::-webkit-scrollbar {
-            display: none;
-          }
-        ` }} />
+          __html: GLOBAL_CSS_FONTS
+        }} />
 
         <UserSelectScreen onUserSelected={(user) => {
           setActiveUser(user);
@@ -147,16 +169,8 @@ function RootLayoutInner() {
   return (
     <UserContext.Provider value={{ activeUser, changeUser: () => setActiveUser(null), updateUser }}>
       <style dangerouslySetInnerHTML={{
-        __html: `
-        * {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-          outline: none;
-        }
-        *::-webkit-scrollbar {
-          display: none;
-        }
-      ` }} />
+        __html: GLOBAL_CSS_FONTS
+      }} />
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

@@ -515,6 +515,7 @@ const styles = StyleSheet.create({
   timeText: {
     color: '#FFF',
     fontSize: 22,
+    fontFamily: 'SSTLight',
     fontWeight: '300',
     letterSpacing: 1,
   },
@@ -526,6 +527,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#FFF',
     fontSize: 48,
+    fontFamily: 'SSTLight',
     fontWeight: '300',
     letterSpacing: 2,
     marginBottom: 10,
@@ -533,6 +535,7 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#c0c0c0ff',
     fontSize: 23,
+    fontFamily: 'SSTLight',
     fontWeight: '300',
     letterSpacing: 0.5,
   },
@@ -590,6 +593,7 @@ const styles = StyleSheet.create({
   userName: {
     color: '#AAA',
     fontSize: 18,
+    fontFamily: 'SSTRg',
     fontWeight: '400',
     textAlign: 'center',
     marginTop: 15,

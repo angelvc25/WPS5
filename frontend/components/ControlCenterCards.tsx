@@ -2016,16 +2016,16 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     color: 'rgba(255,255,255,0.65)',
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 14,
+    fontFamily: 'SSTLight',
     marginBottom: 2,
-    textTransform: 'uppercase',
+    //textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   cardTitle: {
     color: '#fff',
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'SSTMedium',
     lineHeight: 20,
   },
 
@@ -2071,11 +2071,13 @@ const styles = StyleSheet.create({
   expandedTitle: {
     color: '#fff',
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: 'SSTBold',
+    lineHeight: 20,
   },
   expandedSubtitle: {
     color: 'rgba(255,255,255,0.38)',
     fontSize: 12,
+    fontFamily: 'SSTLight',
     marginTop: 2,
   },
   closeBtn: {
@@ -2121,22 +2123,24 @@ const styles = StyleSheet.create({
   newsTagText: {
     color: '#fff',
     fontSize: 9,
-    fontWeight: '800',
+    fontFamily: 'SSTRg',
     letterSpacing: 0.6,
   },
   newsDate: {
     color: 'rgba(255,255,255,0.3)',
+    fontFamily: 'SSTRg',
     fontSize: 11,
   },
   newsTitle: {
     color: '#fff',
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'SSTBold',
     marginBottom: 4,
     lineHeight: 18,
   },
   newsDesc: {
     color: 'rgba(255,255,255,0.45)',
+    fontFamily: 'SSTLight',
     fontSize: 12,
     lineHeight: 16,
   },
@@ -2209,20 +2213,21 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   mediaNowPlayingLabel: {
-    color: 'rgba(255, 255, 255, 0.78)',
-    fontSize: 16,
-    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.88)',
+    fontSize: 13,
+    fontFamily: 'SSTRg',
     marginBottom: 4,
   },
   mediaTrackTitle: {
     color: '#ffffffe8',
     fontSize: 17,
-    fontWeight: '600',
+    fontFamily: 'SSTBold',
     marginBottom: 2,
   },
   mediaTrackArtist: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.78)',
+    fontSize: 13,
+    fontFamily: 'SSTRg',
   },
   mediaExpandedRoot: {
     flex: 1,
@@ -2238,8 +2243,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   mediaExpandedHeaderText: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: 19,
+    color: 'rgba(255, 255, 255, 0.89)',
+    fontSize: 17,
+    fontFamily: 'SSTLight',
     flex: 1,
   },
   mediaExpandedArtWrap: {
@@ -2256,13 +2262,14 @@ const styles = StyleSheet.create({
   },
   mediaExpandedTitle: {
     color: '#fff',
-    fontSize: 25,
-    fontWeight: '200',
+    fontSize: 23,
+    fontFamily: 'SSTLight',
     marginBottom: 4,
   },
   mediaExpandedArtist: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 17,
+    fontFamily: 'SSTLight',
     marginBottom: 18,
   },
   mediaProgressRow: {
@@ -2284,8 +2291,9 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   mediaTimeText: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 12,
+    color: 'rgba(255, 255, 255, 1)',
+    fontSize: 13,
+    fontFamily: 'SSTBold',
     width: 36,
     textAlign: 'center',
   },
@@ -2318,7 +2326,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.35)',
     fontSize: 9,
     marginTop: 2,
-    fontWeight: '600',
+    fontFamily: 'SSTLight',
   },
   mediaPlayBtn: {
     width: 56,
@@ -2356,6 +2364,7 @@ const styles = StyleSheet.create({
   },
   mediaHintText: {
     color: 'rgba(255,255,255,0.45)',
+    fontFamily: 'SSTLight',
     fontSize: 12,
   },
 });

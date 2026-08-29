@@ -170,22 +170,26 @@ export const WelcomeWidgets = ({
       widgetTitle: {
         color: '#FFFFFF',
         fontSize: s(15),
+        fontFamily: 'SSTMedium',
         fontWeight: '500',
         letterSpacing: 0.1,
       },
       widgetTitle2: {
         color: '#fffc5dff',
         fontSize: s(13),
+        fontFamily: 'SSTLight',
         fontWeight: '300',
         letterSpacing: 0.1,
       },
       widgetSubtitle: {
         color: 'rgba(224, 224, 224, 1)',
+        fontFamily: 'SSTRg',
         fontSize: s(12),
         marginTop: 1,
       },
       widgetBadge: {
         color: 'rgba(224, 224, 224, 1)',
+        fontFamily: 'SSTMedium',
         fontSize: s(13),
         fontWeight: '500',
       },

@@ -1165,6 +1165,7 @@ const styles = StyleSheet.create({
   gameTitle: {
     color: '#FFFFFF',
     fontSize: 38,
+    fontFamily: 'SSTLight',
     fontWeight: '300',
     letterSpacing: -0.5,
     marginBottom: 10,
@@ -1191,6 +1192,7 @@ const styles = StyleSheet.create({
   playBtnText: {
     color: '#FFFFFF',
     fontSize: 25,
+    fontFamily: 'SSTBold',
     fontWeight: '700',
     letterSpacing: 0.3,
   },

@@ -323,6 +323,7 @@ const styles = StyleSheet.create({
   },
   activeGameTitle: {
     color: '#FFFFFF',
+    fontFamily: 'SSTLight',
     fontSize: 30,
     fontWeight: '300',
     textShadowColor: 'rgba(0,0,0,0.5)',

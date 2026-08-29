@@ -76,6 +76,7 @@ const styles = StyleSheet.create({
   label: {
     color: '#FFF',
     fontSize: 16,
+    fontFamily: 'SSTLight',
     fontWeight: '300',
     letterSpacing: 0.2,
   },
@@ -97,6 +98,7 @@ const styles = StyleSheet.create({
   keyText: {
     color: '#FFF',
     fontSize: 12,
+    fontFamily: 'SSTBold',
     fontWeight: '700',
     letterSpacing: 0.5,
   },

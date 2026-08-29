@@ -404,6 +404,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
       color: '#FFF',
       fontSize: s(28),
       fontWeight: '300',
+      fontFamily: 'SSTLight',
       marginLeft: s(-50),
       marginBottom: s(44),
     },
@@ -430,11 +431,13 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     },
     tabText: {
       color: 'rgba(255,255,255,0.55)',
+      fontFamily: 'SSTLight',
       fontSize: s(15),
       fontWeight: '400',
     },
     tabTextActive: {
       color: '#FFF',
+      fontFamily: 'SSTBold',
     },
     sortRow: {
       position: 'absolute',
@@ -444,6 +447,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     sortText: {
       color: 'rgba(255,255,255,0.45)',
       fontSize: s(13),
+      fontFamily: 'SSTLight',
     },
     grid: {
       flexDirection: 'row',
@@ -485,11 +489,12 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     footerText: {
       color: 'rgba(255,255,255,0.55)',
       fontSize: s(13),
+      fontFamily: 'SSTLight',
     },
     footerKey: {
       color: 'rgba(255,255,255,0.85)',
       fontSize: s(13),
-      fontWeight: '600',
+      fontFamily: 'SSTBold',
     },
     loadingWrap: {
       flex: 1,
@@ -501,6 +506,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     loadingText: {
       color: 'rgba(255,255,255,0.45)',
       fontSize: s(14),
+      fontFamily: 'SSTLight',
     },
   }), [s]);
 

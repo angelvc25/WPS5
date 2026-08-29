@@ -3417,6 +3417,7 @@ const styles = StyleSheet.create({
   navItem: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 30,
+    fontFamily: 'SSTLight',
     fontWeight: '200',
     letterSpacing: 0.2,
     borderWidth: 2,
@@ -3428,6 +3429,7 @@ const styles = StyleSheet.create({
   },
   navItemActive: {
     color: '#FFFFFF',
+    fontFamily: 'SSTRg',
     fontWeight: '400',
   },
   tabFocused: {
@@ -3453,6 +3455,7 @@ const styles = StyleSheet.create({
   timeText: {
     color: 'rgba(255,255,255,0.9)',
     fontSize: 16,
+    fontFamily: 'SSTMedium',
     fontWeight: '600',
     letterSpacing: 0.5,
     marginHorizontal: 4,
@@ -3460,6 +3463,7 @@ const styles = StyleSheet.create({
   timeText2: {
     color: 'rgba(255,255,255,0.9)',
     fontSize: 35,
+    fontFamily: 'SSTLight',
     fontWeight: '200',
     letterSpacing: 0.8,
     marginHorizontal: 4,
@@ -3709,7 +3713,7 @@ const styles = StyleSheet.create({
   settingsOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   settingsContainer: { width: 850, height: 600, backgroundColor: '#1C1C1E', borderRadius: 24, flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' },
   settingsSidebar: { width: 240, backgroundColor: '#141416', padding: 24, borderRightWidth: 1, borderRightColor: 'rgba(255, 255, 255, 0.08)' },
-  settingsSidebarTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold', marginBottom: 25, letterSpacing: 0.5 },
+  settingsSidebarTitle: { color: '#FFF', fontSize: 20, fontFamily: 'SSTBold', fontWeight: 'bold', marginBottom: 25, letterSpacing: 0.5 },
   settingsTab: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: 'transparent', gap: 10 },
   settingsTabActive: { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' },
   settingsTabText: { color: '#8E8E93', fontSize: 15, fontWeight: '600' },
@@ -3764,7 +3768,7 @@ const styles = StyleSheet.create({
 
   // === LAUNCHING ===
   launchingOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-  launchingText: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', marginTop: 20, letterSpacing: 3, textTransform: 'uppercase' },
+  launchingText: { color: '#FFFFFF', fontSize: 22, fontFamily: 'SSTBold', fontWeight: 'bold', marginTop: 20, letterSpacing: 3, textTransform: 'uppercase' },
 
   // === ACTIVE CARD LABEL ===
   activeLabelContainer: {
@@ -3794,6 +3798,7 @@ const styles = StyleSheet.create({
   activeGameTitle: {
     color: '#FFFFFF',
     fontSize: 30,
+    fontFamily: 'SSTLight',
     fontWeight: '300',
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowRadius: 2,
@@ -3832,6 +3837,7 @@ const styles = StyleSheet.create({
   settingsMainTitleLarge: {
     color: '#FFF',
     fontSize: 40,
+    fontFamily: 'SSTLight',
     fontWeight: '200',
     letterSpacing: 0.5,
     marginBottom: 30,
