@@ -15,6 +15,8 @@ import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaSer
 import { fetchSteamGridAssets as fetchSteamGridAssetsService } from '../services/steamGridService';
 import { soundService } from '../services/soundService';
 import { getSteamLaunchPath, isSteamGame, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
+import PSIcon from './PSIcon';
+import { PSIcons } from '@/constants/psIcons';
 
 interface GameDetailViewProps {
   isVisible: boolean;
@@ -104,7 +106,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
   const getActiveTabList = () => {
     if (!assetsData) return [];
-    
+
     const debugGrids = (assetsData.grids || []).map(g => ({
       id: g.id,
       w: g.width,
@@ -1680,25 +1682,51 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   <View style={styles.promptRight}>
                     <View style={styles.promptItem}>
                       <View style={styles.promptBtnBadge}>
-                        <Text style={styles.promptBtnText}>L1 / R1</Text>
+                        <PSIcon
+                          char={PSIcons.r1}
+                          size={20}
+                          color='#fff'
+
+                        />
+                        <Text style={styles.promptBtnText}>/</Text>
+                        <PSIcon
+                          char={PSIcons.l1}
+                          size={20}
+                          color='#fff'
+                        />
                       </View>
                       <Text style={styles.promptItemText}>Pestaña</Text>
                     </View>
                     <View style={styles.promptItem}>
                       <View style={styles.promptBtnBadge}>
-                        <Text style={styles.promptBtnText}>ⓧ</Text>
+                        <PSIcon
+                          char={PSIcons.square}
+                          size={20}
+                          color='#fff'
+
+                        />
                       </View>
                       <Text style={styles.promptItemText}>Filtros</Text>
                     </View>
                     <View style={styles.promptItem}>
                       <View style={styles.promptBtnBadge}>
-                        <Text style={styles.promptBtnText}>ⓐ</Text>
+                        <PSIcon
+                          char={PSIcons.cross}
+                          size={20}
+                          color='#fff'
+
+                        />
                       </View>
                       <Text style={styles.promptItemText}>Seleccionar</Text>
                     </View>
                     <View style={styles.promptItem}>
                       <View style={styles.promptBtnBadge}>
-                        <Text style={styles.promptBtnText}>ⓑ</Text>
+                        <PSIcon
+                          char={PSIcons.circle}
+                          size={20}
+                          color='#fff'
+
+                        />
                       </View>
                       <Text style={styles.promptItemText}>Atrás</Text>
                     </View>
@@ -2033,26 +2061,26 @@ const styles = StyleSheet.create({
   modalContentExpanded: { width: 850, height: 600, padding: 0, overflow: 'hidden' },
   modalBodyRow: { flexDirection: 'row', width: '100%', height: '100%' },
   sidebar: { width: 240, backgroundColor: '#141416', padding: 24, borderRightWidth: 1, borderRightColor: 'rgba(255, 255, 255, 0.08)' },
-  sidebarTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold', marginBottom: 25, letterSpacing: 0.5 },
+  sidebarTitle: { color: '#FFF', fontSize: 20, fontFamily: 'SSTBold', marginBottom: 25, letterSpacing: 0.5 },
   tabButton: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: 'transparent' },
   tabButtonActive: { backgroundColor: 'rgba(0, 255, 255, 0.08)', borderColor: 'rgba(0, 255, 255, 0.15)' },
-  tabButtonText: { color: '#8E8E93', fontSize: 15, fontWeight: '600' },
-  tabButtonTextActive: { color: '#00FFFF', fontWeight: 'bold' },
+  tabButtonText: { color: '#8E8E93', fontSize: 15, fontFamily: 'SSTLight' },
+  tabButtonTextActive: { color: '#00FFFF', fontFamily: 'SSTBold' },
   contentArea: { flex: 1, padding: 30, justifyContent: 'space-between', backgroundColor: '#1C1C1E' },
-  sectionTitle: { color: '#FFF', fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
+  sectionTitle: { color: '#FFF', fontSize: 22, fontFamily: 'SSTBold', marginBottom: 20 },
   pathDisplayBox: { backgroundColor: 'rgba(255, 255, 255, 0.04)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginTop: 10 },
-  pathDisplayTextHeader: { color: '#8E8E93', fontSize: 12, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  pathDisplayTextHeader: { color: '#8E8E93', fontSize: 12, fontFamily: 'SSTBold', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   pathDisplayText: { color: '#FFF', fontSize: 14 },
   syncRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   syncBtnCompact: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFD700', paddingVertical: 12, paddingHorizontal: 10, borderRadius: 10 },
-  syncBtnTextCompact: { color: '#000', fontWeight: '800', marginLeft: 6, fontSize: 12 },
+  syncBtnTextCompact: { color: '#000', fontFamily: 'SSTBold', marginLeft: 6, fontSize: 12 },
   syncBtnUnified: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#00FFFF', paddingVertical: 15, paddingHorizontal: 15, borderRadius: 12, shadowColor: '#00FFFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 10 },
   artGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
   artFileBtn: { width: '47%', backgroundColor: 'rgba(255, 255, 255, 0.04)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
-  artFileBtnTitle: { color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 6 },
+  artFileBtnTitle: { color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 6 },
   artFileBtnSub: { color: '#8E8E93', fontSize: 11, marginTop: 2 },
   modalDivider: { height: 1, backgroundColor: 'rgba(255, 255, 255, 0.1)', marginVertical: 15, width: '100%' },
-  modalTitle: { color: '#FFF', fontSize: 24, fontWeight: 'bold', marginBottom: 25, textAlign: 'center' },
+  modalTitle: { color: '#FFF', fontSize: 24, fontFamily: 'SSTBold', marginBottom: 25, textAlign: 'center' },
   label: { color: '#8E8E93', fontSize: 13, marginBottom: 8, marginLeft: 5, textTransform: 'uppercase', letterSpacing: 1 },
   input: { backgroundColor: '#000', color: '#FFF', padding: 16, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#333', fontSize: 16 },
   inputFocused: {
@@ -2062,15 +2090,15 @@ const styles = StyleSheet.create({
   platformScrollContent: { gap: 10, paddingVertical: 5 },
   platformBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#444' },
   platformBtnActive: { borderColor: '#00FFFF', backgroundColor: '#00FFFF' },
-  platformBtnText: { color: '#FFF', fontWeight: 'bold', marginLeft: 6, fontSize: 12 },
+  platformBtnText: { color: '#FFF', fontFamily: 'SSTBold', marginLeft: 6, fontSize: 12 },
   platformBtnTextActive: { color: '#000' },
   fileBtn: { backgroundColor: '#2C2C2E', padding: 18, borderRadius: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  fileBtnText: { color: '#FFF', marginLeft: 12, fontSize: 15, fontWeight: '500' },
+  fileBtnText: { color: '#FFF', marginLeft: 12, fontSize: 15, fontFamily: 'SSTLight' },
   modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
   cancelBtn: { flex: 1, padding: 16, backgroundColor: '#3A3A3C', borderRadius: 12, marginRight: 10, alignItems: 'center' },
-  cancelBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  cancelBtnText: { color: '#FFF', fontFamily: 'SSTBold', fontSize: 16 },
   saveBtn: { flex: 1, padding: 16, backgroundColor: '#00FFFF', borderRadius: 12, marginLeft: 10, alignItems: 'center' },
-  saveBtnText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
+  saveBtnText: { color: '#000', fontFamily: 'SSTBold', fontSize: 16 },
   deleteBtn: {
     width: 54,
     height: 54,
@@ -2083,7 +2111,7 @@ const styles = StyleSheet.create({
     marginRight: 10
   },
   syncBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFD700', padding: 16, borderRadius: 12, marginBottom: 20 },
-  syncBtnText: { color: '#000', fontWeight: '800', marginLeft: 10, fontSize: 15 },
+  syncBtnText: { color: '#000', fontFamily: 'SSTBold', marginLeft: 10, fontSize: 15 },
   buttonFocused: {
     borderColor: '#FFF',
     borderWidth: 3,
@@ -2098,7 +2126,7 @@ const styles = StyleSheet.create({
   launchingText: {
     color: '#00FFFF',
     fontSize: 28,
-    fontWeight: '900',
+    fontFamily: 'SSTBold',
     marginTop: 25,
     letterSpacing: 6,
     textTransform: 'uppercase',
@@ -2128,6 +2156,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 40,
     fontWeight: '200',
+    fontFamily: 'SSTLight',
     letterSpacing: 0.5,
     marginBottom: 30,
   },
@@ -2167,10 +2196,11 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 18,
     fontWeight: '400',
+    fontFamily: 'SSTLight'
   },
   editTabTextActive: {
     color: '#FFF',
-    fontWeight: '600',
+    fontFamily: 'SSTMedium',
   },
   editMainContent: {
     flex: 1,
@@ -2181,14 +2211,15 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 26,
     fontWeight: '300',
+    fontFamily: 'SSTLight',
     marginBottom: 30,
   },
   editLabel: {
     color: '#8E8E93',
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'SSTMedium',
     marginBottom: 15,
-    textTransform: 'uppercase',
+    //textTransform: 'uppercase',
     letterSpacing: 1.5,
   },
   editInput: {
@@ -2197,6 +2228,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 14,
     fontSize: 16,
+    fontFamily: 'SSTLight',
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     marginBottom: 20,
@@ -2222,7 +2254,7 @@ const styles = StyleSheet.create({
   editSecondaryBtnText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: 'SSTMedium',
   },
   editPrimaryBtn: {
     flexDirection: 'row',
@@ -2242,7 +2274,7 @@ const styles = StyleSheet.create({
   editPrimaryBtnText: {
     color: '#000',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'SSTBold',
   },
   editDeleteBtn: {
     flexDirection: 'row',
@@ -2275,12 +2307,12 @@ const styles = StyleSheet.create({
   },
   platformBtnTextNew: {
     color: 'rgba(255,255,255,0.6)',
-    fontWeight: '600',
+    fontFamily: 'SSTRg',
     marginLeft: 6,
   },
   platformBtnTextActiveNew: {
     color: '#000',
-    fontWeight: '700',
+    fontFamily: 'SSTBold',
     marginLeft: 6,
   },
   platformBtnFocusedNew: {
@@ -2318,7 +2350,7 @@ const styles = StyleSheet.create({
   },
   editSyncBtnUnifiedText: {
     color: '#000',
-    fontWeight: '700',
+    fontFamily: 'SSTBold',
     marginLeft: 8,
     fontSize: 15,
   },
@@ -2376,7 +2408,7 @@ const styles = StyleSheet.create({
   lightboxBadgeText: {
     color: '#FFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'SSTMedium',
     letterSpacing: 0.5,
   },
   lightboxCounter: {
@@ -2392,7 +2424,7 @@ const styles = StyleSheet.create({
   lightboxCounterText: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'SSTMedium',
   },
   lightboxArrow: {
     position: 'absolute',
@@ -2500,7 +2532,7 @@ const styles = StyleSheet.create({
   filterBtnText: {
     color: '#FFF',
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'SSTMedium',
   },
   sliderWrapper: {
     flexDirection: 'row',
@@ -2510,7 +2542,7 @@ const styles = StyleSheet.create({
   sliderLabel: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'SSTMedium',
     letterSpacing: 0.5,
   },
   sliderContainer: {
@@ -2603,7 +2635,7 @@ const styles = StyleSheet.create({
   authorName: {
     color: 'rgba(255,255,255,0.55)',
     fontSize: 12,
-    fontWeight: '500',
+    fontFamily: 'SSTMedium',
     flex: 1,
   },
 
@@ -2630,7 +2662,7 @@ const styles = StyleSheet.create({
   manageCardTitle: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'SSTMedium',
     marginBottom: 4,
     textAlign: 'center',
   },
@@ -2658,7 +2690,7 @@ const styles = StyleSheet.create({
   promptLeftText: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'SSTMedium',
     letterSpacing: 1,
   },
   promptRight: {
@@ -2678,16 +2710,20 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 8,
     paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   promptBtnText: {
     color: '#FFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'SSTMedium',
   },
   promptItemText: {
     color: 'rgba(255,255,255,0.55)',
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: 'SSTMedium',
   },
   resolutionBadge: {
     position: 'absolute',
@@ -2705,7 +2741,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 11,
     fontWeight: '700',
-    fontFamily: 'monospace',
+    fontFamily: 'SSTRg',
   },
 });
 

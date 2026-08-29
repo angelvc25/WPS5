@@ -260,10 +260,8 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     color: '#cacacaff',
-
-    fontWeight: '400',
+    fontFamily: 'SSTRg',
     letterSpacing: 0.5,
-
     zIndex: 1,
   },
 

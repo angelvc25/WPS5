@@ -484,7 +484,7 @@ export const GameInfoPanel = ({
                     resizeMode: 'contain',
                   }}
                 />
-                <Text style={{ color: '#FFF', fontSize: s(14), fontWeight: 'bold', marginTop: s(15) }}>
+                <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
                   1
                 </Text>
               </View>
@@ -498,7 +498,7 @@ export const GameInfoPanel = ({
                     resizeMode: 'contain',
                   }}
                 />
-                <Text style={{ color: '#FFF', fontSize: s(14), fontWeight: 'bold', marginTop: s(15) }}>
+                <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
                   3
                 </Text>
               </View>
@@ -512,7 +512,7 @@ export const GameInfoPanel = ({
                     resizeMode: 'contain',
                   }}
                 />
-                <Text style={{ color: '#FFF', fontSize: s(14), fontWeight: 'bold', marginTop: s(15) }}>
+                <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
                   16
                 </Text>
               </View>
@@ -526,7 +526,7 @@ export const GameInfoPanel = ({
                     resizeMode: 'contain',
                   }}
                 />
-                <Text style={{ color: '#FFF', fontSize: s(14), fontWeight: 'bold', marginTop: s(15) }}>
+                <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
                   17
                 </Text>
               </View>
@@ -537,14 +537,14 @@ export const GameInfoPanel = ({
                 style={{
                   color: '#FFF',
                   fontSize: s(16),
-                  fontWeight: 'bold',
+                  fontFamily: 'SSTBold',
                   marginBottom: s(4),
                 }}
               >
                 {t('game.trophies')}
               </Text>
 
-              <Text style={{ color: '#ddddddff', fontSize: s(17) }}>
+              <Text style={{ color: '#ddddddff', fontFamily: 'SSTLight', fontSize: s(17) }}>
                 {t('game.trophiesCount', { count: 37 })}
               </Text>
             </View>
@@ -720,14 +720,14 @@ export const GameInfoPanel = ({
                 style={{
                   color: '#FFF',
                   fontSize: s(16),
-                  fontWeight: 'bold',
+                  fontFamily: 'SSTBold',
                   marginBottom: s(4),
                 }}
               >
                 {t('game.friendsPlaying')}
               </Text>
 
-              <Text style={{ color: '#ddddddff', fontSize: s(17) }}>
+              <Text style={{ color: '#ddddddff', fontFamily: 'SSTLight', fontSize: s(17) }}>
                 {t('game.friendsCount', { count: 5 })}
               </Text>
             </View>
@@ -749,7 +749,7 @@ export const GameInfoPanel = ({
           entering={FadeInDown.duration(400).delay(120)}
           style={{ marginTop: s(20), paddingHorizontal: s(50), alignItems: 'flex-start' }}
         >
-          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: s(14), fontStyle: 'italic' }}>
+          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: s(14), fontFamily: 'SSTMediumIt' }}>
             {t('game.musicQuote')}
           </Text>
         </Animated.View>
@@ -758,7 +758,7 @@ export const GameInfoPanel = ({
       {!canPlay && (
         <Animated.View style={[styles.musicQuoteContainer, { width: windowWidth }]} entering={FadeInDown.duration(800).delay(300)}>
           <Ionicons name="musical-notes-outline" size={s(28)} color="rgba(255,255,255,0.4)" style={{ marginBottom: s(12) }} />
-          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: s(14), fontStyle: 'italic' }}>
+          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: s(14), fontFamily: 'SSTMediumIt' }}>
             {t('game.musicQuote')}
           </Text>
         </Animated.View>
@@ -767,7 +767,7 @@ export const GameInfoPanel = ({
       {/* Screenshots and Trailers row */}
       {canPlay && !isMediaSection && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-          <Text style={{ color: '#FFF', fontSize: s(18), fontWeight: '500', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.capturesAndTrailers')}</Text>
+          <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.capturesAndTrailers')}</Text>
 
           {mediaLoading ? (
             <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
@@ -955,7 +955,7 @@ export const GameInfoPanel = ({
       {/* Steam News row */}
       {canPlay && !isMediaSection && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-          <Text style={{ color: '#FFF', fontSize: s(18), fontWeight: '500', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.latestNews')}</Text>
+          <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.latestNews')}</Text>
 
           {newsLoading ? (
             <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>

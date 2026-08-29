@@ -226,8 +226,8 @@ const styles = StyleSheet.create({
   },
   tooltipText: {
     color: '#FFF',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontFamily: 'SSTMedium',
     letterSpacing: 0.5,
   },
 });
