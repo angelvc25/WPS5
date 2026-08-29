@@ -535,7 +535,7 @@ export const WelcomeWidgets = ({
                       />
                     )}
                     <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: "#FFF", fontSize: 12, marginBottom: 2 }}>{gamepadInfo.connected ? "1" : "-"}</Text>
+                      <Text style={{ color: "#FFF", fontSize: 12, fontFamily: 'SSTMedium', marginBottom: 2 }}>{gamepadInfo.connected ? "1" : "-"}</Text>
                       <Ionicons
                         name="game-controller"
                         size={45}
@@ -720,25 +720,25 @@ export const WelcomeWidgets = ({
                   {/* PLATINO */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Image source={require('@/assets/images/platino.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>1</Text>
+                    <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>1</Text>
                   </View>
 
                   {/* ORO */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Image source={require('@/assets/images/oro.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>3</Text>
+                    <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>3</Text>
                   </View>
 
                   {/* PLATA */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Image source={require('@/assets/images/plata.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>16</Text>
+                    <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>16</Text>
                   </View>
 
                   {/* BRONCE */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Image source={require('@/assets/images/bronce.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold', marginTop: 15 }}>17</Text>
+                    <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>17</Text>
                   </View>
                 </View>
               </View>
@@ -921,14 +921,14 @@ export const WelcomeWidgets = ({
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, zIndex: 10 }}>
                   {activeOffer?.discountPercent && (
                     <View style={{ backgroundColor: '#0070D1', paddingHorizontal: 3, paddingVertical: 1, borderRadius: 3 }}>
-                      <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>-{activeOffer.discountPercent}%</Text>
+                      <Text style={{ color: '#fff', fontSize: 10, fontFamily: 'SSTBold' }}>-{activeOffer.discountPercent}%</Text>
                     </View>
                   )}
-                  <Text style={{ fontSize: 10, fontWeight: "bold", color: "#fff" }} numberOfLines={1}>
+                  <Text style={{ fontSize: 12, fontFamily: 'SSTBold', color: "#fff" }} numberOfLines={1}>
                     {activeOffer ? activeOffer.price : 'US$69.99'}
                   </Text>
                   {activeOffer?.originalPrice && (
-                    <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", textDecorationLine: 'line-through' }} numberOfLines={1}>
+                    <Text style={{ fontSize: 10, fontFamily: 'SSTLight', color: "rgba(255,255,255,0.5)", textDecorationLine: 'line-through' }} numberOfLines={1}>
                       {activeOffer.originalPrice}
                     </Text>
                   )}
@@ -1491,15 +1491,15 @@ export const WelcomeWidgets = ({
                     <Image source={require('@/assets/images/controller.png')} style={{ width: 13, height: 13, resizeMode: 'contain', tintColor: "#FFF" }} />
                     <Text style={styles.widgetTitle}>{t('widgets.recentlyPlayed')}</Text>
                   </View>
-                  <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '400', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : t('widgets.noRecent')}</Text>
-                  <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600', flex: 1 }}><MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />2 horas</Text>
+                  <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : t('widgets.noRecent')}</Text>
+                  <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium', flex: 1 }}><MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />2 horas</Text>
                 </View>
                 {lastPlayedGame ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Image source={lastPlayedGame.image} style={{ width: 70, height: 70, borderRadius: 0 }} contentFit="cover" />
                   </View>
                 ) : (
-                  <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontStyle: 'italic' }}>{t('widgets.noRecent')}</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontFamily: 'SSTMediumIt' }}>{t('widgets.noRecent')}</Text>
                 )}
               </View>
             </TouchableOpacity>
@@ -1686,7 +1686,7 @@ export const WelcomeWidgets = ({
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '600' }} numberOfLines={1}>{activeUser?.name || t('alert.userFallback')}</Text>
+                    <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium' }} numberOfLines={1}>{activeUser?.name || t('alert.userFallback')}</Text>
                     <Text style={styles.widgetSubtitle}>{t('widgets.yesterday')}</Text>
                   </View>
                 </View>
@@ -1873,7 +1873,7 @@ export const WelcomeWidgets = ({
                   <Text style={styles.widgetSubtitle}>
                     <MaterialCommunityIcons name="circle" size={13} color="rgba(255,255,255,0.4)" style={{ marginRight: 5 }} /> {t('widgets.freeSpace')}
                   </Text>
-                  <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>
+                  <Text style={{ color: '#FFF', fontSize: 11, fontFamily: 'SSTBold' }}>
                     {storageInfo.freeGB > 0 ? `${storageInfo.freeGB.toFixed(1)} GB` : '36.47 GB'}
                   </Text>
                 </View>
