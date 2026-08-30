@@ -2634,6 +2634,7 @@ export default function ConsoleHome() {
         visible={isSettingsVisible}
         onClose={() => {
           setSettingsVisible(false);
+          setSettingsInitialScreen('main');
           setFocusArea('header_user');
         }}
         activeUser={activeUser}
