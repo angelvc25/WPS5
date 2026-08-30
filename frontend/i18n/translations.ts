@@ -104,6 +104,7 @@ const es = {
   'context.manage': 'Administrar contenido del juego',
   'context.location': 'Ubicación del juego',
   'context.delete': 'Eliminar',
+  'context.pinToHome': 'Mantener en inicio',
 
   'profile.onlineStatus': 'Estado online',
   'profile.profile': 'Perfil',
@@ -431,6 +432,7 @@ const en: Record<TranslationKey, string> = {
   'context.manage': 'Manage game content',
   'context.location': 'Game location',
   'context.delete': 'Delete',
+  'context.pinToHome': 'Pin to Home',
 
   'profile.onlineStatus': 'Online status',
   'profile.profile': 'Profile',
@@ -755,6 +757,7 @@ const pt: Record<TranslationKey, string> = {
   'context.manage': 'Gerir conteúdo do jogo',
   'context.location': 'Localização do jogo',
   'context.delete': 'Eliminar',
+  'context.pinToHome': 'Manter em início',
 
   'profile.onlineStatus': 'Estado online',
   'profile.profile': 'Perfil',

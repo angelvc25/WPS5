@@ -82,7 +82,7 @@ interface GameContextMenuProps {
   onTogglePin?: () => void;
 }
 
-const MENU_WIDTH = 250;
+const MENU_WIDTH = 320;
 const ITEM_HEIGHT = 50;
 const GLOW_DURATION = 180;
 // Índice de foco que corresponde a la fila del switch "Fijar"
@@ -213,7 +213,7 @@ export default function GameContextMenu({
               focusedIndex === PIN_INDEX && styles.labelFocused,
             ]}
           >
-            Fijar
+            {t('context.pinToHome')}
           </Text>
 
           <View style={[styles.toggleTrack, isPinned && styles.toggleTrackActive]}>
@@ -244,6 +244,7 @@ const styles = StyleSheet.create({
     //borderColor: 'rgba(255,255,255,0.1)',
     backgroundColor: 'rgba(23, 23, 30, 1)',
     padding: 6,
+    marginLeft: 15,
 
     shadowColor: '#000',
     shadowOffset: {
@@ -308,9 +309,9 @@ const styles = StyleSheet.create({
   },
 
   label: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#cacacaff',
-    fontFamily: 'SSTRg',
+    fontFamily: 'SSTLight',
     letterSpacing: 0.5,
     zIndex: 1,
   },
@@ -330,16 +331,16 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   toggleTrackActive: {
-    backgroundColor: '#7cffff',
+    backgroundColor: '#8d8d8dff',
   },
   toggleThumb: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#fff',
+    backgroundColor: '#969696ff',
   },
   toggleThumbActive: {
     transform: [{ translateX: 18 }],
-    backgroundColor: '#0d1015',
+    backgroundColor: '#ffffffff',
   },
 });
