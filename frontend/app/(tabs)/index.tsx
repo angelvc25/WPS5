@@ -783,6 +783,8 @@ export default function ConsoleHome() {
         checkButton(3, 't'); // Triángulo -> Buscar
         checkButton(4, 'q');
         checkButton(5, 'e');
+        checkButton(6, 'z'); // L2 -> Z
+        checkButton(7, 'c'); // R2 -> C
         checkButton(8, 's'); // Share/Create -> Menú contextual
         checkButton(9, 'Home');
       } else {

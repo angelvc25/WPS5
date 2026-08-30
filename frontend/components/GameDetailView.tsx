@@ -66,6 +66,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [assetSelectorFocusArea, setAssetSelectorFocusArea] = useState<'tabs' | 'filters' | 'grid'>('tabs');
   const [gridFocusIndex, setGridFocusIndex] = useState(0);
   const [filterFocusIndex, setFilterFocusIndex] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [sliderWidth, setSliderWidth] = useState(160);
+  const ITEMS_PER_PAGE = 15;
 
   useEffect(() => {
     setSelectedDimensionFilter('all');
@@ -102,6 +105,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     if (nextIdx >= available.length) nextIdx = 0;
     setSelectedDimensionFilter(available[nextIdx]);
     setGridFocusIndex(0);
+    setCurrentPage(0);
   };
 
   const getActiveTabList = () => {
@@ -219,6 +223,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setAssetSelectorTab(tabIndices[nextIdx]);
     setSelectedDimensionFilter('all');
     setGridFocusIndex(0);
+    setCurrentPage(0);
   };
 
   const openAssetSelector = async (initialTab: 'capsule' | 'capsule_wide' | 'hero' | 'logo' | 'icon' | 'manage') => {
@@ -228,6 +233,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setAssetSelectorFocusArea('tabs');
     setGridFocusIndex(0);
     setFilterFocusIndex(0);
+    setCurrentPage(0);
 
     setIsLoadingAssets(true);
     try {
@@ -315,8 +321,19 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
   };
 
+  const handleSliderPress = (e: any) => {
+    const x = e.nativeEvent.locationX;
+    const pct = Math.max(0, Math.min(1, x / sliderWidth));
+    const val = Math.round(3 + pct * 5);
+    setSliderValue(val);
+    setAssetSelectorFocusArea('filters');
+    setFilterFocusIndex(3);
+  };
+
   const handleAssetSelectorKeyDown = (e: any) => {
     const currentList = getActiveTabList();
+    const paginatedList = currentList.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(currentList.length / ITEMS_PER_PAGE);
     const numCols = Math.round(sliderValue);
 
     // Q/e or L1/R1 tab switching
@@ -326,6 +343,30 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
     if (e.key === 'e' || e.key === 'E') {
       cycleTab(1);
+      return;
+    }
+
+    // Square button to cycle dimension filters
+    if (e.key === 'x' || e.key === 'X') {
+      cycleDimensionFilter();
+      return;
+    }
+
+    // L2 / R2 to navigate pages of image results
+    if (e.key === 'z' || e.key === 'Z') {
+      if (currentPage > 0) {
+        setCurrentPage(prev => prev - 1);
+        setGridFocusIndex(0);
+        soundService.playNavigation();
+      }
+      return;
+    }
+    if (e.key === 'c' || e.key === 'C') {
+      if (currentPage < totalPages - 1) {
+        setCurrentPage(prev => prev + 1);
+        setGridFocusIndex(0);
+        soundService.playNavigation();
+      }
       return;
     }
 
@@ -361,10 +402,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         }
       } else if (e.key === 'ArrowLeft') {
         if (filterFocusIndex === 3) {
-          if (!showAdjust) {
-            setFilterFocusIndex(1);
+          if (sliderValue > 3) {
+            setSliderValue(prev => Math.max(prev - 1, 3));
           } else {
-            setFilterFocusIndex(2);
+            if (!showAdjust) {
+              setFilterFocusIndex(1);
+            } else {
+              setFilterFocusIndex(2);
+            }
           }
         } else if (filterFocusIndex > 0) {
           setFilterFocusIndex(prev => prev - 1);
@@ -375,7 +420,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         if (assetSelectorTab === 'manage') {
           setAssetSelectorFocusArea('grid');
           setGridFocusIndex(0);
-        } else if (currentList.length > 0) {
+        } else if (paginatedList.length > 0) {
           setAssetSelectorFocusArea('grid');
           setGridFocusIndex(0);
         }
@@ -403,7 +448,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           handleManageAction(gridFocusIndex);
         }
       } else {
-        const listLength = currentList.length;
+        const listLength = paginatedList.length;
         if (listLength === 0) return;
 
         if (e.key === 'ArrowRight') {
@@ -422,7 +467,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             setFilterFocusIndex(0);
           }
         } else if (e.key === 'Enter') {
-          const selectedAsset = currentList[gridFocusIndex];
+          const selectedAsset = paginatedList[gridFocusIndex];
           if (selectedAsset && selectedAsset.url) {
             applySelectedAsset(selectedAsset.url);
           }
@@ -454,6 +499,41 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   useEffect(() => {
     infoCardsAnim.value = withTiming(focusIndex >= 4 ? 0 : 1, { duration: 300 });
   }, [focusIndex]);
+
+  // Reset card layout cache whenever the paginated list (or page) changes
+  useEffect(() => {
+    cardLayoutsRef.current = [];
+  }, [currentPage, assetSelectorTab, selectedDimensionFilter]);
+
+  // Auto-scroll the asset grid so the focused card stays visible
+  const assetGridScrollOffsetRef = React.useRef(0);
+  const assetGridVisibleHeightRef = React.useRef(0);
+
+  useEffect(() => {
+    if (assetSelectorFocusArea !== 'grid') return;
+    const layout = cardLayoutsRef.current[gridFocusIndex];
+    if (!layout || !assetGridScrollRef.current) return;
+
+    const cardTop = layout.y;
+    const cardBottom = layout.y + layout.height;
+    const scrollTop = assetGridScrollOffsetRef.current;
+    const scrollBottom = scrollTop + assetGridVisibleHeightRef.current;
+
+    // Only scroll if card is outside visible window
+    if (cardBottom > scrollBottom - 20) {
+      // Card is below: scroll so card bottom is visible with padding
+      (assetGridScrollRef.current as any).scrollTo({
+        y: cardBottom - assetGridVisibleHeightRef.current + 20,
+        animated: true,
+      });
+    } else if (cardTop < scrollTop + 20) {
+      // Card is above: scroll so card top is visible with padding
+      (assetGridScrollRef.current as any).scrollTo({
+        y: Math.max(0, cardTop - 20),
+        animated: true,
+      });
+    }
+  }, [gridFocusIndex, assetSelectorFocusArea]);
 
 
   const topPanelStyle = useAnimatedStyle(() => ({
@@ -489,6 +569,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   // Throttle para navegación horizontal en rows (capturas / noticias)
   const rowNavThrottleRef = React.useRef<number | null>(null);
   const ROW_NAV_INTERVAL = 150; // ms entre cada paso al mantener pulsado
+
+  // Auto-scroll para el grid de assets
+  const assetGridScrollRef = React.useRef<ScrollView>(null);
+  const cardLayoutsRef = React.useRef<{ y: number; height: number }[]>([]);
 
   // Steam data
   const [steamNews, setSteamNews] = useState<SteamNewsItem[]>([]);
@@ -773,7 +857,27 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isVisible, isEditModalVisible, isAssetSelectorVisible, selectedMediaIndex, focusIndex, editModalFocusIndex, item, onLaunch, onClose, editData, steamMedia, steamNews]);
+  }, [
+    isVisible,
+    isEditModalVisible,
+    isAssetSelectorVisible,
+    selectedMediaIndex,
+    focusIndex,
+    editModalFocusIndex,
+    item,
+    onLaunch,
+    onClose,
+    editData,
+    steamMedia,
+    steamNews,
+    assetSelectorFocusArea,
+    gridFocusIndex,
+    filterFocusIndex,
+    sliderValue,
+    assetSelectorTab,
+    selectedDimensionFilter,
+    currentPage
+  ]);
 
   if (!item) return null;
 
@@ -901,6 +1005,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       }
     }
   };
+
+  const currentList = getActiveTabList();
+  const totalPages = Math.ceil(currentList.length / ITEMS_PER_PAGE);
+  const paginatedList = currentList.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
 
   return (
     <Modal visible={isVisible} transparent={false} animationType="fade" onRequestClose={onClose}>
@@ -1540,22 +1648,35 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                   <View style={styles.sliderWrapper}>
                     <Text style={styles.sliderLabel}>Tamaño</Text>
-                    <View style={[
-                      styles.sliderContainer,
-                      assetSelectorFocusArea === 'filters' && filterFocusIndex === 3 && styles.sliderFocused
-                    ]}>
-                      <View style={styles.sliderTrackBackground}>
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
+                      onPress={handleSliderPress}
+                      style={[
+                        styles.sliderContainer,
+                        assetSelectorFocusArea === 'filters' && filterFocusIndex === 3 && styles.sliderFocused
+                      ]}
+                    >
+                      <View style={styles.sliderTrackBackground} pointerEvents="none">
                         <View style={[styles.sliderTrackFill, { width: `${((sliderValue - 3) / 5) * 100}%` }]} />
                         <View style={[styles.sliderThumb, { left: `${((sliderValue - 3) / 5) * 100}%` }]} />
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   </View>
                 </View>
 
                 {/* GRID OF ASSETS */}
                 <ScrollView
+                  ref={assetGridScrollRef}
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={{ flexGrow: 1 }}
+                  scrollEventThrottle={16}
+                  onScroll={(e) => {
+                    assetGridScrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+                  }}
+                  onLayout={(e) => {
+                    assetGridVisibleHeightRef.current = e.nativeEvent.layout.height;
+                  }}
                 >
                   {isLoadingAssets ? (
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
@@ -1596,15 +1717,17 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         })}
                       </View>
                     </View>
-                  ) : getActiveTabList().length === 0 ? (
+                  ) : currentList.length === 0 ? (
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
                       <Ionicons name="images-outline" size={48} color="rgba(255,255,255,0.2)" style={{ marginBottom: 12 }} />
                       <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16 }}>No se encontraron imágenes en esta categoría.</Text>
                     </View>
                   ) : (
                     <View style={styles.gridContainer}>
-                      {getActiveTabList().map((asset, idx) => {
+                      {paginatedList.map((asset, idx) => {
                         const isFocused = assetSelectorFocusArea === 'grid' && gridFocusIndex === idx;
+                        const numColsLocal = Math.round(sliderValue);
+                        const isFirstInRow = idx % numColsLocal === 0;
                         const cardWidthPercent = `${100 / Math.round(sliderValue) - 1.5}%`;
 
                         let cardAspectRatio = 2 / 3;
@@ -1630,6 +1753,12 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               { width: cardWidthPercent },
                               isFocused && styles.assetCardFocused
                             ]}
+                            onLayout={(e) => {
+                              cardLayoutsRef.current[idx] = {
+                                y: e.nativeEvent.layout.y,
+                                height: e.nativeEvent.layout.height,
+                              };
+                            }}
                             onPress={() => applySelectedAsset(asset.url)}
                           >
                             <View style={[
@@ -1696,6 +1825,22 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         />
                       </View>
                       <Text style={styles.promptItemText}>Pestaña</Text>
+                    </View>
+                    <View style={styles.promptItem}>
+                      <View style={styles.promptBtnBadge}>
+                        <PSIcon
+                          char={PSIcons.l2}
+                          size={20}
+                          color='#fff'
+                        />
+                        <Text style={styles.promptBtnText}>/</Text>
+                        <PSIcon
+                          char={PSIcons.r2}
+                          size={20}
+                          color='#fff'
+                        />
+                      </View>
+                      <Text style={styles.promptItemText}>Página ({currentPage + 1}/{totalPages || 1})</Text>
                     </View>
                     <View style={styles.promptItem}>
                       <View style={styles.promptBtnBadge}>
