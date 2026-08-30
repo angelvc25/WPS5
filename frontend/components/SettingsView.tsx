@@ -577,7 +577,7 @@ export default function SettingsView({
       {
         id: 'accessibility',
         title: t('settings.accessibility'),
-        icon: 'accessibility-outline' as const,
+        icon: 'accessibility' as const,
         onPress: () => navigateToScreen('accessibility'),
       },
       {
