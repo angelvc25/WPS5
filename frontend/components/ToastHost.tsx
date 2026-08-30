@@ -47,6 +47,27 @@ export default function ToastHost() {
   return (
     <Animated.View style={[styles.container, animatedStyle]} pointerEvents="none">
       <View style={styles.toast}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: `
+                    linear-gradient(
+                      90deg,
+                      rgba(207, 241, 253, 0.14) 0%,
+                      rgba(207, 240, 255, 0.06) 35%,
+                      rgba(255,255,255,0.02) 50%,
+                      rgba(255,255,255,0.00) 65%,
+                      rgba(0, 0, 0, 0) 100%
+                    )
+                  `,
+            pointerEvents: 'none',
+            zIndex: 1,
+            opacity: 1,
+            borderRadius: 8,
+            transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+          }}
+        />
         <Text style={styles.label}>{message}</Text>
       </View>
     </Animated.View>
@@ -56,18 +77,19 @@ export default function ToastHost() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 35,
-    right: 40,
+    top: 24,
+    right: 20,
     zIndex: 99999,
   },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(25, 25, 25, 0.95)',
+    backgroundColor: 'rgba(22, 23, 31, 1)',
     borderRadius: 8,
-    paddingVertical: 18,
+    paddingVertical: 17,
     paddingHorizontal: 24,
-    minWidth: 320,
+    minWidth: 370,
+    minHeight: 70,
     //shadowColor: '#000',
     //shadowOffset: { width: 0, height: 10 },
     //shadowOpacity: 0.6,
@@ -75,7 +97,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: 'SSTLight',
     fontWeight: '300',
     letterSpacing: 0.2,
