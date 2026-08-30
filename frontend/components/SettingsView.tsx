@@ -98,6 +98,8 @@ export default function SettingsView({
   // Focus navigation state
   const [mainFocusIndex, setMainFocusIndex] = useState(0);
   const [subFocusIndex, setSubFocusIndex] = useState(0);
+  const [accessibilityLeftIndex, setAccessibilityLeftIndex] = useState(0);
+  const [accessibilityFocusArea, setAccessibilityFocusArea] = useState<'left' | 'right'>('left');
   const [systemLeftIndex, setSystemLeftIndex] = useState(0);
   const [systemFocusArea, setSystemFocusArea] = useState<'left' | 'right'>('left');
   const [profileActiveTab, setProfileActiveTab] = useState<'overview' | 'friends'>('overview');
@@ -125,6 +127,8 @@ export default function SettingsView({
       setScreenHistory([]);
       setMainFocusIndex(0);
       setSubFocusIndex(0);
+      setAccessibilityLeftIndex(0);
+      setAccessibilityFocusArea('left');
       setSystemLeftIndex(0);
       setSystemFocusArea('left');
       setProfileActiveTab('overview');
@@ -149,6 +153,9 @@ export default function SettingsView({
     if (screen === 'system') {
       setSystemFocusArea('left');
       setSystemLeftIndex(0);
+    } else if (screen === 'accessibility') {
+      setAccessibilityFocusArea('left');
+      setAccessibilityLeftIndex(0);
     } else if (screen === 'users_and_accounts') {
       setProfileFocusArea('header_actions');
       setProfileActionIndex(0);
@@ -248,6 +255,37 @@ export default function SettingsView({
           else if (mainFocusIndex === 1) navigateToScreen('accessibility');
           else if (mainFocusIndex === 2) navigateToScreen('users_and_accounts');
           else if (mainFocusIndex === 3) navigateToScreen('system');
+        }
+      } else if (currentScreen === 'accessibility') {
+        if (accessibilityFocusArea === 'left') {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 2));
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setAccessibilityLeftIndex((prev) => Math.max(prev - 1, 0));
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+            e.preventDefault();
+            setAccessibilityFocusArea('right');
+            setSubFocusIndex(0);
+            soundService.playNavigation();
+          }
+        } else {
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            setAccessibilityFocusArea('left');
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSubFocusIndex((prev) => prev + 1);
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSubFocusIndex((prev) => Math.max(prev - 1, 0));
+            soundService.playNavigation();
+          }
         }
       } else if (currentScreen === 'system') {
         if (systemFocusArea === 'left') {
@@ -522,9 +560,15 @@ export default function SettingsView({
   };
 
   // ==========================================
-  // SCREEN: ACCESSIBILITY
+  // SCREEN: ACCESSIBILITY (Two Columns: Visual & Animations, Wallpapers & Captures, Smart Sync)
   // ==========================================
   const renderAccessibilityScreen = () => {
+    const accessibilitySections = [
+      { id: 'visual', title: t('settings.accVisual') },
+      { id: 'wallpapers', title: t('settings.accWallpapers') },
+      { id: 'sync', title: t('settings.smartSync') },
+    ];
+
     return (
       <View style={styles.contentWrapper}>
         <View style={styles.subScreenHeader}>
@@ -534,229 +578,276 @@ export default function SettingsView({
           <Text style={styles.subScreenHeaderTitle}>{t('settings.accessibility')}</Text>
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
-          {/* Wallpaper Selection */}
-          <View style={styles.cardSection}>
-            <Text style={styles.sectionLabel}>{t('settings.wallpaper')}</Text>
-            <TouchableOpacity
-              style={styles.actionBtnSecondary}
-              onPress={() => {
-                onClose();
-                onOpenBgModal();
-              }}
-            >
-              <Ionicons name="image-outline" size={20} color="#FFF" />
-              <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseWallpaper')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Wallpaper Folder */}
-          <View style={styles.cardSection}>
-            <Text style={styles.sectionLabel}>{t('settings.wallpaperFolder')}</Text>
-            <Text style={styles.pathDesc}>
-              {t('settings.currentPath', {
-                path: activeUser?.settings?.wallpaperPath || t('settings.defaultWallpapers'),
-              })}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-              <TouchableOpacity style={styles.actionBtnSecondary} onPress={onSelectWallpaperFolder}>
-                <Ionicons name="folder-open-outline" size={20} color="#FFF" />
-                <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
-              </TouchableOpacity>
-              {activeUser?.settings?.wallpaperPath ? (
-                <TouchableOpacity
-                  style={[styles.actionBtnSecondary, { backgroundColor: '#3D1E24', borderColor: '#772233' }]}
-                  onPress={() =>
-                    updateUser({
-                      settings: { ...activeUser?.settings, wallpaperPath: '' } as any,
-                    })
-                  }
-                >
-                  <Ionicons name="trash-outline" size={18} color="#FF5566" />
-                  <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
-                    {t('settings.restoreDefault')}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          </View>
-
-          {/* Captures Folder */}
-          <View style={styles.cardSection}>
-            <Text style={styles.sectionLabel}>{t('settings.capturesFolder')}</Text>
-            <Text style={styles.pathDesc}>
-              {t('settings.currentPath', {
-                path: activeUser?.settings?.capturePath || t('settings.defaultCaptures'),
-              })}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-              <TouchableOpacity style={styles.actionBtnSecondary} onPress={onSelectCaptureFolder}>
-                <Ionicons name="folder-open-outline" size={20} color="#FFF" />
-                <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
-              </TouchableOpacity>
-              {activeUser?.settings?.capturePath ? (
-                <TouchableOpacity
-                  style={[styles.actionBtnSecondary, { backgroundColor: '#3D1E24', borderColor: '#772233' }]}
-                  onPress={() =>
-                    updateUser({
-                      settings: { ...activeUser?.settings, capturePath: '' } as any,
-                    })
-                  }
-                >
-                  <Ionicons name="trash-outline" size={18} color="#FF5566" />
-                  <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
-                    {t('settings.restoreDefault')}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          </View>
-
-          {/* Auto Play Video Toggle */}
-          <View style={styles.toggleRowSection}>
-            <View style={{ flex: 1, paddingRight: 20 }}>
-              <Text style={styles.toggleRowTitle}>{t('settings.autoPlayVideo')}</Text>
-              <Text style={styles.toggleRowDesc}>{t('settings.autoPlayVideoDesc')}</Text>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.psSwitch,
-                activeUser?.settings?.autoPlayVideo !== false && styles.psSwitchActive,
-              ]}
-              onPress={() =>
-                updateUser({
-                  settings: {
-                    ...activeUser?.settings,
-                    autoPlayVideo: !(activeUser?.settings?.autoPlayVideo !== false),
-                  },
-                })
-              }
-            >
-              <View
-                style={[
-                  styles.psSwitchThumb,
-                  activeUser?.settings?.autoPlayVideo !== false && styles.psSwitchThumbActive,
-                ]}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Invert Transition Toggle */}
-          <View style={styles.toggleRowSection}>
-            <View style={{ flex: 1, paddingRight: 20 }}>
-              <Text style={styles.toggleRowTitle}>{t('settings.invertTransition')}</Text>
-              <Text style={styles.toggleRowDesc}>{t('settings.invertTransitionDesc')}</Text>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.psSwitch,
-                activeUser?.settings?.invertTransitionDirection === true && styles.psSwitchActive,
-              ]}
-              onPress={() =>
-                updateUser({
-                  settings: {
-                    ...activeUser?.settings,
-                    invertTransitionDirection: !activeUser?.settings?.invertTransitionDirection,
-                  },
-                })
-              }
-            >
-              <View
-                style={[
-                  styles.psSwitchThumb,
-                  activeUser?.settings?.invertTransitionDirection === true && styles.psSwitchThumbActive,
-                ]}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Smart Sync */}
-          <View style={styles.cardSection}>
-            <Text style={styles.sectionLabel}>{t('settings.smartSync')}</Text>
-            <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.smartSyncDesc')}</Text>
-
-            {[
-              {
-                key: 'ratingAndSummary',
-                label: t('settings.ratingAndSummary'),
-                options: [
-                  { id: 'igdb', label: 'IGDB' },
-                  { id: 'none', label: t('settings.none') },
-                ],
-              },
-              {
-                key: 'cover',
-                label: t('settings.cover'),
-                options: [
-                  { id: 'steamgrid', label: 'SteamGrid' },
-                  { id: 'igdb', label: 'IGDB' },
-                  { id: 'none', label: t('settings.none') },
-                ],
-              },
-              {
-                key: 'background',
-                label: t('settings.background'),
-                options: [
-                  { id: 'steamgrid', label: 'SteamGrid' },
-                  { id: 'igdb', label: 'IGDB' },
-                  { id: 'none', label: t('settings.none') },
-                ],
-              },
-              {
-                key: 'logo',
-                label: t('settings.logo'),
-                options: [
-                  { id: 'steamgrid', label: 'SteamGrid' },
-                  { id: 'none', label: t('settings.none') },
-                ],
-              },
-            ].map((pref) => {
-              const currentSync = activeUser?.settings?.syncPreferences || {
-                ratingAndSummary: 'igdb',
-                cover: 'steamgrid',
-                background: 'steamgrid',
-                logo: 'steamgrid',
-              };
-              const currentValue = (currentSync as any)[pref.key];
+        <View style={styles.twoColumnContainer}>
+          {/* Left Column (Submenu items) */}
+          <View style={styles.systemLeftColumn}>
+            {accessibilitySections.map((sec, idx) => {
+              const isSelected = accessibilityLeftIndex === idx;
+              const isFocused = accessibilityFocusArea === 'left' && accessibilityLeftIndex === idx;
               return (
-                <View key={pref.key} style={styles.syncItemRow}>
-                  <Text style={styles.syncItemLabel}>{pref.label}</Text>
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
-                    {pref.options.map((opt) => (
-                      <TouchableOpacity
-                        key={opt.id}
-                        style={[
-                          styles.platformBtn,
-                          currentValue === opt.id && styles.platformBtnActive,
-                        ]}
-                        onPress={() =>
-                          updateUser({
-                            settings: {
-                              ...activeUser?.settings,
-                              syncPreferences: {
-                                ...currentSync,
-                                [pref.key]: opt.id,
-                              } as any,
-                            },
-                          })
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.platformBtnText,
-                            currentValue === opt.id && styles.platformBtnTextActive,
-                          ]}
-                        >
-                          {opt.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+                <TouchableOpacity
+                  key={sec.id}
+                  style={[
+                    styles.systemLeftItem,
+                    isSelected && styles.systemLeftItemActive,
+                    isFocused && styles.systemLeftItemFocused,
+                  ]}
+                  onPress={() => {
+                    setAccessibilityLeftIndex(idx);
+                    soundService.playNavigation();
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.systemLeftItemText,
+                      isSelected && styles.systemLeftItemTextActive,
+                    ]}
+                  >
+                    {sec.title}
+                  </Text>
+                </TouchableOpacity>
               );
             })}
           </View>
-        </ScrollView>
+
+          {/* Right Column (Submenu Content) */}
+          <View style={styles.systemRightColumn}>
+            {accessibilityLeftIndex === 0 && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.rightSectionTitle}>{t('settings.accVisual')}</Text>
+
+                {/* Auto Play Video Toggle */}
+                <View style={styles.toggleRowSection}>
+                  <View style={{ flex: 1, paddingRight: 20 }}>
+                    <Text style={styles.toggleRowTitle}>{t('settings.autoPlayVideo')}</Text>
+                    <Text style={styles.toggleRowDesc}>{t('settings.autoPlayVideoDesc')}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.psSwitch,
+                      activeUser?.settings?.autoPlayVideo !== false && styles.psSwitchActive,
+                    ]}
+                    onPress={() =>
+                      updateUser({
+                        settings: {
+                          ...activeUser?.settings,
+                          autoPlayVideo: !(activeUser?.settings?.autoPlayVideo !== false),
+                        },
+                      })
+                    }
+                  >
+                    <View
+                      style={[
+                        styles.psSwitchThumb,
+                        activeUser?.settings?.autoPlayVideo !== false && styles.psSwitchThumbActive,
+                      ]}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Invert Transition Toggle */}
+                <View style={styles.toggleRowSection}>
+                  <View style={{ flex: 1, paddingRight: 20 }}>
+                    <Text style={styles.toggleRowTitle}>{t('settings.invertTransition')}</Text>
+                    <Text style={styles.toggleRowDesc}>{t('settings.invertTransitionDesc')}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.psSwitch,
+                      activeUser?.settings?.invertTransitionDirection === true && styles.psSwitchActive,
+                    ]}
+                    onPress={() =>
+                      updateUser({
+                        settings: {
+                          ...activeUser?.settings,
+                          invertTransitionDirection: !activeUser?.settings?.invertTransitionDirection,
+                        },
+                      })
+                    }
+                  >
+                    <View
+                      style={[
+                        styles.psSwitchThumb,
+                        activeUser?.settings?.invertTransitionDirection === true && styles.psSwitchThumbActive,
+                      ]}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            )}
+
+            {accessibilityLeftIndex === 1 && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.rightSectionTitle}>{t('settings.accWallpapers')}</Text>
+
+                {/* Wallpaper Selection */}
+                <View style={styles.cardSection}>
+                  <Text style={styles.sectionLabel}>{t('settings.wallpaper')}</Text>
+                  <TouchableOpacity
+                    style={styles.actionBtnSecondary}
+                    onPress={() => {
+                      onClose();
+                      onOpenBgModal();
+                    }}
+                  >
+                    <Ionicons name="image-outline" size={20} color="#FFF" />
+                    <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseWallpaper')}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Wallpaper Folder */}
+                <View style={styles.cardSection}>
+                  <Text style={styles.sectionLabel}>{t('settings.wallpaperFolder')}</Text>
+                  <Text style={styles.pathDesc}>
+                    {t('settings.currentPath', {
+                      path: activeUser?.settings?.wallpaperPath || t('settings.defaultWallpapers'),
+                    })}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <TouchableOpacity style={styles.actionBtnSecondary} onPress={onSelectWallpaperFolder}>
+                      <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                      <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
+                    </TouchableOpacity>
+                    {activeUser?.settings?.wallpaperPath ? (
+                      <TouchableOpacity
+                        style={[styles.actionBtnSecondary, { backgroundColor: '#3D1E24', borderColor: '#772233' }]}
+                        onPress={() =>
+                          updateUser({
+                            settings: { ...activeUser?.settings, wallpaperPath: '' } as any,
+                          })
+                        }
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#FF5566" />
+                        <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
+                          {t('settings.restoreDefault')}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+
+                {/* Captures Folder */}
+                <View style={styles.cardSection}>
+                  <Text style={styles.sectionLabel}>{t('settings.capturesFolder')}</Text>
+                  <Text style={styles.pathDesc}>
+                    {t('settings.currentPath', {
+                      path: activeUser?.settings?.capturePath || t('settings.defaultCaptures'),
+                    })}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <TouchableOpacity style={styles.actionBtnSecondary} onPress={onSelectCaptureFolder}>
+                      <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                      <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
+                    </TouchableOpacity>
+                    {activeUser?.settings?.capturePath ? (
+                      <TouchableOpacity
+                        style={[styles.actionBtnSecondary, { backgroundColor: '#3D1E24', borderColor: '#772233' }]}
+                        onPress={() =>
+                          updateUser({
+                            settings: { ...activeUser?.settings, capturePath: '' } as any,
+                          })
+                        }
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#FF5566" />
+                        <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
+                          {t('settings.restoreDefault')}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+              </ScrollView>
+            )}
+
+            {accessibilityLeftIndex === 2 && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.rightSectionTitle}>{t('settings.smartSync')}</Text>
+                <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.smartSyncDesc')}</Text>
+
+                {[
+                  {
+                    key: 'ratingAndSummary',
+                    label: t('settings.ratingAndSummary'),
+                    options: [
+                      { id: 'igdb', label: 'IGDB' },
+                      { id: 'none', label: t('settings.none') },
+                    ],
+                  },
+                  {
+                    key: 'cover',
+                    label: t('settings.cover'),
+                    options: [
+                      { id: 'steamgrid', label: 'SteamGrid' },
+                      { id: 'igdb', label: 'IGDB' },
+                      { id: 'none', label: t('settings.none') },
+                    ],
+                  },
+                  {
+                    key: 'background',
+                    label: t('settings.background'),
+                    options: [
+                      { id: 'steamgrid', label: 'SteamGrid' },
+                      { id: 'igdb', label: 'IGDB' },
+                      { id: 'none', label: t('settings.none') },
+                    ],
+                  },
+                  {
+                    key: 'logo',
+                    label: t('settings.logo'),
+                    options: [
+                      { id: 'steamgrid', label: 'SteamGrid' },
+                      { id: 'none', label: t('settings.none') },
+                    ],
+                  },
+                ].map((pref) => {
+                  const currentSync = activeUser?.settings?.syncPreferences || {
+                    ratingAndSummary: 'igdb',
+                    cover: 'steamgrid',
+                    background: 'steamgrid',
+                    logo: 'steamgrid',
+                  };
+                  const currentValue = (currentSync as any)[pref.key];
+                  return (
+                    <View key={pref.key} style={styles.syncItemRow}>
+                      <Text style={styles.syncItemLabel}>{pref.label}</Text>
+                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                        {pref.options.map((opt) => (
+                          <TouchableOpacity
+                            key={opt.id}
+                            style={[
+                              styles.platformBtn,
+                              currentValue === opt.id && styles.platformBtnActive,
+                            ]}
+                            onPress={() =>
+                              updateUser({
+                                settings: {
+                                  ...activeUser?.settings,
+                                  syncPreferences: {
+                                    ...currentSync,
+                                    [pref.key]: opt.id,
+                                  } as any,
+                                },
+                              })
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.platformBtnText,
+                                currentValue === opt.id && styles.platformBtnTextActive,
+                              ]}
+                            >
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+        </View>
       </View>
     );
   };
