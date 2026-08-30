@@ -43,6 +43,9 @@ export interface UserProfile {
   avatarBase64?: string;
   steamAvatarUrl?: string;
   color: string;
+  onlineId?: string;
+  coverImage?: string;
+  about?: string;
   settings?: UserSettings;
 }
 
