@@ -68,6 +68,7 @@ export interface ConsoleItem {
   youtubeId?: string;
   type?: 'game' | 'media' | 'web';
   platform?: string;
+  isPinned?: boolean;
 }
 
 const getInitialGames = (t: any): ConsoleItem[] => [
@@ -562,7 +563,8 @@ export default function ConsoleHome() {
           lastPlayed: app.lastPlayed,
           youtubeId: app.youtubeId,
           type: app.type,
-          platform: app.platform
+          platform: app.platform,
+          isPinned: app.isPinned
         });
         const gamesList = (data.games || []).map(formatApp);
         const mediaList = (data.media || []).map(formatApp);
@@ -588,11 +590,12 @@ export default function ConsoleHome() {
         const gamesWithoutLastPlayed = latestGame
           ? gamesList.filter((g: any) => g.id !== latestGame.id)
           : gamesList;
+        const pinnedGames = gamesWithoutLastPlayed.filter((g: any) => g.isPinned);
         const gamesWithHistory = gamesWithoutLastPlayed
           .filter((g: any) => g.lastPlayed)
           .sort((a: any, b: any) => b.lastPlayed - a.lastPlayed);
-        const gamesWithoutHistory = gamesWithoutLastPlayed.filter((g: any) => !g.lastPlayed);
-        const sortedGames = [...gamesWithHistory, ...gamesWithoutHistory];
+        const gamesWithoutHistory = gamesWithoutLastPlayed.filter((g: any) => !g.lastPlayed && !g.isPinned);
+        const sortedGames = [...pinnedGames, ...gamesWithHistory, ...gamesWithoutHistory];
 
         setGames([...baseItems, ...sortedGames]);
 
@@ -928,13 +931,17 @@ export default function ConsoleHome() {
             setIsContextMenuOpen(false);
             soundService.playBack();
           } else if (e.key === 'ArrowDown') {
-            setContextMenuFocusIndex(prev => Math.min(prev + 1, 2));
+            setContextMenuFocusIndex(prev => Math.min(prev + 1, 3)); // ahora hasta el switch
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             setContextMenuFocusIndex(prev => Math.max(prev - 1, 0));
             soundService.playNavigation();
           } else if (e.key === 'Enter') {
-            handleContextMenuAction(contextMenuFocusIndex);
+            if (contextMenuFocusIndex === 3) {
+              handleTogglePin(); // no cierra el menú, solo alterna
+            } else {
+              handleContextMenuAction(contextMenuFocusIndex);
+            }
             soundService.playActivation();
           }
           return;
@@ -1869,6 +1876,19 @@ export default function ConsoleHome() {
     }
   };
 
+  const handleTogglePin = async () => {
+    const item = currentData[activeIndex];
+    if (!item) return;
+    const newPinned = !item.isPinned;
+
+    setGames(prev => prev.map(g => g.id === item.id ? { ...g, isPinned: newPinned } : g));
+
+    if (Platform.OS === 'web' && (window as any).electronAPI?.updateApp) {
+      await (window as any).electronAPI.updateApp({ id: item.id, isPinned: newPinned });
+    }
+    soundService.playNavigation();
+  };
+
   const currentBg = (currentRenderedTab === 'Games' && activeIndex === 1)
     ? (homeBackground || require('@/assets/images/FondoDefault2.jpg'))
     : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg')));
@@ -2136,6 +2156,8 @@ export default function ConsoleHome() {
           <GameContextMenu
             focusedIndex={contextMenuFocusIndex}
             onPressItem={handleContextMenuAction}
+            isPinned={!!currentData[activeIndex]?.isPinned}
+            onTogglePin={handleTogglePin}
           />
         </View>
       )}

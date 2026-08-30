@@ -76,15 +76,23 @@ function ShimmerOverlay() {
 interface GameContextMenuProps {
   focusedIndex: number;
   onPressItem: (index: number) => void;
+  /** Estado actual de "fijado" del juego seleccionado */
+  isPinned?: boolean;
+  /** Se llama al activar/desactivar el switch de fijar */
+  onTogglePin?: () => void;
 }
 
 const MENU_WIDTH = 250;
 const ITEM_HEIGHT = 50;
 const GLOW_DURATION = 180;
+// Índice de foco que corresponde a la fila del switch "Fijar"
+const PIN_INDEX = 3;
 
 export default function GameContextMenu({
   focusedIndex,
   onPressItem,
+  isPinned = false,
+  onTogglePin,
 }: GameContextMenuProps) {
   const { t } = useTranslation();
 
@@ -95,8 +103,9 @@ export default function GameContextMenu({
   ];
 
   // ─── Animated opacity per item for smooth focus glow transition ───────────
+  // Ahora incluye el índice extra del switch de fijar (PIN_INDEX)
   const glowAnims = useRef(
-    [0, 1, 2].map(i => new Animated.Value(i === focusedIndex ? 1 : 0))
+    [0, 1, 2, PIN_INDEX].map(i => new Animated.Value(i === focusedIndex ? 1 : 0))
   ).current;
   const prevFocusRef = useRef(focusedIndex);
 
@@ -146,9 +155,6 @@ export default function GameContextMenu({
           />
         )}
 
-        {/* SHIMMER DEL CONTENEDOR */}
-        {/* <ShimmerOverlay /> */}
-
         {options.map((opt, idx) => {
           const isFocused = idx === focusedIndex;
 
@@ -181,6 +187,39 @@ export default function GameContextMenu({
             </TouchableOpacity>
           );
         })}
+
+        {/* Separador antes del switch de fijar */}
+        <View style={styles.divider} />
+
+        {/* ─── FIJAR JUEGO (switch) ─────────────────────────────────────── */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={onTogglePin}
+          style={[
+            styles.item,
+            styles.pinItem,
+            focusedIndex === PIN_INDEX && styles.itemFocused,
+          ]}
+        >
+          <Animated.View
+            style={[styles.focusGlow, { opacity: glowAnims[3] }]}
+            pointerEvents="none"
+          />
+          {focusedIndex === PIN_INDEX && <ShimmerOverlay />}
+
+          <Text
+            style={[
+              styles.label,
+              focusedIndex === PIN_INDEX && styles.labelFocused,
+            ]}
+          >
+            Fijar
+          </Text>
+
+          <View style={[styles.toggleTrack, isPinned && styles.toggleTrackActive]}>
+            <View style={[styles.toggleThumb, isPinned && styles.toggleThumbActive]} />
+          </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -235,6 +274,10 @@ const styles = StyleSheet.create({
     height: ITEM_HEIGHT,
   },
 
+  pinItem: {
+    justifyContent: 'space-between',
+  },
+
   itemFocused: {
     //backgroundColor: 'rgba(120,255,255,0.05)',
 
@@ -257,6 +300,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(180,255,255,0.03)',
   },
 
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 4,
+    marginHorizontal: 4,
+  },
+
   label: {
     fontSize: 12,
     color: '#cacacaff',
@@ -267,5 +317,29 @@ const styles = StyleSheet.create({
 
   labelFocused: {
     color: '#e8ffff',
+  },
+
+  // ─── Toggle switch ──────────────────────────────────────────────────────
+  toggleTrack: {
+    width: 40,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    padding: 2,
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  toggleTrackActive: {
+    backgroundColor: '#7cffff',
+  },
+  toggleThumb: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#fff',
+  },
+  toggleThumbActive: {
+    transform: [{ translateX: 18 }],
+    backgroundColor: '#0d1015',
   },
 });
