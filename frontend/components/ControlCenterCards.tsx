@@ -372,11 +372,11 @@ function AnimatedCard({
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B' || e.key === 'Enter' || e.key === 'x' || e.key === 'X') {
             e.preventDefault(); e.stopPropagation();
             closeDiscoverLightbox();
-          } else if (e.key === 'ArrowLeft') {
+          } else if (e.key === 'q' || e.key === 'Q') {
             e.preventDefault(); e.stopPropagation();
             setFocusedDiscoverTip((prev) => Math.max(0, prev - 1));
             soundService.playNavigation();
-          } else if (e.key === 'ArrowRight') {
+          } else if (e.key === 'e' || e.key === 'E') {
             e.preventDefault(); e.stopPropagation();
             const maxTips = (DISCOVER_CATEGORIES[selectedDiscoverCategory || 0]?.tips.length || 1) - 1;
             setFocusedDiscoverTip((prev) => Math.min(maxTips, prev + 1));
@@ -405,11 +405,11 @@ function AnimatedCard({
           }
         } else {
           const tips = DISCOVER_CATEGORIES[selectedDiscoverCategory]?.tips || [];
-          if (e.key === 'ArrowLeft') {
+          if (e.key === 'q' || e.key === 'Q') {
             e.preventDefault(); e.stopPropagation();
             setFocusedDiscoverTip((prev) => Math.max(0, prev - 1));
             soundService.playNavigation();
-          } else if (e.key === 'ArrowRight') {
+          } else if (e.key === 'e' || e.key === 'E') {
             e.preventDefault(); e.stopPropagation();
             setFocusedDiscoverTip((prev) => Math.min(tips.length - 1, prev + 1));
             soundService.playNavigation();
@@ -425,7 +425,19 @@ function AnimatedCard({
         return;
       }
       if (card.type === 'nowPlaying') {
-        if (e.key === 'ArrowLeft') {
+        if (e.key === 'q' || e.key === 'Q') {
+          e.preventDefault();
+          e.stopPropagation();
+          soundService.playActivation?.();
+          setMediaControlFocus(0);
+          sendMediaControl('prev', getMediaControlTarget(card.mediaSession));
+        } else if (e.key === 'e' || e.key === 'E') {
+          e.preventDefault();
+          e.stopPropagation();
+          soundService.playActivation?.();
+          setMediaControlFocus(2);
+          sendMediaControl('next', getMediaControlTarget(card.mediaSession));
+        } else if (e.key === 'ArrowLeft') {
           e.preventDefault();
           e.stopPropagation();
           setMediaControlFocus((prev) => Math.max(0, prev - 1));
