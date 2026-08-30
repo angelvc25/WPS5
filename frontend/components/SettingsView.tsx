@@ -19,6 +19,8 @@ import { LANGUAGE_OPTIONS, Language } from '@/i18n/translations';
 import { UserProfile } from './UserSelectScreen';
 import { soundService } from '@/services/soundService';
 import ControlPrompt from './ControlPrompt';
+import PSIcon from './PSIcon';
+import { PSIcons } from '@/constants/psIcons';
 
 export type SettingsScreenType =
   | 'main'
@@ -1341,17 +1343,21 @@ export default function SettingsView({
       </View>
 
       {/* Control Prompt Bar at Bottom */}
-      <View style={styles.bottomControlBar}>
-        <ControlPrompt
-          btn="A"
-          label={t('common.select')}
-          inputMode="gamepad"
-        />
-        <ControlPrompt
-          btn="B"
-          label={t('common.back')}
-          inputMode="gamepad"
-        />
+      <View style={styles.bottomControlBarContainer}>
+        <View style={[styles.bottomControlBar, {}]}>
+          <PSIcon
+            char={PSIcons.cross}
+            size={26}
+            color={'#fff'}
+          />
+          <Text style={styles.bottomBarText}>{t('common.select')}</Text>
+          <PSIcon
+            char={PSIcons.circle}
+            size={26}
+            color={'#fff'}
+          />
+          <Text style={styles.bottomBarText}>{t('common.back')}</Text>
+        </View>
       </View>
     </Animated.View>
   );
@@ -1365,7 +1371,40 @@ const styles = StyleSheet.create({
   },
   darkOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 10, 16, 0.78)',
+    backgroundColor: 'rgba(10, 10, 16, 0.34)',
+  },
+  bottomControlBar: {
+    position: 'absolute',
+    padding: 2,
+    //bottom: 60,
+    left: 15,
+    //right: 72,
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+
+  },
+  bottomBarText: {
+    color: '#FFF',
+    fontSize: 20,
+    paddingHorizontal: 10,
+    fontFamily: 'SSTMedium'
+  },
+  bottomControlBarContainer: {
+    //width: 340,
+    minWidth: 270,
+
+    height: 37,
+    //maxWidth: 340,
+    position: 'fixed',
+    right: 20,
+    bottom: 20,
+    paddingHorizontal: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    gap: 20,
+    display: 'flex',
+    justifyContent: 'center',
   },
   settingsBody: {
     flex: 1,
@@ -1379,8 +1418,7 @@ const styles = StyleSheet.create({
   mainHeaderTitle: {
     color: '#FFF',
     fontSize: 32,
-    fontFamily: 'SSTBold',
-    fontWeight: 'bold',
+    fontFamily: 'SSTLight',
     marginBottom: 28,
     letterSpacing: 0.4,
   },
@@ -1398,8 +1436,7 @@ const styles = StyleSheet.create({
   subScreenHeaderTitle: {
     color: '#FFF',
     fontSize: 26,
-    fontFamily: 'SSTBold',
-    fontWeight: 'bold',
+    fontFamily: 'SSTLight',
   },
 
   // Main Vertical List (PS5 style: centered, elongated)
@@ -1410,7 +1447,6 @@ const styles = StyleSheet.create({
   psMenuList: {
     width: '88%',
     maxWidth: 1100,
-    borderRightWidth: 1,
     borderRightColor: 'rgba(255, 255, 255, 0.16)',
   },
   psMenuRow: {
@@ -1423,11 +1459,11 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.14)',
     borderWidth: 1.5,
     borderColor: 'transparent',
-    borderRadius: 6,
+    borderRadius: 0,
   },
   psMenuRowFocused: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    //borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   psMenuRowLeft: {
     flexDirection: 'row',
@@ -1446,12 +1482,12 @@ const styles = StyleSheet.create({
   psMenuRowText: {
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '400',
+    fontFamily: 'SSTLight',
     letterSpacing: 0.25,
   },
   psMenuRowTextFocused: {
     color: '#FFF',
-    fontWeight: '500',
+    fontFamily: 'SSTLight',
   },
 
   // Scroll body for sub screens
@@ -1467,16 +1503,17 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   sectionLabel: {
-    color: '#8A8A9E',
+    color: '#9c9b96ff',
     fontSize: 13,
     fontWeight: '700',
-    textTransform: 'uppercase',
+    fontFamily: 'SSTMedium',
     letterSpacing: 1.2,
     marginBottom: 10,
   },
   pathDesc: {
     color: 'rgba(255,255,255,0.6)',
     fontSize: 14,
+    fontFamily: 'SSTLight',
     lineHeight: 20,
   },
   actionBtnSecondary: {
@@ -1494,7 +1531,8 @@ const styles = StyleSheet.create({
   actionBtnSecondaryText: {
     color: '#FFF',
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'SSTLight',
+    //fontWeight: '600',
   },
 
   // Toggle rows
@@ -1509,34 +1547,35 @@ const styles = StyleSheet.create({
   toggleRowTitle: {
     color: '#FFF',
     fontSize: 17,
-    fontWeight: '500',
+    fontFamily: 'SSTLight',
     marginBottom: 4,
   },
   toggleRowDesc: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 13,
+    fontFamily: 'SSTLight',
     lineHeight: 18,
   },
   psSwitch: {
     width: 52,
     height: 30,
     borderRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     padding: 3,
     justifyContent: 'center',
   },
   psSwitchActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#8d8d8dff',
   },
   psSwitchThumb: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#1E1E24',
+    backgroundColor: '#969696ff',
   },
   psSwitchThumbActive: {
     transform: [{ translateX: 22 }],
-    backgroundColor: '#000',
+    backgroundColor: '#ffffffff',
   },
 
   // Platform/Sync buttons
@@ -1549,6 +1588,7 @@ const styles = StyleSheet.create({
   syncItemLabel: {
     color: '#E0E0FF',
     fontSize: 15,
+    fontFamily: 'SSTLight',
   },
   platformBtn: {
     paddingVertical: 8,
@@ -1564,7 +1604,8 @@ const styles = StyleSheet.create({
   platformBtnText: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'SSTMedium',
+    //fontWeight: '600',
   },
   platformBtnTextActive: {
     color: '#000',
@@ -1584,13 +1625,15 @@ const styles = StyleSheet.create({
   supportTextMain: {
     color: '#FFF',
     fontSize: 22,
-    fontWeight: '300',
+    fontFamily: 'SSTLight',
+    //fontWeight: '300',
     textAlign: 'center',
     marginBottom: 10,
   },
   supportTextSub: {
     color: 'rgba(255, 255, 255, 0.65)',
     fontSize: 15,
+    fontFamily: 'SSTLight',
     textAlign: 'center',
     lineHeight: 22,
     maxWidth: 600,
@@ -1614,7 +1657,8 @@ const styles = StyleSheet.create({
   supportLinkBtnText: {
     color: '#FFF',
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'SSTMedium',
+    //fontWeight: '600',
   },
   patronsSection: {
     marginTop: 10,
@@ -1639,7 +1683,8 @@ const styles = StyleSheet.create({
   patronName: {
     color: 'rgba(255, 255, 255, 0.85)',
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'SSTMedium',
+    //fontWeight: '500',
   },
 
   // Profile View (Image 2)
@@ -1725,7 +1770,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 24,
     fontFamily: 'SSTBold',
-    fontWeight: 'bold',
   },
   profilePlusBadge: {
     width: 20,
@@ -1744,10 +1788,12 @@ const styles = StyleSheet.create({
   profileHandleText: {
     color: 'rgba(255, 255, 255, 0.65)',
     fontSize: 14,
+    fontFamily: 'SSTLight',
   },
   profileHandleSep: {
     color: 'rgba(255, 255, 255, 0.3)',
     fontSize: 14,
+    fontFamily: 'SSTLight',
   },
   profileHeaderActions: {
     flexDirection: 'row',
@@ -1783,7 +1829,7 @@ const styles = StyleSheet.create({
   profileActionButtonLabel: {
     color: '#FFF',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'SSTMedium',
   },
   profileTabsBar: {
     flexDirection: 'row',
@@ -1804,10 +1850,11 @@ const styles = StyleSheet.create({
   profileTabText: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'SSTLight',
   },
   profileTabTextActive: {
     color: '#FFF',
+    fontFamily: 'SSTMedium',
   },
   profileTabScrollBody: {
     paddingBottom: 40,
@@ -1831,13 +1878,15 @@ const styles = StyleSheet.create({
   statNumber: {
     color: '#FFF',
     fontSize: 22,
-    fontWeight: 'bold',
+    fontFamily: 'SSTBold',
+    //fontWeight: 'bold',
     marginVertical: 4,
   },
   statLabel: {
     color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 12,
-    textTransform: 'uppercase',
+    fontSize: 15,
+    fontFamily: 'SSTLight',
+    //textTransform: 'uppercase',
   },
   aboutCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
@@ -1849,14 +1898,15 @@ const styles = StyleSheet.create({
   aboutCardTitle: {
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    fontFamily: 'SSTBold',
+    //fontWeight: '700',
+    //textTransform: 'uppercase',
     marginBottom: 8,
   },
   aboutCardText: {
     color: '#FFF',
     fontSize: 15,
-    lineHeight: 22,
+    fontFamily: 'SSTLight',
   },
   gamesGridList: {
     gap: 12,
@@ -1884,12 +1934,13 @@ const styles = StyleSheet.create({
   gameListTitle: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'SSTMedium',
     marginBottom: 4,
   },
   gameListSub: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 13,
+    fontFamily: 'SSTLight',
   },
   friendsListContainer: {
     gap: 12,
@@ -1911,11 +1962,12 @@ const styles = StyleSheet.create({
   friendName: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'SSTMedium',
   },
   friendStatus: {
     color: '#4CD964',
     fontSize: 12,
+    fontFamily: 'SSTLight',
     marginTop: 2,
   },
   sharedContainer: {
@@ -1929,6 +1981,7 @@ const styles = StyleSheet.create({
   emptySharedText: {
     color: 'rgba(255, 255, 255, 0.4)',
     fontSize: 15,
+    fontFamily: 'SSTLight',
     marginTop: 12,
   },
   mediaGrid: {
@@ -1950,6 +2003,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 13,
     padding: 8,
+    fontFamily: 'SSTLight',
   },
 
   // Edit Profile Screen
@@ -1962,7 +2016,8 @@ const styles = StyleSheet.create({
   editListLabel: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: 'SSTMedium',
+    //fontWeight: '500',
     marginBottom: 12,
   },
   editInput: {
@@ -1971,6 +2026,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 10,
     fontSize: 15,
+    fontFamily: 'SSTLight',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -1981,6 +2037,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 10,
     fontSize: 16,
+    fontFamily: 'SSTLight',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     width: '100%',
@@ -2080,10 +2137,12 @@ const styles = StyleSheet.create({
   systemLeftItemText: {
     color: 'rgba(255, 255, 255, 0.65)',
     fontSize: 16,
+    fontFamily: 'SSTLight',
   },
   systemLeftItemTextActive: {
     color: '#FFF',
-    fontWeight: '600',
+    //fontWeight: '600',
+    fontFamily: 'SSTMedium',
   },
   systemRightColumn: {
     flex: 1,
@@ -2108,11 +2167,12 @@ const styles = StyleSheet.create({
   infoRowLabel: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 15,
+    fontFamily: 'SSTLight',
   },
   infoRowValue: {
     color: '#FFF',
     fontSize: 15,
-    fontWeight: '500',
+    fontFamily: 'SSTMedium',
   },
   languageSelectRow: {
     flexDirection: 'row',
@@ -2131,19 +2191,10 @@ const styles = StyleSheet.create({
   languageSelectText: {
     color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: 'SSTMedium',
   },
   languageSelectTextActive: {
     color: '#FFF',
-    fontWeight: '700',
-  },
-
-  // Bottom Control Prompt Bar
-  bottomControlBar: {
-    position: 'absolute',
-    bottom: 20,
-    right: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
+    fontFamily: 'SSTBold',
   },
 });
