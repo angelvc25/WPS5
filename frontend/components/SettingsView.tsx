@@ -1990,7 +1990,7 @@ const styles = StyleSheet.create({
   // Profile View (Image 2)
   profileBannerContainer: {
     width: '100%',
-    height: 180,
+    height: 380,
     borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',

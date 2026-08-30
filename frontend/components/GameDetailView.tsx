@@ -1813,14 +1813,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       <View style={styles.promptBtnBadge}>
                         <PSIcon
                           char={PSIcons.r1}
-                          size={20}
+                          size={22}
                           color='#fff'
 
                         />
                         <Text style={styles.promptBtnText}>/</Text>
                         <PSIcon
                           char={PSIcons.l1}
-                          size={20}
+                          size={22}
                           color='#fff'
                         />
                       </View>
@@ -1830,13 +1830,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       <View style={styles.promptBtnBadge}>
                         <PSIcon
                           char={PSIcons.l2}
-                          size={20}
+                          size={22}
                           color='#fff'
                         />
                         <Text style={styles.promptBtnText}>/</Text>
                         <PSIcon
                           char={PSIcons.r2}
-                          size={20}
+                          size={22}
                           color='#fff'
                         />
                       </View>
@@ -1846,7 +1846,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       <View style={styles.promptBtnBadge}>
                         <PSIcon
                           char={PSIcons.square}
-                          size={20}
+                          size={22}
                           color='#fff'
 
                         />
@@ -1857,7 +1857,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       <View style={styles.promptBtnBadge}>
                         <PSIcon
                           char={PSIcons.cross}
-                          size={20}
+                          size={22}
                           color='#fff'
 
                         />
@@ -1868,7 +1868,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       <View style={styles.promptBtnBadge}>
                         <PSIcon
                           char={PSIcons.circle}
-                          size={20}
+                          size={22}
                           color='#fff'
 
                         />
@@ -2841,6 +2841,7 @@ const styles = StyleSheet.create({
   promptRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.69)',
     gap: 20,
   },
   promptItem: {
@@ -2849,10 +2850,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   promptBtnBadge: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     flexDirection: 'row',
@@ -2862,12 +2859,12 @@ const styles = StyleSheet.create({
   },
   promptBtnText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 15,
     fontFamily: 'SSTMedium',
   },
   promptItemText: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 13,
+    color: 'rgba(255, 255, 255, 1)',
+    fontSize: 15,
     fontFamily: 'SSTMedium',
   },
   resolutionBadge: {
