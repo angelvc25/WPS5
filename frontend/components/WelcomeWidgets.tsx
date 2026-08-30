@@ -536,11 +536,7 @@ export const WelcomeWidgets = ({
                     )}
                     <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ color: "#FFF", fontSize: 12, fontFamily: 'SSTMedium', marginBottom: 2 }}>{gamepadInfo.connected ? "1" : "-"}</Text>
-                      <Ionicons
-                        name="game-controller"
-                        size={45}
-                        color="#FFF"
-                      />
+                      <Image source={require('@/assets/images/controller.png')} style={{ width: 45, height: 45, tintColor: "#FFF" }} contentFit="contain" />
                       <Ionicons name={batteryIcon as any} size={11} color={gamepadInfo.connected ? batteryColor : "#fff"} />
                     </View>
                   </View>
