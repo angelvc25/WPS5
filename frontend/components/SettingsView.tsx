@@ -221,6 +221,133 @@ export default function SettingsView({
     }
   };
 
+  // ── Accessibility screen: right-column focus helpers ─────────────────────
+  const getAccessibilityRightMaxIndex = () => {
+    if (accessibilityLeftIndex === 0) {
+      // Auto-play video toggle, Invert transition toggle
+      return 1;
+    }
+    if (accessibilityLeftIndex === 1) {
+      const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
+      const hasCapturePath = !!activeUser?.settings?.capturePath;
+      // Choose wallpaper, select wallpaper folder, (restore wallpaper), select capture folder, (restore capture)
+      const count = 2 + (hasWallpaperPath ? 1 : 0) + 1 + (hasCapturePath ? 1 : 0);
+      return Math.max(0, count - 1);
+    }
+    if (accessibilityLeftIndex === 2) {
+      // 4 sync preference rows
+      return 3;
+    }
+    return 0;
+  };
+
+  const activateAccessibilityRightItem = () => {
+    if (accessibilityLeftIndex === 0) {
+      if (subFocusIndex === 0) {
+        updateUser({
+          settings: {
+            ...activeUser?.settings,
+            autoPlayVideo: !(activeUser?.settings?.autoPlayVideo !== false),
+          },
+        });
+      } else if (subFocusIndex === 1) {
+        updateUser({
+          settings: {
+            ...activeUser?.settings,
+            invertTransitionDirection: !activeUser?.settings?.invertTransitionDirection,
+          },
+        });
+      }
+      return;
+    }
+
+    if (accessibilityLeftIndex === 1) {
+      const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
+      const hasCapturePath = !!activeUser?.settings?.capturePath;
+      let idx = 0;
+
+      if (subFocusIndex === idx) {
+        onClose();
+        onOpenBgModal();
+        return;
+      }
+      idx++;
+
+      if (subFocusIndex === idx) {
+        onSelectWallpaperFolder();
+        return;
+      }
+      idx++;
+
+      if (hasWallpaperPath) {
+        if (subFocusIndex === idx) {
+          updateUser({ settings: { ...activeUser?.settings, wallpaperPath: '' } as any });
+          return;
+        }
+        idx++;
+      }
+
+      if (subFocusIndex === idx) {
+        onSelectCaptureFolder();
+        return;
+      }
+      idx++;
+
+      if (hasCapturePath) {
+        if (subFocusIndex === idx) {
+          updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any });
+          return;
+        }
+        idx++;
+      }
+      return;
+    }
+
+    if (accessibilityLeftIndex === 2) {
+      const prefs: { key: 'ratingAndSummary' | 'cover' | 'background' | 'logo'; options: string[] }[] = [
+        { key: 'ratingAndSummary', options: ['igdb', 'none'] },
+        { key: 'cover', options: ['steamgrid', 'igdb', 'none'] },
+        { key: 'background', options: ['steamgrid', 'igdb', 'none'] },
+        { key: 'logo', options: ['steamgrid', 'none'] },
+      ];
+      const pref = prefs[subFocusIndex];
+      if (pref) {
+        const currentSync = activeUser?.settings?.syncPreferences || {
+          ratingAndSummary: 'igdb',
+          cover: 'steamgrid',
+          background: 'steamgrid',
+          logo: 'steamgrid',
+        };
+        const currentValue = (currentSync as any)[pref.key];
+        const curIdx = pref.options.indexOf(currentValue);
+        const nextValue = pref.options[(curIdx + 1) % pref.options.length];
+        updateUser({
+          settings: {
+            ...activeUser?.settings,
+            syncPreferences: { ...currentSync, [pref.key]: nextValue } as any,
+          },
+        });
+      }
+    }
+  };
+
+  // ── System screen: right-column focus helpers ────────────────────────────
+  const getSystemRightMaxIndex = () => {
+    if (systemLeftIndex === 1) return 1; // HDMI toggles
+    if (systemLeftIndex === 2) return Math.max(0, LANGUAGE_OPTIONS.length - 1);
+    return 0;
+  };
+
+  const activateSystemRightItem = () => {
+    if (systemLeftIndex === 1) {
+      if (subFocusIndex === 0) setHdmiDeviceLink((prev) => !prev);
+      else if (subFocusIndex === 1) setHdmiHdcp((prev) => !prev);
+    } else if (systemLeftIndex === 2) {
+      const opt = LANGUAGE_OPTIONS[subFocusIndex];
+      if (opt) changeLanguage(opt.id);
+    }
+  };
+
   // Keyboard navigation handler
   useEffect(() => {
     if (!visible) return;
@@ -279,12 +406,17 @@ export default function SettingsView({
             soundService.playNavigation();
           } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setSubFocusIndex((prev) => prev + 1);
+            const maxIdx = getAccessibilityRightMaxIndex();
+            setSubFocusIndex((prev) => Math.min(prev + 1, maxIdx));
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             setSubFocusIndex((prev) => Math.max(prev - 1, 0));
             soundService.playNavigation();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            activateAccessibilityRightItem();
+            soundService.playActivation?.();
           }
         }
       } else if (currentScreen === 'system') {
@@ -310,12 +442,17 @@ export default function SettingsView({
             soundService.playNavigation();
           } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setSubFocusIndex((prev) => prev + 1);
+            const maxIdx = getSystemRightMaxIndex();
+            setSubFocusIndex((prev) => Math.min(prev + 1, maxIdx));
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             setSubFocusIndex((prev) => Math.max(prev - 1, 0));
             soundService.playNavigation();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            activateSystemRightItem();
+            soundService.playActivation?.();
           }
         }
       } else if (currentScreen === 'profile_edit') {
@@ -328,7 +465,7 @@ export default function SettingsView({
           e.preventDefault();
           setSubFocusIndex((prev) => Math.max(prev - 1, 0));
           soundService.playNavigation();
-        } else if (e.key === 'Enter') {
+        } else if (e.key === 'Enter' || e.key === 'ArrowRight') {
           e.preventDefault();
           const section = PROFILE_EDIT_SECTIONS[subFocusIndex];
           if (section) {
@@ -398,6 +535,8 @@ export default function SettingsView({
     currentScreen,
     mainFocusIndex,
     subFocusIndex,
+    accessibilityLeftIndex,
+    accessibilityFocusArea,
     systemLeftIndex,
     systemFocusArea,
     profileActiveTab,
@@ -405,6 +544,15 @@ export default function SettingsView({
     profileActionIndex,
     profileEditSection,
     screenHistory,
+    activeUser,
+    hdmiDeviceLink,
+    hdmiHdcp,
+    updateUser,
+    changeLanguage,
+    onOpenBgModal,
+    onSelectWallpaperFolder,
+    onSelectCaptureFolder,
+    onClose,
   ]);
 
   if (!visible) return null;
@@ -617,7 +765,12 @@ export default function SettingsView({
                 <Text style={styles.rightSectionTitle}>{t('settings.accVisual')}</Text>
 
                 {/* Auto Play Video Toggle */}
-                <View style={styles.toggleRowSection}>
+                <View
+                  style={[
+                    styles.toggleRowSection,
+                    accessibilityFocusArea === 'right' && subFocusIndex === 0 && styles.rightItemFocused,
+                  ]}
+                >
                   <View style={{ flex: 1, paddingRight: 20 }}>
                     <Text style={styles.toggleRowTitle}>{t('settings.autoPlayVideo')}</Text>
                     <Text style={styles.toggleRowDesc}>{t('settings.autoPlayVideoDesc')}</Text>
@@ -646,7 +799,12 @@ export default function SettingsView({
                 </View>
 
                 {/* Invert Transition Toggle */}
-                <View style={styles.toggleRowSection}>
+                <View
+                  style={[
+                    styles.toggleRowSection,
+                    accessibilityFocusArea === 'right' && subFocusIndex === 1 && styles.rightItemFocused,
+                  ]}
+                >
                   <View style={{ flex: 1, paddingRight: 20 }}>
                     <Text style={styles.toggleRowTitle}>{t('settings.invertTransition')}</Text>
                     <Text style={styles.toggleRowDesc}>{t('settings.invertTransitionDesc')}</Text>
@@ -676,88 +834,123 @@ export default function SettingsView({
               </ScrollView>
             )}
 
-            {accessibilityLeftIndex === 1 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.rightSectionTitle}>{t('settings.accWallpapers')}</Text>
+            {accessibilityLeftIndex === 1 && (() => {
+              const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
+              const hasCapturePath = !!activeUser?.settings?.capturePath;
+              let wpIdx = 0;
+              const chooseWallpaperIdx = wpIdx++;
+              const selectWallpaperFolderIdx = wpIdx++;
+              const restoreWallpaperIdx = hasWallpaperPath ? wpIdx++ : -1;
+              const selectCaptureFolderIdx = wpIdx++;
+              const restoreCaptureIdx = hasCapturePath ? wpIdx++ : -1;
+              const isRightFocused = accessibilityFocusArea === 'right';
 
-                {/* Wallpaper Selection */}
-                <View style={styles.cardSection}>
-                  <Text style={styles.sectionLabel}>{t('settings.wallpaper')}</Text>
-                  <TouchableOpacity
-                    style={styles.actionBtnSecondary}
-                    onPress={() => {
-                      onClose();
-                      onOpenBgModal();
-                    }}
-                  >
-                    <Ionicons name="image-outline" size={20} color="#FFF" />
-                    <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseWallpaper')}</Text>
-                  </TouchableOpacity>
-                </View>
+              return (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.rightSectionTitle}>{t('settings.accWallpapers')}</Text>
 
-                {/* Wallpaper Folder */}
-                <View style={styles.cardSection}>
-                  <Text style={styles.sectionLabel}>{t('settings.wallpaperFolder')}</Text>
-                  <Text style={styles.pathDesc}>
-                    {t('settings.currentPath', {
-                      path: activeUser?.settings?.wallpaperPath || t('settings.defaultWallpapers'),
-                    })}
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-                    <TouchableOpacity style={styles.actionBtnSecondary} onPress={onSelectWallpaperFolder}>
-                      <Ionicons name="folder-open-outline" size={20} color="#FFF" />
-                      <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
+                  {/* Wallpaper Selection */}
+                  <View style={styles.cardSection}>
+                    <Text style={styles.sectionLabel}>{t('settings.wallpaper')}</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.actionBtnSecondary,
+                        isRightFocused && subFocusIndex === chooseWallpaperIdx && styles.rightItemFocused,
+                      ]}
+                      onPress={() => {
+                        onClose();
+                        onOpenBgModal();
+                      }}
+                    >
+                      <Ionicons name="image-outline" size={20} color="#FFF" />
+                      <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseWallpaper')}</Text>
                     </TouchableOpacity>
-                    {activeUser?.settings?.wallpaperPath ? (
-                      <TouchableOpacity
-                        style={[styles.actionBtnSecondary, { backgroundColor: '#3D1E24', borderColor: '#772233' }]}
-                        onPress={() =>
-                          updateUser({
-                            settings: { ...activeUser?.settings, wallpaperPath: '' } as any,
-                          })
-                        }
-                      >
-                        <Ionicons name="trash-outline" size={18} color="#FF5566" />
-                        <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
-                          {t('settings.restoreDefault')}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
                   </View>
-                </View>
 
-                {/* Captures Folder */}
-                <View style={styles.cardSection}>
-                  <Text style={styles.sectionLabel}>{t('settings.capturesFolder')}</Text>
-                  <Text style={styles.pathDesc}>
-                    {t('settings.currentPath', {
-                      path: activeUser?.settings?.capturePath || t('settings.defaultCaptures'),
-                    })}
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-                    <TouchableOpacity style={styles.actionBtnSecondary} onPress={onSelectCaptureFolder}>
-                      <Ionicons name="folder-open-outline" size={20} color="#FFF" />
-                      <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
-                    </TouchableOpacity>
-                    {activeUser?.settings?.capturePath ? (
+                  {/* Wallpaper Folder */}
+                  <View style={styles.cardSection}>
+                    <Text style={styles.sectionLabel}>{t('settings.wallpaperFolder')}</Text>
+                    <Text style={styles.pathDesc}>
+                      {t('settings.currentPath', {
+                        path: activeUser?.settings?.wallpaperPath || t('settings.defaultWallpapers'),
+                      })}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
                       <TouchableOpacity
-                        style={[styles.actionBtnSecondary, { backgroundColor: '#3D1E24', borderColor: '#772233' }]}
-                        onPress={() =>
-                          updateUser({
-                            settings: { ...activeUser?.settings, capturePath: '' } as any,
-                          })
-                        }
+                        style={[
+                          styles.actionBtnSecondary,
+                          isRightFocused && subFocusIndex === selectWallpaperFolderIdx && styles.rightItemFocused,
+                        ]}
+                        onPress={onSelectWallpaperFolder}
                       >
-                        <Ionicons name="trash-outline" size={18} color="#FF5566" />
-                        <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
-                          {t('settings.restoreDefault')}
-                        </Text>
+                        <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                        <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
-                    ) : null}
+                      {hasWallpaperPath ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.actionBtnSecondary,
+                            { backgroundColor: '#3D1E24', borderColor: '#772233' },
+                            isRightFocused && subFocusIndex === restoreWallpaperIdx && styles.rightItemFocused,
+                          ]}
+                          onPress={() =>
+                            updateUser({
+                              settings: { ...activeUser?.settings, wallpaperPath: '' } as any,
+                            })
+                          }
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#FF5566" />
+                          <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
+                            {t('settings.restoreDefault')}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
                   </View>
-                </View>
-              </ScrollView>
-            )}
+
+                  {/* Captures Folder */}
+                  <View style={styles.cardSection}>
+                    <Text style={styles.sectionLabel}>{t('settings.capturesFolder')}</Text>
+                    <Text style={styles.pathDesc}>
+                      {t('settings.currentPath', {
+                        path: activeUser?.settings?.capturePath || t('settings.defaultCaptures'),
+                      })}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                      <TouchableOpacity
+                        style={[
+                          styles.actionBtnSecondary,
+                          isRightFocused && subFocusIndex === selectCaptureFolderIdx && styles.rightItemFocused,
+                        ]}
+                        onPress={onSelectCaptureFolder}
+                      >
+                        <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                        <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
+                      </TouchableOpacity>
+                      {hasCapturePath ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.actionBtnSecondary,
+                            { backgroundColor: '#3D1E24', borderColor: '#772233' },
+                            isRightFocused && subFocusIndex === restoreCaptureIdx && styles.rightItemFocused,
+                          ]}
+                          onPress={() =>
+                            updateUser({
+                              settings: { ...activeUser?.settings, capturePath: '' } as any,
+                            })
+                          }
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#FF5566" />
+                          <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
+                            {t('settings.restoreDefault')}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+                </ScrollView>
+              );
+            })()}
 
             {accessibilityLeftIndex === 2 && (
               <ScrollView showsVerticalScrollIndicator={false}>
@@ -799,7 +992,7 @@ export default function SettingsView({
                       { id: 'none', label: t('settings.none') },
                     ],
                   },
-                ].map((pref) => {
+                ].map((pref, prefIdx) => {
                   const currentSync = activeUser?.settings?.syncPreferences || {
                     ratingAndSummary: 'igdb',
                     cover: 'steamgrid',
@@ -807,8 +1000,12 @@ export default function SettingsView({
                     logo: 'steamgrid',
                   };
                   const currentValue = (currentSync as any)[pref.key];
+                  const isRowFocused = accessibilityFocusArea === 'right' && subFocusIndex === prefIdx;
                   return (
-                    <View key={pref.key} style={styles.syncItemRow}>
+                    <View
+                      key={pref.key}
+                      style={[styles.syncItemRow, isRowFocused && styles.rightItemFocused]}
+                    >
                       <Text style={styles.syncItemLabel}>{pref.label}</Text>
                       <View style={{ flexDirection: 'row', gap: 10 }}>
                         {pref.options.map((opt) => (
@@ -1321,7 +1518,12 @@ export default function SettingsView({
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.rightSectionTitle}>{t('settings.hdmi')}</Text>
 
-                <View style={styles.toggleRowSection}>
+                <View
+                  style={[
+                    styles.toggleRowSection,
+                    systemFocusArea === 'right' && subFocusIndex === 0 && styles.rightItemFocused,
+                  ]}
+                >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.toggleRowTitle}>Enable HDMI Device Link</Text>
                     <Text style={styles.toggleRowDesc}>Control power state via connected HDMI displays.</Text>
@@ -1334,7 +1536,12 @@ export default function SettingsView({
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.toggleRowSection}>
+                <View
+                  style={[
+                    styles.toggleRowSection,
+                    systemFocusArea === 'right' && subFocusIndex === 1 && styles.rightItemFocused,
+                  ]}
+                >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.toggleRowTitle}>Enable HDCP</Text>
                     <Text style={styles.toggleRowDesc}>High-bandwidth Digital Content Protection.</Text>
@@ -1355,14 +1562,16 @@ export default function SettingsView({
                 <Text style={[styles.pathDesc, { marginBottom: 20 }]}>{t('settings.languageDesc')}</Text>
 
                 <View style={{ gap: 12 }}>
-                  {LANGUAGE_OPTIONS.map((opt) => {
+                  {LANGUAGE_OPTIONS.map((opt, optIdx) => {
                     const isSelected = language === opt.id;
+                    const isRowFocused = systemFocusArea === 'right' && subFocusIndex === optIdx;
                     return (
                       <TouchableOpacity
                         key={opt.id}
                         style={[
                           styles.languageSelectRow,
                           isSelected && styles.languageSelectRowActive,
+                          isRowFocused && styles.rightItemFocused,
                         ]}
                         onPress={() => changeLanguage(opt.id)}
                       >
@@ -2223,7 +2432,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   systemLeftItemFocused: {
-    borderColor: '#FFFFFF',
+    borderColor: '#ffffff44',
+  },
+  rightItemFocused: {
+    //borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    //borderWidth: 2,
+    //borderRadius: 8,
   },
   systemLeftItemText: {
     color: 'rgba(255, 255, 255, 0.65)',
