@@ -11,7 +11,7 @@ import Animated, {
   runOnJS
 } from 'react-native-reanimated';
 
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import { UserContext } from '@/contexts/UserContext';
@@ -97,17 +97,20 @@ function RootLayoutInner() {
     };
   }, []);
 
-  // Animación de Entrada: el video de Launch se reproduce una sola vez.
-  // Cuando termina, se desvanece el splash y se revela la pantalla de usuarios.
-  const handleSplashVideoStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded && status.didJustFinish) {
+  // Animación de Entrada: se muestra un splash con fondo negro y el logo de
+  // PlayStation centrado durante un tiempo fijo, y luego se desvanece para
+  // revelar la pantalla de selección de usuario.
+  useEffect(() => {
+    const timer = setTimeout(() => {
       splashOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
         if (finished) {
           runOnJS(setShowSplash)(false);
         }
       });
-    }
-  };
+    }, 1800);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Estilos animados
   const animatedSplashStyle = useAnimatedStyle(() => ({
@@ -134,15 +137,7 @@ function RootLayoutInner() {
             styles.splashContainer,
             animatedSplashStyle
           ]}>
-            <Video
-              source={require('../assets/video/Launch2.mp4')}
-              style={StyleSheet.absoluteFillObject}
-              resizeMode={ResizeMode.COVER}
-              shouldPlay
-              isLooping={false}
-              isMuted={false}
-              onPlaybackStatusUpdate={handleSplashVideoStatusUpdate}
-            />
+            <MaterialCommunityIcons name="sony-playstation" size={110} color="#FFFFFF" />
           </Animated.View>
         )}
         <StatusBar style="light" />
