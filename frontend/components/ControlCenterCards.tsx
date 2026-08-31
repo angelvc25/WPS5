@@ -1681,12 +1681,12 @@ function NowPlayingCardBody({
         <View style={styles.mediaFooterHints}>
           <View style={styles.mediaHintItem}>
             <PSIcon char={PSIcons.square} size={20} color="rgba(255, 255, 255, 0.9)" />
-            <Text style={styles.mediaHintText}>Confirmar</Text>
+            <Text style={styles.mediaHintText}>{t('common.confirm')}</Text>
           </View>
           <View style={styles.mediaHintItem}>
             <PSIcon char={PSIcons.dpadLeft} size={20} color="rgba(255, 255, 255, 0.9)" />
             <PSIcon char={PSIcons.dpadRight} size={20} color="rgba(255, 255, 255, 0.9)" />
-            <Text style={styles.mediaHintText}>navegar</Text>
+            <Text style={styles.mediaHintText}>{t('common.navigate')}</Text>
           </View>
         </View>
       )}
@@ -2368,8 +2368,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.5)',
   },
   mediaHintText: {
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(255, 255, 255, 0.66)',
     fontFamily: 'SSTLight',
-    fontSize: 12,
+    fontSize: 14,
   },
 });
