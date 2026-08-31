@@ -221,26 +221,74 @@ export const ConsoleCarousel = ({
           >
             {cardContent}
             {isActive && (
-              <Animated.View style={[styles.activeLabelContainer, { top: CARD_SIZE, left: Math.round(CARD_SIZE * 1.46) + 20 }]} entering={FadeIn.delay(350).duration(450)}>
-                {item.id !== '1' && item.id !== '5' && item.id !== 'more_library' && (() => {
-                  const platformSource = item.isLastPlayed ? (lastPlayedGame ?? item) : item;
-                  const platformId = platformSource.platform || (isSteamGame(platformSource as any) ? 'Steam' : 'PC');
-                  return (
-                    <View style={styles.platformBadge}>
-                      <Text style={styles.platformBadgeText}>{platformId}</Text>
-                    </View>
-                  );
-                })()}
-                <Text style={[styles.activeGameTitle, { fontSize: Math.round(CARD_SIZE * 0.23) }]} numberOfLines={1}>
+              <Animated.View
+                style={[
+                  styles.activeLabelContainer,
+                  {
+                    top: CARD_SIZE,
+                    left: Math.round(CARD_SIZE * 1.46) + 20,
+                  },
+                ]}
+                entering={FadeIn.delay(350).duration(450)}
+              >
+                {item.id !== '1' &&
+                  item.id !== '5' &&
+                  item.id !== 'more_library' &&
+                  (() => {
+                    const platformSource = item.isLastPlayed
+                      ? (lastPlayedGame ?? item)
+                      : item;
+
+                    const steamGame = isSteamGame(platformSource as any);
+                    const platformId =
+                      platformSource.platform || (steamGame ? 'Steam' : 'PC');
+
+                    return (
+                      <View style={styles.platformBadge}>
+                        {steamGame ? (
+                          <View style={styles.steamPlatformContent}>
+                            <MaterialCommunityIcons
+                              name="steam"
+                              size={18}
+                              color="#000000"
+                              style={styles.steamPlatformIcon}
+                            />
+
+                            <Text style={styles.steamPlatformBadgeText}>
+                              {platformId}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.platformBadgeText}>
+                            {platformId}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })()}
+
+                <Text
+                  style={[
+                    styles.activeGameTitle,
+                    { fontSize: Math.round(CARD_SIZE * 0.23) },
+                  ]}
+                  numberOfLines={1}
+                >
                   {item.id === 'more_library'
                     ? t('library.title')
-                    : (item.isLastPlayed ? (lastPlayedGame?.title || t('lastPlayed.title')) : item.title)}
+                    : item.isLastPlayed
+                      ? (lastPlayedGame?.title || t('lastPlayed.title'))
+                      : item.title}
                 </Text>
 
                 {/* Options button to open context menu via mouse/click */}
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  style={{ marginLeft: 6, paddingHorizontal: 4, display: 'none' }}
+                  style={{
+                    marginLeft: 6,
+                    paddingHorizontal: 4,
+                    display: 'none',
+                  }}
                   onPress={() => {
                     if (isContextMenuOpen) {
                       setIsContextMenuOpen(false);
@@ -249,7 +297,11 @@ export const ConsoleCarousel = ({
                     }
                   }}
                 >
-                  <Ionicons name="ellipsis-vertical" size={14} color="#FFF" />
+                  <Ionicons
+                    name="ellipsis-vertical"
+                    size={14}
+                    color="#FFF"
+                  />
                 </TouchableOpacity>
               </Animated.View>
             )}
@@ -336,6 +388,22 @@ const styles = StyleSheet.create({
     color: '#000000ff',
     fontFamily: 'SSTBadge',
     fontSize: 12,
+  },
+  steamPlatformContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  steamPlatformIcon: {
+    marginRight: 6,
+  },
+
+  steamPlatformBadgeText: {
+    color: '#000000',
+    // Cambia esta fuente por la que quieras utilizar para Steam
+    fontFamily: 'SSTBoldIt',
+    fontSize: 13,
   },
   activeGameTitle: {
     color: '#FFFFFF',

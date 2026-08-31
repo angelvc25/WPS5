@@ -181,6 +181,12 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
   const imagesRef = useRef(images);
   const lastNavSoundRef = useRef(0);
 
+  // Tracks the visible window of the grid ScrollView so we only mount/load
+  // thumbnails for rows that are actually on screen (plus a small buffer),
+  // instead of loading every image in the folder at once.
+  const [gridScrollY, setGridScrollY] = useState(0);
+  const [gridViewportHeight, setGridViewportHeight] = useState(windowHeight);
+
   const scale = useMemo(() => Math.min(windowWidth / 1920, windowHeight / 1080), [windowWidth, windowHeight]);
   const s = (v: number) => Math.round(v * scale);
   const columns = windowWidth >= 1400 ? 3 : windowWidth >= 900 ? 2 : 1;
@@ -258,6 +264,34 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     const targetY = Math.max(0, row * tileStrideY - s(40));
     scrollRef.current?.scrollTo({ y: targetY, animated: false });
   }, [columns, tileStrideY, s]);
+
+  const handleGridScroll = useCallback((e: any) => {
+    setGridScrollY(e.nativeEvent.contentOffset.y);
+  }, []);
+
+  const handleGridLayout = useCallback((e: any) => {
+    setGridViewportHeight(e.nativeEvent.layout.height);
+  }, []);
+
+  // A tile "should load" its image if its row falls inside the visible
+  // viewport, extended by one extra screen above and below (buffer) so
+  // scrolling stays smooth instead of popping placeholders in at the edge.
+  const isRowVisible = useCallback((idx: number) => {
+    const row = Math.floor(idx / columns);
+    const rowTop = row * tileStrideY;
+    const rowBottom = rowTop + tileHeight;
+    const buffer = Math.max(gridViewportHeight, 1);
+    const viewTop = gridScrollY - buffer;
+    const viewBottom = gridScrollY + gridViewportHeight + buffer;
+    return rowBottom >= viewTop && rowTop <= viewBottom;
+  }, [columns, tileStrideY, tileHeight, gridScrollY, gridViewportHeight]);
+
+  useEffect(() => {
+    // Reset the tracked scroll position whenever a new set of images loads
+    // (tab switch, folder change, etc.) so visibility is recalculated from
+    // the top instead of keeping a stale offset from the previous list.
+    setGridScrollY(0);
+  }, [images]);
 
   useEffect(() => {
     if (!visible || focusArea !== 'grid' || images.length === 0) return;
@@ -576,6 +610,9 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: s(80) }}
               keyboardShouldPersistTaps="handled"
+              onScroll={handleGridScroll}
+              onLayout={handleGridLayout}
+              scrollEventThrottle={50}
             >
               <View style={uiStyles.grid}>
                 {images.map((img, idx) => (
@@ -584,7 +621,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
                     previewUri={img.thumbnail || img.uri}
                     isFocused={focusArea === 'grid' && gridFocusIndex === idx}
                     isSelected={currentBackgroundUri === img.uri}
-                    shouldLoad={true}
+                    shouldLoad={isRowVisible(idx)}
                     tileWidth={tileWidth}
                     tileHeight={tileHeight}
                     onFocus={() => {

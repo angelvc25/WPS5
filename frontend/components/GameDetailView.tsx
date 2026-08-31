@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, TextInput, ScrollView, useWindowDimensions, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -72,6 +72,12 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [currentPage, setCurrentPage] = useState(0);
   const [sliderWidth, setSliderWidth] = useState(160);
   const ITEMS_PER_PAGE = 15;
+  // Ref to the slider's DOM node (used to measure it on every drag move, not just on layout)
+  // and a ref (not state) to track "is the mouse currently down on the slider" so the
+  // window-level mousemove/mouseup listeners always read the latest value without having
+  // to be re-subscribed on every render.
+  const sliderContainerRef = useRef<any>(null);
+  const isDraggingSliderRef = useRef(false);
 
   useEffect(() => {
     setSelectedDimensionFilter('all');
@@ -326,6 +332,24 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
   };
 
+  const updateSliderFromClientX = useCallback((clientX: number) => {
+    const node = sliderContainerRef.current;
+    const rect = node?.getBoundingClientRect ? node.getBoundingClientRect() : null;
+    if (!rect || rect.width === 0) return;
+    const x = clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, x / rect.width));
+    const val = Math.round(3 + pct * 5);
+    setSliderValue(val);
+  }, []);
+
+  const handleSliderMouseDown = (e: any) => {
+    isDraggingSliderRef.current = true;
+    setAssetSelectorFocusArea('filters');
+    setFilterFocusIndex(3);
+    updateSliderFromClientX(e.clientX ?? e.nativeEvent?.clientX);
+  };
+
+  // Kept for non-web / fallback taps (single tap without drag)
   const handleSliderPress = (e: any) => {
     const x = e.nativeEvent.locationX;
     const pct = Math.max(0, Math.min(1, x / sliderWidth));
@@ -334,6 +358,25 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setAssetSelectorFocusArea('filters');
     setFilterFocusIndex(3);
   };
+
+  // Global listeners so dragging keeps working even if the cursor moves off the
+  // slider track mid-drag, and so the slider never gets "stuck" after a click.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingSliderRef.current) return;
+      updateSliderFromClientX(e.clientX);
+    };
+    const handleMouseUp = () => {
+      isDraggingSliderRef.current = false;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [updateSliderFromClientX]);
 
   const handleAssetSelectorKeyDown = (e: any) => {
     const currentList = getActiveTabList();
@@ -780,9 +823,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
           else if (e.key === 'Enter') {
             soundService.playActivation?.();
-            if (editModalFocusIndex === 23) setActiveTab('basic');
-            else if (editModalFocusIndex === 24) setActiveTab('path');
-            else if (editModalFocusIndex === 25) setActiveTab('art');
+            if (editModalFocusIndex === 23) { setActiveTab('basic'); setEditModalFocusIndex(2); }
+            else if (editModalFocusIndex === 24) { setActiveTab('path'); setEditModalFocusIndex(22); }
+            else if (editModalFocusIndex === 25) { setActiveTab('art'); setEditModalFocusIndex(0); }
             else if (editModalFocusIndex === 0) handleUnifiedSync();
             else if (editModalFocusIndex === 2) editTitleRef.current?.focus();
             else if (editModalFocusIndex === 22) {
@@ -1661,12 +1704,15 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                   <View style={styles.sliderWrapper}>
                     <Text style={styles.sliderLabel}>{t('edit.size')}</Text>
-                    <TouchableOpacity
-                      activeOpacity={0.9}
+                    <View
+                      ref={sliderContainerRef}
                       onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
-                      onPress={handleSliderPress}
+                      {...(Platform.OS === 'web'
+                        ? { onMouseDown: handleSliderMouseDown }
+                        : { onTouchStart: handleSliderPress })}
                       style={[
                         styles.sliderContainer,
+                        Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null,
                         assetSelectorFocusArea === 'filters' && filterFocusIndex === 3 && styles.sliderFocused
                       ]}
                     >
@@ -1674,7 +1720,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <View style={[styles.sliderTrackFill, { width: `${((sliderValue - 3) / 5) * 100}%` }]} />
                         <View style={[styles.sliderThumb, { left: `${((sliderValue - 3) / 5) * 100}%` }]} />
                       </View>
-                    </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
 

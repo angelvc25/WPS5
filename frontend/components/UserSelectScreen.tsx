@@ -149,6 +149,15 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   // Store cleanup functions for radar animations
   const radarCleanups = useRef<Record<string, () => void>>({});
 
+  // ── Gamepad polling throttle state ───────────────────────────────────────
+  // These MUST be refs (not locals inside the effect below) because that
+  // effect depends on [hoveredId, users] and gets re-created on every
+  // navigation step. If lastMoveTime/prevButtons lived inside the effect,
+  // each re-creation would reset lastMoveTime to 0, bypassing the throttle
+  // and causing the stick to fire several moves almost instantly while held.
+  const lastGamepadMoveTimeRef = useRef(0);
+  const prevGamepadButtonsRef = useRef<boolean[]>(new Array(16).fill(false));
+
   // ── Inject CSS animations once ──────────────────────────────────────────
   useEffect(() => {
     const style = document.createElement('style');
@@ -319,8 +328,6 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
     // ── Gamepad polling ──────────────────────────────────────────────────
     let rafId: number;
-    const prevButtons = new Array(16).fill(false);
-    let lastMoveTime = 0;
     const THROTTLE = 300;
 
     const poll = () => {
@@ -332,17 +339,17 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
           const ev = new KeyboardEvent('keydown', { key } as any);
           (ev as any).fromGamepad = true;
           window.dispatchEvent(ev);
-          lastMoveTime = now;
+          lastGamepadMoveTimeRef.current = now;
         };
-        if (now - lastMoveTime > THROTTLE) {
+        if (now - lastGamepadMoveTimeRef.current > THROTTLE) {
           if (gp.buttons[14]?.pressed || gp.axes[0] < -0.5) dispatch('ArrowLeft');
           else if (gp.buttons[15]?.pressed || gp.axes[0] > 0.5) dispatch('ArrowRight');
           else if (gp.buttons[12]?.pressed || gp.axes[1] < -0.5) dispatch('ArrowUp');
           else if (gp.buttons[13]?.pressed || gp.axes[1] > 0.5) dispatch('ArrowDown');
         }
         const check = (idx: number, key: string) => {
-          if (gp.buttons[idx]?.pressed && !prevButtons[idx]) dispatch(key);
-          prevButtons[idx] = gp.buttons[idx]?.pressed;
+          if (gp.buttons[idx]?.pressed && !prevGamepadButtonsRef.current[idx]) dispatch(key);
+          prevGamepadButtonsRef.current[idx] = !!gp.buttons[idx]?.pressed;
         };
         check(0, 'Enter');
       }
