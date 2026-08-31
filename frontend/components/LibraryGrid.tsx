@@ -642,24 +642,57 @@ export default function LibraryGrid({
                           {isItemFocused && (
                             <View style={styles.focusedOverlay}>
                               <View style={styles.gradientOverlay} />
-                              <View style={styles.gameInfoContainer}>
 
-                                {/* 6. Icono + etiqueta dinámicos según la plataforma del juego */}
+                              <View style={styles.gameInfoContainer}>
                                 {(() => {
-                                  const platformId = game.platform || (isSteamGame(game) ? 'Steam' : 'PC');
+                                  const steamGame = isSteamGame(game);
+                                  const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
                                   const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
+
                                   return (
                                     <View style={styles.platformRow}>
-                                      <Text style={{ color: '#000000ff', fontFamily: 'SSTBadge', fontSize: 12, alignItems: 'center', justifyContent: 'center' }}>
-                                        {/* <MaterialCommunityIcons
-                                          name={iconName as any}
-                                          size={22}
-                                          color="#000000ff"
-                                          style={{ marginRight: 6 }}
-                                        /> */}
-                                        {' '}{platformId}
-                                      </Text>
-                                    </View>);
+                                      {steamGame ? (
+                                        // 🎮 Juego de Steam
+                                        <View
+                                          style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                          }}
+                                        >
+                                          <MaterialCommunityIcons
+                                            name={iconName as any}
+                                            size={20}
+                                            color="#000000"
+                                            style={{ marginRight: 6 }}
+                                          />
+
+                                          <Text
+                                            style={{
+                                              color: '#000000',
+                                              fontFamily: 'SSTBoldIt',
+                                              fontSize: 12,
+                                            }}
+                                          >
+                                            {platformId}
+                                          </Text>
+                                        </View>
+                                      ) : (
+                                        // 🎮 Resto de plataformas: mantener comportamiento actual
+                                        <Text
+                                          style={{
+                                            color: '#000000',
+                                            fontFamily: 'SSTBadge',
+                                            fontSize: 12,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                          }}
+                                        >
+                                          {' '}{platformId}
+                                        </Text>
+                                      )}
+                                    </View>
+                                  );
                                 })()}
 
                                 <SlidingGameTitle
