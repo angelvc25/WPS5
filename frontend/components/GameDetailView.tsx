@@ -1545,13 +1545,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       style={[styles.editSecondaryBtn, { paddingVertical: 14, paddingHorizontal: 24 }, editModalFocusIndex === 20 && styles.editSecondaryBtnFocused]}
                       onPress={() => setEditModalVisible(false)}
                     >
-                      <Text style={styles.editSecondaryBtnText}>Cancelar</Text>
+                      <Text style={styles.editSecondaryBtnText}>{t('common.cancel')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.editPrimaryBtn, editModalFocusIndex === 21 && styles.editPrimaryBtnFocused]}
                       onPress={handleSaveEdit}
                     >
-                      <Text style={styles.editPrimaryBtnText}>Guardar</Text>
+                      <Text style={styles.editPrimaryBtnText}>{t('common.save')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2192,6 +2192,7 @@ const styles = StyleSheet.create({
   detailDescription: {
     color: 'rgba(255,255,255,0.75)',
     fontSize: 15,
+    fontFamily: 'SSTLight',
     lineHeight: 24,
     marginBottom: 30,
     fontWeight: '400'
@@ -2465,12 +2466,12 @@ const styles = StyleSheet.create({
   },
   platformBtnTextNew: {
     color: 'rgba(255,255,255,0.6)',
-    fontFamily: 'SSTRg',
+    fontFamily: 'SSTRg', // fuente del badge
     marginLeft: 6,
   },
   platformBtnTextActiveNew: {
     color: '#000',
-    fontFamily: 'SSTBold',
+    fontFamily: 'SSTBold', // fuente del badge activo
     marginLeft: 6,
   },
   platformBtnFocusedNew: {
