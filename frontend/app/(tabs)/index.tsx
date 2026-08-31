@@ -2298,7 +2298,11 @@ export default function ConsoleHome() {
                 activeOpacity={0.75}
               >
                 {activeUser?.avatar ? (
-                  <Image source={{ uri: (activeUser?.settings?.useSteamAvatar && activeUser?.steamAvatarUrl) ? activeUser.steamAvatarUrl : ((activeUser as any).avatarBase64 || activeUser.avatar) }} style={styles.avatar} />
+                  <Image
+                    source={{ uri: (activeUser?.settings?.useSteamAvatar && activeUser?.steamAvatarUrl) ? activeUser.steamAvatarUrl : ((activeUser as any).avatarBase64 || activeUser.avatar) }}
+                    style={styles.avatar}
+                    contentFit="cover"
+                  />
                 ) : (
                   <View style={styles.defaultAvatarHeader}>
                     {/* <Ionicons name="person" size={18} color="#FFF" /> */}
@@ -2765,7 +2769,11 @@ export default function ConsoleHome() {
               <View style={styles.userModalHeader}>
                 <View style={styles.modalAvatarContainer}>
                   {activeUser?.avatar ? (
-                    <Image source={{ uri: (activeUser?.settings?.useSteamAvatar && activeUser?.steamAvatarUrl) ? activeUser.steamAvatarUrl : ((activeUser as any).avatarBase64 || activeUser.avatar) }} style={styles.modalAvatar} />
+                    <Image
+                      source={{ uri: (activeUser?.settings?.useSteamAvatar && activeUser?.steamAvatarUrl) ? activeUser.steamAvatarUrl : ((activeUser as any).avatarBase64 || activeUser.avatar) }}
+                      style={styles.modalAvatar}
+                      contentFit="contain"
+                    />
                   ) : (
                     <View style={styles.defaultAvatarModal}><Ionicons name="person" size={24} color="#FFF" /></View>
                   )}
