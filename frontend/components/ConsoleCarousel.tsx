@@ -8,6 +8,8 @@ import AnimatedCardWrapper from './AnimatedCardWrapper';
 import SpinningBorder from './SpinningBorderConic';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { isSteamGame } from '@/services/steamLaunchService';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { LANGUAGE_OPTIONS, Language } from '@/i18n/translations';
 
 interface ConsoleCarouselProps {
   currentData: ConsoleItem[];
@@ -58,6 +60,8 @@ export const ConsoleCarousel = ({
       </View>
     );
   }
+
+  const { t, language } = useTranslation();
 
   const activeImageStyle = useAnimatedStyle(() => {
     return {
@@ -229,8 +233,8 @@ export const ConsoleCarousel = ({
                 })()}
                 <Text style={[styles.activeGameTitle, { fontSize: Math.round(CARD_SIZE * 0.23) }]} numberOfLines={1}>
                   {item.id === 'more_library'
-                    ? 'Biblioteca de juegos'
-                    : (item.isLastPlayed ? (lastPlayedGame?.title || 'Último Jugado') : item.title)}
+                    ? t('library.title')
+                    : (item.isLastPlayed ? (lastPlayedGame?.title || t('lastPlayed.title')) : item.title)}
                 </Text>
 
                 {/* Options button to open context menu via mouse/click */}

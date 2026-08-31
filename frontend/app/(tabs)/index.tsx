@@ -2083,12 +2083,12 @@ export default function ConsoleHome() {
         {focusArea === 'library_grid' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Image source={require('@/assets/images/Libreria.jpeg')} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} />
-            <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Biblioteca de juegos</Text>
+            <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{t('library.title')}</Text>
           </View>
         ) : (focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar') ? (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Image source={currentData[activeIndex]?.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} contentFit="cover" />
-            <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>Welcome</Text>
+            <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{t('home.welcome')}</Text>
           </View>
         ) : (canPlay && activeItem && (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>

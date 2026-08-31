@@ -1931,7 +1931,7 @@ const getDiscoverCategories = (t: (key: string) => string) => [
         ),
       },
       {
-        image: require('@/assets/images/settingGuide.png'),
+        image: require('@/assets/images/settingGuide2.png'),
         title: t('cc.personalizeBg'),
         description: t('cc.personalizeBgDesc'),
       },

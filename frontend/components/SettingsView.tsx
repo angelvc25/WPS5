@@ -203,6 +203,19 @@ export default function SettingsView({
     }
   };
 
+  const handleSteamLogin = async () => {
+    if (Platform.OS === 'web' && (window as any).electronAPI) {
+      const res = await (window as any).electronAPI.steamLogin();
+      if (res.success && res.steamId) {
+        updateUser({ settings: { ...activeUser?.settings, steamId: res.steamId } as any });
+      } else if (res.error && res.error !== 'Ventana de inicio de sesión cerrada') {
+        alert('Error al iniciar sesión en Steam: ' + res.error);
+      }
+    } else {
+      alert('Esta función solo está disponible en la versión de escritorio.');
+    }
+  };
+
   // Cover image selection handler
   const handleSelectCover = () => {
     if (Platform.OS === 'web') {
@@ -227,27 +240,20 @@ export default function SettingsView({
 
   // ── Accessibility screen: right-column focus helpers ─────────────────────
   const getAccessibilityRightMaxIndex = () => {
-    if (accessibilityLeftIndex === 0) {
-      // Auto-play video toggle, Invert transition toggle
-      return 1;
-    }
+    if (accessibilityLeftIndex === 0) return 1;
     if (accessibilityLeftIndex === 1) {
       const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
       const hasCapturePath = !!activeUser?.settings?.capturePath;
-      // Choose wallpaper, select wallpaper folder, (restore wallpaper), select capture folder, (restore capture)
       const count = 2 + (hasWallpaperPath ? 1 : 0) + 1 + (hasCapturePath ? 1 : 0);
       return Math.max(0, count - 1);
     }
     if (accessibilityLeftIndex === 2) {
-      // Choose avatar, select avatar folder, (restore avatar folder)
       const hasAvatarPath = !!activeUser?.settings?.avatarPath;
       const count = 2 + (hasAvatarPath ? 1 : 0);
       return Math.max(0, count - 1);
     }
-    if (accessibilityLeftIndex === 3) {
-      // 4 sync preference rows
-      return 3;
-    }
+    if (accessibilityLeftIndex === 3) return 0; // 👈 Steam: solo 1 botón (conectar/desvincular)
+    if (accessibilityLeftIndex === 4) return 3; // sync (antes era 3)
     return 0;
   };
 
@@ -341,6 +347,16 @@ export default function SettingsView({
     }
 
     if (accessibilityLeftIndex === 3) {
+      // Steam
+      if (activeUser?.settings?.steamId) {
+        updateUser({ settings: { ...activeUser?.settings, steamId: '' } as any });
+      } else {
+        handleSteamLogin();
+      }
+      return;
+    }
+
+    if (accessibilityLeftIndex === 4) {
       const prefs: { key: 'ratingAndSummary' | 'cover' | 'background' | 'logo'; options: string[] }[] = [
         { key: 'ratingAndSummary', options: ['igdb', 'none'] },
         { key: 'cover', options: ['steamgrid', 'igdb', 'none'] },
@@ -424,7 +440,7 @@ export default function SettingsView({
         if (accessibilityFocusArea === 'left') {
           if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 3));
+            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 4));
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
@@ -722,7 +738,7 @@ export default function SettingsView({
 
             <TouchableOpacity
               style={styles.supportLinkBtn}
-              onPress={() => Linking.openURL('https://youtube.com')}
+              onPress={() => Linking.openURL('https://www.youtube.com/@Re-Devs')}
             >
               <Ionicons name="logo-youtube" size={22} color="#FF0000" />
               <Text style={styles.supportLinkBtnText}>YouTube</Text>
@@ -754,6 +770,7 @@ export default function SettingsView({
       { id: 'visual', title: t('settings.accVisual') },
       { id: 'wallpapers', title: t('settings.accWallpapers') },
       { id: 'avatars', title: t('settings.avatars') },
+      { id: 'steam', title: 'Steam' },
       { id: 'sync', title: t('settings.smartSync') },
     ];
 
@@ -1070,7 +1087,65 @@ export default function SettingsView({
               );
             })()}
 
-            {accessibilityLeftIndex === 3 && (
+            {accessibilityLeftIndex === 3 && (() => {
+              const isRightFocused = accessibilityFocusArea === 'right';
+              const isConnected = !!activeUser?.settings?.steamId;
+
+              return (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.rightSectionTitle}>Steam</Text>
+                  <Text style={[styles.pathDesc, { marginBottom: 16 }]}>
+                    Vincula tu cuenta de Steam para sincronizar tu biblioteca de juegos.
+                  </Text>
+
+                  <View style={styles.cardSection}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <Ionicons name="logo-steam" size={26} color="#FFF" />
+                        <View>
+                          <Text style={styles.toggleRowTitle}>Steam</Text>
+                          {isConnected && (
+                            <Text style={styles.toggleRowDesc}>
+                              Conectado (ID: {activeUser?.settings?.steamId})
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        style={[
+                          isConnected
+                            ? [styles.actionBtnSecondary, { backgroundColor: '#3D1E24', borderColor: '#772233' }]
+                            : styles.actionBtnSecondary,
+                          isRightFocused && subFocusIndex === 0 && styles.rightItemFocused,
+                        ]}
+                        onPress={() => {
+                          if (isConnected) {
+                            updateUser({ settings: { ...activeUser?.settings, steamId: '' } as any });
+                          } else {
+                            handleSteamLogin();
+                          }
+                        }}
+                      >
+                        {isConnected ? (
+                          <>
+                            <Ionicons name="unlink-outline" size={18} color="#FF5566" />
+                            <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>{t('settings.unlink')}</Text>
+                          </>
+                        ) : (
+                          <>
+                            <Ionicons name="log-in-outline" size={18} color="#FFF" />
+                            <Text style={styles.actionBtnSecondaryText}>{t('settings.steamLink')}</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </ScrollView>
+              );
+            })()}
+
+            {accessibilityLeftIndex === 4 && (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.rightSectionTitle}>{t('settings.smartSync')}</Text>
                 <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.smartSyncDesc')}</Text>

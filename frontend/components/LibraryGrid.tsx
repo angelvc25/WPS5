@@ -264,7 +264,7 @@ export default function LibraryGrid({
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(new Set());
   const [selectedSources, setSelectedSources] = useState<Set<'steam' | 'local'>>(new Set());
 
-  const sortLabel = sortDirection === 'none' ? 'Más reciente' : sortDirection === 'asc' ? 'A-Z' : 'Z-A';
+  const sortLabel = sortDirection === 'none' ? t('edit.more') : sortDirection === 'asc' ? 'A-Z' : 'Z-A';
 
   // Ciclo del ordenamiento: Más reciente -> A-Z -> Z-A -> Más reciente
   const cycleSort = () => {
