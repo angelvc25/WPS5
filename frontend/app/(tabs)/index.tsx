@@ -23,7 +23,7 @@ import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import MusicPlayerCard from '@/components/MusicPlayerCard';
 
 // WPS5 UI Expansion Components
-import LibraryGrid from '@/components/LibraryGrid';
+import LibraryGrid, { LibraryGridHandle } from '@/components/LibraryGrid';
 import FloatingSystemNav from '@/components/FloatingSystemNav';
 import OverlayTab from '@/components/OverlayTab';
 import GameContextMenu from '@/components/GameContextMenu';
@@ -196,6 +196,17 @@ export default function ConsoleHome() {
   // true cuando el foco (teclado/mando) está sobre la fila de pestañas
   // Instalados | Tu Colección, en vez de sobre una tarjeta del grid.
   const [libraryTabsFocused, setLibraryTabsFocused] = useState(false);
+  // true cuando el foco (teclado/mando) está sobre el botón de filtro,
+  // a la izquierda del grid (tercera zona de foco dentro de library_grid).
+  const [libraryFilterFocused, setLibraryFilterFocused] = useState(false);
+  // Recuerda si se entró al botón de filtro desde la fila de pestañas
+  // (en vez de desde el grid), para devolver el foco al lugar correcto.
+  const [libraryFilterFromTabs, setLibraryFilterFromTabs] = useState(false);
+  // true mientras el panel de filtros (Sort by / Platform / Source) está
+  // abierto; mientras tanto, la navegación del panel la maneja LibraryGrid
+  // internamente y este componente pausa su propio manejo de flechas.
+  const [isLibraryFilterPanelOpen, setIsLibraryFilterPanelOpen] = useState(false);
+  const libraryGridRef = useRef<LibraryGridHandle>(null);
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
   const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
   const [loadingSteam, setLoadingSteam] = useState(false);
@@ -860,6 +871,7 @@ export default function ConsoleHome() {
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
         if (isLaunching) return;
         if (isDetailVisible || isLibraryDetailVisible) return;
+        if (isLibraryFilterPanelOpen) return; // el panel de filtros gestiona su propia navegación
         if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
         if (isSearchVisible) return;
 
@@ -1083,7 +1095,12 @@ export default function ConsoleHome() {
         if (e.key === 'ArrowRight') {
           soundService.playNavigation();
           if (focusArea === 'library_grid') {
-            if (libraryTabsFocused) {
+            if (libraryFilterFocused) {
+              // Del botón de filtro hacia la derecha: vuelve al grid, o a las
+              // pestañas si fue ahí donde se dejó el foco antes de entrar al filtro.
+              setLibraryFilterFocused(false);
+              if (libraryFilterFromTabs) setLibraryTabsFocused(true);
+            } else if (libraryTabsFocused) {
               if (libraryTab !== 'collection') { setLibraryTab('collection'); setLibraryGridFocusIndex(0); }
             } else {
               setLibraryGridFocusIndex(prev => Math.min(prev + 1, displayedLibraryGames.length - 1));
@@ -1144,8 +1161,21 @@ export default function ConsoleHome() {
         if (e.key === 'ArrowLeft') {
           soundService.playNavigation();
           if (focusArea === 'library_grid') {
-            if (libraryTabsFocused) {
-              if (libraryTab !== 'installed') { setLibraryTab('installed'); setLibraryGridFocusIndex(0); }
+            if (libraryFilterFocused) {
+              // Ya está en el extremo izquierdo, no hay nada más allá.
+            } else if (libraryTabsFocused) {
+              if (libraryTab !== 'installed') {
+                setLibraryTab('installed');
+                setLibraryGridFocusIndex(0);
+              } else {
+                // Ya en "Installed" (la pestaña más a la izquierda): pasar al botón de filtro.
+                setLibraryTabsFocused(false);
+                setLibraryFilterFromTabs(true);
+                setLibraryFilterFocused(true);
+              }
+            } else if (libraryGridFocusIndex % 5 === 0) {
+              setLibraryFilterFromTabs(false);
+              setLibraryFilterFocused(true);
             } else {
               setLibraryGridFocusIndex(prev => Math.max(prev - 1, 0));
             }
@@ -1202,7 +1232,10 @@ export default function ConsoleHome() {
         if (e.key === 'ArrowDown') {
           soundService.playNavigation();
           if (focusArea === 'library_grid') {
-            if (libraryTabsFocused) {
+            if (libraryFilterFocused) {
+              setLibraryFilterFocused(false);
+              setLibraryGridFocusIndex(0);
+            } else if (libraryTabsFocused) {
               setLibraryTabsFocused(false);
               setLibraryGridFocusIndex(0);
             } else {
@@ -1221,6 +1254,7 @@ export default function ConsoleHome() {
             if (activeItem?.id === 'more_library') {
               setFocusArea('library_grid');
               setLibraryTabsFocused(true);
+              setLibraryFilterFocused(false);
               setLibraryGridFocusIndex(0);
             } else if (activeItem?.id === '1') {
               setFocusArea('welcome_widgets');
@@ -1280,7 +1314,10 @@ export default function ConsoleHome() {
         if (e.key === 'ArrowUp') {
           soundService.playNavigation();
           if (focusArea === 'library_grid') {
-            if (libraryTabsFocused) {
+            if (libraryFilterFocused) {
+              setFocusArea('main_carousel');
+              setLibraryFilterFocused(false);
+            } else if (libraryTabsFocused) {
               setFocusArea('main_carousel');
               setLibraryTabsFocused(false);
             } else if (libraryGridFocusIndex < 5) {
@@ -1368,6 +1405,10 @@ export default function ConsoleHome() {
             return;
           }
           if (focusArea === 'library_grid') {
+            if (libraryFilterFocused) {
+              libraryGridRef.current?.activateFilterButton();
+              return;
+            }
             if (libraryTabsFocused) { return; } // usa ←/→ para cambiar de pestaña
             const game = displayedLibraryGames[libraryGridFocusIndex];
             if (game) { setSelectedItem(game); setDetailVisible(true); }
@@ -1458,6 +1499,16 @@ export default function ConsoleHome() {
           return;
         }
         if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
+          if (focusArea === 'library_grid') {
+            // Dentro de la biblioteca, L1/R1 alterna Installed ⇄ Your Collection
+            // en vez de cambiar la pestaña global Games/Media.
+            soundService.playTab();
+            setLibraryTab(prev => (prev === 'installed' ? 'collection' : 'installed'));
+            setLibraryGridFocusIndex(0);
+            setLibraryTabsFocused(false);
+            setLibraryFilterFocused(false);
+            return;
+          }
           soundService.playTab();
           const direction = (e.key === 'q' || e.key === 'Q') ? -1 : 1;
           setActiveTab(prev => {
@@ -1478,7 +1529,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, isSearchVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, systemNavMaxCardIndex, libraryGridFocusIndex, libraryTabsFocused, displayedLibraryGames, lastPlayedGame, activeUser, storeOffers, toolbarFocusIndex]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, isSearchVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, systemNavMaxCardIndex, libraryGridFocusIndex, libraryTabsFocused, libraryFilterFocused, libraryFilterFromTabs, isLibraryFilterPanelOpen, displayedLibraryGames, lastPlayedGame, activeUser, storeOffers, toolbarFocusIndex]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -2309,13 +2360,16 @@ export default function ConsoleHome() {
         {/* LIBRARY GRID SECTION */}
         {isLibraryFocused && (
           <LibraryGrid
+            ref={libraryGridRef}
             games={displayedLibraryGames}
             activeTab={libraryTab}
-            onTabChange={(tab) => { setLibraryTab(tab); setLibraryGridFocusIndex(0); setLibraryTabsFocused(false); }}
+            onTabChange={(tab) => { setLibraryTab(tab); setLibraryGridFocusIndex(0); setLibraryTabsFocused(false); setLibraryFilterFocused(false); }}
             isLoading={loadingSteam}
             isFocused={focusArea === 'library_grid'}
-            gridActive={focusArea === 'library_grid' && !libraryTabsFocused}
+            gridActive={focusArea === 'library_grid' && !libraryTabsFocused && !libraryFilterFocused}
             tabsFocused={focusArea === 'library_grid' && libraryTabsFocused}
+            filterButtonFocused={focusArea === 'library_grid' && libraryFilterFocused}
+            onFilterPanelVisibilityChange={setIsLibraryFilterPanelOpen}
             focusedIndex={libraryGridFocusIndex}
             onItemPress={(index, game) => { setSelectedItem(game); setDetailVisible(true); }}
             onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}

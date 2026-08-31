@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity, useWindowDimensions, Image as RNImage, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
@@ -32,9 +32,35 @@ interface LibraryGridProps {
   // tabsFocused: true cuando el foco de teclado/mando está sobre la fila de
   // pestañas (Instalados | Tu Colección) en lugar de sobre el grid.
   tabsFocused?: boolean;
+  // filterButtonFocused: true cuando el foco de teclado/mando está sobre el
+  // botón de filtro (nueva zona de foco, a la izquierda del grid).
+  filterButtonFocused?: boolean;
+  // Avisa al padre cuando el panel de filtros se abre/cierra, para que
+  // pueda pausar su propio manejo de teclado/mando mientras está abierto
+  // (mismo patrón que onDetailVisibilityChange).
+  onFilterPanelVisibilityChange?: (isVisible: boolean) => void;
+}
+
+// Métodos expuestos para que el componente padre (dueño del estado de foco
+// y del listener de teclado/mando) pueda controlar el botón de filtro y su
+// panel como una zona de foco más, igual que ya hace con el grid y las
+// pestañas.
+export interface LibraryGridHandle {
+  // Abre/cierra el panel de filtros (equivalente a "pulsar" el botón
+  // cuando filterButtonFocused === true).
+  activateFilterButton: () => void;
+  // Mueve la selección dentro del panel de filtros ya abierto.
+  movePanelSelection: (direction: 'up' | 'down') => void;
+  // Activa la fila actualmente seleccionada dentro del panel
+  // (equivalente a pulsar Cross/A o Enter sobre ella).
+  activatePanelSelection: () => void;
+  // Cierra el panel de filtros (equivalente a Circle/B o Escape).
+  closeFilterPanel: () => void;
+  isFilterPanelOpen: () => boolean;
 }
 
 const COLUMNS = 5;
+const FILTER_RAIL_WIDTH = 88;
 
 // ─── SpinningBorder Component (adapted for square/library cards) ──────────────
 // Web-only: conic-gradient spinning halo + diagonal shimmer sweep.
@@ -226,7 +252,7 @@ const SlidingGameTitle = ({
   );
 };
 
-export default function LibraryGrid({
+const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function LibraryGrid({
   games = [], // Aseguramos un fallback vacío por si viene undefined
   isFocused = false,
   focusedIndex = 0,
@@ -242,7 +268,9 @@ export default function LibraryGrid({
   installedSteamAppIds = null,
   gridActive = isFocused,
   tabsFocused = false,
-}: LibraryGridProps) {
+  filterButtonFocused = false,
+  onFilterPanelVisibilityChange,
+}: LibraryGridProps, ref) {
   const { t } = useTranslation();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [selectedGame, setSelectedGame] = useState<ConsoleItem | null>(null);
@@ -266,6 +294,20 @@ export default function LibraryGrid({
 
   const sortLabel = sortDirection === 'none' ? t('edit.more') : sortDirection === 'asc' ? 'A-Z' : 'Z-A';
 
+  // 2b. Índice de la fila resaltada dentro del panel (navegación por
+  // teclado/mando). Se recalcula la lista de filas cada vez que cambian
+  // las secciones expandidas, para que las filas de checkboxes entren y
+  // salgan de la navegación junto con su sección.
+  const [panelFocusIndex, setPanelFocusIndex] = useState(0);
+
+  type PanelRow =
+    | { type: 'sort' }
+    | { type: 'platformHeader' }
+    | { type: 'platformOption'; id: string }
+    | { type: 'sourceHeader' }
+    | { type: 'sourceOption'; id: 'steam' | 'local' }
+    | { type: 'reset' };
+
   // Ciclo del ordenamiento: Más reciente -> A-Z -> Z-A -> Más reciente
   const cycleSort = () => {
     setSortDirection((prev) => {
@@ -287,6 +329,63 @@ export default function LibraryGrid({
     games.some((g) => (g.platform || (isSteamGame(g) ? 'Steam' : 'PC')) === id)
   );
   const platformOptions = availablePlatforms.length > 0 ? availablePlatforms : PLATFORM_IDS;
+
+  // Lista de filas navegables del panel de filtros. Se recalcula cuando
+  // cambian las secciones expandidas, para que las filas de checkboxes
+  // entren y salgan de la navegación junto con su sección.
+  const panelRows: PanelRow[] = useMemo(() => {
+    const rows: PanelRow[] = [{ type: 'sort' }, { type: 'platformHeader' }];
+    if (isPlatformSectionOpen) {
+      platformOptions.forEach((id) => rows.push({ type: 'platformOption', id }));
+    }
+    rows.push({ type: 'sourceHeader' });
+    if (isSourceSectionOpen) {
+      rows.push({ type: 'sourceOption', id: 'steam' }, { type: 'sourceOption', id: 'local' });
+    }
+    rows.push({ type: 'reset' });
+    return rows;
+  }, [isPlatformSectionOpen, isSourceSectionOpen, platformOptions]);
+
+  // Mantiene el índice resaltado dentro de rango si la lista de filas
+  // cambia de tamaño (p.ej. al cerrar una sección expandida).
+  useEffect(() => {
+    setPanelFocusIndex((prev) => Math.min(prev, panelRows.length - 1));
+  }, [panelRows.length]);
+
+  // Ejecuta la acción de la fila actualmente resaltada del panel
+  // (equivalente a "activar" con Enter / Cross / A).
+  const activateCurrentPanelRow = () => {
+    const row = panelRows[panelFocusIndex];
+    if (!row) return;
+    switch (row.type) {
+      case 'sort':
+        cycleSort();
+        break;
+      case 'platformHeader':
+        setIsPlatformSectionOpen((v) => !v);
+        break;
+      case 'platformOption':
+        togglePlatformFilter(row.id);
+        break;
+      case 'sourceHeader':
+        setIsSourceSectionOpen((v) => !v);
+        break;
+      case 'sourceOption':
+        toggleSourceFilter(row.id);
+        break;
+      case 'reset':
+        if (hasActiveFilters) resetFilters();
+        break;
+    }
+  };
+
+  const movePanelFocus = (direction: 'up' | 'down') => {
+    setPanelFocusIndex((prev) => {
+      const delta = direction === 'down' ? 1 : -1;
+      const next = (prev + delta + panelRows.length) % panelRows.length;
+      return next;
+    });
+  };
 
   const togglePlatformFilter = (platformId: string) => {
     setSelectedPlatforms((prev) => {
@@ -320,8 +419,26 @@ export default function LibraryGrid({
     filterButtonRef.current?.measureInWindow((x: number, y: number, _width: number, height: number) => {
       setFilterPanelPos({ top: y + height + 8, left: x });
     });
+    setPanelFocusIndex(0);
     setIsFilterPanelOpen(true);
+    onFilterPanelVisibilityChange?.(true);
   };
+
+  const closeFilterPanel = () => {
+    setIsFilterPanelOpen(false);
+    onFilterPanelVisibilityChange?.(false);
+  };
+
+  useImperativeHandle(ref, () => ({
+    activateFilterButton: () => {
+      if (isFilterPanelOpen) closeFilterPanel();
+      else openFilterPanel();
+    },
+    movePanelSelection: (direction: 'up' | 'down') => movePanelFocus(direction),
+    activatePanelSelection: () => activateCurrentPanelRow(),
+    closeFilterPanel: () => closeFilterPanel(),
+    isFilterPanelOpen: () => isFilterPanelOpen,
+  }));
 
   // 3. Ordenar los juegos basados en el estado actual
   const sortedGames = [...games].sort((a, b) => {
@@ -363,7 +480,7 @@ export default function LibraryGrid({
   const translateY = useSharedValue(0);
 
   const GAP = 20;
-  const gridWidth = windowWidth - 200;
+  const gridWidth = windowWidth - 200 - FILTER_RAIL_WIDTH;
   const cardWidth = (gridWidth - GAP * (COLUMNS - 1)) / COLUMNS;
   const cardHeight = cardWidth;
   const rowHeight = Platform.OS === 'web' ? cardHeight + GAP : 180;
@@ -385,16 +502,58 @@ export default function LibraryGrid({
   const currentRow = Math.floor(focusedIndex / COLUMNS);
   const hasScrolled = currentRow > 1;
 
+  // ─── Teclado (web) ────────────────────────────────────────────────
+  // Con el panel abierto: flechas arriba/abajo mueven la selección,
+  // Enter/Espacio la activa, Escape cierra el panel. Con el panel
+  // cerrado y el botón de filtro enfocado (prop `filterButtonFocused`,
+  // controlada por el padre igual que `tabsFocused`/`gridActive`):
+  // Enter/Espacio lo abre.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isFilterPanelOpen) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          movePanelFocus('down');
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          movePanelFocus('up');
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activateCurrentPanelRow();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          closeFilterPanel();
+        }
+      } else if (filterButtonFocused && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        openFilterPanel();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFilterPanelOpen, filterButtonFocused, panelRows, panelFocusIndex]);
+
+  // Nota: la navegación por mando (D-Pad, Cross/A, Circle/B, L1/R1) llega
+  // aquí como eventos de teclado sintéticos ya despachados por el
+  // componente padre (ver poll de Gamepad API en index.tsx), así que el
+  // listener de teclado de arriba cubre ambos casos sin necesitar un
+  // segundo polling de la Gamepad API en este componente.
+
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
-      <View style={styles.tabsRow}>
-        <View style={{ marginRight: 40 }}>
+      <View style={styles.contentRow}>
+        {/* ─── Riel del botón de filtro, a la izquierda del grid ─── */}
+        <View style={styles.filterRail}>
           <TouchableOpacity
             ref={filterButtonRef}
-            onPress={() => (isFilterPanelOpen ? setIsFilterPanelOpen(false) : openFilterPanel())}
+            onPress={() => (isFilterPanelOpen ? closeFilterPanel() : openFilterPanel())}
             style={[
               styles.filterButton,
-              hasActiveFilters && { backgroundColor: 'rgba(255,255,255,0.3)' } // Se ilumina si hay algún filtro activo
+              hasActiveFilters && { backgroundColor: 'rgba(255,255,255,0.3)' }, // Se ilumina si hay algún filtro activo
+              filterButtonFocused && styles.filterButtonFocused, // Foco de teclado/mando
             ]}
           >
             <Image
@@ -408,18 +567,18 @@ export default function LibraryGrid({
             visible={isFilterPanelOpen}
             transparent
             animationType="fade"
-            onRequestClose={() => setIsFilterPanelOpen(false)}
+            onRequestClose={() => closeFilterPanel()}
           >
             {/* Backdrop invisible para cerrar el panel al tocar fuera */}
             <TouchableOpacity
               style={StyleSheet.absoluteFillObject}
               activeOpacity={1}
-              onPress={() => setIsFilterPanelOpen(false)}
+              onPress={() => closeFilterPanel()}
             />
 
             <View style={[styles.filterPanel, { top: filterPanelPos.top, left: filterPanelPos.left }]}>
               {/* SORT BY */}
-              <View style={styles.filterPanelSortRow}>
+              <View style={[styles.filterPanelSortRow, panelRows[panelFocusIndex]?.type === 'sort' && styles.filterPanelRowFocused]}>
                 <Text style={styles.filterPanelSortLabel}>Sort by</Text>
                 <TouchableOpacity onPress={cycleSort}>
                   <Text style={styles.filterPanelSortValue}>{sortLabel}</Text>
@@ -432,7 +591,7 @@ export default function LibraryGrid({
 
               {/* PLATFORM */}
               <TouchableOpacity
-                style={styles.filterPanelOptionRow}
+                style={[styles.filterPanelOptionRow, panelRows[panelFocusIndex]?.type === 'platformHeader' && styles.filterPanelRowFocused]}
                 onPress={() => setIsPlatformSectionOpen((v) => !v)}
               >
                 <Text style={styles.filterPanelOptionText}>Platform</Text>
@@ -447,10 +606,12 @@ export default function LibraryGrid({
                 <View style={styles.filterPanelCheckList}>
                   {platformOptions.map((platformId) => {
                     const checked = selectedPlatforms.has(platformId);
+                    const currentRow = panelRows[panelFocusIndex];
+                    const rowFocused = currentRow?.type === 'platformOption' && currentRow.id === platformId;
                     return (
                       <TouchableOpacity
                         key={platformId}
-                        style={styles.filterPanelCheckRow}
+                        style={[styles.filterPanelCheckRow, rowFocused && styles.filterPanelRowFocused]}
                         onPress={() => togglePlatformFilter(platformId)}
                         activeOpacity={0.7}
                       >
@@ -466,7 +627,7 @@ export default function LibraryGrid({
 
               {/* SOURCE */}
               <TouchableOpacity
-                style={styles.filterPanelOptionRow}
+                style={[styles.filterPanelOptionRow, panelRows[panelFocusIndex]?.type === 'sourceHeader' && styles.filterPanelRowFocused]}
                 onPress={() => setIsSourceSectionOpen((v) => !v)}
               >
                 <Text style={styles.filterPanelOptionText}>Source</Text>
@@ -484,10 +645,12 @@ export default function LibraryGrid({
                     { id: 'local', label: 'Local' },
                   ] as const).map((opt) => {
                     const checked = selectedSources.has(opt.id);
+                    const currentRow = panelRows[panelFocusIndex];
+                    const rowFocused = currentRow?.type === 'sourceOption' && currentRow.id === opt.id;
                     return (
                       <TouchableOpacity
                         key={opt.id}
-                        style={styles.filterPanelCheckRow}
+                        style={[styles.filterPanelCheckRow, rowFocused && styles.filterPanelRowFocused]}
                         onPress={() => toggleSourceFilter(opt.id)}
                         activeOpacity={0.7}
                       >
@@ -502,7 +665,7 @@ export default function LibraryGrid({
               )}
 
               <TouchableOpacity
-                style={styles.filterPanelResetBtn}
+                style={[styles.filterPanelResetBtn, panelRows[panelFocusIndex]?.type === 'reset' && styles.filterPanelRowFocused]}
                 onPress={resetFilters}
                 disabled={!hasActiveFilters}
               >
@@ -519,31 +682,34 @@ export default function LibraryGrid({
           </Modal>
         </View>
 
-        {isFocused && (
-          <View style={styles.tabsContainer}>
-            <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('installed'); }}>
-              <View style={[styles.tabPill, tabsFocused && activeTab === 'installed' && styles.tabPillFocused]}>
-                <Text style={[styles.tabText, activeTab === 'installed' && styles.tabTextActive]}>{t('library.installed')}</Text>
+        {/* ─── Columna principal: pestañas + contador + grid ─── */}
+        <View style={styles.mainColumn}>
+          <View style={styles.tabsRow}>
+            {isFocused && (
+              <View style={styles.tabsContainer}>
+                <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('installed'); }}>
+                  <View style={[styles.tabPill, tabsFocused && activeTab === 'installed' && styles.tabPillFocused]}>
+                    <Text style={[styles.tabText, activeTab === 'installed' && styles.tabTextActive]}>{t('library.installed')}</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('collection'); }}>
+                  <View style={[styles.tabPill, tabsFocused && activeTab === 'collection' && styles.tabPillFocused]}>
+                    <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>{t('library.collection')}</Text>
+                  </View>
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('collection'); }}>
-              <View style={[styles.tabPill, tabsFocused && activeTab === 'collection' && styles.tabPillFocused]}>
-                <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>{t('library.collection')}</Text>
-              </View>
-            </TouchableOpacity>
+            )}
           </View>
-        )}
-      </View>
 
-      <View style={styles.header}>
-        {filteredGames.length > 0 && (
-          <Text style={styles.headerTitle}>
-            {activeTab === 'installed' ? t('library.consoleStorage', { count: filteredGames.length }) : t('library.steamGames', { count: filteredGames.length })}
-          </Text>
-        )}
-      </View>
+          <View style={styles.header}>
+            {filteredGames.length > 0 && (
+              <Text style={styles.headerTitle}>
+                {activeTab === 'installed' ? t('library.consoleStorage', { count: filteredGames.length }) : t('library.steamGames', { count: filteredGames.length })}
+              </Text>
+            )}
+          </View>
 
-      <View style={{ height: windowHeight - 220, overflow: 'hidden', paddingTop: 20, marginTop: -20, paddingHorizontal: 20, marginHorizontal: -20 }}>
+          <View style={{ height: windowHeight - 220, overflow: 'hidden', paddingTop: 20, marginTop: -20, paddingHorizontal: 20, marginHorizontal: -20 }}>
         {hasScrolled && (
           <View
             pointerEvents="none"
@@ -716,6 +882,8 @@ export default function LibraryGrid({
           </Animated.View>
         )}
       </View>
+        </View>
+      </View>
 
       <GameDetailView
         isVisible={selectedGame !== null}
@@ -729,7 +897,11 @@ export default function LibraryGrid({
       />
     </Animated.View>
   );
-}
+});
+
+LibraryGrid.displayName = 'LibraryGrid';
+
+export default LibraryGrid;
 
 const styles = StyleSheet.create({
   container: {
@@ -737,6 +909,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 100,
     paddingBottom: 80,
     marginTop: 120,
+  },
+  contentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  filterRail: {
+    width: FILTER_RAIL_WIDTH,
+    alignItems: 'flex-start',
+    marginRight: 24,
+  },
+  mainColumn: {
+    flex: 1,
   },
   tabsRow: {
     flexDirection: 'row',
@@ -750,6 +934,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  filterButtonFocused: {
+    borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -797,6 +987,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 10,
+  },
+  filterPanelRowFocused: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    marginHorizontal: -8,
   },
   filterPanelOptionText: {
     color: '#FFF',
