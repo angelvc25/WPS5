@@ -46,6 +46,7 @@ interface BackgroundTileProps {
   isFocused: boolean;
   isSelected: boolean;
   shouldLoad: boolean;
+  isGif: boolean;
   tileWidth: number;
   tileHeight: number;
   onPress: () => void;
@@ -57,6 +58,7 @@ const BackgroundTile = React.memo<BackgroundTileProps>(({
   isFocused,
   isSelected,
   shouldLoad,
+  isGif,
   tileWidth,
   tileHeight,
   onPress,
@@ -99,6 +101,11 @@ const BackgroundTile = React.memo<BackgroundTileProps>(({
               onLoad={() => setIsLoaded(true)}
               onError={() => setIsLoaded(true)}
             />
+            {isGif && isLoaded && (
+              <View style={styles.gifBadge}>
+                <Text style={styles.gifBadgeText}>animado</Text>
+              </View>
+            )}
           </>
         ) : (
           <View style={styles.tilePlaceholder} />
@@ -152,6 +159,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  gifBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  gifBadgeText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontFamily: 'SSTLight',
+    letterSpacing: 0.3,
   },
 });
 
@@ -622,6 +646,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
                     isFocused={focusArea === 'grid' && gridFocusIndex === idx}
                     isSelected={currentBackgroundUri === img.uri}
                     shouldLoad={isRowVisible(idx)}
+                    isGif={/\.gif(\?.*)?$/i.test(img.name || img.uri)}
                     tileWidth={tileWidth}
                     tileHeight={tileHeight}
                     onFocus={() => {
