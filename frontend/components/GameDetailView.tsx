@@ -18,6 +18,8 @@ import { getSteamLaunchPath, isSteamGame, resolveLaunchPath, resolveSteamLaunchP
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import { PLATFORMS, PLATFORM_IDS } from '@/constants/platforms';
+import { useTranslation } from '@/contexts/LanguageContext';
+
 
 interface GameDetailViewProps {
   isVisible: boolean;
@@ -87,15 +89,15 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
   const getDimensionFilterLabel = (filter: string) => {
     if (assetSelectorTab !== 'capsule' && assetSelectorTab !== 'capsule_wide') {
-      return 'Filtros';
+      return t('edit.filters');
     }
     switch (filter) {
-      case 'all': return 'Dimensiones: Todas';
-      case '2:3': return 'Dimensiones: Vertical 2:3';
-      case '22:31': return 'Dimensiones: Galaxy 22:31';
-      case '92:43': return 'Dimensiones: Horizontal 92:43';
-      case '1:1': return 'Dimensiones: Cuadrada 1:1';
-      default: return 'Dimensiones';
+      case 'all': return t('edit.filterAll');
+      case '2:3': return t('edit.filterVertical');
+      case '22:31': return t('edit.filterGalaxy');
+      case '92:43': return t('edit.filterHorizontal');
+      case '1:1': return t('edit.filterSquare');
+      default: return t('edit.filterBy');
     }
   };
 
@@ -108,6 +110,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setGridFocusIndex(0);
     setCurrentPage(0);
   };
+
+  const { t } = useTranslation();
 
   const getActiveTabList = () => {
     if (!assetsData) return [];
@@ -1308,16 +1312,16 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
           <View style={styles.editContentContainer}>
             {/* Title Header */}
-            <Text style={styles.editMainTitleLarge}>Editar Datos</Text>
+            <Text style={styles.editMainTitleLarge}>{t('edit.title')}</Text>
 
             {/* Two Column Layout */}
             <View style={styles.editTwoColumns}>
               {/* SIDEBAR TABS */}
               <View style={styles.editSidebar}>
                 {[
-                  { id: 'basic', label: 'Datos Básicos', icon: 'information-circle-outline', index: 23 },
-                  { id: 'path', label: 'Ruta del Juego', icon: 'folder-open-outline', index: 24 },
-                  { id: 'art', label: 'Arte y Multimedia', icon: 'image-outline', index: 25 },
+                  { id: 'basic', label: t('edit.basic'), icon: 'information-circle-outline', index: 23 },
+                  { id: 'path', label: t('edit.path'), icon: 'folder-open-outline', index: 24 },
+                  { id: 'art', label: t('edit.art'), icon: 'image-outline', index: 25 },
                 ].map((tab) => {
                   const isTabActive = activeTab === tab.id;
                   const isTabFocused = editModalFocusIndex === tab.index;
@@ -1356,9 +1360,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 <View style={{ flex: 1 }}>
                   {activeTab === 'basic' && (
                     <>
-                      <Text style={styles.editSectionTitle}>Datos Básicos</Text>
+                      <Text style={styles.editSectionTitle}>{t('edit.basic')}</Text>
                       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-                        <Text style={styles.editLabel}>Título</Text>
+                        <Text style={styles.editLabel}>{t('edit.gameTitle')}</Text>
                         <TextInput
                           ref={editTitleRef}
                           style={[styles.editInput, editModalFocusIndex === 2 && styles.editInputFocused]}
@@ -1368,7 +1372,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                         {((editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web') && (
                           <>
-                            <Text style={styles.editLabel}>Plataforma</Text>
+                            <Text style={styles.editLabel}>{t('library.sortPlatform')}</Text>
                             <View style={{ marginBottom: 25 }}>
                               <ScrollView ref={editPlatformScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
                                 {PLATFORMS.map((plat, idx) => {
@@ -1405,7 +1409,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           </>
                         )}
 
-                        <Text style={styles.editLabel}>Descripción</Text>
+                        <Text style={styles.editLabel}>{t('edit.description')}</Text>
                         <TextInput
                           ref={editDescRef}
                           style={[styles.editInput, { height: 140, textAlignVertical: 'top' }, editModalFocusIndex === 14 && styles.editInputFocused]}
@@ -1419,9 +1423,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                   {activeTab === 'path' && (
                     <>
-                      <Text style={styles.editSectionTitle}>Ruta del Juego</Text>
+                      <Text style={styles.editSectionTitle}>{t('edit.path')}</Text>
                       <ScrollView showsVerticalScrollIndicator={false}>
-                        <Text style={styles.editLabel}>Ubicación del ejecutable o enlace</Text>
+                        <Text style={styles.editLabel}>{t('edit.executableLocation')}</Text>
                         {((editData.type || item?.type) === 'web') ? (
                           <TextInput
                             ref={editPathInputRef}
@@ -1436,7 +1440,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             <TextInput
                               ref={editPathInputRef}
                               style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
-                            placeholder="steam://rungameid/..."
+                              placeholder="steam://rungameid/..."
                               placeholderTextColor="#888"
                               value={editData.path}
                               onChangeText={(text) => setEditData({ ...editData, path: text })}
@@ -1455,11 +1459,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               onPress={handleSelectPath}
                             >
                               <Ionicons name="folder-open-outline" size={20} color="#FFF" />
-                              <Text style={styles.editSecondaryBtnText}>Seleccionar nuevo ejecutable (.exe)</Text>
+                              <Text style={styles.editSecondaryBtnText}>{t('add.selectExe')}</Text>
                             </TouchableOpacity>
                             <View style={styles.pathDisplayBox}>
-                              <Text style={styles.pathDisplayTextHeader}>Ruta actual del juego:</Text>
-                              <Text style={styles.pathDisplayText}>{editData.path || 'No seleccionada'}</Text>
+                              <Text style={styles.pathDisplayTextHeader}>{t('edit.currentPath')} </Text>
+                              <Text style={styles.pathDisplayText}>{editData.path || t('edit.noPath')}</Text>
                             </View>
                           </>
                         )}
@@ -1469,9 +1473,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                   {activeTab === 'art' && (
                     <>
-                      <Text style={styles.editSectionTitle}>Arte y Multimedia</Text>
+                      <Text style={styles.editSectionTitle}>{t('edit.art')}</Text>
                       <ScrollView showsVerticalScrollIndicator={false}>
-                        <Text style={styles.editLabel}>Sincronización Inteligente</Text>
+                        <Text style={styles.editLabel}>{t('edit.smartSync')}</Text>
                         <View style={styles.syncRow}>
                           <TouchableOpacity
                             style={[styles.editSyncBtnUnified, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.editSyncBtnUnifiedFocused]}
@@ -1479,19 +1483,19 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             disabled={isSyncing}
                           >
                             <Ionicons name="sync-outline" size={18} color="#000" />
-                            <Text style={styles.editSyncBtnUnifiedText}>{isSyncing ? 'Sincronizando...' : 'Sincronizar Datos (Auto)'}</Text>
+                            <Text style={styles.editSyncBtnUnifiedText}>{isSyncing ? t('edit.syncing') : t('edit.syncData')}</Text>
                           </TouchableOpacity>
                         </View>
 
-                        <Text style={styles.editLabel}>Archivos Locales</Text>
+                        <Text style={styles.editLabel}>{t('edit.localFiles')}</Text>
                         <View style={styles.artGrid}>
                           <TouchableOpacity
                             style={[styles.editArtFileBtn, editModalFocusIndex === 15 && styles.editArtFileBtnFocused]}
                             onPress={() => openAssetSelector('capsule')}
                           >
                             <Ionicons name="image-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
-                            <Text style={styles.artFileBtnTitle}>Portada</Text>
-                            <Text style={styles.artFileBtnSub}>Imagen vertical</Text>
+                            <Text style={styles.artFileBtnTitle}>{t('edit.cover')}</Text>
+                            <Text style={styles.artFileBtnSub}>{t('edit.coverSub')}</Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
@@ -1499,8 +1503,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             onPress={() => openAssetSelector('logo')}
                           >
                             <Ionicons name="color-palette-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
-                            <Text style={styles.artFileBtnTitle}>Logo PNG</Text>
-                            <Text style={styles.artFileBtnSub}>Transparente</Text>
+                            <Text style={styles.artFileBtnTitle}>{t('edit.logoPng')}</Text>
+                            <Text style={styles.artFileBtnSub}>{t('edit.transparent')}</Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
@@ -1508,8 +1512,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             onPress={() => openAssetSelector('hero')}
                           >
                             <Ionicons name="images-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
-                            <Text style={styles.artFileBtnTitle}>Fondo</Text>
-                            <Text style={styles.artFileBtnSub}>Horizontal</Text>
+                            <Text style={styles.artFileBtnTitle}>{t('edit.background')}</Text>
+                            <Text style={styles.artFileBtnSub}>{t('edit.horizontal')}</Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
@@ -1517,7 +1521,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             onPress={handleSelectVideo}
                           >
                             <Ionicons name="videocam-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
-                            <Text style={styles.artFileBtnTitle}>Video</Text>
+                            <Text style={styles.artFileBtnTitle}>{t('edit.video')}</Text>
                             <Text style={styles.artFileBtnSub}>Trailer/Gameplay</Text>
                           </TouchableOpacity>
                         </View>
@@ -1572,17 +1576,17 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               <View style={styles.editContentContainer}>
                 {/* Header */}
                 <View style={styles.assetHeader}>
-                  <Text style={styles.editMainTitleLarge}>Seleccionar Imagen</Text>
+                  <Text style={styles.editMainTitleLarge}>{t('edit.selectImage')}</Text>
 
                   {/* Tabs */}
                   <View style={styles.assetHeaderTabs}>
                     {[
-                      { id: 'capsule', label: 'Cápsula' },
-                      { id: 'capsule_wide', label: 'Cápsula Ancha' },
-                      { id: 'hero', label: 'Imagen Principal' },
+                      { id: 'capsule', label: t('edit.capsule') },
+                      { id: 'capsule_wide', label: t('edit.capsuleWide') },
+                      { id: 'hero', label: t('edit.hero') },
                       { id: 'logo', label: 'Logo' },
-                      { id: 'icon', label: 'Icono' },
-                      { id: 'manage', label: 'Gestionar' },
+                      { id: 'icon', label: t('edit.icon') },
+                      { id: 'manage', label: t('edit.manage') },
                     ].map((tab, idx) => {
                       const isTabActive = assetSelectorTab === tab.id;
                       const isTabFocused = assetSelectorFocusArea === 'tabs' && tab.id === assetSelectorTab;
@@ -1638,7 +1642,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       onPress={handleLocalUpload}
                     >
                       <Ionicons name="cloud-upload-outline" size={16} color="#FFF" />
-                      <Text style={styles.filterBtnText}>Subir Imagen</Text>
+                      <Text style={styles.filterBtnText}>{t('edit.uploadImage')}</Text>
                     </TouchableOpacity>
 
                     {(assetSelectorTab === 'logo' || assetSelectorTab === 'hero') && (
@@ -1650,13 +1654,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         onPress={() => alert("Modo ajustar posición del logotipo activado (visual).")}
                       >
                         <Ionicons name="resize-outline" size={16} color="#FFF" />
-                        <Text style={styles.filterBtnText}>Ajustar posición del logotipo</Text>
+                        <Text style={styles.filterBtnText}>{t('edit.adjustLogoPosition')}</Text>
                       </TouchableOpacity>
                     )}
                   </View>
 
                   <View style={styles.sliderWrapper}>
-                    <Text style={styles.sliderLabel}>Tamaño</Text>
+                    <Text style={styles.sliderLabel}>{t('edit.size')}</Text>
                     <TouchableOpacity
                       activeOpacity={0.9}
                       onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
@@ -1694,13 +1698,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                     </View>
                   ) : assetSelectorTab === 'manage' ? (
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.editSectionTitle}>Gestionar Imágenes</Text>
+                      <Text style={styles.editSectionTitle}>{t('edit.manageImages')}</Text>
                       <View style={[styles.gridContainer, { gap: 20 }]}>
                         {[
-                          { title: 'Subir Portada', desc: 'Imagen vertical', icon: 'image-outline', index: 0 },
-                          { title: 'Subir Logo PNG', desc: 'Con transparencia', icon: 'color-palette-outline', index: 1 },
-                          { title: 'Subir Fondo', desc: 'Imagen horizontal', icon: 'images-outline', index: 2 },
-                          { title: 'Restablecer Todo', desc: 'Volver a valores vacíos', icon: 'trash-outline', index: 3, isDelete: true }
+                          { title: t('edit.uploadCover'), desc: t('edit.coverSub'), icon: 'image-outline', index: 0 },
+                          { title: t('edit.uploadLogo'), desc: t('edit.uploadLogoDesc'), icon: 'color-palette-outline', index: 1 },
+                          { title: t('edit.uploadBg'), desc: t('edit.horizontal'), icon: 'images-outline', index: 2 },
+                          { title: t('edit.resetAll'), desc: t('edit.resetAllDesc'), icon: 'trash-outline', index: 3, isDelete: true }
                         ].map((act) => {
                           const isFocused = assetSelectorFocusArea === 'grid' && gridFocusIndex === act.index;
                           return (
@@ -1815,7 +1819,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 <View style={styles.bottomBarPrompts}>
                   <View style={styles.promptLeft}>
                     <Ionicons name="game-controller-outline" size={20} color="#FFF" />
-                    <Text style={styles.promptLeftText}>MENÚ</Text>
+                    <Text style={styles.promptLeftText}>{t('edit.menu')}</Text>
                   </View>
                   <View style={styles.promptRight}>
                     <View style={styles.promptItem}>
@@ -1833,7 +1837,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           color='#fff'
                         />
                       </View>
-                      <Text style={styles.promptItemText}>Pestaña</Text>
+                      <Text style={styles.promptItemText}>{t('edit.tab')}</Text>
                     </View>
                     <View style={styles.promptItem}>
                       <View style={styles.promptBtnBadge}>
@@ -1849,7 +1853,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           color='#fff'
                         />
                       </View>
-                      <Text style={styles.promptItemText}>Página ({currentPage + 1}/{totalPages || 1})</Text>
+                      <Text style={styles.promptItemText}>{t('edit.page')}({currentPage + 1}/{totalPages || 1})</Text>
                     </View>
                     <View style={styles.promptItem}>
                       <View style={styles.promptBtnBadge}>
@@ -1860,7 +1864,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                         />
                       </View>
-                      <Text style={styles.promptItemText}>Filtros</Text>
+                      <Text style={styles.promptItemText}>{t('edit.filters')}</Text>
                     </View>
                     <View style={styles.promptItem}>
                       <View style={styles.promptBtnBadge}>
@@ -1871,7 +1875,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                         />
                       </View>
-                      <Text style={styles.promptItemText}>Seleccionar</Text>
+                      <Text style={styles.promptItemText}>{t('common.select')}</Text>
                     </View>
                     <View style={styles.promptItem}>
                       <View style={styles.promptBtnBadge}>
@@ -1882,7 +1886,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                         />
                       </View>
-                      <Text style={styles.promptItemText}>Atrás</Text>
+                      <Text style={styles.promptItemText}>{t('common.back')}</Text>
                     </View>
                   </View>
                 </View>
