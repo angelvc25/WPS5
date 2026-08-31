@@ -644,25 +644,23 @@ export default function LibraryGrid({
                               <View style={styles.gradientOverlay} />
                               <View style={styles.gameInfoContainer}>
 
-                                {/* 6. NUEVO: Lógica dinámica para la imagen de plataforma */}
-                                {isSteamGame(game) ? (
-                                  <Text style={{ color: '#FFF', fontFamily: 'SSTBold', fontSize: 16, marginBottom: 8 }}>
-                                    <MaterialCommunityIcons
-                                      name="steam"
-                                      size={20}
-                                      color="#FFF" // Puedes usar #00adef para el azul clásico de Steam o #FFF para mantenerlo minimalista
-                                      style={{ marginRight: 6 }}
-                                    />
-
-                                    Steam</Text>
-
-                                ) : (
-                                  <RNImage
-                                    source={require('@/assets/images/PS5.png')}
-                                    style={styles.platformLogo}
-                                    resizeMode="contain"
-                                  />
-                                )}
+                                {/* 6. Icono + etiqueta dinámicos según la plataforma del juego */}
+                                {(() => {
+                                  const platformId = game.platform || (isSteamGame(game) ? 'Steam' : 'PC');
+                                  const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
+                                  return (
+                                    <View style={styles.platformRow}>
+                                      <Text style={{ color: '#000000ff', fontFamily: 'SSTBadge', fontSize: 12, alignItems: 'center', justifyContent: 'center' }}>
+                                        {/* <MaterialCommunityIcons
+                                          name={iconName as any}
+                                          size={22}
+                                          color="#000000ff"
+                                          style={{ marginRight: 6 }}
+                                        /> */}
+                                        {' '}{platformId}
+                                      </Text>
+                                    </View>);
+                                })()}
 
                                 <SlidingGameTitle
                                   title={game.title || 'Juego'}
@@ -1033,5 +1031,15 @@ const styles = StyleSheet.create({
     width: 52,
     height: 22,
     marginBottom: 8,
+  },
+  platformRow: {
+    backgroundColor: 'white',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    width: '25%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    height: 30,
   },
 });

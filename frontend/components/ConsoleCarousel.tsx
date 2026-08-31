@@ -7,6 +7,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AnimatedCardWrapper from './AnimatedCardWrapper';
 import SpinningBorder from './SpinningBorderConic';
 import { ConsoleItem } from '../app/(tabs)/index';
+import { isSteamGame } from '@/services/steamLaunchService';
 
 interface ConsoleCarouselProps {
   currentData: ConsoleItem[];
@@ -217,14 +218,15 @@ export const ConsoleCarousel = ({
             {cardContent}
             {isActive && (
               <Animated.View style={[styles.activeLabelContainer, { top: CARD_SIZE, left: Math.round(CARD_SIZE * 1.46) + 20 }]} entering={FadeIn.delay(350).duration(450)}>
-                {item.id !== '1' && item.id !== '5' && item.id !== 'more_library' && (
-                  <View style={styles.platformBadge}>
-                    <Image source={require('@/assets/images/PS5.png')}
-                      style={{ width: 60, height: 60 }}
-                      resizeMode="contain"
-                    />
-                  </View>
-                )}
+                {item.id !== '1' && item.id !== '5' && item.id !== 'more_library' && (() => {
+                  const platformSource = item.isLastPlayed ? (lastPlayedGame ?? item) : item;
+                  const platformId = platformSource.platform || (isSteamGame(platformSource as any) ? 'Steam' : 'PC');
+                  return (
+                    <View style={styles.platformBadge}>
+                      <Text style={styles.platformBadgeText}>{platformId}</Text>
+                    </View>
+                  );
+                })()}
                 <Text style={[styles.activeGameTitle, { fontSize: Math.round(CARD_SIZE * 0.23) }]} numberOfLines={1}>
                   {item.id === 'more_library'
                     ? 'Biblioteca de juegos'
@@ -315,11 +317,21 @@ const styles = StyleSheet.create({
     minWidth: 500,
   },
   platformBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 2,
-    marginRight: 1,
+    backgroundColor: 'white',
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 10,
+    marginLeft: 5,
+    marginTop: 8,
+    marginBottom: 5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  platformBadgeText: {
+    color: '#000000ff',
+    fontFamily: 'SSTBadge',
+    fontSize: 12,
   },
   activeGameTitle: {
     color: '#FFFFFF',

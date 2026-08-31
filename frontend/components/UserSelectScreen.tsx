@@ -461,7 +461,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
                 onPress={() => handleSelect(user)}
               >
                 {/* ¡Toda la magia ocurre aquí dentro de manera limpia! */}
-                <RadarFocusWrapper id={user.id} isFocused={isFocused} size={194} innerSize={isFocused ? 180 : 160}>
+                <RadarFocusWrapper id={user.id} isFocused={isFocused} size={205} innerSize={isFocused ? 180 : 160}>
                   <View style={[styles.card, isFocused && styles.cardFocused]}>
                     <Image
                       source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
@@ -488,7 +488,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
           }
         }}
       >
-        <Ionicons name="power" size={35} color="#FFF" />
+        <Ionicons name="power" size={35} color={hoveredId === 'power' ? '#000000ff' : '#FFF'} />
       </TouchableOpacity>
     </View>
   );
@@ -628,12 +628,12 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   powerButtonFocused: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#ffffffff',
     borderColor: '#FFF',
     transform: [{ scale: 1.2 }],
-    shadowColor: '#FF3B30',
+    shadowColor: '#ffffffff',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
+    shadowOpacity: 0.3,
     shadowRadius: 15,
   },
   bottomRightHint: {
