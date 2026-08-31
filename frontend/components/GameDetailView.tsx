@@ -807,7 +807,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             soundService.playNavigation();
             // From content area to tabs sidebar
             if (editModalFocusIndex === 2) setEditModalFocusIndex(23);
-            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount) setEditModalFocusIndex(23);
+            else if (editModalFocusIndex === 3) setEditModalFocusIndex(23);
+            else if (editModalFocusIndex > 3 && editModalFocusIndex < 3 + platformCount) setEditModalFocusIndex(prev => prev - 1);
             else if (editModalFocusIndex === 14) setEditModalFocusIndex(23);
 
             else if (editModalFocusIndex === 22) setEditModalFocusIndex(24);
