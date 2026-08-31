@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
 import RadarFocusWrapper from './RadarFocusWrapper';
 import PSIcon from './PSIcon';
+import BackgroundVideo from './BackgroundVideo';
 import { PSIcons } from '@/constants/psIcons';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { LANGUAGE_OPTIONS, Language } from '@/i18n/translations';
@@ -440,13 +441,13 @@ const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
       onRequestClose={onClose}
     >
       <Animated.View style={styles.root} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
-        <Video
+        <BackgroundVideo
           source={require('@/assets/video/waves_ajustes.mp4')}
           style={StyleSheet.absoluteFillObject}
-          resizeMode={ResizeMode.COVER}
+          resizeMode="cover"
           shouldPlay
           isLooping
-          isMuted
+          muted
         />
         <View style={styles.backdropDim} />
 

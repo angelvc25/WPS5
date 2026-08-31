@@ -1160,7 +1160,7 @@ export default function ConsoleHome() {
               setFocusIndex(prev => prev - 1);
             } else {
               setFocusArea('header_tabs');
-              setFocusIndex(TABS.indexOf(activeTab));
+              setFocusIndex(Math.max(TABS.findIndex(tab => tab.id === activeTab), 0));
             }
           }
           else if (focusArea === 'game_panel') {
@@ -1331,7 +1331,7 @@ export default function ConsoleHome() {
               }
             }
           }
-          else if (focusArea === 'main_carousel') { setFocusArea('header_tabs'); setFocusIndex(TABS.indexOf(activeTab)); }
+          else if (focusArea === 'main_carousel') { setFocusArea('header_tabs'); setFocusIndex(TABS.findIndex(tab => tab.id === activeTab)); }
           else if (focusArea === 'header_tabs') { setFocusArea('header_avatar'); setFocusIndex(0); }
           else if (focusArea === 'welcome_widgets') {
             if (focusIndex >= 5) {

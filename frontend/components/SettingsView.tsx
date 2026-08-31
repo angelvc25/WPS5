@@ -21,6 +21,7 @@ import { soundService } from '@/services/soundService';
 import ControlPrompt from './ControlPrompt';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
+import BackgroundVideo from './BackgroundVideo';
 
 export type SettingsScreenType =
   | 'main'
@@ -1824,13 +1825,13 @@ export default function SettingsView({
       exiting={FadeOut.duration(200)}
     >
       {/* Background Video */}
-      <Video
+      <BackgroundVideo
         source={require('@/assets/video/waves_ajustes.mp4')}
         style={StyleSheet.absoluteFillObject}
-        resizeMode={ResizeMode.COVER}
+        resizeMode="cover"
         shouldPlay
         isLooping
-        isMuted
+        muted
       />
 
       {/* Dark Ambient Overlay */}

@@ -320,6 +320,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  rightComponentWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   label: {
     fontSize: 15,
     color: '#e8ffff',

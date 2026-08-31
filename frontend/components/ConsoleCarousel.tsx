@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
-import Animated, { FadeIn, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { FadeIn, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AnimatedCardWrapper from './AnimatedCardWrapper';
 import SpinningBorder from './SpinningBorderConic';
@@ -29,7 +29,7 @@ interface ConsoleCarouselProps {
   RIGHT_PADDING: number;
   media: ConsoleItem[];
   games: ConsoleItem[];
-  collapseAnim: Animated.SharedValue<number>;
+  collapseAnim: SharedValue<number>;
 }
 
 export const ConsoleCarousel = ({

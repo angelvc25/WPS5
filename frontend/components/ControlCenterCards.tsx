@@ -40,6 +40,7 @@ import {
   SystemMediaSession,
 } from '@/services/systemMediaService';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { TranslationKey } from '@/i18n/translations';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import { PLATFORMS } from '@/constants/platforms';
@@ -1056,10 +1057,12 @@ function AnimatedCard({
                                 </View>
                                 {isFocused && (
                                   <SpinningBorderNoticias
-                                    width={'100%'}
-                                    height={'100%'}
-                                    borderRadius={12}
-                                    id={`discover-${i}`}
+                                    {...({
+                                      width: '100%',
+                                      height: '100%',
+                                      borderRadius: 12,
+                                      id: `discover-${i}`,
+                                    } as any)}
                                   />
                                 )}
                               </TouchableOpacity>
@@ -1309,10 +1312,7 @@ function AnimatedCard({
         {/* SpinningBorder — outside clip, draws over card border */}
         {isActive && !isExpanded && (
           <SpinningBorder
-            width={COLLAPSED_SIZE}
-            height={COLLAPSED_SIZE}
-            borderRadius={16}
-            id={`ctrl-card-${card.id}`}
+            size={COLLAPSED_SIZE}
           />
         )}
       </TouchableOpacity>
@@ -1731,10 +1731,7 @@ function NewsRow({ title, desc, tag, date, imageUri, icon, color, enterDelay, is
       </View>
       {isFocused && (
         <SpinningBorderNoticias
-          width={'100%'}
-          height={'100%'}
-          borderRadius={13}
-          id={`news-${enterDelay}`}
+          size={13}
         />
       )}
     </Animated.View>

@@ -1312,6 +1312,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontStyle: 'italic',
   },
+  musicQuoteContainer: {
+    marginTop: 20,
+    paddingHorizontal: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   mediaPlayBadge: {
     position: 'absolute',
     top: 0,

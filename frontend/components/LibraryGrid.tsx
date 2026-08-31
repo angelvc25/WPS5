@@ -317,7 +317,7 @@ export default function LibraryGrid({
   // Mide la posición real del botón en pantalla antes de abrir el panel,
   // para anclarlo justo debajo (el panel se renderiza en un Modal aparte).
   const openFilterPanel = () => {
-    filterButtonRef.current?.measureInWindow((x, y, width, height) => {
+    filterButtonRef.current?.measureInWindow((x: number, y: number, _width: number, height: number) => {
       setFilterPanelPos({ top: y + height + 8, left: x });
     });
     setIsFilterPanelOpen(true);
