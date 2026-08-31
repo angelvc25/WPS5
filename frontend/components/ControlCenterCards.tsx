@@ -1905,7 +1905,27 @@ const getDiscoverCategories = (t: (key: string) => string) => [
             />
           </>
         ),
-      }
+      },
+      {
+        image: require('@/assets/images/VisualAnimation.png'),
+        title: t('cc.visualAnimation'),
+        description: t('cc.visualAnimationDesc'),
+      },
+      {
+        image: require('@/assets/images/AvatarFolder.png'),
+        title: t('cc.avatarFolder'),
+        description: t('cc.avatarFolderDesc'),
+      },
+      {
+        image: require('@/assets/images/SteamSetting.png'),
+        title: t('cc.steamSetting'),
+        description: t('cc.steamSettingDesc'),
+      },
+      {
+        image: require('@/assets/images/Sync.png'),
+        title: t('cc.sync'),
+        description: t('cc.syncDesc'),
+      },
     ]
   },
   {
@@ -1939,6 +1959,11 @@ const getDiscoverCategories = (t: (key: string) => string) => [
         video: require('@/assets/video/wallpaper.mp4'),
         title: t('cc.personalizeBg2'),
         description: t('cc.personalizeBg2Desc'),
+      },
+      {
+        video: require('@/assets/video/avatarPicker.mp4'),
+        title: t('cc.avatarPicker'),
+        description: t('cc.avatarPickerDesc'),
       }
     ]
   },
@@ -1968,6 +1993,11 @@ const getDiscoverCategories = (t: (key: string) => string) => [
             />
           </>
         ),
+      },
+      {
+        video: require('@/assets/video/editorGames.mp4'),
+        title: t('cc.editorGames'),
+        description: t('cc.editorGamesDesc'),
       }
     ]
   }
