@@ -17,6 +17,7 @@ import { soundService } from '../services/soundService';
 import { getSteamLaunchPath, isSteamGame, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
+import { PLATFORMS, PLATFORM_IDS } from '@/constants/platforms';
 
 interface GameDetailViewProps {
   isVisible: boolean;
@@ -565,6 +566,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const editTitleRef = React.useRef<TextInput>(null);
   const editDescRef = React.useRef<TextInput>(null);
   const editPathInputRef = React.useRef<TextInput>(null);
+  const editPlatformScrollRef = React.useRef<ScrollView>(null);
+  const editPlatformOffsets = React.useRef<number[]>([]);
 
   // Throttle para navegación horizontal en rows (capturas / noticias)
   const rowNavThrottleRef = React.useRef<number | null>(null);
@@ -629,16 +632,29 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
   useEffect(() => {
     if (isEditModalVisible) {
-      setEditModalFocusIndex(20);
+      setEditModalFocusIndex(23);
       setActiveTab('basic');
     }
   }, [isEditModalVisible]);
 
   useEffect(() => {
     if (isEditModalVisible) {
-      if (editModalFocusIndex === 20) setActiveTab('basic');
-      else if (editModalFocusIndex === 21) setActiveTab('path');
-      else if (editModalFocusIndex === 22) setActiveTab('art');
+      if (editModalFocusIndex === 23) setActiveTab('basic');
+      else if (editModalFocusIndex === 24) setActiveTab('path');
+      else if (editModalFocusIndex === 25) setActiveTab('art');
+    }
+  }, [editModalFocusIndex, isEditModalVisible]);
+
+  // Auto-scroll platform row in Edit modal so the focused platform stays visible
+  useEffect(() => {
+    if (!isEditModalVisible) return;
+    const isGame = (editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web';
+    if (!isGame) return;
+    const platformIdx = editModalFocusIndex - 3;
+    if (platformIdx < 0 || platformIdx >= PLATFORMS.length) return;
+    const offset = editPlatformOffsets.current[platformIdx];
+    if (offset !== undefined && editPlatformScrollRef.current) {
+      editPlatformScrollRef.current.scrollTo({ x: Math.max(0, offset - 12), animated: true });
     }
   }, [editModalFocusIndex, isEditModalVisible]);
 
@@ -668,118 +684,118 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
         if (isEditModalVisible) {
           const isGame = (editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web';
+          const platformCount = PLATFORMS.length;
 
           if (e.key === 'ArrowDown') {
             soundService.playNavigation();
-            if (editModalFocusIndex === 20) setEditModalFocusIndex(21);
-            else if (editModalFocusIndex === 21) setEditModalFocusIndex(22);
-            else if (editModalFocusIndex === 22) { } // Tab end
+            if (editModalFocusIndex === 23) setEditModalFocusIndex(24);
+            else if (editModalFocusIndex === 24) setEditModalFocusIndex(25);
+            else if (editModalFocusIndex === 25) { } // Tab end
 
             // Tab 1: basic
-            else if (editModalFocusIndex === 2) setEditModalFocusIndex(isGame ? 3 : 10);
-            else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(10);
-            else if (editModalFocusIndex === 10) setEditModalFocusIndex(16); // to Cancel
+            else if (editModalFocusIndex === 2) setEditModalFocusIndex(isGame ? 3 : 14);
+            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount) setEditModalFocusIndex(14);
+            else if (editModalFocusIndex === 14) setEditModalFocusIndex(20); // to Cancel
 
             // Tab 2: path
-            else if (editModalFocusIndex === 18) setEditModalFocusIndex(16); // to Cancel
+            else if (editModalFocusIndex === 22) setEditModalFocusIndex(20); // to Cancel
 
             // Tab 3: art
-            else if (editModalFocusIndex === 0) setEditModalFocusIndex(11);
-            else if (editModalFocusIndex === 11) setEditModalFocusIndex(13);
-            else if (editModalFocusIndex === 12) setEditModalFocusIndex(14);
-            else if (editModalFocusIndex === 13) setEditModalFocusIndex(16); // to Cancel
-            else if (editModalFocusIndex === 14) setEditModalFocusIndex(17); // to Save
+            else if (editModalFocusIndex === 0) setEditModalFocusIndex(15);
+            else if (editModalFocusIndex === 15) setEditModalFocusIndex(17);
+            else if (editModalFocusIndex === 16) setEditModalFocusIndex(18);
+            else if (editModalFocusIndex === 17) setEditModalFocusIndex(20); // to Cancel
+            else if (editModalFocusIndex === 18) setEditModalFocusIndex(21); // to Save
 
             // Actions
-            else if (editModalFocusIndex >= 15 && editModalFocusIndex <= 17) { }
+            else if (editModalFocusIndex >= 19 && editModalFocusIndex <= 21) { }
           }
 
           else if (e.key === 'ArrowUp') {
             soundService.playNavigation();
-            if (editModalFocusIndex === 22) setEditModalFocusIndex(21);
-            else if (editModalFocusIndex === 21) setEditModalFocusIndex(20);
-            else if (editModalFocusIndex === 20) { } // Tab start
+            if (editModalFocusIndex === 25) setEditModalFocusIndex(24);
+            else if (editModalFocusIndex === 24) setEditModalFocusIndex(23);
+            else if (editModalFocusIndex === 23) { } // Tab start
 
             // Tab 1: basic
-            else if (editModalFocusIndex === 2) setEditModalFocusIndex(20); // Back to sidebar basic tab
-            else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(2);
-            else if (editModalFocusIndex === 10) setEditModalFocusIndex(isGame ? 3 : 2);
+            else if (editModalFocusIndex === 2) setEditModalFocusIndex(23); // Back to sidebar basic tab
+            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount) setEditModalFocusIndex(2);
+            else if (editModalFocusIndex === 14) setEditModalFocusIndex(isGame ? 3 : 2);
 
             // Tab 2: path
-            else if (editModalFocusIndex === 18) setEditModalFocusIndex(21); // Back to sidebar path tab
+            else if (editModalFocusIndex === 22) setEditModalFocusIndex(24); // Back to sidebar path tab
 
             // Tab 3: art
-            else if (editModalFocusIndex === 0) setEditModalFocusIndex(22); // Back to sidebar art tab
-            else if (editModalFocusIndex === 11) setEditModalFocusIndex(0);
-            else if (editModalFocusIndex === 12) setEditModalFocusIndex(0);
-            else if (editModalFocusIndex === 13) setEditModalFocusIndex(11);
-            else if (editModalFocusIndex === 14) setEditModalFocusIndex(12);
+            else if (editModalFocusIndex === 0) setEditModalFocusIndex(25); // Back to sidebar art tab
+            else if (editModalFocusIndex === 15) setEditModalFocusIndex(0);
+            else if (editModalFocusIndex === 16) setEditModalFocusIndex(0);
+            else if (editModalFocusIndex === 17) setEditModalFocusIndex(15);
+            else if (editModalFocusIndex === 18) setEditModalFocusIndex(16);
 
             // Actions
-            else if (editModalFocusIndex >= 15 && editModalFocusIndex <= 17) {
-              if (activeTab === 'basic') setEditModalFocusIndex(10);
-              else if (activeTab === 'path') setEditModalFocusIndex(18);
-              else if (activeTab === 'art') setEditModalFocusIndex(editModalFocusIndex === 17 ? 14 : 13);
+            else if (editModalFocusIndex >= 19 && editModalFocusIndex <= 21) {
+              if (activeTab === 'basic') setEditModalFocusIndex(14);
+              else if (activeTab === 'path') setEditModalFocusIndex(22);
+              else if (activeTab === 'art') setEditModalFocusIndex(editModalFocusIndex === 21 ? 18 : 17);
             }
           }
 
           else if (e.key === 'ArrowRight') {
             soundService.playNavigation();
             // From tabs to content area
-            if (editModalFocusIndex === 20) setEditModalFocusIndex(2); // Basic -> Title
-            else if (editModalFocusIndex === 21) setEditModalFocusIndex(18); // Path -> Path selection
-            else if (editModalFocusIndex === 22) setEditModalFocusIndex(0); // Art -> Sync
+            if (editModalFocusIndex === 23) setEditModalFocusIndex(2); // Basic -> Title
+            else if (editModalFocusIndex === 24) setEditModalFocusIndex(22); // Path -> Path selection
+            else if (editModalFocusIndex === 25) setEditModalFocusIndex(0); // Art -> Sync
 
             // Within content elements
-            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 9) setEditModalFocusIndex(prev => prev + 1);
-            else if (editModalFocusIndex === 11) setEditModalFocusIndex(12);
-            else if (editModalFocusIndex === 13) setEditModalFocusIndex(14);
+            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount - 1) setEditModalFocusIndex(prev => prev + 1);
+            else if (editModalFocusIndex === 15) setEditModalFocusIndex(16);
+            else if (editModalFocusIndex === 17) setEditModalFocusIndex(18);
 
             // Actions
-            else if (editModalFocusIndex >= 15 && editModalFocusIndex < 17) setEditModalFocusIndex(prev => prev + 1);
+            else if (editModalFocusIndex >= 19 && editModalFocusIndex < 21) setEditModalFocusIndex(prev => prev + 1);
           }
 
           else if (e.key === 'ArrowLeft') {
             soundService.playNavigation();
             // From content area to tabs sidebar
-            if (editModalFocusIndex === 2) setEditModalFocusIndex(20);
-            else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) setEditModalFocusIndex(20);
-            else if (editModalFocusIndex === 10) setEditModalFocusIndex(20);
+            if (editModalFocusIndex === 2) setEditModalFocusIndex(23);
+            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount) setEditModalFocusIndex(23);
+            else if (editModalFocusIndex === 14) setEditModalFocusIndex(23);
 
-            else if (editModalFocusIndex === 18) setEditModalFocusIndex(21);
+            else if (editModalFocusIndex === 22) setEditModalFocusIndex(24);
 
-            else if (editModalFocusIndex === 0) setEditModalFocusIndex(22);
-            else if (editModalFocusIndex === 11 || editModalFocusIndex === 13) setEditModalFocusIndex(22);
-            else if (editModalFocusIndex === 12) setEditModalFocusIndex(11);
-            else if (editModalFocusIndex === 14) setEditModalFocusIndex(13);
+            else if (editModalFocusIndex === 0) setEditModalFocusIndex(25);
+            else if (editModalFocusIndex === 15 || editModalFocusIndex === 17) setEditModalFocusIndex(25);
+            else if (editModalFocusIndex === 16) setEditModalFocusIndex(15);
+            else if (editModalFocusIndex === 18) setEditModalFocusIndex(17);
 
             // Actions
-            else if (editModalFocusIndex > 15 && editModalFocusIndex <= 17) setEditModalFocusIndex(prev => prev - 1);
+            else if (editModalFocusIndex > 19 && editModalFocusIndex <= 21) setEditModalFocusIndex(prev => prev - 1);
           }
 
           else if (e.key === 'Enter') {
             soundService.playActivation?.();
-            if (editModalFocusIndex === 20) setActiveTab('basic');
-            else if (editModalFocusIndex === 21) setActiveTab('path');
-            else if (editModalFocusIndex === 22) setActiveTab('art');
+            if (editModalFocusIndex === 23) setActiveTab('basic');
+            else if (editModalFocusIndex === 24) setActiveTab('path');
+            else if (editModalFocusIndex === 25) setActiveTab('art');
             else if (editModalFocusIndex === 0) handleUnifiedSync();
             else if (editModalFocusIndex === 2) editTitleRef.current?.focus();
-            else if (editModalFocusIndex === 18) {
+            else if (editModalFocusIndex === 22) {
               if ((editData.type || item?.type) === 'web') editPathInputRef.current?.focus();
               else handleSelectPath();
             }
-            else if (editModalFocusIndex >= 3 && editModalFocusIndex <= 9) {
-              const platforms = ['PC', 'PS5', 'Xbox', 'Switch', 'Steam', 'EA', 'Epic'];
-              setEditData({ ...editData, platform: platforms[editModalFocusIndex - 3] });
+            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount) {
+              setEditData({ ...editData, platform: PLATFORM_IDS[editModalFocusIndex - 3] });
             }
-            else if (editModalFocusIndex === 10) editDescRef.current?.focus();
-            else if (editModalFocusIndex === 11) openAssetSelector('capsule');
-            else if (editModalFocusIndex === 12) openAssetSelector('logo');
-            else if (editModalFocusIndex === 13) openAssetSelector('hero');
-            else if (editModalFocusIndex === 14) handleSelectVideo();
-            else if (editModalFocusIndex === 15) handleDeleteApp();
-            else if (editModalFocusIndex === 16) setEditModalVisible(false);
-            else if (editModalFocusIndex === 17) handleSaveEdit();
+            else if (editModalFocusIndex === 14) editDescRef.current?.focus();
+            else if (editModalFocusIndex === 15) openAssetSelector('capsule');
+            else if (editModalFocusIndex === 16) openAssetSelector('logo');
+            else if (editModalFocusIndex === 17) openAssetSelector('hero');
+            else if (editModalFocusIndex === 18) handleSelectVideo();
+            else if (editModalFocusIndex === 19) handleDeleteApp();
+            else if (editModalFocusIndex === 20) setEditModalVisible(false);
+            else if (editModalFocusIndex === 21) handleSaveEdit();
           }
 
           else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
@@ -1299,9 +1315,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               {/* SIDEBAR TABS */}
               <View style={styles.editSidebar}>
                 {[
-                  { id: 'basic', label: 'Datos Básicos', icon: 'information-circle-outline', index: 20 },
-                  { id: 'path', label: 'Ruta del Juego', icon: 'folder-open-outline', index: 21 },
-                  { id: 'art', label: 'Arte y Multimedia', icon: 'image-outline', index: 22 },
+                  { id: 'basic', label: 'Datos Básicos', icon: 'information-circle-outline', index: 23 },
+                  { id: 'path', label: 'Ruta del Juego', icon: 'folder-open-outline', index: 24 },
+                  { id: 'art', label: 'Arte y Multimedia', icon: 'image-outline', index: 25 },
                 ].map((tab) => {
                   const isTabActive = activeTab === tab.id;
                   const isTabFocused = editModalFocusIndex === tab.index;
@@ -1354,16 +1370,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           <>
                             <Text style={styles.editLabel}>Plataforma</Text>
                             <View style={{ marginBottom: 25 }}>
-                              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
-                                {[
-                                  { id: 'PC', icon: 'microsoft-windows' },
-                                  { id: 'PS5', icon: 'sony-playstation' },
-                                  { id: 'Xbox', icon: 'microsoft-xbox' },
-                                  { id: 'Switch', icon: 'nintendo-switch' },
-                                  { id: 'Steam', icon: 'steam' },
-                                  { id: 'EA', icon: 'alpha-e-box' },
-                                  { id: 'Epic', icon: 'alpha-e-circle' }
-                                ].map((plat, idx) => {
+                              <ScrollView ref={editPlatformScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
+                                {PLATFORMS.map((plat, idx) => {
                                   const focusIdx = 3 + idx;
                                   const isActive = editData.platform === plat.id;
                                   const isFocused = editModalFocusIndex === focusIdx;
@@ -1376,6 +1384,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                         isFocused && styles.platformBtnFocusedNew
                                       ]}
                                       onPress={() => setEditData({ ...editData, platform: plat.id })}
+                                      onLayout={(e) => { editPlatformOffsets.current[idx] = e.nativeEvent.layout.x; }}
                                     >
                                       <MaterialCommunityIcons
                                         name={plat.icon as any}
@@ -1399,7 +1408,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <Text style={styles.editLabel}>Descripción</Text>
                         <TextInput
                           ref={editDescRef}
-                          style={[styles.editInput, { height: 140, textAlignVertical: 'top' }, editModalFocusIndex === 10 && styles.editInputFocused]}
+                          style={[styles.editInput, { height: 140, textAlignVertical: 'top' }, editModalFocusIndex === 14 && styles.editInputFocused]}
                           multiline
                           value={editData.description}
                           onChangeText={(text) => setEditData({ ...editData, description: text })}
@@ -1416,7 +1425,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         {((editData.type || item?.type) === 'web') ? (
                           <TextInput
                             ref={editPathInputRef}
-                            style={[styles.editInput, editModalFocusIndex === 18 && styles.editInputFocused]}
+                            style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
                             placeholder="URL (https://...)"
                             placeholderTextColor="#888"
                             value={editData.path}
@@ -1426,8 +1435,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           <>
                             <TextInput
                               ref={editPathInputRef}
-                              style={[styles.editInput, editModalFocusIndex === 18 && styles.editInputFocused]}
-                              placeholder="steam://rungameid/..."
+                              style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
+                            placeholder="steam://rungameid/..."
                               placeholderTextColor="#888"
                               value={editData.path}
                               onChangeText={(text) => setEditData({ ...editData, path: text })}
@@ -1442,7 +1451,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         ) : (
                           <>
                             <TouchableOpacity
-                              style={[styles.editSecondaryBtn, editModalFocusIndex === 18 && styles.editSecondaryBtnFocused]}
+                              style={[styles.editSecondaryBtn, editModalFocusIndex === 22 && styles.editSecondaryBtnFocused]}
                               onPress={handleSelectPath}
                             >
                               <Ionicons name="folder-open-outline" size={20} color="#FFF" />
@@ -1477,7 +1486,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <Text style={styles.editLabel}>Archivos Locales</Text>
                         <View style={styles.artGrid}>
                           <TouchableOpacity
-                            style={[styles.editArtFileBtn, editModalFocusIndex === 11 && styles.editArtFileBtnFocused]}
+                            style={[styles.editArtFileBtn, editModalFocusIndex === 15 && styles.editArtFileBtnFocused]}
                             onPress={() => openAssetSelector('capsule')}
                           >
                             <Ionicons name="image-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
@@ -1486,7 +1495,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            style={[styles.editArtFileBtn, editModalFocusIndex === 12 && styles.editArtFileBtnFocused]}
+                            style={[styles.editArtFileBtn, editModalFocusIndex === 16 && styles.editArtFileBtnFocused]}
                             onPress={() => openAssetSelector('logo')}
                           >
                             <Ionicons name="color-palette-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
@@ -1495,7 +1504,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            style={[styles.editArtFileBtn, editModalFocusIndex === 13 && styles.editArtFileBtnFocused]}
+                            style={[styles.editArtFileBtn, editModalFocusIndex === 17 && styles.editArtFileBtnFocused]}
                             onPress={() => openAssetSelector('hero')}
                           >
                             <Ionicons name="images-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
@@ -1504,7 +1513,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            style={[styles.editArtFileBtn, editModalFocusIndex === 14 && styles.editArtFileBtnFocused]}
+                            style={[styles.editArtFileBtn, editModalFocusIndex === 18 && styles.editArtFileBtnFocused]}
                             onPress={handleSelectVideo}
                           >
                             <Ionicons name="videocam-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
@@ -1521,21 +1530,21 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 <View style={styles.modalDivider} />
                 <View style={styles.modalActions}>
                   <TouchableOpacity
-                    style={[styles.editDeleteBtn, editModalFocusIndex === 15 && styles.editDeleteBtnFocused]}
+                    style={[styles.editDeleteBtn, editModalFocusIndex === 19 && styles.editDeleteBtnFocused]}
                     onPress={handleDeleteApp}
                   >
-                    <Ionicons name="trash-outline" size={20} color={editModalFocusIndex === 15 ? '#FFF' : '#FF3B30'} />
+                    <Ionicons name="trash-outline" size={20} color={editModalFocusIndex === 19 ? '#FFF' : '#FF3B30'} />
                   </TouchableOpacity>
 
                   <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 15 }}>
                     <TouchableOpacity
-                      style={[styles.editSecondaryBtn, { paddingVertical: 14, paddingHorizontal: 24 }, editModalFocusIndex === 16 && styles.editSecondaryBtnFocused]}
+                      style={[styles.editSecondaryBtn, { paddingVertical: 14, paddingHorizontal: 24 }, editModalFocusIndex === 20 && styles.editSecondaryBtnFocused]}
                       onPress={() => setEditModalVisible(false)}
                     >
                       <Text style={styles.editSecondaryBtnText}>Cancelar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[styles.editPrimaryBtn, editModalFocusIndex === 17 && styles.editPrimaryBtnFocused]}
+                      style={[styles.editPrimaryBtn, editModalFocusIndex === 21 && styles.editPrimaryBtnFocused]}
                       onPress={handleSaveEdit}
                     >
                       <Text style={styles.editPrimaryBtnText}>Guardar</Text>

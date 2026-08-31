@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listFolderImages: (folderPath) => ipcRenderer.invoke('list-folder-images', folderPath),
   getDefaultWallpaperFolder: () => ipcRenderer.invoke('get-default-wallpaper-folder'),
   getDefaultCaptureFolder: () => ipcRenderer.invoke('get-default-capture-folder'),
+  listFolderAvatars: (folderPath) => ipcRenderer.invoke('list-folder-avatars', folderPath),
+  getDefaultAvatarFolder: () => ipcRenderer.invoke('get-default-avatar-folder'),
   openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
   steamLogin: () => ipcRenderer.invoke('steam-login'),
   getSteamInstalledApps: () => ipcRenderer.invoke('get-steam-installed-apps'),

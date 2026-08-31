@@ -71,6 +71,8 @@ interface SettingsViewProps {
   onOpenBgModal: () => void;
   onSelectWallpaperFolder: () => void;
   onSelectCaptureFolder: () => void;
+  onOpenAvatarModal?: () => void;
+  onSelectAvatarFolder?: () => void;
   initialScreen?: SettingsScreenType;
 }
 
@@ -88,6 +90,8 @@ export default function SettingsView({
   onOpenBgModal,
   onSelectWallpaperFolder,
   onSelectCaptureFolder,
+  onOpenAvatarModal,
+  onSelectAvatarFolder,
   initialScreen = 'main',
 }: SettingsViewProps) {
   const { t } = useTranslation();
@@ -235,6 +239,12 @@ export default function SettingsView({
       return Math.max(0, count - 1);
     }
     if (accessibilityLeftIndex === 2) {
+      // Choose avatar, select avatar folder, (restore avatar folder)
+      const hasAvatarPath = !!activeUser?.settings?.avatarPath;
+      const count = 2 + (hasAvatarPath ? 1 : 0);
+      return Math.max(0, count - 1);
+    }
+    if (accessibilityLeftIndex === 3) {
       // 4 sync preference rows
       return 3;
     }
@@ -304,6 +314,33 @@ export default function SettingsView({
     }
 
     if (accessibilityLeftIndex === 2) {
+      const hasAvatarPath = !!activeUser?.settings?.avatarPath;
+      let idx = 0;
+
+      if (subFocusIndex === idx) {
+        onClose();
+        onOpenAvatarModal?.();
+        return;
+      }
+      idx++;
+
+      if (subFocusIndex === idx) {
+        onSelectAvatarFolder?.();
+        return;
+      }
+      idx++;
+
+      if (hasAvatarPath) {
+        if (subFocusIndex === idx) {
+          updateUser({ settings: { ...activeUser?.settings, avatarPath: '' } as any });
+          return;
+        }
+        idx++;
+      }
+      return;
+    }
+
+    if (accessibilityLeftIndex === 3) {
       const prefs: { key: 'ratingAndSummary' | 'cover' | 'background' | 'logo'; options: string[] }[] = [
         { key: 'ratingAndSummary', options: ['igdb', 'none'] },
         { key: 'cover', options: ['steamgrid', 'igdb', 'none'] },
@@ -387,7 +424,7 @@ export default function SettingsView({
         if (accessibilityFocusArea === 'left') {
           if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 2));
+            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 3));
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
@@ -552,6 +589,8 @@ export default function SettingsView({
     onOpenBgModal,
     onSelectWallpaperFolder,
     onSelectCaptureFolder,
+    onOpenAvatarModal,
+    onSelectAvatarFolder,
     onClose,
   ]);
 
@@ -714,6 +753,7 @@ export default function SettingsView({
     const accessibilitySections = [
       { id: 'visual', title: t('settings.accVisual') },
       { id: 'wallpapers', title: t('settings.accWallpapers') },
+      { id: 'avatars', title: t('settings.avatars') },
       { id: 'sync', title: t('settings.smartSync') },
     ];
 
@@ -952,7 +992,85 @@ export default function SettingsView({
               );
             })()}
 
-            {accessibilityLeftIndex === 2 && (
+            {accessibilityLeftIndex === 2 && (() => {
+              const hasAvatarPath = !!activeUser?.settings?.avatarPath;
+              let idx = 0;
+              const chooseAvatarIdx = idx++;
+              const selectAvatarFolderIdx = idx++;
+              const restoreAvatarIdx = hasAvatarPath ? idx++ : -1;
+              const isRightFocused = accessibilityFocusArea === 'right';
+
+              return (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.rightSectionTitle}>{t('settings.avatars')}</Text>
+
+                  <Text style={styles.pathDesc}>
+                    {t('settings.pickAvatarDesc')}
+                  </Text>
+
+                  {/* Avatar Selection */}
+                  <View style={styles.cardSection}>
+                    <Text style={styles.sectionLabel}>{t('settings.pickAvatar')}</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.actionBtnSecondary,
+                        isRightFocused && subFocusIndex === chooseAvatarIdx && styles.rightItemFocused,
+                      ]}
+                      onPress={() => {
+                        onClose();
+                        onOpenAvatarModal?.();
+                      }}
+                    >
+                      <Ionicons name="person-circle-outline" size={20} color="#FFF" />
+                      <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseAvatar')}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Avatar Folder */}
+                  <View style={styles.cardSection}>
+                    <Text style={styles.sectionLabel}>{t('settings.avatarFolder')}</Text>
+                    <Text style={styles.pathDesc}>
+                      {t('settings.currentPath', {
+                        path: activeUser?.settings?.avatarPath || t('settings.defaultAvatars'),
+                      })}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                      <TouchableOpacity
+                        style={[
+                          styles.actionBtnSecondary,
+                          isRightFocused && subFocusIndex === selectAvatarFolderIdx && styles.rightItemFocused,
+                        ]}
+                        onPress={onSelectAvatarFolder}
+                      >
+                        <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                        <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
+                      </TouchableOpacity>
+                      {hasAvatarPath ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.actionBtnSecondary,
+                            { backgroundColor: '#3D1E24', borderColor: '#772233' },
+                            isRightFocused && subFocusIndex === restoreAvatarIdx && styles.rightItemFocused,
+                          ]}
+                          onPress={() =>
+                            updateUser({
+                              settings: { ...activeUser?.settings, avatarPath: '' } as any,
+                            })
+                          }
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#FF5566" />
+                          <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
+                            {t('settings.restoreDefault')}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+                </ScrollView>
+              );
+            })()}
+
+            {accessibilityLeftIndex === 3 && (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.rightSectionTitle}>{t('settings.smartSync')}</Text>
                 <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.smartSyncDesc')}</Text>
@@ -1334,10 +1452,22 @@ export default function SettingsView({
                       <Ionicons name="camera" size={16} color="#FFF" />
                     </View>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionBtnSecondary, styles.actionBtnStretch]} onPress={handleSelectAvatar}>
-                    <Ionicons name="image-outline" size={18} color="#FFF" />
-                    <Text style={styles.actionBtnSecondaryText}>{t('settings.profilePhoto')}</Text>
-                  </TouchableOpacity>
+                  <View style={{ gap: 10, flex: 1 }}>
+                    <TouchableOpacity
+                      style={[styles.actionBtnSecondary, styles.actionBtnStretch]}
+                      onPress={() => {
+                        onClose();
+                        onOpenAvatarModal?.();
+                      }}
+                    >
+                      <Ionicons name="person-circle-outline" size={18} color="#FFF" />
+                      <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseAvatar')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionBtnSecondary, styles.actionBtnStretch]} onPress={handleSelectAvatar}>
+                      <Ionicons name="image-outline" size={18} color="#FFF" />
+                      <Text style={styles.actionBtnSecondaryText}>{t('settings.profilePhoto')}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             )}

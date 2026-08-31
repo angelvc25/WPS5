@@ -32,6 +32,7 @@ export interface UserSettings {
   useSteamAvatar?: boolean;
   capturePath?: string;
   wallpaperPath?: string;
+  avatarPath?: string;
   invertTransitionDirection?: boolean;
   language?: 'es' | 'en' | 'pt';
 }

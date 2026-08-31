@@ -16,6 +16,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ConsoleItem } from '@/app/(tabs)/index';
 import { soundService } from '@/services/soundService';
 import ControlPrompt from '@/components/ControlPrompt';
+import { PLATFORM_ICONS } from '@/constants/platforms';
 
 
 
@@ -207,15 +208,7 @@ function RollCard({ game, index, rollX, itemSize }: { game: ConsoleItem, index: 
     };
   });
 
-  const platformIcons: Record<string, string> = {
-    'PC': 'microsoft-windows',
-    'PS5': 'sony-playstation',
-    'Xbox': 'microsoft-xbox',
-    'Switch': 'nintendo-switch',
-    'Steam': 'steam',
-    'EA': 'alpha-e-box',
-    'Epic': 'alpha-e-circle',
-  };
+  const platformIcons: Record<string, string> = PLATFORM_ICONS;
   const platform = game.platform;
   const iconName = (platform && platformIcons[platform]) || 'alpha-z-box';
 

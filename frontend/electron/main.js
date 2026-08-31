@@ -1267,6 +1267,53 @@ app.whenReady().then(() => {
     return folder;
   });
 
+  // IPC: Lista imágenes de una carpeta de avatares
+  ipcMain.handle('list-folder-avatars', async (event, folderPath) => {
+    try {
+      if (!folderPath || !fs.existsSync(folderPath)) return [];
+
+      const files = fs.readdirSync(folderPath);
+      const entries = [];
+
+      for (const file of files) {
+        const ext = path.extname(file).toLowerCase();
+        if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) {
+          const fullPath = path.join(folderPath, file);
+          try {
+            const stats = fs.statSync(fullPath);
+            entries.push({
+              fullPath,
+              name: file,
+              mtime: stats.mtimeMs,
+            });
+          } catch (_) { /* skip unreadable files */ }
+        }
+      }
+
+      entries.sort((a, b) => b.mtime - a.mtime);
+
+      const images = entries.map(({ fullPath, name, mtime }) => {
+        const uri = toLocalFileUri(fullPath);
+        const thumbnail = getOrCreateThumbnail(fullPath, mtime) || uri;
+        return { uri, thumbnail, name, mtime };
+      });
+
+      return images;
+    } catch (error) {
+      console.error('Error listing avatar images:', error);
+      return [];
+    }
+  });
+
+  // IPC: Carpeta predeterminada de avatares
+  ipcMain.handle('get-default-avatar-folder', async () => {
+    const folder = path.join(app.getPath('userData'), 'avatars');
+    if (!fs.existsSync(folder)) {
+      fs.mkdirSync(folder, { recursive: true });
+    }
+    return folder;
+  });
+
   // IPC: Obtener última captura de un directorio
   ipcMain.handle('get-latest-capture', async (event, folderPath) => {
     try {

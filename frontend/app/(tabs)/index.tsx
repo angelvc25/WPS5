@@ -36,12 +36,14 @@ import WelcomeWidgets from '@/components/WelcomeWidgets';
 import GameInfoPanel from '@/components/GameInfoPanel';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
 import BackgroundPickerModal from '@/components/BackgroundPickerModal';
+import AvatarPickerModal from '@/components/AvatarPickerModal';
 import SearchView from '@/components/SearchView';
 import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
 import { fetchStoreOffers, StoreOffer, LOCAL_FALLBACK_OFFERS } from '@/services/storeService';
 import { UserProfile } from '@/components/UserSelectScreen';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { LANGUAGE_OPTIONS, isLanguage, Language } from '@/i18n/translations';
+import { PLATFORMS, PLATFORM_IDS } from '@/constants/platforms';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -163,6 +165,7 @@ export default function ConsoleHome() {
   const [isUserModalVisible, setUserModalVisible] = useState(false);
   const [modalSelectedIndex, setModalSelectedIndex] = useState(0);
   const [isHomeBgModalVisible, setHomeBgModalVisible] = useState(false);
+  const [isAvatarModalVisible, setAvatarModalVisible] = useState(false);
   const [isSearchVisible, setSearchVisible] = useState(false);
   const [searchUsers, setSearchUsers] = useState<UserProfile[]>([]);
   const [toolbarFocusIndex, setToolbarFocusIndex] = useState(2);
@@ -173,6 +176,8 @@ export default function ConsoleHome() {
   const addModalTitleRef = useRef<TextInput>(null);
   const addModalPathRef = useRef<TextInput>(null);
   const addModalPlatformRef = useRef<TextInput>(null);
+  const addModalPlatformScrollRef = useRef<ScrollView>(null);
+  const addModalPlatformOffsets = useRef<number[]>([]);
   const settingsNameRef = useRef<TextInput>(null);
 
   const [isFavoritesVisible, setFavoritesVisible] = useState(false);
@@ -836,6 +841,17 @@ export default function ConsoleHome() {
     if (isSettingsVisible) { setSettingsFocusArea('sidebar'); setSettingsFocusIndex(0); }
   }, [isSettingsVisible]);
 
+  // Auto-scroll platform row in Add App modal so the focused platform stays visible
+  useEffect(() => {
+    if (!isAddModalVisible || newApp.type !== 'game') return;
+    const platformIdx = addModalFocusIndex - 4;
+    if (platformIdx < 0 || platformIdx >= PLATFORMS.length) return;
+    const offset = addModalPlatformOffsets.current[platformIdx];
+    if (offset !== undefined && addModalPlatformScrollRef.current) {
+      addModalPlatformScrollRef.current.scrollTo({ x: Math.max(0, offset - 12), animated: true });
+    }
+  }, [addModalFocusIndex, isAddModalVisible, newApp.type]);
+
   // Keyboard Navigation
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -1025,37 +1041,36 @@ export default function ConsoleHome() {
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setAddModalVisible(false);
           else if (e.key === 'ArrowDown') {
             if (addModalFocusIndex === 0) setAddModalFocusIndex(1);
-            else if (addModalFocusIndex >= 1 && addModalFocusIndex <= 3) setAddModalFocusIndex(newApp.type === 'game' ? 4 : 11);
-            else if (addModalFocusIndex >= 4 && addModalFocusIndex <= 10) setAddModalFocusIndex(11);
-            else if (addModalFocusIndex === 11) setAddModalFocusIndex(12);
-            else if (addModalFocusIndex === 12) setAddModalFocusIndex(14);
-            else if (addModalFocusIndex === 13) setAddModalFocusIndex(14);
+            else if (addModalFocusIndex >= 1 && addModalFocusIndex <= 3) setAddModalFocusIndex(newApp.type === 'game' ? 4 : 15);
+            else if (addModalFocusIndex >= 4 && addModalFocusIndex <= 3 + PLATFORMS.length) setAddModalFocusIndex(15);
+            else if (addModalFocusIndex === 15) setAddModalFocusIndex(16);
+            else if (addModalFocusIndex === 16) setAddModalFocusIndex(18);
+            else if (addModalFocusIndex === 17) setAddModalFocusIndex(18);
           } else if (e.key === 'ArrowUp') {
-            if (addModalFocusIndex === 14 || addModalFocusIndex === 13) setAddModalFocusIndex(12);
-            else if (addModalFocusIndex === 12) setAddModalFocusIndex(11);
-            else if (addModalFocusIndex === 11) setAddModalFocusIndex(newApp.type === 'game' ? 4 : 1);
-            else if (addModalFocusIndex >= 4 && addModalFocusIndex <= 10) setAddModalFocusIndex(1);
+            if (addModalFocusIndex === 18 || addModalFocusIndex === 17) setAddModalFocusIndex(16);
+            else if (addModalFocusIndex === 16) setAddModalFocusIndex(15);
+            else if (addModalFocusIndex === 15) setAddModalFocusIndex(newApp.type === 'game' ? 4 : 1);
+            else if (addModalFocusIndex >= 4 && addModalFocusIndex <= 3 + PLATFORMS.length) setAddModalFocusIndex(1);
             else if (addModalFocusIndex >= 1 && addModalFocusIndex <= 3) setAddModalFocusIndex(0);
           } else if (e.key === 'ArrowRight') {
             if (addModalFocusIndex >= 1 && addModalFocusIndex < 3) setAddModalFocusIndex(prev => prev + 1);
-            else if (addModalFocusIndex >= 4 && addModalFocusIndex < 10) setAddModalFocusIndex(prev => prev + 1);
-            else if (addModalFocusIndex === 13) setAddModalFocusIndex(14);
+            else if (addModalFocusIndex >= 4 && addModalFocusIndex < 3 + PLATFORMS.length) setAddModalFocusIndex(prev => prev + 1);
+            else if (addModalFocusIndex === 17) setAddModalFocusIndex(18);
           } else if (e.key === 'ArrowLeft') {
             if (addModalFocusIndex > 1 && addModalFocusIndex <= 3) setAddModalFocusIndex(prev => prev - 1);
-            else if (addModalFocusIndex > 4 && addModalFocusIndex <= 10) setAddModalFocusIndex(prev => prev - 1);
-            else if (addModalFocusIndex === 14) setAddModalFocusIndex(13);
+            else if (addModalFocusIndex > 4 && addModalFocusIndex <= 3 + PLATFORMS.length) setAddModalFocusIndex(prev => prev - 1);
+            else if (addModalFocusIndex === 18) setAddModalFocusIndex(17);
           } else if (e.key === 'Enter') {
             if (addModalFocusIndex === 0) addModalTitleRef.current?.focus();
             else if (addModalFocusIndex === 1) setNewApp({ ...newApp, type: 'game' });
             else if (addModalFocusIndex === 2) setNewApp({ ...newApp, type: 'media', platform: '' });
             else if (addModalFocusIndex === 3) setNewApp({ ...newApp, type: 'web', platform: '' });
-            else if (addModalFocusIndex >= 4 && addModalFocusIndex <= 10) {
-              const platforms = ['PC', 'PS5', 'Xbox', 'Switch', 'Steam', 'EA', 'Epic'];
-              setNewApp({ ...newApp, platform: platforms[addModalFocusIndex - 4] });
-            } else if (addModalFocusIndex === 11) { if (newApp.type === 'web') addModalPathRef.current?.focus(); else handleSelectExecutable(); }
-            else if (addModalFocusIndex === 12) handleSelectImage();
-            else if (addModalFocusIndex === 13) setAddModalVisible(false);
-            else if (addModalFocusIndex === 14) handleSaveApp();
+            else if (addModalFocusIndex >= 4 && addModalFocusIndex <= 3 + PLATFORMS.length) {
+              setNewApp({ ...newApp, platform: PLATFORM_IDS[addModalFocusIndex - 4] });
+            } else if (addModalFocusIndex === 15) { if (newApp.type === 'web') addModalPathRef.current?.focus(); else handleSelectExecutable(); }
+            else if (addModalFocusIndex === 16) handleSelectImage();
+            else if (addModalFocusIndex === 17) setAddModalVisible(false);
+            else if (addModalFocusIndex === 18) handleSaveApp();
           }
           return;
         }
@@ -1723,6 +1738,23 @@ export default function ConsoleHome() {
         updateUser({ settings: { ...activeUser?.settings, capturePath: folderPath } as any });
       }
     }
+  };
+
+  const handleSelectAvatarFolder = async () => {
+    if (Platform.OS === 'web' && (window as any).electronAPI?.selectCaptureFolder) {
+      const folderPath = await (window as any).electronAPI.selectCaptureFolder();
+      if (folderPath) {
+        updateUser({ settings: { ...activeUser?.settings, avatarPath: folderPath } as any });
+      }
+    }
+  };
+
+  const handleApplyAvatar = (uri: string) => {
+    updateUser({
+      avatar: uri,
+      avatarBase64: uri,
+      settings: { ...activeUser?.settings, useSteamAvatar: false } as any,
+    });
   };
 
   const handleSelectAvatar = async () => {
@@ -2457,11 +2489,16 @@ export default function ConsoleHome() {
               </View>
               {newApp.type === 'game' && (
                 <View style={{ marginBottom: 15 }}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
-                    {[{ id: 'PC', icon: 'microsoft-windows' }, { id: 'PS5', icon: 'sony-playstation' }, { id: 'Xbox', icon: 'microsoft-xbox' }, { id: 'Switch', icon: 'nintendo-switch' }, { id: 'Steam', icon: 'steam' }, { id: 'EA', icon: 'alpha-e-box' }, { id: 'Epic', icon: 'alpha-e-circle' }].map((plat, idx) => {
+                  <ScrollView ref={addModalPlatformScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
+                    {PLATFORMS.map((plat, idx) => {
                       const focusIdx = 4 + idx;
                       return (
-                        <TouchableOpacity key={plat.id} style={[styles.platformBtn, newApp.platform === plat.id && styles.platformBtnActive, addModalFocusIndex === focusIdx && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, platform: plat.id })}>
+                        <TouchableOpacity
+                          key={plat.id}
+                          style={[styles.platformBtn, newApp.platform === plat.id && styles.platformBtnActive, addModalFocusIndex === focusIdx && styles.inputFocused]}
+                          onPress={() => setNewApp({ ...newApp, platform: plat.id })}
+                          onLayout={(e) => { addModalPlatformOffsets.current[idx] = e.nativeEvent.layout.x; }}
+                        >
                           <MaterialCommunityIcons name={plat.icon as any} size={20} color={newApp.platform === plat.id ? '#FFF' : 'rgba(255,255,255,0.5)'} />
                           <Text style={[styles.platformBtnText, newApp.platform === plat.id && styles.platformBtnTextActive]}>{plat.id}</Text>
                         </TouchableOpacity>
@@ -2471,22 +2508,22 @@ export default function ConsoleHome() {
                 </View>
               )}
               {newApp.type === 'web' ? (
-                <TextInput ref={addModalPathRef} style={[styles.input, addModalFocusIndex === 11 && styles.inputFocused]} placeholder="URL (https://...)" placeholderTextColor="rgba(255,255,255,0.3)" value={newApp.path} onChangeText={(text) => setNewApp({ ...newApp, path: text })} />
+                <TextInput ref={addModalPathRef} style={[styles.input, addModalFocusIndex === 15 && styles.inputFocused]} placeholder="URL (https://...)" placeholderTextColor="rgba(255,255,255,0.3)" value={newApp.path} onChangeText={(text) => setNewApp({ ...newApp, path: text })} />
               ) : (
-                <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 11 && styles.inputFocused]} onPress={handleSelectExecutable}>
+                <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 15 && styles.inputFocused]} onPress={handleSelectExecutable}>
                   <Ionicons name="folder-open" size={20} color="rgba(255,255,255,0.7)" />
                   <Text style={styles.fileBtnText}>{newApp.path ? t('add.path', { path: newApp.path.slice(-20) }) : t('add.selectExe')}</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 12 && styles.inputFocused]} onPress={handleSelectImage}>
+              <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 16 && styles.inputFocused]} onPress={handleSelectImage}>
                 <Ionicons name="image" size={20} color="rgba(255,255,255,0.7)" />
                 <Text style={styles.fileBtnText}>{newApp.image ? t('add.cover', { path: newApp.image.slice(-20) }) : t('add.coverOptional')}</Text>
               </TouchableOpacity>
               <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.cancelBtn, isSaving && { opacity: 0.5 }, addModalFocusIndex === 13 && styles.inputFocused]} onPress={() => !isSaving && setAddModalVisible(false)} disabled={isSaving}>
+                <TouchableOpacity style={[styles.cancelBtn, isSaving && { opacity: 0.5 }, addModalFocusIndex === 17 && styles.inputFocused]} onPress={() => !isSaving && setAddModalVisible(false)} disabled={isSaving}>
                   <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.saveBtn, isSaving && { backgroundColor: 'rgba(255,255,255,0.05)' }, addModalFocusIndex === 14 && styles.inputFocused]} onPress={handleSaveApp} disabled={isSaving}>
+                <TouchableOpacity style={[styles.saveBtn, isSaving && { backgroundColor: 'rgba(255,255,255,0.05)' }, addModalFocusIndex === 18 && styles.inputFocused]} onPress={handleSaveApp} disabled={isSaving}>
                   <Text style={styles.saveBtnText}>{isSaving ? t('edit.searchingAssetsShort') : t('common.save')}</Text>
                 </TouchableOpacity>
               </View>
@@ -2629,6 +2666,19 @@ export default function ConsoleHome() {
         capturePath={activeUser?.settings?.capturePath}
       />
 
+      {/* AVATAR PICKER */}
+      <AvatarPickerModal
+        visible={isAvatarModalVisible}
+        onClose={() => setAvatarModalVisible(false)}
+        onSelectAvatar={handleApplyAvatar}
+        currentAvatarUri={
+          (activeUser?.settings?.useSteamAvatar && activeUser?.steamAvatarUrl)
+            ? activeUser.steamAvatarUrl
+            : ((activeUser as any)?.avatarBase64 || activeUser?.avatar || null)
+        }
+        avatarPath={activeUser?.settings?.avatarPath}
+      />
+
       {/* SETTINGS VIEW */}
       <SettingsView
         visible={isSettingsVisible}
@@ -2648,6 +2698,8 @@ export default function ConsoleHome() {
         onOpenBgModal={() => setHomeBgModalVisible(true)}
         onSelectWallpaperFolder={handleSelectWallpaperFolder}
         onSelectCaptureFolder={handleSelectCaptureFolder}
+        onOpenAvatarModal={() => setAvatarModalVisible(true)}
+        onSelectAvatarFolder={handleSelectAvatarFolder}
         initialScreen={settingsInitialScreen}
       />
 

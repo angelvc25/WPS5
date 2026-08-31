@@ -42,6 +42,7 @@ import {
 import { useTranslation } from '@/contexts/LanguageContext';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
+import { PLATFORMS } from '@/constants/platforms';
 
 interface CardData {
   id: string;
@@ -707,15 +708,7 @@ function AnimatedCard({
                           {t('cc.platform')}
                         </Text>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                          {[
-                            { id: 'PC', icon: 'microsoft-windows' },
-                            { id: 'PS5', icon: 'sony-playstation' },
-                            { id: 'Xbox', icon: 'microsoft-xbox' },
-                            { id: 'Switch', icon: 'nintendo-switch' },
-                            { id: 'Steam', icon: 'steam' },
-                            { id: 'EA', icon: 'alpha-e-box' },
-                            { id: 'Epic', icon: 'alpha-e-circle' }
-                          ].map((plat) => {
+                          {PLATFORMS.map((plat) => {
                             const isSelected = platform === plat.id;
                             return (
                               <TouchableOpacity

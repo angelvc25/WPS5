@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Platform, TouchableOpacity, useWindowDimensions, Image as RNImage } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, Platform, TouchableOpacity, useWindowDimensions, Image as RNImage, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useEffect } from 'react';
 import GameDetailView from './GameDetailView';
 import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { PLATFORMS, PLATFORM_IDS, PLATFORM_ICONS } from '@/constants/platforms';
 
 interface LibraryGridProps {
   games: ConsoleItem[];
@@ -246,16 +247,80 @@ export default function LibraryGrid({
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [selectedGame, setSelectedGame] = useState<ConsoleItem | null>(null);
 
-  // 1. Estado para controlar la dirección del ordenamiento: 'none' | 'asc' (A-Z) | 'desc' (Z-A)
+  // Ref + posición medida del botón de filtro, usados para anclar el panel
+  // (renderizado en un Modal) justo debajo del botón, sin quedar tapado
+  // por las tarjetas del grid (que crean su propio stacking context al
+  // usar `transform`).
+  const filterButtonRef = useRef<any>(null);
+  const [filterPanelPos, setFilterPanelPos] = useState({ top: 140, left: 100 });
+
+  // 1. Estado para controlar la dirección del ordenamiento: 'none' (Más reciente) | 'asc' (A-Z) | 'desc' (Z-A)
   const [sortDirection, setSortDirection] = useState<'none' | 'asc' | 'desc'>('none');
 
-  // 2. Función para alternar el ordenamiento al presionar el botón
-  const toggleSort = () => {
+  // 2. Estado del panel de filtros/ordenamiento (dropdown estilo PS5)
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [isPlatformSectionOpen, setIsPlatformSectionOpen] = useState(false);
+  const [isSourceSectionOpen, setIsSourceSectionOpen] = useState(false);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(new Set());
+  const [selectedSources, setSelectedSources] = useState<Set<'steam' | 'local'>>(new Set());
+
+  const sortLabel = sortDirection === 'none' ? 'Más reciente' : sortDirection === 'asc' ? 'A-Z' : 'Z-A';
+
+  // Ciclo del ordenamiento: Más reciente -> A-Z -> Z-A -> Más reciente
+  const cycleSort = () => {
     setSortDirection((prev) => {
       if (prev === 'none') return 'asc';
       if (prev === 'asc') return 'desc';
-      return 'none'; // Vuelve al estado original
+      return 'none';
     });
+  };
+
+  // Determina si un juego del grid ya está instalado/descargado.
+  const isGameInstalled = (game: ConsoleItem) => {
+    if (!isSteamGame(game)) return true;
+    return isSteamGameInstalled(game as { id: string }, installedSteamAppIds);
+  };
+
+  // Plataformas presentes realmente en la lista de juegos (evita mostrar
+  // checkboxes de plataformas que no tienen ningún juego asociado).
+  const availablePlatforms = PLATFORM_IDS.filter((id) =>
+    games.some((g) => (g.platform || (isSteamGame(g) ? 'Steam' : 'PC')) === id)
+  );
+  const platformOptions = availablePlatforms.length > 0 ? availablePlatforms : PLATFORM_IDS;
+
+  const togglePlatformFilter = (platformId: string) => {
+    setSelectedPlatforms((prev) => {
+      const next = new Set(prev);
+      if (next.has(platformId)) next.delete(platformId);
+      else next.add(platformId);
+      return next;
+    });
+  };
+
+  const toggleSourceFilter = (source: 'steam' | 'local') => {
+    setSelectedSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(source)) next.delete(source);
+      else next.add(source);
+      return next;
+    });
+  };
+
+  const hasActiveFilters = selectedPlatforms.size > 0 || selectedSources.size > 0 || sortDirection !== 'none';
+
+  const resetFilters = () => {
+    setSortDirection('none');
+    setSelectedPlatforms(new Set());
+    setSelectedSources(new Set());
+  };
+
+  // Mide la posición real del botón en pantalla antes de abrir el panel,
+  // para anclarlo justo debajo (el panel se renderiza en un Modal aparte).
+  const openFilterPanel = () => {
+    filterButtonRef.current?.measureInWindow((x, y, width, height) => {
+      setFilterPanelPos({ top: y + height + 8, left: x });
+    });
+    setIsFilterPanelOpen(true);
   };
 
   // 3. Ordenar los juegos basados en el estado actual
@@ -272,18 +337,21 @@ export default function LibraryGrid({
     }
   });
 
-  // Determina si un juego del grid ya está instalado/descargado.
-  const isGameInstalled = (game: ConsoleItem) => {
-    if (!isSteamGame(game)) return true;
-    return isSteamGameInstalled(game as { id: string }, installedSteamAppIds);
-  };
-
-  // 4. NUEVO: Filtrar los juegos basados en la pestaña activa
+  // 4. Filtrar los juegos basados en la pestaña activa, la plataforma y la fuente elegidas
   const filteredGames = sortedGames.filter((game) => {
-    if (activeTab === 'installed') {
-      return isGameInstalled(game); // Muestra solo los que están instalados si estamos en la pestaña Instalados
+    if (activeTab === 'installed' && !isGameInstalled(game)) return false;
+
+    if (selectedPlatforms.size > 0) {
+      const gamePlatform = game.platform || (isSteamGame(game) ? 'Steam' : 'PC');
+      if (!selectedPlatforms.has(gamePlatform)) return false;
     }
-    return true; // En la pestaña 'collection' muestra todos
+
+    if (selectedSources.size > 0) {
+      const source: 'steam' | 'local' = isSteamGame(game) ? 'steam' : 'local';
+      if (!selectedSources.has(source)) return false;
+    }
+
+    return true;
   });
 
   const handleItemPress = (index: number, game: ConsoleItem) => {
@@ -320,24 +388,136 @@ export default function LibraryGrid({
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
       <View style={styles.tabsRow}>
-        <TouchableOpacity
-          onPress={toggleSort}
-          style={[
-            styles.filterButton,
-            sortDirection !== 'none' && { backgroundColor: 'rgba(255,255,255,0.3)' } // Se ilumina si está activo
-          ]}
-        >
-          <Image
-            source={require('@/assets/images/PS5_Filters.png')}
-            style={{ width: 40, height: 40 }}
-            contentFit="contain"
-          />
-          {sortDirection !== 'none' && (
-            <Text style={{ color: '#FFF', fontSize: 12, position: 'absolute', bottom: -18, fontFamily: 'SSTBold' }}>
-              {sortDirection === 'asc' ? 'A-Z' : 'Z-A'}
-            </Text>
-          )}
-        </TouchableOpacity>
+        <View style={{ marginRight: 40 }}>
+          <TouchableOpacity
+            ref={filterButtonRef}
+            onPress={() => (isFilterPanelOpen ? setIsFilterPanelOpen(false) : openFilterPanel())}
+            style={[
+              styles.filterButton,
+              hasActiveFilters && { backgroundColor: 'rgba(255,255,255,0.3)' } // Se ilumina si hay algún filtro activo
+            ]}
+          >
+            <Image
+              source={require('@/assets/images/PS5_Filters.png')}
+              style={{ width: 40, height: 40 }}
+              contentFit="contain"
+            />
+          </TouchableOpacity>
+
+          <Modal
+            visible={isFilterPanelOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setIsFilterPanelOpen(false)}
+          >
+            {/* Backdrop invisible para cerrar el panel al tocar fuera */}
+            <TouchableOpacity
+              style={StyleSheet.absoluteFillObject}
+              activeOpacity={1}
+              onPress={() => setIsFilterPanelOpen(false)}
+            />
+
+            <View style={[styles.filterPanel, { top: filterPanelPos.top, left: filterPanelPos.left }]}>
+              {/* SORT BY */}
+              <View style={styles.filterPanelSortRow}>
+                <Text style={styles.filterPanelSortLabel}>Sort by</Text>
+                <TouchableOpacity onPress={cycleSort}>
+                  <Text style={styles.filterPanelSortValue}>{sortLabel}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.filterPanelDivider} />
+
+              <Text style={styles.filterPanelHeading}>Filters</Text>
+
+              {/* PLATFORM */}
+              <TouchableOpacity
+                style={styles.filterPanelOptionRow}
+                onPress={() => setIsPlatformSectionOpen((v) => !v)}
+              >
+                <Text style={styles.filterPanelOptionText}>Platform</Text>
+                <Ionicons
+                  name={isPlatformSectionOpen ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color="rgba(255,255,255,0.5)"
+                />
+              </TouchableOpacity>
+
+              {isPlatformSectionOpen && (
+                <View style={styles.filterPanelCheckList}>
+                  {platformOptions.map((platformId) => {
+                    const checked = selectedPlatforms.has(platformId);
+                    return (
+                      <TouchableOpacity
+                        key={platformId}
+                        style={styles.filterPanelCheckRow}
+                        onPress={() => togglePlatformFilter(platformId)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.filterPanelCheckbox, checked && styles.filterPanelCheckboxChecked]}>
+                          {checked && <Ionicons name="checkmark" size={14} color="#000" />}
+                        </View>
+                        <Text style={styles.filterPanelCheckLabel}>{platformId}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* SOURCE */}
+              <TouchableOpacity
+                style={styles.filterPanelOptionRow}
+                onPress={() => setIsSourceSectionOpen((v) => !v)}
+              >
+                <Text style={styles.filterPanelOptionText}>Source</Text>
+                <Ionicons
+                  name={isSourceSectionOpen ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color="rgba(255,255,255,0.5)"
+                />
+              </TouchableOpacity>
+
+              {isSourceSectionOpen && (
+                <View style={styles.filterPanelCheckList}>
+                  {([
+                    { id: 'steam', label: 'Steam' },
+                    { id: 'local', label: 'Local' },
+                  ] as const).map((opt) => {
+                    const checked = selectedSources.has(opt.id);
+                    return (
+                      <TouchableOpacity
+                        key={opt.id}
+                        style={styles.filterPanelCheckRow}
+                        onPress={() => toggleSourceFilter(opt.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.filterPanelCheckbox, checked && styles.filterPanelCheckboxChecked]}>
+                          {checked && <Ionicons name="checkmark" size={14} color="#000" />}
+                        </View>
+                        <Text style={styles.filterPanelCheckLabel}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.filterPanelResetBtn}
+                onPress={resetFilters}
+                disabled={!hasActiveFilters}
+              >
+                <Text
+                  style={[
+                    styles.filterPanelResetText,
+                    !hasActiveFilters && styles.filterPanelResetTextDisabled,
+                  ]}
+                >
+                  Reset Filters
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Modal>
+        </View>
 
         {isFocused && (
           <View style={styles.tabsContainer}>
@@ -539,12 +719,103 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 40,
   },
   tabsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 30,
+  },
+  filterPanel: {
+    position: 'absolute',
+    width: 300,
+    backgroundColor: 'rgba(11, 12, 19, 1)',
+    borderRadius: 4,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+  } as any,
+  filterPanelSortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  filterPanelSortLabel: {
+    color: '#FFF',
+    fontSize: 18,
+    fontFamily: 'SSTLight',
+  },
+  filterPanelSortValue: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 17,
+    fontFamily: 'SSTLight',
+  },
+  filterPanelDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    marginVertical: 24,
+  },
+  filterPanelHeading: {
+    color: 'rgba(255, 255, 255, 0.56)',
+    fontSize: 16,
+    fontFamily: 'SSTLight',
+    marginTop: -10,
+    marginBottom: 10,
+  },
+  filterPanelOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  filterPanelOptionText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontFamily: 'SSTLight',
+  },
+  filterPanelCheckList: {
+    paddingLeft: 4,
+    paddingBottom: 6,
+    gap: 4,
+  },
+  filterPanelCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 10,
+  },
+  filterPanelCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.27)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterPanelCheckboxChecked: {
+    backgroundColor: '#FFF',
+    borderColor: '#FFF',
+  },
+  filterPanelCheckLabel: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 16,
+    fontFamily: 'SSTLight',
+  },
+  filterPanelResetBtn: {
+    marginTop: 14,
+    paddingVertical: 12,
+    borderRadius: 22,
+    backgroundColor: 'rgba(32, 78, 124, 0.16)',
+    alignItems: 'center',
+  },
+  filterPanelResetText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontFamily: 'SSTMedium',
+  },
+  filterPanelResetTextDisabled: {
+    color: 'rgba(255, 255, 255, 0.61)',
   },
   tabText: {
     fontSize: 24,
