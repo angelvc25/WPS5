@@ -397,7 +397,7 @@ const es = {
   'widgets.controller': 'Control inalámbrico DualSense',
   'widgets.disconnected': 'Desconectado',
   'widgets.discoverPsPlus': 'Descubre lo nuevo de PlayStation Plus',
-  'widgets.friends': 'Amigos',
+  'widgets.friends': 'Amigos online',
   'widgets.online': 'En línea',
   'widgets.playing': 'Jugando a {game}',
   'widgets.noFriends': 'Sin amigos conectados',
@@ -412,6 +412,11 @@ const es = {
   'game.friendsCount': '{count} amigos tienen este juego',
   'game.noPlayedGame': 'Aún no has jugado a ningún juego.',
   'cc.typeGame': 'Juego',
+
+  'friends.title': 'Amigos',
+  'friends.searchPlayers': 'Buscar jugadores',
+  'friends.messages': 'Mensajes',
+  'friends.comingSoon': 'Próximamente',
 
   'edit.searchingAssetsShort': 'Buscando recursos...',
 } as const;
@@ -803,7 +808,7 @@ const en: Record<TranslationKey, string> = {
   'widgets.controller': 'DualSense wireless controller',
   'widgets.disconnected': 'Disconnected',
   'widgets.discoverPsPlus': "Discover what's new on PlayStation Plus",
-  'widgets.friends': 'Friends',
+  'widgets.friends': 'Friends online',
   'widgets.online': 'Online',
   'widgets.playing': 'Playing {game}',
   'widgets.noFriends': 'No friends online',
@@ -818,6 +823,10 @@ const en: Record<TranslationKey, string> = {
   'game.friendsCount': '{count} friends own this game',
   'game.noPlayedGame': "You haven't played any games yet.",
   'cc.typeGame': 'Game',
+  'friends.title': 'Friends',
+  'friends.searchPlayers': 'Search players',
+  'friends.messages': 'Messages',
+  'friends.comingSoon': 'Coming soon',
   'edit.searchingAssetsShort': 'Searching assets...',
 };
 
@@ -1206,7 +1215,7 @@ const pt: Record<TranslationKey, string> = {
   'widgets.controller': 'Controle sem fio DualSense',
   'widgets.disconnected': 'Desconectado',
   'widgets.discoverPsPlus': 'Descubra as novidades do PlayStation Plus',
-  'widgets.friends': 'Amigos',
+  'widgets.friends': 'Amigos online',
   'widgets.online': 'Online',
   'widgets.playing': 'Jogando {game}',
   'widgets.noFriends': 'Sem amigos online',
@@ -1221,6 +1230,11 @@ const pt: Record<TranslationKey, string> = {
   'game.friendsCount': '{count} amigos têm este jogo',
   'game.noPlayedGame': 'Ainda não jogou nenhum jogo.',
   'cc.typeGame': 'Jogo',
+
+  'friends.title': 'Amigos',
+  'friends.searchPlayers': 'Buscar jogadores',
+  'friends.messages': 'Mensagens',
+  'friends.comingSoon': 'Em breve',
 
   'edit.searchingAssetsShort': 'Procurando assets...',
 };

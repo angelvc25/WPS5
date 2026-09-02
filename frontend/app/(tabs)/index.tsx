@@ -254,6 +254,7 @@ export default function ConsoleHome() {
   const [systemNavCardIndex, setSystemNavCardIndex] = useState(0);
   const [systemNavMaxCardIndex, setSystemNavMaxCardIndex] = useState(2);
   const [isSystemNavCardExpanded, setSystemNavCardExpanded] = useState(false);
+  const [isFriendsCardOpen, setIsFriendsCardOpen] = useState(false);
 
   // Background transition states
   const [bgA, setBgA] = useState<any>(null);
@@ -741,6 +742,10 @@ export default function ConsoleHome() {
     if (idx === 0) {
       // Inicio
       setFocusArea('main_carousel');
+    } else if (idx === 3) {
+      // Game Base – abrir card de amigos (responsive, scrollable, oscurece fondo)
+      setIsFriendsCardOpen(true);
+      soundService.playActivation?.();
     } else if (idx === 9) {
       // Perfil (Cambiar usuario)
       changeUser();
@@ -1017,6 +1022,13 @@ export default function ConsoleHome() {
 
         // 2. Floating System Navigation Keyboard Navigation
         if (focusArea === 'header_user') {
+          if (isFriendsCardOpen) {
+            if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+              setIsFriendsCardOpen(false);
+              soundService.playBack?.();
+            }
+            return;
+          }
           if (isSystemNavCardExpanded) {
             if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
               setSystemNavCardExpanded(false);
@@ -2557,6 +2569,8 @@ export default function ConsoleHome() {
         onCloseExpanded={() => setSystemNavCardExpanded(false)}
         onRefreshApps={loadApps}
         onCardsCountChange={setSystemNavMaxCardIndex}
+        isFriendsOpen={isFriendsCardOpen}
+        onFriendsOpenChange={setIsFriendsCardOpen}
       />
 
       <FavoritesView

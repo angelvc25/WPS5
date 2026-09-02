@@ -1756,11 +1756,37 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                  <Ionicons name="people" size={20} color="#FFFFFF" />
+                  <Image source={require('@/assets/images/amigos.png')} style={{ width: 30, height: 30, borderRadius: 5, resizeMode: 'contain' }} />
                   <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>{t('widgets.friends')}</Text>
                   {onlineFriendsCount > 0 && (
-                    <View style={{ marginLeft: 'auto', backgroundColor: 'rgba(76,217,100,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
-                      <Text style={{ color: '#4CD964', fontSize: 10, fontFamily: 'SSTBold' }}>{onlineFriendsCount}</Text>
+                    <View
+                      style={{
+                        marginLeft: 'auto',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 5,
+                      }}
+                    >
+                      {/* Punto verde */}
+                      <View
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 4,
+                          backgroundColor: '#4CD964',
+                        }}
+                      />
+
+                      {/* Número */}
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 11,
+                          fontFamily: 'SSTBold',
+                        }}
+                      >
+                        {onlineFriendsCount}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -1770,7 +1796,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {topFriend.avatar ? (
                         <Image source={{ uri: topFriend.avatar }} style={styles.avatarMensajes} />
                       ) : (
-                        <Image source={require('@/assets/images/ProfilePicture.png')} style={styles.avatarMensajes} />
+                        <Image source={require('@/assets/images/amigos.png')} style={styles.avatarMensajes} />
+
                       )}
                     </View>
                     <View style={{ flex: 1 }}>

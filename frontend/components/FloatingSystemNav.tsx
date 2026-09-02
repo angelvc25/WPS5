@@ -1,12 +1,14 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import ControlCenterCards from './ControlCenterCards';
+import FriendsExpandedCard from './FriendsExpandedCard';
 import RadarFocusWrapper from './RadarFocusWrapper';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { TranslationKey } from '@/i18n/translations';
+import { soundService } from '@/services/soundService';
 
 export interface NavItem {
   icon: keyof typeof Ionicons.glyphMap;
@@ -15,16 +17,16 @@ export interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { icon: 'home', labelKey: 'nav.home' },
-  { icon: 'albums-outline', labelKey: 'nav.switcher' },
-  { icon: 'notifications-outline', labelKey: 'nav.notifications' },
-  { icon: 'people-outline', labelKey: 'nav.gameBase' },
-  { icon: 'musical-notes-outline', labelKey: 'nav.music' },
-  { icon: 'download-outline', labelKey: 'nav.downloads' },
-  { icon: 'volume-high-outline', labelKey: 'nav.sound' },
-  { icon: 'mic-outline', labelKey: 'nav.mic' },
-  { icon: 'game-controller-outline', labelKey: 'nav.accessories' },
-  { icon: 'person-circle-outline', labelKey: 'nav.profile' },
-  { icon: 'power-outline', labelKey: 'nav.power' },
+  { icon: 'albums', labelKey: 'nav.switcher' },
+  { icon: 'notifications', labelKey: 'nav.notifications' },
+  { icon: 'people', labelKey: 'nav.gameBase' },
+  { icon: 'musical-notes', labelKey: 'nav.music' },
+  { icon: 'download', labelKey: 'nav.downloads' },
+  { icon: 'volume-high', labelKey: 'nav.sound' },
+  { icon: 'mic', labelKey: 'nav.mic' },
+  { icon: 'game-controller', labelKey: 'nav.accessories' },
+  { icon: 'person-circle', labelKey: 'nav.profile' },
+  { icon: 'power', labelKey: 'nav.power' },
 ];
 
 interface FloatingSystemNavProps {
@@ -39,6 +41,9 @@ interface FloatingSystemNavProps {
   onCloseExpanded?: () => void;
   onRefreshApps?: () => void;
   onCardsCountChange?: (maxIndex: number) => void;
+  // controlled Game Base friends card (levantado a index.tsx para coordinar Escape con el nav)
+  isFriendsOpen?: boolean;
+  onFriendsOpenChange?: (open: boolean) => void;
 }
 
 export default function FloatingSystemNav({
@@ -53,10 +58,47 @@ export default function FloatingSystemNav({
   onCloseExpanded = () => { },
   onRefreshApps,
   onCardsCountChange,
+  isFriendsOpen: controlledFriendsOpen,
+  onFriendsOpenChange,
 }: FloatingSystemNavProps) {
   const { t } = useTranslation();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(50);
+
+  // Game Base – Friends expanded card (controlado por padre si se provee, sino local)
+  const [internalFriendsOpen, setInternalFriendsOpen] = useState(false);
+  const isFriendsOpen = controlledFriendsOpen !== undefined ? controlledFriendsOpen : internalFriendsOpen;
+  const setIsFriendsOpen = (v: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? (v as any)(isFriendsOpen) : v;
+    if (onFriendsOpenChange) onFriendsOpenChange(next);
+    else setInternalFriendsOpen(next);
+  };
+
+  // cerrar amigos si se cierra el nav
+  useEffect(() => {
+    if (!isFocused) setIsFriendsOpen(false);
+  }, [isFocused]);
+
+  const handlePressItem = (index: number) => {
+    // índice 3 = Game Base (people). Abrir card expandida de amigos en vez de acción padre.
+    if (index === 3) {
+      if (!isFriendsOpen) {
+        setIsFriendsOpen(true);
+        soundService.playActivation?.();
+      } else {
+        soundService.playNavigation();
+      }
+      return;
+    }
+    // si la card de amigos está abierta, cerrarla antes de ir a otra sección
+    if (isFriendsOpen) setIsFriendsOpen(false);
+    onPressItem(index);
+  };
+
+  const handleCloseFriends = () => {
+    setIsFriendsOpen(false);
+    soundService.playBack?.();
+  };
 
   useEffect(() => {
     if (isFocused) {
@@ -95,17 +137,22 @@ export default function FloatingSystemNav({
           }}
         />
       </Animated.View>
-      {/* Backdrop to close — disabled while a card is expanded so controls stay clickable */}
+      {/* Backdrop to close — disabled while a card is expanded so controls stay clickable.
+          Si la card de amigos está abierta, el backdrop no cierra el nav completo, solo la card
+          (la card tiene su propio backdrop). */}
       <Animated.View
         style={[StyleSheet.absoluteFill, { opacity: 0 }]}
-        pointerEvents={isFocused && !isCardExpanded ? 'auto' : 'none'}
+        pointerEvents={isFocused && !isCardExpanded && !isFriendsOpen ? 'auto' : 'none'}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
 
+      {/* FriendsExpandedCard – encima del gradient pero debajo del pill para mantener el fondo oscurecido */}
+      <FriendsExpandedCard isOpen={isFriendsOpen} onClose={handleCloseFriends} />
+
       <Animated.View style={[styles.menuContainer, menuStyle, { zIndex: 2 }]}>
-        {/* Always show cards while the menu is open */}
-        {isFocused && (
+        {/* Always show cards while the menu is open – ocultar cuando amigos está abierto */}
+        {isFocused && !isFriendsOpen && (
           <ControlCenterCards
             isFocusedLayer={isFocused && navLevel === 1}
             focusedIndex={cardIndex}
@@ -121,15 +168,18 @@ export default function FloatingSystemNav({
         <BlurView intensity={0} tint="dark" style={styles.pillContainer}>
           {NAV_ITEMS.map((item, index) => {
             const isActive = isFocused && focusedIndex === index;
+            // resaltar Game Base cuando la card de amigos está abierta
+            const isFriendsActive = isFriendsOpen && index === 3;
+            const showActiveRing = isActive || isFriendsActive;
             return (
               <TouchableOpacity
                 key={index}
                 activeOpacity={0.7}
-                onPress={() => onPressItem(index)}
+                onPress={() => handlePressItem(index)}
                 style={styles.iconButton}
               >
-                {isActive ? (
-                  <RadarFocusWrapper id={`sys-nav-${index}`} isFocused={isActive} size={58} innerSize={0}>
+                {showActiveRing ? (
+                  <RadarFocusWrapper id={`sys-nav-${index}`} isFocused={showActiveRing} size={58} innerSize={0}>
                     <Ionicons
                       name={item.icon}
                       size={24}
