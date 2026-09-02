@@ -7,6 +7,7 @@ import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, wit
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useEffect } from 'react';
 import GameDetailView from './GameDetailView';
+import RadarFocusWrapper from './RadarFocusWrapper';
 import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { PLATFORMS, PLATFORM_IDS, PLATFORM_ICONS } from '@/constants/platforms';
@@ -547,28 +548,30 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
       <View style={styles.contentRow}>
         {/* ─── Riel del botón de filtro, a la izquierda del grid ─── */}
         <View style={styles.filterRail}>
-          <TouchableOpacity
-            ref={filterButtonRef}
-            onPress={() => (isFilterPanelOpen ? closeFilterPanel() : openFilterPanel())}
-            style={[
-              styles.filterButton,
-              hasActiveFilters && { backgroundColor: 'rgba(70, 103, 119, 0.1)' }, // Se ilumina si hay algún filtro activo
-              filterButtonFocused && styles.filterButtonFocused, // Foco de teclado/mando
-            ]}
-          > {filterButtonFocused ? (
-            <Image
-              source={require('@/assets/images/PS5_Filters_Dark.png')}
-              style={{ width: 48, height: 48 }}
-              contentFit="contain"
-            />)
-            : (
+          <RadarFocusWrapper id="library-filter" isFocused={filterButtonFocused} size={64} innerSize={48}>
+            <TouchableOpacity
+              ref={filterButtonRef}
+              onPress={() => (isFilterPanelOpen ? closeFilterPanel() : openFilterPanel())}
+              style={[
+                styles.filterButton,
+                hasActiveFilters && { backgroundColor: 'rgba(70, 103, 119, 0.1)' }, // Se ilumina si hay algún filtro activo
+                filterButtonFocused && styles.filterButtonFocused, // Foco de teclado/mando
+              ]}
+            > {filterButtonFocused ? (
               <Image
-                source={require('@/assets/images/PS5_Filters.png')}
+                source={require('@/assets/images/PS5_Filters_Dark.png')}
                 style={{ width: 48, height: 48 }}
                 contentFit="contain"
-              />
-            )}
-          </TouchableOpacity>
+              />)
+              : (
+                <Image
+                  source={require('@/assets/images/PS5_Filters.png')}
+                  style={{ width: 48, height: 48 }}
+                  contentFit="contain"
+                />
+              )}
+            </TouchableOpacity>
+          </RadarFocusWrapper>
 
           <Modal
             visible={isFilterPanelOpen}
