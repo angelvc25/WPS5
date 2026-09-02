@@ -17,6 +17,7 @@ import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
 import { fetchSteamInstalledAppIds } from '@/services/steamInstallService';
+import { fetchSteamFriends } from '@/services/Steamfriendsservice';
 import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
 import { Feather } from '@expo/vector-icons';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
@@ -210,6 +211,7 @@ export default function ConsoleHome() {
   const [isLibraryFilterPanelOpen, setIsLibraryFilterPanelOpen] = useState(false);
   const libraryGridRef = useRef<LibraryGridHandle>(null);
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
+  const [steamFriends, setSteamFriends] = useState<any[]>([]);
   const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
   const [loadingSteam, setLoadingSteam] = useState(false);
   const launchStartTimeRef = useRef<Record<string, number>>({});
@@ -557,6 +559,19 @@ export default function ConsoleHome() {
 
     fetchSteamInstalledAppIds().then(setInstalledSteamAppIds);
   }, [libraryTab, steamGames.length]);
+
+  // Fetch Steam friends when activeUser has Steam credentials
+  useEffect(() => {
+    const apiKey = activeUser?.settings?.steamApiKey;
+    const steamId = activeUser?.settings?.steamId;
+    if (apiKey && steamId) {
+      fetchSteamFriends(apiKey, steamId).then(friends => {
+        if (friends && friends.length > 0) {
+          setSteamFriends(friends);
+        }
+      });
+    }
+  }, [activeUser?.settings?.steamApiKey, activeUser?.settings?.steamId]);
 
   useEffect(() => {
     const currentItem = currentData[activeIndex];
@@ -1509,6 +1524,10 @@ export default function ConsoleHome() {
             } else if (focusIndex === 4) {
               setAddModalVisible(true);
             } else if (focusIndex === 5 && lastPlayedGame) {
+              handleLaunchApp(lastPlayedGame);
+            } else if (focusIndex === 6 && steamFriends.length > 0 && steamFriends[0].gameextrainfo && steamFriends[0].gameid) {
+              Linking.openURL(`steam://friends/joingame/${steamFriends[0].steamid}/${steamFriends[0].gameid}`);
+            } else if (focusIndex === 8 && lastPlayedGame) {
               handleLaunchApp(lastPlayedGame);
             } else if (focusIndex === 9) {
               setHomeBgModalVisible(true);
@@ -2466,6 +2485,7 @@ export default function ConsoleHome() {
                   widgetContainerStyle={widgetContainerStyle}
                   widgetContainerStyle2={widgetContainerStyle2}
                   wviewStyle={wviewStyle}
+                  steamFriends={steamFriends}
                 />
               </Animated.View>
             </Animated.View>

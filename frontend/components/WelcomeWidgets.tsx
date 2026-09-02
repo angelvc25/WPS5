@@ -6,6 +6,7 @@ import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../service
 import { fetchStoreOffers, StoreOffer } from '../services/storeService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { formatPlaytime } from '../services/playtimeService';
+import { opacity } from 'react-native-reanimated/lib/typescript/Colors';
 
 interface WelcomeWidgetsProps {
   focusArea: string;
@@ -25,6 +26,7 @@ interface WelcomeWidgetsProps {
   widgetContainerStyle: any;
   widgetContainerStyle2: any;
   wviewStyle: any;
+  steamFriends?: any[];
 }
 
 export const WelcomeWidgets = ({
@@ -44,6 +46,7 @@ export const WelcomeWidgets = ({
   widgetContainerStyle,
   widgetContainerStyle2,
   wviewStyle,
+  steamFriends = [],
 }: WelcomeWidgetsProps) => {
   const { t } = useTranslation();
   const horizontalScrollRef = useRef<ScrollView>(null);
@@ -1490,11 +1493,11 @@ export const WelcomeWidgets = ({
                   </View>
                   <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : t('widgets.noRecent')}</Text>
                   <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium', flex: 1 }}>
-  <MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />
-  {lastPlayedGame
-    ? formatPlaytime(Number(lastPlayedGame.playtimeMinutes ?? lastPlayedGame.playtime_forever ?? 0), t)
-    : t('lastPlayed.never')}
-</Text>
+                    <MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />
+                    {lastPlayedGame
+                      ? formatPlaytime(Number(lastPlayedGame.playtimeMinutes ?? lastPlayedGame.playtime_forever ?? 0), t)
+                      : t('lastPlayed.never')}
+                  </Text>
                 </View>
                 {lastPlayedGame ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -1506,7 +1509,7 @@ export const WelcomeWidgets = ({
               </View>
             </TouchableOpacity>
 
-            {/* Messages Widget */}
+            {/* Friends Widget */}
             <TouchableOpacity
               activeOpacity={0.85}
               style={styles.widgetTouchable}
@@ -1676,22 +1679,50 @@ export const WelcomeWidgets = ({
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                  <Image source={require('@/assets/images/mensajess.png')} style={{ width: 30, height: 30, resizeMode: 'contain' }} />
-                  <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>{t('widgets.messages')}</Text>
+                  <MaterialCommunityIcons name="account-group" size={22} color="#FFF" />
+                  <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>{t('widgets.friends')}</Text>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                    {activeUser?.avatar || activeUser?.avatarBase64 ? (
-                      <Image source={{ uri: activeUser.avatarBase64 || activeUser.avatar }} style={styles.avatarMensajes} />
-                    ) : (
-                      <Image source={require('@/assets/images/ProfilePicture.png')} style={styles.avatarMensajes} />
+                {steamFriends.length > 0 ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                      <Image source={{ uri: steamFriends[0].avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium' }} numberOfLines={1}>{steamFriends[0].personaname}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                        {steamFriends[0].gameextrainfo ? (
+                          <>
+                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4CD964' }} />
+                            <Text style={styles.widgetSubtitle}>{t('widgets.friendPlaying')} {steamFriends[0].gameextrainfo}</Text>
+                          </>
+                        ) : steamFriends[0].personastate > 0 ? (
+                          <>
+                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4CD964' }} />
+                            <Text style={styles.widgetSubtitle}>{t('widgets.friendOnline')}</Text>
+                          </>
+                        ) : (
+                          <Text style={styles.widgetSubtitle}>{t('widgets.friendOffline')}</Text>
+                        )}
+                      </View>
+                    </View>
+                    {steamFriends[0].gameextrainfo && steamFriends[0].gameid && (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => Linking.openURL(`steam://friends/joingame/${steamFriends[0].steamid}/${steamFriends[0].gameid}`)}
+                        style={{ padding: 4 }}
+                      >
+                        <Text style={{ color: '#0070D1', fontSize: 11, fontFamily: 'SSTMedium', fontWeight: '600' }}>{t('widgets.joinGame')}</Text>
+                      </TouchableOpacity>
                     )}
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium' }} numberOfLines={1}>{activeUser?.name || t('alert.userFallback')}</Text>
-                    <Text style={styles.widgetSubtitle}>{t('widgets.yesterday')}</Text>
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center' }}>
+                      <MaterialCommunityIcons name="account-off" size={22} color="rgba(255,255,255,0.3)" />
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, fontFamily: 'SSTMedium' }}>{t('widgets.noFriends')}</Text>
                   </View>
-                </View>
+                )}
               </View>
             </TouchableOpacity>
 
@@ -1913,7 +1944,7 @@ export const WelcomeWidgets = ({
               </View>
             </TouchableOpacity>
 
-            {/* Wishlist Widget */}
+            {/* Activity Widget */}
             <TouchableOpacity
               activeOpacity={0.85}
               style={styles.widgetTouchable}
@@ -2013,13 +2044,10 @@ export const WelcomeWidgets = ({
                           animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                         }
                       `}
-
                       </style>
-
                       <div className="wc-spinning-container2">
                         <div className="wc-spinning-inner" />
                       </div>
-
                       <div
                         style={{
                           position: 'absolute',
@@ -2086,10 +2114,39 @@ export const WelcomeWidgets = ({
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-                  <Ionicons name="heart" size={17} color="#ffffff" />
-                  <Text style={styles.widgetTitle}>{t('widgets.wishlist')}</Text>
+                  <MaterialCommunityIcons name="history" size={17} color="#ffffff" />
+                  <Text style={styles.widgetTitle}>{t('widgets.activity')}</Text>
                 </View>
-                <Text style={styles.widgetSubtitle}>{t('widgets.viewWishlist')}</Text>
+                {lastPlayedGame ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                      <Image source={lastPlayedGame.image} style={{ width: 40, height: 40, borderRadius: 20 }} contentFit="cover" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium' }} numberOfLines={1}>{lastPlayedGame.title}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                        <MaterialCommunityIcons name="clock-outline" size={12} color="rgba(255,255,255,0.6)" />
+                        <Text style={styles.widgetSubtitle}>
+                          {formatPlaytime(Number(lastPlayedGame.playtimeMinutes ?? lastPlayedGame.playtime_forever ?? 0), t)}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => handleLaunchApp(lastPlayedGame)}
+                      style={{ padding: 4 }}
+                    >
+                      <MaterialCommunityIcons name="play-circle-outline" size={22} color="#0070D1" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center' }}>
+                      <MaterialCommunityIcons name="history" size={22} color="rgba(255,255,255,0.3)" />
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, fontFamily: 'SSTMedium' }}>{t('widgets.noActivity')}</Text>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
 
@@ -2276,10 +2333,10 @@ export const WelcomeWidgets = ({
                 </View>
               </View>
             </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </ScrollView>
+          </View >
+        </View >
+      </View >
+    </ScrollView >
   );
 };
 
