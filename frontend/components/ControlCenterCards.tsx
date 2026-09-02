@@ -951,7 +951,14 @@ function AnimatedCard({
             </View>
           ) : (
             <>
-              {card.bgColor ? (
+              {card.type === 'discover' && !isExpanded ? (
+                <Image
+                  source={require('@/assets/images/Sugerencias.png')}
+                  style={[StyleSheet.absoluteFill, { opacity: 0.7 }]}
+                  contentFit="cover"
+
+                />
+              ) : card.bgColor ? (
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: card.bgColor }]} />
               ) : (
                 <Image
