@@ -555,12 +555,19 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
               hasActiveFilters && { backgroundColor: 'rgba(70, 103, 119, 0.1)' }, // Se ilumina si hay algún filtro activo
               filterButtonFocused && styles.filterButtonFocused, // Foco de teclado/mando
             ]}
-          >
+          > {filterButtonFocused ? (
             <Image
-              source={require('@/assets/images/PS5_Filters.png')}
+              source={require('@/assets/images/PS5_Filters_Dark.png')}
               style={{ width: 48, height: 48 }}
               contentFit="contain"
-            />
+            />)
+            : (
+              <Image
+                source={require('@/assets/images/PS5_Filters.png')}
+                style={{ width: 48, height: 48 }}
+                contentFit="contain"
+              />
+            )}
           </TouchableOpacity>
 
           <Modal
@@ -710,184 +717,184 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
           </View>
 
           <View style={{ height: windowHeight - 220, overflow: 'hidden', paddingTop: 20, marginTop: -20, paddingHorizontal: 20, marginHorizontal: -20 }}>
-        {hasScrolled && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 100,
-              ...(Platform.OS === 'web' ? { boxShadow: 'inset 0px 26px 15px -10px rgb(0 0 0 / 90%)' } : {}),
-            }}
-          />
-        )}
+            {hasScrolled && (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 100,
+                  ...(Platform.OS === 'web' ? { boxShadow: 'inset 0px 26px 15px -10px rgb(0 0 0 / 90%)' } : {}),
+                }}
+              />
+            )}
 
-        {filteredGames.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            {isLoading ? (
-              <Text style={styles.emptyText}>{t('library.loadingSteam')}</Text>
+            {filteredGames.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                {isLoading ? (
+                  <Text style={styles.emptyText}>{t('library.loadingSteam')}</Text>
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="folder-outline" size={64} color="rgba(255,255,255,0.3)" />
+                    <Text style={styles.emptyText}>{t('library.empty')}</Text>
+                  </>
+                )}
+              </View>
             ) : (
-              <>
-                <MaterialCommunityIcons name="folder-outline" size={64} color="rgba(255,255,255,0.3)" />
-                <Text style={styles.emptyText}>{t('library.empty')}</Text>
-              </>
+              <Animated.View style={animatedGridStyle}>
+                <View style={styles.grid}>
+                  {(() => {
+                    const totalRows = Math.ceil(filteredGames.length / COLUMNS);
+                    const visibleRowCount = Math.ceil((windowHeight - 220) / rowHeight);
+                    const BUFFER = 3;
+                    const startRow = Math.max(0, currentRow - BUFFER);
+                    const endRow = Math.min(totalRows - 1, currentRow + visibleRowCount + BUFFER);
+
+                    return filteredGames.map((game, index) => {
+                      const itemRow = Math.floor(index / COLUMNS);
+
+                      if (itemRow < startRow || itemRow > endRow) {
+                        return (
+                          <View
+                            key={game.id ?? index}
+                            style={styles.gameCardPlaceholder}
+                          />
+                        );
+                      }
+
+                      const isItemFocused = gridActive && focusedIndex === index;
+                      const isInstalled = isGameInstalled(game);
+                      const borderId = `lib-${game.id ?? index}`;
+                      const staggerDelay = Math.min(index * 24, 220);
+
+                      return (
+                        <Animated.View
+                          key={game.id ?? index}
+                          entering={FadeInDown.delay(staggerDelay).duration(360)}
+                          style={styles.gameCardAnimationWrapper}
+                        >
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => handleItemPress(index, game)}
+                            style={[
+                              styles.gameCardWrapper,
+                              isItemFocused && styles.gameCardWrapperFocused,
+                            ]}
+                          >
+                            {isItemFocused && <SpinningBorder id={borderId} />}
+
+                            <BlurView
+                              intensity={isItemFocused ? 45 : 25}
+                              tint="dark"
+                              style={[
+                                styles.gameCard,
+                                isItemFocused && styles.gameCardFocused,
+                              ]}
+                            >
+                              <View style={styles.imageContainer}>
+                                {game.image ? (
+                                  <Image source={game.image} style={styles.gameImage} contentFit="cover" />
+                                ) : (
+                                  <View style={styles.placeholderImage}>
+                                    <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
+                                  </View>
+                                )}
+
+                                {!isInstalled && (
+                                  <View style={styles.notInstalledDarken} pointerEvents="none" />
+                                )}
+
+                                {!isInstalled && (
+                                  <View style={styles.installBadge} pointerEvents="none">
+                                    <RNImage
+                                      source={require('@/assets/images/install.png')}
+                                      style={styles.installBadgeIcon}
+                                      resizeMode="contain"
+                                    />
+                                  </View>
+                                )}
+
+                                {isItemFocused && (
+                                  <View style={styles.focusedOverlay}>
+                                    <View style={styles.gradientOverlay} />
+
+                                    <View style={styles.gameInfoContainer}>
+                                      {(() => {
+                                        const steamGame = isSteamGame(game);
+                                        const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
+                                        const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
+
+                                        return (
+                                          <View style={styles.platformRow}>
+                                            {steamGame ? (
+                                              // 🎮 Juego de Steam
+                                              <View
+                                                style={{
+                                                  flexDirection: 'row',
+                                                  alignItems: 'center',
+                                                  justifyContent: 'center',
+                                                }}
+                                              >
+                                                <MaterialCommunityIcons
+                                                  name={iconName as any}
+                                                  size={20}
+                                                  color="#000000"
+                                                  style={{ marginRight: 6 }}
+                                                />
+
+                                                <Text
+                                                  style={{
+                                                    color: '#000000',
+                                                    fontFamily: 'SSTBoldIt',
+                                                    fontSize: 12,
+                                                  }}
+                                                >
+                                                  {platformId}
+                                                </Text>
+                                              </View>
+                                            ) : (
+                                              // 🎮 Resto de plataformas: mantener comportamiento actual
+                                              <Text
+                                                style={{
+                                                  color: '#000000',
+                                                  fontFamily: 'SSTBadge',
+                                                  fontSize: 12,
+                                                  alignItems: 'center',
+                                                  justifyContent: 'center',
+                                                }}
+                                              >
+                                                {' '}{platformId}
+                                              </Text>
+                                            )}
+                                          </View>
+                                        );
+                                      })()}
+
+                                      <SlidingGameTitle
+                                        title={game.title || 'Juego'}
+                                        focused={isItemFocused}
+                                      />
+                                    </View>
+                                  </View>
+                                )}
+
+                                {gridActive && !isItemFocused && (
+                                  <View style={styles.unfocusedOverlay} />
+                                )}
+                              </View>
+                            </BlurView>
+                          </TouchableOpacity>
+                        </Animated.View>
+                      );
+                    });
+                  })()}
+                </View>
+              </Animated.View>
             )}
           </View>
-        ) : (
-          <Animated.View style={animatedGridStyle}>
-            <View style={styles.grid}>
-              {(() => {
-                const totalRows = Math.ceil(filteredGames.length / COLUMNS);
-                const visibleRowCount = Math.ceil((windowHeight - 220) / rowHeight);
-                const BUFFER = 3;
-                const startRow = Math.max(0, currentRow - BUFFER);
-                const endRow = Math.min(totalRows - 1, currentRow + visibleRowCount + BUFFER);
-
-                return filteredGames.map((game, index) => {
-                  const itemRow = Math.floor(index / COLUMNS);
-
-                  if (itemRow < startRow || itemRow > endRow) {
-                    return (
-                      <View
-                        key={game.id ?? index}
-                        style={styles.gameCardPlaceholder}
-                      />
-                    );
-                  }
-
-                  const isItemFocused = gridActive && focusedIndex === index;
-                  const isInstalled = isGameInstalled(game);
-                  const borderId = `lib-${game.id ?? index}`;
-                  const staggerDelay = Math.min(index * 24, 220);
-
-                  return (
-                    <Animated.View
-                      key={game.id ?? index}
-                      entering={FadeInDown.delay(staggerDelay).duration(360)}
-                      style={styles.gameCardAnimationWrapper}
-                    >
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => handleItemPress(index, game)}
-                        style={[
-                          styles.gameCardWrapper,
-                          isItemFocused && styles.gameCardWrapperFocused,
-                        ]}
-                      >
-                        {isItemFocused && <SpinningBorder id={borderId} />}
-
-                        <BlurView
-                          intensity={isItemFocused ? 45 : 25}
-                          tint="dark"
-                          style={[
-                            styles.gameCard,
-                            isItemFocused && styles.gameCardFocused,
-                          ]}
-                        >
-                          <View style={styles.imageContainer}>
-                            {game.image ? (
-                              <Image source={game.image} style={styles.gameImage} contentFit="cover" />
-                            ) : (
-                              <View style={styles.placeholderImage}>
-                                <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
-                              </View>
-                            )}
-
-                            {!isInstalled && (
-                              <View style={styles.notInstalledDarken} pointerEvents="none" />
-                            )}
-
-                            {!isInstalled && (
-                              <View style={styles.installBadge} pointerEvents="none">
-                                <RNImage
-                                  source={require('@/assets/images/install.png')}
-                                  style={styles.installBadgeIcon}
-                                  resizeMode="contain"
-                                />
-                              </View>
-                            )}
-
-                            {isItemFocused && (
-                              <View style={styles.focusedOverlay}>
-                                <View style={styles.gradientOverlay} />
-
-                                <View style={styles.gameInfoContainer}>
-                                  {(() => {
-                                    const steamGame = isSteamGame(game);
-                                    const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
-                                    const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
-
-                                    return (
-                                      <View style={styles.platformRow}>
-                                        {steamGame ? (
-                                          // 🎮 Juego de Steam
-                                          <View
-                                            style={{
-                                              flexDirection: 'row',
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
-                                            }}
-                                          >
-                                            <MaterialCommunityIcons
-                                              name={iconName as any}
-                                              size={20}
-                                              color="#000000"
-                                              style={{ marginRight: 6 }}
-                                            />
-
-                                            <Text
-                                              style={{
-                                                color: '#000000',
-                                                fontFamily: 'SSTBoldIt',
-                                                fontSize: 12,
-                                              }}
-                                            >
-                                              {platformId}
-                                            </Text>
-                                          </View>
-                                        ) : (
-                                          // 🎮 Resto de plataformas: mantener comportamiento actual
-                                          <Text
-                                            style={{
-                                              color: '#000000',
-                                              fontFamily: 'SSTBadge',
-                                              fontSize: 12,
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
-                                            }}
-                                          >
-                                            {' '}{platformId}
-                                          </Text>
-                                        )}
-                                      </View>
-                                    );
-                                  })()}
-
-                                  <SlidingGameTitle
-                                    title={game.title || 'Juego'}
-                                    focused={isItemFocused}
-                                  />
-                                </View>
-                              </View>
-                            )}
-
-                            {gridActive && !isItemFocused && (
-                              <View style={styles.unfocusedOverlay} />
-                            )}
-                          </View>
-                        </BlurView>
-                      </TouchableOpacity>
-                    </Animated.View>
-                  );
-                });
-              })()}
-            </View>
-          </Animated.View>
-        )}
-      </View>
         </View>
       </View>
 
@@ -945,7 +952,7 @@ const styles = StyleSheet.create({
   },
   filterButtonFocused: {
     borderColor: 'rgba(255, 255, 255, 0.19)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 1)',
   },
   tabsContainer: {
     flexDirection: 'row',
