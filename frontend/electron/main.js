@@ -475,6 +475,20 @@ function isHttpUrl(url) {
   return typeof url === 'string' && /^https?:\/\//i.test(url);
 }
 
+// Cualquier URL con un esquema de protocolo (steam:, mailto:, discord:, etc.)
+// que no sea http(s). Estas siempre deben delegarse al sistema operativo
+// (shell.openExternal) en vez de intentar "navegar" a ellas dentro de Electron,
+// ya que Chromium no sabe renderizarlas y termina en una ventana en blanco.
+function isCustomProtocolUrl(url) {
+  if (typeof url !== 'string') return false;
+  if (isHttpUrl(url)) return false;
+  return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(url);
+}
+
+function isExternalUrl(url) {
+  return isHttpUrl(url) || isCustomProtocolUrl(url);
+}
+
 function shouldOpenInDefaultBrowser(targetUrl, currentUrl) {
   if (!isHttpUrl(targetUrl)) return false;
   try {
@@ -737,11 +751,17 @@ function attachExternalLinkHandlers(win) {
       shell.openExternal(url).catch(console.error);
       return { action: 'deny' };
     }
+    // steam://, mailto:, discord:, etc. — Chromium no puede renderizarlos,
+    // así que se delegan siempre al sistema en vez de abrir una ventana vacía.
+    if (isCustomProtocolUrl(url)) {
+      shell.openExternal(url).catch(console.error);
+      return { action: 'deny' };
+    }
     return { action: 'allow' };
   });
 
   wc.on('will-navigate', (event, url) => {
-    if (shouldOpenInDefaultBrowser(url, wc.getURL())) {
+    if (shouldOpenInDefaultBrowser(url, wc.getURL()) || isCustomProtocolUrl(url)) {
       event.preventDefault();
       shell.openExternal(url).catch(console.error);
     }
@@ -1558,7 +1578,7 @@ app.whenReady().then(() => {
 
   // IPC: Abrir carpeta de capturas
   ipcMain.handle('open-external-url', async (event, url) => {
-    if (!isHttpUrl(url)) {
+    if (!isExternalUrl(url)) {
       return { success: false, error: 'URL no válida' };
     }
     try {

@@ -32,7 +32,7 @@ import ProfileDropdownMenu from '@/components/ProfileDropdownMenu';
 
 // Modular components
 import ConsoleCarousel from '@/components/ConsoleCarousel';
-import WelcomeWidgets from '@/components/WelcomeWidgets';
+import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
 import GameInfoPanel from '@/components/GameInfoPanel';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
 import BackgroundPickerModal from '@/components/BackgroundPickerModal';
@@ -209,6 +209,7 @@ export default function ConsoleHome() {
   // internamente y este componente pausa su propio manejo de flechas.
   const [isLibraryFilterPanelOpen, setIsLibraryFilterPanelOpen] = useState(false);
   const libraryGridRef = useRef<LibraryGridHandle>(null);
+  const welcomeWidgetsRef = useRef<WelcomeWidgetsHandle>(null);
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
   const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
   const [loadingSteam, setLoadingSteam] = useState(false);
@@ -1510,6 +1511,12 @@ export default function ConsoleHome() {
               setAddModalVisible(true);
             } else if (focusIndex === 5 && lastPlayedGame) {
               handleLaunchApp(lastPlayedGame);
+            } else if (focusIndex === 6) {
+              // Dispara la misma acción que el clic del widget (lanzar el mismo
+              // juego que el amigo destacado está jugando, o abrir su perfil).
+              welcomeWidgetsRef.current?.triggerFriendAction();
+            } else if (focusIndex === 8) {
+              setRandomSelectorVisible(true);
             } else if (focusIndex === 9) {
               setHomeBgModalVisible(true);
             }
@@ -2450,12 +2457,14 @@ export default function ConsoleHome() {
             <Animated.View style={[styles.welcomePanel, welcomePanelLayout, gameInfoPanelStyle]} entering={FadeInDown.duration(500).delay(150)}>
               <Animated.View style={widgetContainerStyle}>
                 <WelcomeWidgets
+                  ref={welcomeWidgetsRef}
                   focusArea={focusArea}
                   focusIndex={focusIndex}
                   setFocusArea={setFocusArea}
                   setFocusIndex={setFocusIndex}
                   setHomeBgModalVisible={setHomeBgModalVisible}
                   setAddModalVisible={setAddModalVisible}
+                  setRandomSelectorVisible={setRandomSelectorVisible}
                   gamepadInfo={gamepadInfo}
                   storageInfo={storageInfo}
                   lastPlayedGame={lastPlayedGame}

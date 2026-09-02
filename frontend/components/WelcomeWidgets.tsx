@@ -1,11 +1,22 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 import { fetchStoreOffers, StoreOffer } from '../services/storeService';
+import { fetchSteamFriends, SteamFriend } from '../services/steamFriendsService';
+import { openWebLink } from '../services/linkService';
+import { buildSteamRunUrl } from '../services/steamLaunchService';
+import { toastService } from '../services/toastService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { formatPlaytime } from '../services/playtimeService';
+
+export interface WelcomeWidgetsHandle {
+  /** Ejecuta sobre el amigo actualmente mostrado la misma acción que el clic del widget
+   * (lanzar el mismo juego que está jugando, o abrir su perfil de Steam). Pensado para
+   * ser invocado desde el manejador de teclado/mando de index.tsx. */
+  triggerFriendAction: () => void;
+}
 
 interface WelcomeWidgetsProps {
   focusArea: string;
@@ -14,6 +25,7 @@ interface WelcomeWidgetsProps {
   setFocusIndex: (index: number) => void;
   setHomeBgModalVisible: (visible: boolean) => void;
   setAddModalVisible: (visible: boolean) => void;
+  setRandomSelectorVisible: (visible: boolean) => void;
   gamepadInfo: { connected: boolean; name: string; battery: number };
   storageInfo: { percent: number; freeGB: number };
   lastPlayedGame: any;
@@ -27,13 +39,14 @@ interface WelcomeWidgetsProps {
   wviewStyle: any;
 }
 
-export const WelcomeWidgets = ({
+export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsProps>(({
   focusArea,
   focusIndex,
   setFocusArea,
   setFocusIndex,
   setHomeBgModalVisible,
   setAddModalVisible,
+  setRandomSelectorVisible,
   gamepadInfo,
   storageInfo,
   lastPlayedGame,
@@ -44,7 +57,7 @@ export const WelcomeWidgets = ({
   widgetContainerStyle,
   widgetContainerStyle2,
   wviewStyle,
-}: WelcomeWidgetsProps) => {
+}: WelcomeWidgetsProps, ref) => {
   const { t } = useTranslation();
   const horizontalScrollRef = useRef<ScrollView>(null);
 
@@ -104,6 +117,72 @@ export const WelcomeWidgets = ({
       }
     });
   }, []);
+
+  // --- Amigos de Steam ---
+  const [friends, setFriends] = useState<SteamFriend[]>([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
+  const steamId = activeUser?.settings?.steamId;
+
+  const FRIENDS_REFRESH_MS = 30000; // refresca cada 30s para reflejar cambios de estado/juego
+
+  useEffect(() => {
+    if (!steamId) { setFriends([]); return; }
+    const GLOBAL_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
+
+    let cancelled = false;
+    const load = (showLoading: boolean) => {
+      if (showLoading) setLoadingFriends(true);
+      fetchSteamFriends(GLOBAL_STEAM_API_KEY, steamId)
+        .then((data) => { if (!cancelled) setFriends(data); })
+        .finally(() => { if (!cancelled && showLoading) setLoadingFriends(false); });
+    };
+
+    load(true); // carga inicial (con indicador de "Cargando amigos...")
+    const interval = setInterval(() => load(false), FRIENDS_REFRESH_MS); // refrescos silenciosos
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [steamId]);
+
+  const topFriend = friends[0] || null;
+  const onlineFriendsCount = friends.filter(f => f.personastate > 0 || f.gameextrainfo).length;
+
+  // Función extra: Steam no expone públicamente el lobbyid de la partida de un
+  // amigo, así que "unirse" directo a su sesión no es posible vía URL (por eso
+  // "steam://friends/joingame/..." nunca hacía nada). En su lugar, si el amigo
+  // está jugando algo, lanzamos TU copia de ese mismo juego (steam://rungameid,
+  // el mismo mecanismo que ya usa el resto de la app para lanzar juegos). Si no
+  // está jugando, abrimos su perfil de amigo dentro del cliente de Steam.
+  const handleFriendAction = async (friend: SteamFriend | null) => {
+    if (!friend) {
+      // Sin amigo específico (o sin cuenta conectada): abre el panel general de amigos de Steam.
+      const ok = await openWebLink('steam://friends/status');
+      if (!ok) toastService.show('No se pudo abrir Steam. ¿Está instalado y con sesión iniciada?');
+      return;
+    }
+
+    if (friend.gameextrainfo && friend.gameid) {
+      const url = buildSteamRunUrl(friend.gameid);
+      console.log('[Friends widget] Lanzando el mismo juego que', friend.personaname, '→', url);
+      const ok = await openWebLink(url);
+      if (!ok) toastService.show(`No se pudo lanzar "${friend.gameextrainfo}". Verifica que Steam esté abierto.`);
+    } else {
+      const url = `steam://url/SteamIDFriendsPage/${friend.steamid}`;
+      console.log('[Friends widget] Abriendo perfil de', friend.personaname, '→', url);
+      const ok = await openWebLink(url);
+      if (!ok) toastService.show('No se pudo abrir el perfil de Steam de tu amigo.');
+    }
+  };
+
+  // Permite que index.tsx dispare esta misma acción desde el manejador de
+  // teclado/mando (Enter / botón X), igual que ya se hace con LibraryGridHandle.
+  useImperativeHandle(ref, () => ({
+    triggerFriendAction: () => {
+      handleFriendAction(topFriend);
+    },
+  }));
 
   useEffect(() => {
     if (storeOffers.length <= 1) return;
@@ -1490,11 +1569,11 @@ export const WelcomeWidgets = ({
                   </View>
                   <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : t('widgets.noRecent')}</Text>
                   <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium', flex: 1 }}>
-  <MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />
-  {lastPlayedGame
-    ? formatPlaytime(Number(lastPlayedGame.playtimeMinutes ?? lastPlayedGame.playtime_forever ?? 0), t)
-    : t('lastPlayed.never')}
-</Text>
+                    <MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />
+                    {lastPlayedGame
+                      ? formatPlaytime(Number(lastPlayedGame.playtimeMinutes ?? lastPlayedGame.playtime_forever ?? 0), t)
+                      : t('lastPlayed.never')}
+                  </Text>
                 </View>
                 {lastPlayedGame ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -1506,13 +1585,14 @@ export const WelcomeWidgets = ({
               </View>
             </TouchableOpacity>
 
-            {/* Messages Widget */}
+            {/* Friends Widget */}
             <TouchableOpacity
               activeOpacity={0.85}
               style={styles.widgetTouchable}
               onPress={() => {
                 setFocusArea('welcome_widgets');
                 setFocusIndex(6);
+                handleFriendAction(topFriend);
               }}
             >
               <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 6) && styles.welcomeWidgetCardFocused]}>
@@ -1676,22 +1756,39 @@ export const WelcomeWidgets = ({
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                  <Image source={require('@/assets/images/mensajess.png')} style={{ width: 30, height: 30, resizeMode: 'contain' }} />
-                  <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>{t('widgets.messages')}</Text>
+                  <Ionicons name="people" size={20} color="#FFFFFF" />
+                  <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>{t('widgets.friends')}</Text>
+                  {onlineFriendsCount > 0 && (
+                    <View style={{ marginLeft: 'auto', backgroundColor: 'rgba(76,217,100,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                      <Text style={{ color: '#4CD964', fontSize: 10, fontFamily: 'SSTBold' }}>{onlineFriendsCount}</Text>
+                    </View>
+                  )}
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                    {activeUser?.avatar || activeUser?.avatarBase64 ? (
-                      <Image source={{ uri: activeUser.avatarBase64 || activeUser.avatar }} style={styles.avatarMensajes} />
-                    ) : (
-                      <Image source={require('@/assets/images/ProfilePicture.png')} style={styles.avatarMensajes} />
-                    )}
+                {topFriend ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: (topFriend.gameextrainfo || topFriend.personastate > 0) ? '#4CD964' : 'rgba(255,255,255,0.1)' }}>
+                      {topFriend.avatar ? (
+                        <Image source={{ uri: topFriend.avatar }} style={styles.avatarMensajes} />
+                      ) : (
+                        <Image source={require('@/assets/images/ProfilePicture.png')} style={styles.avatarMensajes} />
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium' }} numberOfLines={1}>{topFriend.personaname}</Text>
+                      <Text style={styles.widgetSubtitle} numberOfLines={1}>
+                        {topFriend.gameextrainfo
+                          ? t('widgets.playing', { game: topFriend.gameextrainfo })
+                          : (topFriend.personastate > 0 ? t('widgets.online') : t('widgets.disconnected'))}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium' }} numberOfLines={1}>{activeUser?.name || t('alert.userFallback')}</Text>
-                    <Text style={styles.widgetSubtitle}>{t('widgets.yesterday')}</Text>
-                  </View>
-                </View>
+                ) : (
+                  <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontFamily: 'SSTMediumIt' }} numberOfLines={2}>
+                    {!steamId
+                      ? t('widgets.connectSteamFriends')
+                      : (loadingFriends ? t('widgets.loadingFriends') : t('widgets.noFriends'))}
+                  </Text>
+                )}
               </View>
             </TouchableOpacity>
 
@@ -1913,13 +2010,14 @@ export const WelcomeWidgets = ({
               </View>
             </TouchableOpacity>
 
-            {/* Wishlist Widget */}
+            {/* Random Pick Widget */}
             <TouchableOpacity
               activeOpacity={0.85}
               style={styles.widgetTouchable}
               onPress={() => {
                 setFocusArea('welcome_widgets');
                 setFocusIndex(8);
+                setRandomSelectorVisible(true);
               }}
             >
               <View style={[styles.welcomeWidgetCard, (focusArea === 'welcome_widgets' && focusIndex === 8) && styles.welcomeWidgetCardFocused]}>
@@ -2086,10 +2184,10 @@ export const WelcomeWidgets = ({
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-                  <Ionicons name="heart" size={17} color="#ffffff" />
-                  <Text style={styles.widgetTitle}>{t('widgets.wishlist')}</Text>
+                  <Ionicons name="shuffle" size={17} color="#ffffff" />
+                  <Text style={styles.widgetTitle}>{t('widgets.surpriseMe')}</Text>
                 </View>
-                <Text style={styles.widgetSubtitle}>{t('widgets.viewWishlist')}</Text>
+                <Text style={styles.widgetSubtitle}>{t('widgets.surpriseMeDesc')}</Text>
               </View>
             </TouchableOpacity>
 
@@ -2281,6 +2379,8 @@ export const WelcomeWidgets = ({
       </View>
     </ScrollView>
   );
-};
+});
+
+WelcomeWidgets.displayName = 'WelcomeWidgets';
 
 export default WelcomeWidgets;
