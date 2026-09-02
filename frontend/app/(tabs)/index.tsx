@@ -68,6 +68,8 @@ export interface ConsoleItem {
   isFavorite?: boolean;
   isLastPlayed?: boolean;
   lastPlayed?: number;
+  playtime_forever?: number;
+  playtimeMinutes?: number;
   youtubeId?: string;
   type?: 'game' | 'media' | 'web';
   platform?: string;
@@ -210,6 +212,31 @@ export default function ConsoleHome() {
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
   const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
   const [loadingSteam, setLoadingSteam] = useState(false);
+  const launchStartTimeRef = useRef<Record<string, number>>({});
+  const sessionPlaytimeRef = useRef<Record<string, number>>({});
+  const syncGamePlaytime = (gameId: string, totalMinutes: number) => {
+    setGames(prev => prev.map(item => item.id !== gameId ? item : { ...item, playtimeMinutes: totalMinutes, playtime_forever: totalMinutes }));
+    setSteamGames(prev => prev.map(item => item.id !== gameId ? item : { ...item, playtimeMinutes: totalMinutes, playtime_forever: totalMinutes }));
+    setLastPlayedGame(prev => prev && prev.id === gameId ? { ...prev, playtimeMinutes: totalMinutes, playtime_forever: totalMinutes } : prev);
+
+    if ((window as any).electronAPI?.updateApp) {
+      (window as any).electronAPI.updateApp({
+        id: gameId,
+        playtimeMinutes: totalMinutes,
+        playtime_forever: totalMinutes,
+      });
+    }
+  };
+  const isSteamTrackedGame = (item: ConsoleItem | null | undefined) => {
+    if (!item) return false;
+    const path = typeof item.path === 'string' ? item.path : '';
+    return Boolean(
+      item.id?.toString().startsWith('steam_') ||
+      item.platform === 'Steam' ||
+      (typeof (item as any).steamAppId !== 'undefined') ||
+      path.startsWith('steam://rungameid/')
+    );
+  };
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
   const activeCardRef = useAnimatedRef<View>();
@@ -505,7 +532,9 @@ export default function ConsoleHome() {
             title: g.name,
             time: 'Steam',
             image: { uri: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900_2x.jpg` },
-            description: t('game.playedTime', { hours: Math.round(g.playtime_forever / 60) }),
+            description: t('game.playedTime', { hours: Math.round((g.playtime_forever || 0) / 60) }),
+            playtime_forever: Number(g.playtime_forever || 0),
+            playtimeMinutes: Number(g.playtime_forever || 0),
             platform: 'Steam',
             path: buildSteamRunUrl(g.appid),
           }));
@@ -579,6 +608,8 @@ export default function ConsoleHome() {
           rating: app.rating,
           isFavorite: app.isFavorite,
           lastPlayed: app.lastPlayed,
+          playtimeMinutes: Number(app.playtimeMinutes ?? app.playtime_forever ?? 0),
+          playtime_forever: Number(app.playtime_forever ?? app.playtimeMinutes ?? 0),
           youtubeId: app.youtubeId,
           type: app.type,
           platform: app.platform,
@@ -1645,6 +1676,12 @@ export default function ConsoleHome() {
     }
     const targetItem = item.isLastPlayed ? lastPlayedGame! : item;
     if (!targetItem) return;
+
+    if (targetItem?.id && (!targetItem.type || targetItem.type === 'game') && !launchStartTimeRef.current[targetItem.id]) {
+      launchStartTimeRef.current[targetItem.id] = Date.now();
+      sessionPlaytimeRef.current[targetItem.id] = Number(targetItem.playtimeMinutes ?? targetItem.playtime_forever ?? 0);
+    }
+
     const launchPath = resolveSteamLaunchPath(targetItem, installedSteamAppIds);
     if (!launchPath) {
       setSelectedItem(targetItem);
@@ -1679,14 +1716,12 @@ export default function ConsoleHome() {
         setFavoritesVisible(false);
         setRandomSelectorVisible(false);
 
-        // Si el launcher no se suspendió (URLs, .url, etc), limpiar estado tras delay
         if (!result?.suspended) {
           setTimeout(() => {
             setIsLaunching(false);
             setLaunchingItem(null);
           }, 5000);
         }
-        // Si se suspendió, el evento 'game-closed' se encarga de restaurar
       });
     }
   };
@@ -1696,6 +1731,30 @@ export default function ConsoleHome() {
     if (Platform.OS === 'web' && (window as any).electronAPI?.onGameClosed) {
       (window as any).electronAPI.onGameClosed((id: string) => {
         console.log('Juego cerrado, restaurando launcher:', id);
+        const startedAt = launchStartTimeRef.current[id];
+        if (startedAt) {
+          const elapsedMinutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
+
+          // El item pudo haber sido excluido de "games" por loadApps() al
+          // convertirse en el último jugado (ver lógica de gamesWithoutLastPlayed),
+          // por eso también buscamos en steamGames y en lastPlayedGame.
+          const trackedItem =
+            games.find(item => item.id === id) ||
+            steamGames.find(item => item.id === id) ||
+            (lastPlayedGame && lastPlayedGame.id === id ? lastPlayedGame : null);
+
+          if (trackedItem) {
+            const currentMinutes = Number(trackedItem.playtimeMinutes ?? trackedItem.playtime_forever ?? 0);
+            const updatedMinutes = currentMinutes + elapsedMinutes;
+            sessionPlaytimeRef.current[id] = updatedMinutes;
+            syncGamePlaytime(id, updatedMinutes);
+          } else {
+            console.warn('[Playtime] No se encontró el item para actualizar tiempo jugado:', id);
+          }
+
+          delete launchStartTimeRef.current[id];
+        }
+
         soundService.playBackground();
         setIsLaunching(false);
         setLaunchingItem(null);
@@ -1705,7 +1764,7 @@ export default function ConsoleHome() {
         (window as any).electronAPI?.removeGameClosedListener?.();
       };
     }
-  }, []);
+  }, [games, steamGames, lastPlayedGame]);
 
   const handleAppPress = (index: number, item: ConsoleItem) => {
     setFocusArea('main_carousel');
@@ -1745,7 +1804,11 @@ export default function ConsoleHome() {
   const handleSaveApp = async () => {
     if ((window as any).electronAPI && newApp.title && newApp.path) {
       setIsSaving(true);
-      let appToSave = { ...newApp };
+      let appToSave = {
+        ...newApp,
+        playtimeMinutes: 0,
+        playtime_forever: 0,
+      };
       if (!appToSave.image && appToSave.type === 'game') {
         try {
           const res = await (window as any).electronAPI.fetchSteamGridData(appToSave.title);

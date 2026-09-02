@@ -5,6 +5,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 import { fetchStoreOffers, StoreOffer } from '../services/storeService';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { formatPlaytime } from '../services/playtimeService';
 
 interface WelcomeWidgetsProps {
   focusArea: string;
@@ -1488,7 +1489,12 @@ export const WelcomeWidgets = ({
                     <Text style={styles.widgetTitle}>{t('widgets.recentlyPlayed')}</Text>
                   </View>
                   <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : t('widgets.noRecent')}</Text>
-                  <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium', flex: 1 }}><MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />2 horas</Text>
+                  <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium', flex: 1 }}>
+  <MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />
+  {lastPlayedGame
+    ? formatPlaytime(Number(lastPlayedGame.playtimeMinutes ?? lastPlayedGame.playtime_forever ?? 0), t)
+    : t('lastPlayed.never')}
+</Text>
                 </View>
                 {lastPlayedGame ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
