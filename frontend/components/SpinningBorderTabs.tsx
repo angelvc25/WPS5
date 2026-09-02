@@ -91,7 +91,7 @@ export const SpinningBorderTabs = ({ size }: SpinningBorderTabsProps) => {
       rgba(255, 255, 255, 0.01) 80%,
       transparent 100%
     );
-    animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+    animation: wc-content-shimmer-tabs 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
   }
 `}</style>
 

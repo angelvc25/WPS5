@@ -122,7 +122,7 @@ export const ConsoleCarousel = ({
           cardContent = (
             <AnimatedCardWrapper key={`more-${carouselKey}`} isActive={isActive} style={{ opacity: 0.75 }} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-                {isActive && <SpinningBorder size={CARD_SIZE} />}
+                {isActive && focusArea === 'main_carousel' && <SpinningBorder size={CARD_SIZE} />}
                 <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
                   {libraryContent}
                 </Animated.View>
@@ -133,7 +133,7 @@ export const ConsoleCarousel = ({
           cardContent = (
             <AnimatedCardWrapper key={`grid-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-                {isActive && <SpinningBorder size={CARD_SIZE} />}
+                {isActive && focusArea === 'main_carousel' && <SpinningBorder size={CARD_SIZE} />}
                 <View style={[styles.card, styles.folderCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
                   <View style={styles.folderCardHeader}>
                     <MaterialCommunityIcons name="view-grid" size={14} color="rgba(255,255,255,0.7)" />
@@ -161,7 +161,7 @@ export const ConsoleCarousel = ({
           cardContent = (
             <AnimatedCardWrapper key={`folder-${carouselKey}`} isActive={isActive} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-                {isActive && <SpinningBorder size={CARD_SIZE} />}
+                {isActive && focusArea === 'main_carousel' && <SpinningBorder size={CARD_SIZE} />}
                 <View style={[styles.card, styles.folderCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
                   <View style={styles.folderCardHeader}>
                     <Ionicons name="heart" size={14} color="rgba(255,100,100,0.9)" />
@@ -189,7 +189,7 @@ export const ConsoleCarousel = ({
           cardContent = (
             <AnimatedCardWrapper key={`lp-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-                {isActive && <SpinningBorder size={CARD_SIZE} />}
+                {isActive && focusArea === 'main_carousel' && <SpinningBorder size={CARD_SIZE} />}
                 <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
                   <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
                 </BlurView>
@@ -204,7 +204,7 @@ export const ConsoleCarousel = ({
           cardContent = (
             <AnimatedCardWrapper key={`${item.id}-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-                {isActive && <SpinningBorder size={CARD_SIZE} />}
+                {isActive && focusArea === 'main_carousel' && <SpinningBorder size={CARD_SIZE} />}
                 <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
                   {cardImage}
                 </Animated.View>
