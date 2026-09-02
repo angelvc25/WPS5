@@ -136,6 +136,9 @@ const es = {
   'lastPlayed.title': 'Último Jugado',
   'lastPlayed.never': 'No ejecutado aún',
   'lastPlayed.noGamesYet': 'Aún no has jugado a ningún juego.',
+  'time.minutes': '{minutes} min',
+  'time.hoursMinutes': '{hours} h {minutes} min',
+  'time.hours': '{hours} h',
 
   'action.play': 'Jugar',
   'action.playMedia': 'Reproducir',
@@ -547,6 +550,9 @@ const en: Record<TranslationKey, string> = {
   'lastPlayed.title': 'Last Played',
   'lastPlayed.never': 'Not played yet',
   'lastPlayed.noGamesYet': "You haven't played any games yet.",
+  'time.minutes': '{minutes} min',
+  'time.hoursMinutes': '{hours} h {minutes} min',
+  'time.hours': '{hours} h',
 
   'action.play': 'Play',
   'action.playMedia': 'Play',
@@ -954,6 +960,9 @@ const pt: Record<TranslationKey, string> = {
   'lastPlayed.title': 'Último Jogado',
   'lastPlayed.never': 'Ainda não executado',
   'lastPlayed.noGamesYet': 'Ainda não jogou nenhum jogo.',
+  'time.minutes': '{minutes} min',
+  'time.hoursMinutes': '{hours} h {minutes} min',
+  'time.hours': '{hours} h',
 
   'action.play': 'Jogar',
   'action.playMedia': 'Reproduzir',

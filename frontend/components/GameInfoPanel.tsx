@@ -6,6 +6,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MusicPlayerCard from './MusicPlayerCard';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { getGameActionLabel } from '../services/steamLaunchService';
+import { formatPlaytime } from '../services/playtimeService';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 interface GameInfoPanelProps {
@@ -64,6 +65,7 @@ export const GameInfoPanel = ({
   const { t } = useTranslation();
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : t('lastPlayed.title')) : activeItem?.title;
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
+  const playtimeItem = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
   const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
   const isSpotify = activeItem?.title?.toLowerCase()?.includes('spotify');
   const isMediaSection = activeItem?.type === 'media' || activeItem?.type === 'web' || isSpotify;
@@ -301,6 +303,12 @@ export const GameInfoPanel = ({
                   focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnTextFocused
                 ]}>···</Text>
               </TouchableOpacity>
+              <View style={[styles.playtimeContainer, { minHeight: s(62), minWidth: s(100) }]}>
+                <MaterialCommunityIcons name="clock-outline" size={s(22)} color="rgba(255,255,255,0.72)" />
+                <Text style={[styles.playtimeText, { fontSize: s(16) }]} numberOfLines={1}>
+                  {formatPlaytime(Number(playtimeItem?.playtimeMinutes ?? playtimeItem?.playtime_forever ?? 0), t as any)}
+                </Text>
+              </View>
             </Animated.View>
           )}
         </Animated.View>
@@ -1231,6 +1239,22 @@ const styles = StyleSheet.create({
   } as any,
   moreBtnTextFocused: {
     color: '#111111',
+  },
+  playtimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(1, 1, 2, 0.4)',
+    //borderWidth: 1,
+    //borderColor: 'rgba(255,255,255,0.12)',
+  },
+  playtimeText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontFamily: 'SSTLight',
+    fontWeight: '600',
   },
   infoCardsRow: {
     flexDirection: 'row',

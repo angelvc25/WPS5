@@ -190,7 +190,7 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
       const ok = await openWebLink(url);
       if (!ok) toastService.show(`No se pudo lanzar "${friend.gameextrainfo}". Verifica que Steam esté abierto.`);
     } else {
-      const url = `steam://url/SteamIDFriendsPage/${friend.steamid}`;
+      const url = `steam://url/SteamIDPage/${friend.steamid}`;
       const ok = await openWebLink(url);
       if (!ok) toastService.show('No se pudo abrir el perfil de Steam de tu amigo.');
     }
@@ -300,7 +300,7 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
               {activeTab === 'messages' ? (
                 <View style={styles.emptyWrap}>
                   <Ionicons name="chatbubbles-outline" size={36} color="rgba(255,255,255,0.18)" />
-                  <Text style={styles.emptyText}>Mensajes próximamente</Text>
+                  <Text style={styles.emptyText}>Menssages soon</Text>
                 </View>
               ) : !steamId ? (
                 <View style={styles.emptyWrap}>
@@ -314,10 +314,10 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
               ) : filteredFriends.length === 0 ? (
                 <View style={styles.emptyWrap}>
                   <Text style={styles.emptyText}>
-                    {searchQuery ? 'Sin resultados para "' + searchQuery + '"' : t('widgets.noFriends')}
+                    {searchQuery ? 'No results found for "' + searchQuery + '"' : t('widgets.noFriends')}
                   </Text>
                   {onlineCount > 0 && !searchQuery && (
-                    <Text style={styles.emptySub}>{onlineCount} en línea</Text>
+                    <Text style={styles.emptySub}>{onlineCount} Online</Text>
                   )}
                 </View>
               ) : (
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    borderWidth: 2,
+    //borderWidth: 2,
   },
   friendMeta: {
     flex: 1,

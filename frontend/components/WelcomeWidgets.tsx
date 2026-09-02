@@ -249,14 +249,14 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       } as any,
       widgetTitle: {
         color: '#FFFFFF',
-        fontSize: s(15),
+        fontSize: s(17),
         fontFamily: 'SSTMedium',
         fontWeight: '500',
         letterSpacing: 0.1,
       },
       widgetTitle2: {
         color: '#fffc5dff',
-        fontSize: s(13),
+        fontSize: s(17),
         fontFamily: 'SSTLight',
         fontWeight: '300',
         letterSpacing: 0.1,
@@ -264,13 +264,13 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       widgetSubtitle: {
         color: 'rgba(224, 224, 224, 1)',
         fontFamily: 'SSTRg',
-        fontSize: s(12),
+        fontSize: s(14),
         marginTop: 1,
       },
       widgetBadge: {
         color: 'rgba(224, 224, 224, 1)',
         fontFamily: 'SSTMedium',
-        fontSize: s(13),
+        fontSize: s(15),
         fontWeight: '500',
       },
       widgetIconWrap: {
@@ -615,9 +615,9 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       />
                     )}
                     <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: "#FFF", fontSize: 12, fontFamily: 'SSTMedium', marginBottom: 2 }}>{gamepadInfo.connected ? "1" : "-"}</Text>
-                      <Image source={require('@/assets/images/controller.png')} style={{ width: 45, height: 45, tintColor: "#FFF" }} contentFit="contain" />
-                      <Ionicons name={batteryIcon as any} size={11} color={gamepadInfo.connected ? batteryColor : "#fff"} />
+                      <Text style={{ color: "#FFF", fontSize: 14, fontFamily: 'SSTMedium', marginBottom: 2 }}>{gamepadInfo.connected ? "1" : "-"}</Text>
+                      <Image source={require('@/assets/images/controller2.png')} style={{ width: 35, height: 35, tintColor: "#FFF" }} contentFit="contain" />
+                      <Ionicons name={batteryIcon as any} size={16} color={gamepadInfo.connected ? batteryColor : "#fff"} />
                     </View>
                   </View>
                   <View style={{ flex: 1 }}>
@@ -1781,7 +1781,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       <Text
                         style={{
                           color: '#FFFFFF',
-                          fontSize: 11,
+                          fontSize: 12,
                           fontFamily: 'SSTBold',
                         }}
                       >
@@ -1801,16 +1801,21 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium' }} numberOfLines={1}>{topFriend.personaname}</Text>
+                      <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium' }} numberOfLines={1}>{topFriend.personaname}</Text>
                       <Text style={styles.widgetSubtitle} numberOfLines={1}>
                         {topFriend.gameextrainfo
                           ? t('widgets.playing', { game: topFriend.gameextrainfo })
                           : (topFriend.personastate > 0 ? t('widgets.online') : t('widgets.disconnected'))}
                       </Text>
+                      <Image
+                        source={require('@/assets/images/consola.png')}
+                        style={{ width: 40, height: 40, position: 'absolute', bottom: 2, right: 15, tintColor: '#FFFFFF' }}
+                        resizeMode="contain"
+                      />
                     </View>
                   </View>
                 ) : (
-                  <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontFamily: 'SSTMediumIt' }} numberOfLines={2}>
+                  <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, fontFamily: 'SSTMediumIt' }} numberOfLines={2}>
                     {!steamId
                       ? t('widgets.connectSteamFriends')
                       : (loadingFriends ? t('widgets.loadingFriends') : t('widgets.noFriends'))}
@@ -1999,7 +2004,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                   <Text style={styles.widgetSubtitle}>
                     <MaterialCommunityIcons name="circle" size={13} color="rgba(255,255,255,0.4)" style={{ marginRight: 5 }} /> {t('widgets.freeSpace')}
                   </Text>
-                  <Text style={{ color: '#FFF', fontSize: 11, fontFamily: 'SSTBold' }}>
+                  <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTBold' }}>
                     {storageInfo.freeGB > 0 ? `${storageInfo.freeGB.toFixed(1)} GB` : '36.47 GB'}
                   </Text>
                 </View>
