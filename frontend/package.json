@@ -12,7 +12,8 @@
     "electron:start": "electron electron/main.js",
     "backend:dev": "npm --prefix ../backend run dev",
     "electron:dev": "concurrently \"npm run backend:dev\" \"npm run electron:start\"",
-    "electron:build": "expo export -p web && electron-builder",
+    "backend:build": "npm --prefix ../backend run build",
+    "electron:build": "npm run backend:build && expo export -p web && electron-builder",
     "sync-music": "node scripts/sync-music.mjs"
   },
   "dependencies": {
@@ -72,7 +73,7 @@
     },
     "extraResources": [
       {
-        "from": "../backend",
+        "from": "../backend/dist",
         "to": "backend",
         "filter": [
           "**/*"

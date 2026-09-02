@@ -13,6 +13,7 @@ import { useUser } from '@/contexts/UserContext';
 import { Linking } from 'react-native';
 import { fetchGamingNews, NewsArticle } from '@/services/newsService';
 import { soundService } from '@/services/soundService';
+import { toastService } from '@/services/toastService';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
@@ -88,7 +89,7 @@ const getInitialMedia = (t: any): ConsoleItem[] => [
     title: 'Spotify',
     time: t('home.music'),
     type: 'media',
-    platform: 'Spotify',
+    platform: 'PC',
     description: t('home.musicDesc'),
     image: require('@/assets/images/spotify_portada.png'),
     logo: require('@/assets/images/spotify_logo.png'),
@@ -824,6 +825,11 @@ export default function ConsoleHome() {
         if (lastGpId.current !== gp.id) {
           lastGpId.current = gp.id;
           setGamepadInfo({ connected: true, name: gp.id, battery: 0.75 });
+
+          toastService.show('Controller connected.', {
+            duration: 2500,
+            icon: require('@/assets/images/controller.png'),
+          });
         }
         const checkButton = (idx: number, key: string) => {
           const pressed = !!buttons[idx]?.pressed;

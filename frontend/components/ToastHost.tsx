@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
-import { toastService } from '@/services/toastService';
+import { toastService, ToastOptions } from '@/services/toastService';
 import { soundService } from '@/services/soundService';
 
-const TOAST_DURATION_MS = 5000;
+const DEFAULT_TOAST_DURATION_MS = 5000;
 
 export default function ToastHost() {
   const [message, setMessage] = useState<string | null>(null);
+  const [icon, setIcon] = useState<any>(null);
   const opacity = useSharedValue(0);
   const translateX = useSharedValue(24);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -20,13 +21,15 @@ export default function ToastHost() {
     });
   }, [opacity, translateX]);
 
-  const show = useCallback((msg: string) => {
+  const show = useCallback((payload: { message: string; options?: ToastOptions }) => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setMessage(msg);
+    setMessage(payload.message);
+    setIcon(payload.options?.icon ?? null);
     soundService.playNotification();
     opacity.value = withTiming(1, { duration: 280 });
     translateX.value = withTiming(0, { duration: 280 });
-    timerRef.current = setTimeout(hide, TOAST_DURATION_MS);
+    const duration = payload.options?.duration ?? DEFAULT_TOAST_DURATION_MS;
+    timerRef.current = setTimeout(hide, duration);
   }, [hide, opacity, translateX]);
 
   useEffect(() => {
@@ -68,11 +71,15 @@ export default function ToastHost() {
             transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         />
+        {icon && (
+          <Image source={icon} style={styles.icon} contentFit="contain" />
+        )}
         <Text style={styles.label}>{message}</Text>
       </View>
     </Animated.View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -90,10 +97,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     minWidth: 370,
     minHeight: 70,
-    //shadowColor: '#000',
-    //shadowOffset: { width: 0, height: 10 },
-    //shadowOpacity: 0.6,
-    //shadowRadius: 20,
+  },
+  icon: {
+    width: 26,
+    height: 26,
+    marginRight: 14,
+    tintColor: '#FFF',
+    zIndex: 2,
   },
   label: {
     color: '#FFF',

@@ -342,18 +342,33 @@ function getOrCreateThumbnail(sourcePath, mtimeMs) {
   }
 }
 
+function storeBackendLog(...args) {
+  const line = `[${new Date().toISOString()}] ${args.map(a => (a instanceof Error ? a.stack : String(a))).join(' ')}\n`;
+  try {
+    const logPath = path.join(app.getPath('userData'), 'store-backend.log');
+    fs.appendFileSync(logPath, line);
+  } catch (_) { /* noop */ }
+  console.log(line.trim());
+}
+
 function startStoreBackend() {
   if (!app.isPackaged) {
     return;
   }
 
-  const backendEntry = path.join(process.resourcesPath, 'backend/src/app.js');
+  const backendEntry = path.join(process.resourcesPath, 'backend/app.js');
   const backendCwd = path.join(process.resourcesPath, 'backend');
 
+  storeBackendLog('[StoreBackend] entry=', backendEntry, 'cwd=', backendCwd);
+
   if (!fs.existsSync(backendEntry)) {
-    console.warn('[StoreBackend] No se encontró el backend empaquetado en', backendEntry);
+    storeBackendLog('[StoreBackend] No se encontró el backend empaquetado en', backendEntry, '- ¿corriste "npm run backend:build" antes de electron-builder?');
     return;
   }
+
+  // Log de salida real del proceso hijo, en vez de heredar la consola (invisible en el .exe empaquetado)
+  const logPath = path.join(app.getPath('userData'), 'store-backend.log');
+  const outFd = fs.openSync(logPath, 'a');
 
   backendProcess = fork(backendEntry, [], {
     cwd: backendCwd,
@@ -362,17 +377,15 @@ function startStoreBackend() {
       PORT: process.env.STORE_API_PORT || '3000',
       ELECTRON_RUN_AS_NODE: '1',
     },
-    stdio: 'inherit',
+    stdio: ['ignore', outFd, outFd, 'ipc'],
   });
 
   backendProcess.on('error', (error) => {
-    console.error('[StoreBackend] Error al iniciar:', error);
+    storeBackendLog('[StoreBackend] Error al iniciar:', error);
   });
 
-  backendProcess.on('exit', (code) => {
-    if (code !== 0 && code !== null) {
-      console.warn('[StoreBackend] Proceso finalizado con código', code);
-    }
+  backendProcess.on('exit', (code, signal) => {
+    storeBackendLog('[StoreBackend] Proceso finalizado. code=', code, 'signal=', signal);
     backendProcess = null;
   });
 }

@@ -5,11 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/app.js",
-    "start": "node src/app.js"
+    "start": "node src/app.js",
+    "build": "esbuild src/app.js --bundle --platform=node --format=esm --outfile=dist/app.js --external:electron && node -e \"const fs=require('fs');if(fs.existsSync('.env'))fs.copyFileSync('.env','dist/.env');\""
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
   }
 }
