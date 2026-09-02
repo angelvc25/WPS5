@@ -22,6 +22,7 @@ import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLa
 import { Feather } from '@expo/vector-icons';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import MusicPlayerCard from '@/components/MusicPlayerCard';
+import SpinningBorderTabs from '@/components/SpinningBorderTabs';
 
 // WPS5 UI Expansion Components
 import LibraryGrid, { LibraryGridHandle } from '@/components/LibraryGrid';
@@ -2294,26 +2295,27 @@ export default function ConsoleHome() {
         <View style={styles.headerLeft}>
           {/* <ControlPrompt btn="L" label="" inputMode={inputMode} /> */}
           {TABS.map((tab, idx) => (
-            <TouchableOpacity
-              key={tab.id}
-              id={`tab-${tab.id.toLowerCase()}`}
-              onPress={(e) => {
-                (e.currentTarget as any)?.blur?.();
-                setActiveTab(tab.id);
-                setActiveIndex(0);
-                setFocusArea('main_carousel');
-              }}
-              activeOpacity={0.7}
-              style={styles.tabTouchable}
-            >
-              <Text style={[
-                styles.navItem,
-                activeTab === tab.id && styles.navItemActive,
-                (focusArea === 'header_tabs' && focusIndex === idx) && styles.tabFocused
-              ]}>
-                {t(tab.labelKey)}
-              </Text>
-            </TouchableOpacity>
+            <View key={tab.id} style={styles.tabTouchable}>
+              {focusArea === 'header_tabs' && focusIndex === idx && <SpinningBorderTabs size={100} />}
+              <TouchableOpacity
+                id={`tab-${tab.id.toLowerCase()}`}
+                onPress={(e) => {
+                  (e.currentTarget as any)?.blur?.();
+                  setActiveTab(tab.id);
+                  setActiveIndex(0);
+                  setFocusArea('main_carousel');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.navItem,
+                  activeTab === tab.id && styles.navItemActive,
+                  (focusArea === 'header_tabs' && focusIndex === idx) && styles.tabFocused
+                ]}>
+                  {t(tab.labelKey)}
+                </Text>
+              </TouchableOpacity>
+            </View>
           ))}
           {/* <ControlPrompt btn="R" label="" inputMode={inputMode} /> */}
         </View>
@@ -3055,7 +3057,8 @@ const styles = StyleSheet.create({
     gap: 35,
   },
   tabTouchable: {
-    // Padding removed — navItem holds its own constant padding to prevent layout shifts on focus
+    position: 'relative',
+    overflow: 'visible',
   },
   navItem: {
     color: 'rgba(255,255,255,0.5)',
@@ -3073,11 +3076,11 @@ const styles = StyleSheet.create({
   navItemActive: {
     color: '#FFFFFF',
     fontFamily: 'SSTRg',
-    fontWeight: '400',
+    //fontWeight: '400',
   },
   tabFocused: {
     color: '#FFFFFF',
-    borderColor: "#a8a8a8ff",
+    //borderColor: "#a8a8a8ff",
   },
   headerRight: {
     flexDirection: 'row',
