@@ -1059,7 +1059,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     if ((window as any).electronAPI && item.id) {
       const confirmed = window.confirm(`¿Estás seguro de que quieres eliminar "${item.title}"? Esta acción no se puede deshacer.`);
       if (confirmed) {
-          const result = await (window as any).electronAPI.deleteApp(item.id);
+        const result = await (window as any).electronAPI.deleteApp(item.id);
         if (result.success) {
           onClose();
           if (onRefresh) onRefresh({ id: item.id, _deleted: true } as any);
