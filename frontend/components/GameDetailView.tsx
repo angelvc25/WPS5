@@ -26,7 +26,7 @@ interface GameDetailViewProps {
   item: ConsoleItem | null;
   onClose: () => void;
   onLaunch?: (id: string, path: string) => void;
-  onRefresh?: () => void;
+  onRefresh?: (updatedGame?: Partial<ConsoleItem>) => void;
   isLaunching?: boolean;
   inputMode: 'keyboard' | 'gamepad';
   installedSteamAppIds?: Set<string> | null;
@@ -282,7 +282,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       );
       const result = await (window as any).electronAPI.updateApp(cleanData);
       if (result.success) {
-        if (onRefresh) onRefresh();
+        if (onRefresh) onRefresh(cleanData);
       }
     }
   };
@@ -326,7 +326,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       );
       const result = await (window as any).electronAPI.updateApp(cleanData);
       if (result.success) {
-        if (onRefresh) onRefresh();
+        if (onRefresh) onRefresh(cleanData);
         if (idx === 3) alert("Se han restablecido los assets locales.");
       }
     }
@@ -977,7 +977,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       if (result.success) {
         setEditData(prev => ({ ...prev, ...cleanData }));
         setEditModalVisible(false);
-        if (onRefresh) onRefresh();
+        if (onRefresh) onRefresh(cleanData);
       } else {
         alert('Error al actualizar: ' + result.error);
       }
@@ -1046,7 +1046,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       const result = await (window as any).electronAPI.updateApp({ id: item.id, isFavorite: newStatus });
       console.log('Update result:', result);
       if (result.success) {
-        if (onRefresh) onRefresh();
+        if (onRefresh) onRefresh({ id: item.id, isFavorite: newStatus });
       } else {
         alert('No se pudo marcar como favorito: ' + result.error);
       }
@@ -1059,10 +1059,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     if ((window as any).electronAPI && item.id) {
       const confirmed = window.confirm(`¿Estás seguro de que quieres eliminar "${item.title}"? Esta acción no se puede deshacer.`);
       if (confirmed) {
-        const result = await (window as any).electronAPI.deleteApp(item.id);
+          const result = await (window as any).electronAPI.deleteApp(item.id);
         if (result.success) {
           onClose();
-          if (onRefresh) onRefresh();
+          if (onRefresh) onRefresh({ id: item.id, _deleted: true } as any);
         } else {
           alert('Error al eliminar: ' + result.error);
         }

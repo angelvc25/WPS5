@@ -722,6 +722,53 @@ export default function ConsoleHome() {
     }
   };
 
+  // Merge a game update directly into state (no async gap) so the library
+  // grid reflects the change immediately while loadApps() syncs DB in background.
+  const mergeGameIntoState = (updated: Partial<ConsoleItem>) => {
+    if (!updated.id) return;
+    const id = updated.id;
+    const formatUpdated = (existing: ConsoleItem): ConsoleItem => {
+      const merged = { ...existing };
+      Object.entries(updated).forEach(([key, value]) => {
+        if (key === '_deleted') return;
+        if (value !== '' && value !== null && value !== undefined) {
+          (merged as any)[key] = value;
+        }
+      });
+      // Re-wrap image/logo/backgroundImage URLs into { uri } format like loadApps does
+      (['image', 'logo', 'backgroundImage'] as const).forEach(field => {
+        const val = (merged as any)[field];
+        if (typeof val === 'string') {
+          if (val.startsWith('http')) {
+            (merged as any)[field] = { uri: val };
+          } else {
+            (merged as any)[field] = { uri: `local-file:///${val.replace(/\\/g, '/')}` };
+          }
+        }
+      });
+      return merged;
+    };
+    setGames(prev => {
+      const exists = prev.some(g => g.id === id);
+      if (exists) {
+        return prev.map(g => g.id === id ? formatUpdated(g) : g);
+      }
+      // New entry (e.g. first Steam artwork save) — add it to the list
+      const newGame: any = { ...updated };
+      (['image', 'logo', 'backgroundImage'] as const).forEach(field => {
+        const val = newGame[field];
+        if (typeof val === 'string') {
+          if (val.startsWith('http')) {
+            newGame[field] = { uri: val };
+          } else {
+            newGame[field] = { uri: `local-file:///${val.replace(/\\/g, '/')}` };
+          }
+        }
+      });
+      return [...prev, newGame];
+    });
+  };
+
   useEffect(() => {
     loadApps();
     fetchGamingNews().then(() => { });
@@ -2602,7 +2649,10 @@ export default function ConsoleHome() {
         isVisible={isDetailVisible}
         item={selectedItem}
         onClose={() => setDetailVisible(false)}
-        onRefresh={() => loadApps()}
+        onRefresh={(updatedGame) => {
+          if (updatedGame) mergeGameIntoState(updatedGame);
+          loadApps();
+        }}
         inputMode={inputMode}
         isLaunching={isLaunching}
         installedSteamAppIds={installedSteamAppIds}
