@@ -19,6 +19,8 @@ import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaServ
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
 import { fetchSteamInstalledAppIds } from '@/services/steamInstallService';
 import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
+import { fetchEpicInstalledGames } from '@/services/epicInstallService';
+import { buildEpicRunUrl } from '@/services/epicLaunchService';
 import { Feather } from '@expo/vector-icons';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import MusicPlayerCard from '@/components/MusicPlayerCard';
@@ -215,6 +217,8 @@ export default function ConsoleHome() {
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
   const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
   const [loadingSteam, setLoadingSteam] = useState(false);
+  const [epicGames, setEpicGames] = useState<ConsoleItem[]>([]);
+  const [loadingEpic, setLoadingEpic] = useState(false);
   const launchStartTimeRef = useRef<Record<string, number>>({});
   const sessionPlaytimeRef = useRef<Record<string, number>>({});
   const syncGamePlaytime = (gameId: string, totalMinutes: number) => {
@@ -497,11 +501,23 @@ export default function ConsoleHome() {
     item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && item.id !== '5' && !item.isFolder && !item.isGrid
   );
 
-  const displayedLibraryGames = libraryTab === 'installed' ? savedGames : steamGames.map(sg => {
-    const override = games.find(g => g.id === sg.id);
-    const merged = override ? { ...sg, ...override } : sg;
-    return { ...merged, path: resolveLaunchPath(merged) };
-  });
+  const displayedLibraryGames = useMemo(() => {
+    if (libraryTab === 'installed') {
+      const byId = new Map<string, ConsoleItem>();
+      epicGames.forEach(game => {
+        byId.set(game.id, game);
+      });
+      savedGames.forEach(game => {
+        byId.set(game.id, { ...game, path: resolveLaunchPath(game) });
+      });
+      return Array.from(byId.values());
+    }
+    return steamGames.map(sg => {
+      const override = games.find(g => g.id === sg.id);
+      const merged = override ? { ...sg, ...override } : sg;
+      return { ...merged, path: resolveLaunchPath(merged) };
+    });
+  }, [libraryTab, savedGames, epicGames, steamGames, games]);
 
   const searchableLibraryGames = useMemo(() => {
     const byId = new Map<string, ConsoleItem>();
@@ -510,8 +526,12 @@ export default function ConsoleHome() {
       const existing = byId.get(g.id);
       byId.set(g.id, existing ? { ...g, ...existing, path: resolveLaunchPath(existing) } : { ...g, path: resolveLaunchPath(g) });
     });
+    epicGames.forEach(g => {
+      const existing = byId.get(g.id);
+      byId.set(g.id, existing ? { ...g, ...existing } : g);
+    });
     return Array.from(byId.values());
-  }, [savedGames, steamGames]);
+  }, [savedGames, steamGames, epicGames]);
 
   const searchableMedia = useMemo(() => media, [media]);
 
@@ -561,6 +581,45 @@ export default function ConsoleHome() {
 
     fetchSteamInstalledAppIds().then(setInstalledSteamAppIds);
   }, [libraryTab, steamGames.length]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getEpicInstalledGames) return;
+    if (epicGames.length > 0 || loadingEpic) return;
+
+    setLoadingEpic(true);
+    fetchEpicInstalledGames().then(async (gamesList) => {
+      const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => ({
+        id: g.id,
+        title: g.title,
+        time: 'Epic',
+        platform: 'Epic',
+        type: 'game',
+        path: buildEpicRunUrl(g.appName),
+      }));
+
+      const withMetadata = await Promise.all(
+        baseFormatted.map(async (game) => {
+          try {
+            const res = await (window as any).electronAPI.fetchSteamGridData(game.title);
+            if (res?.success && res.data) {
+              return {
+                ...game,
+                image: res.data.grid || game.image,
+                backgroundImage: res.data.hero || game.backgroundImage,
+                logo: res.data.logo || game.logo,
+              };
+            }
+          } catch (e) {
+            console.error('[Epic] Error fetching metadata for:', game.title, e);
+          }
+          return game;
+        })
+      );
+
+      setEpicGames(withMetadata);
+      setLoadingEpic(false);
+    }).catch(() => setLoadingEpic(false));
+  }, []);
 
   useEffect(() => {
     const currentItem = currentData[activeIndex];
@@ -1714,7 +1773,7 @@ export default function ConsoleHome() {
       setDetailVisible(true);
       return;
     }
-    if (launchPath.startsWith('http')) {
+    if (launchPath.startsWith('http') || launchPath.startsWith('com.epicgames.launcher://')) {
       if (Platform.OS === 'web' && (window as any).electronAPI) {
         (window as any).electronAPI.launchApp(targetItem.id, launchPath).then(() => loadApps());
       } else {

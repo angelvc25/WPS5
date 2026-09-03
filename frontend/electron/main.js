@@ -781,6 +781,86 @@ function attachExternalLinkHandlers(win) {
   });
 }
 
+function getEpicManifestsPath() {
+  return path.join(
+    process.env.ProgramData || 'C:\\ProgramData',
+    'Epic',
+    'EpicGamesLauncher',
+    'Data',
+    'Manifests'
+  );
+}
+
+function getEpicInstalledGames() {
+  const manifestsPath = getEpicManifestsPath();
+  console.log('[Epic] Buscando manifests en:', manifestsPath);
+
+  if (!fs.existsSync(manifestsPath)) {
+    console.log('[Epic] Carpeta de manifests no encontrada');
+    return [];
+  }
+
+  const games = [];
+
+  try {
+    const files = fs.readdirSync(manifestsPath).filter(f => f.endsWith('.item'));
+
+    for (const file of files) {
+      try {
+        const filePath = path.join(manifestsPath, file);
+        const content = fs.readFileSync(filePath, 'utf8');
+        const manifest = JSON.parse(content);
+
+        if (!manifest.AppName || !manifest.DisplayName) {
+          console.log('[Epic] Manifest inválido, ignorando:', file);
+          continue;
+        }
+
+        if (manifest.MainGameAppName && manifest.MainGameAppName !== manifest.AppName) {
+          console.log('[Epic] DLC detectado, ignorando:', manifest.DisplayName, '(juego base:', manifest.MainGameAppName, ')');
+          continue;
+        }
+
+        if (!manifest.InstallLocation) {
+          console.log('[Epic] Manifest sin InstallLocation, ignorando:', file);
+          continue;
+        }
+
+        if (!fs.existsSync(manifest.InstallLocation)) {
+          console.log('[Epic] InstallLocation no existe, ignorando:', manifest.DisplayName);
+          continue;
+        }
+
+        const launchExecutable = manifest.LaunchExecutable || '';
+        const launchPath = launchExecutable
+          ? path.join(manifest.InstallLocation, launchExecutable)
+          : manifest.InstallLocation;
+
+        if (launchExecutable && !fs.existsSync(launchPath)) {
+          console.log('[Epic] Ejecutable no existe, ignorando:', manifest.DisplayName);
+          continue;
+        }
+
+        games.push({
+          id: `epic_${manifest.AppName}`,
+          appName: manifest.AppName,
+          title: manifest.DisplayName,
+          installLocation: manifest.InstallLocation,
+          launchExecutable,
+          launchPath,
+        });
+      } catch (e) {
+        console.error('[Epic] Error leyendo manifest:', file, e.message);
+      }
+    }
+  } catch (e) {
+    console.error('[Epic] Error leyendo carpeta de manifests:', e.message);
+  }
+
+  console.log('[Epic] Juegos instalados encontrados:', games.length);
+  return games;
+}
+
 function getSteamInstallPath() {
   if (process.platform === 'win32') {
     try {
@@ -991,7 +1071,7 @@ app.whenReady().then(() => {
           platform: 'Spotify',
           ...filteredUpdate
         });
-      } else if (updatedApp.id.toString().startsWith('steam_')) {
+      } else if (updatedApp.id.toString().startsWith('steam_') || updatedApp.id.toString().startsWith('epic_')) {
         data.games = data.games || [];
         const filteredUpdate = Object.fromEntries(
           Object.entries(updatedApp).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
@@ -1648,6 +1728,17 @@ app.whenReady().then(() => {
     } catch (error) {
       console.error('Error getting installed Steam apps:', error);
       return { success: false, appIds: [], error: error.message };
+    }
+  });
+
+  // IPC: Obtener juegos instalados localmente de Epic Games
+  ipcMain.handle('get-epic-installed-games', async () => {
+    try {
+      const games = getEpicInstalledGames();
+      return { success: true, games };
+    } catch (error) {
+      console.error('[Epic] Error getting installed games:', error);
+      return { success: false, games: [], error: error.message };
     }
   });
 
