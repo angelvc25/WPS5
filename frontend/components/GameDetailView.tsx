@@ -273,7 +273,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
 
     setEditData(updatedData);
-    setAssetSelectorVisible(false);
+    soundService.playActivation?.();
+    // No cerramos el selector: el usuario puede cambiar de pestaña (cápsula,
+    // imagen principal, logo, ícono) y seleccionar una imagen para cada una
+    // antes de volver atrás, en vez de tener que reabrir el selector por cada tipo.
 
     // Auto-save to database
     if (Platform.OS === 'web' && (window as any).electronAPI && updatedData.id) {
@@ -285,6 +288,27 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         if (onRefresh) onRefresh(cleanData);
       }
     }
+  };
+
+  // Determina si un asset del grid es el que está actualmente asignado al
+  // campo correspondiente a la pestaña activa (cápsula → image, imagen
+  // principal → backgroundImage, logo → logo, ícono → icon), para mostrarle
+  // un check de "seleccionado" sin necesidad de cerrar el selector.
+  const isAssetCurrentlySelected = (asset: { url: string }) => {
+    if (!asset?.url) return false;
+    if (assetSelectorTab === 'capsule' || assetSelectorTab === 'capsule_wide') {
+      return editData.image === asset.url;
+    }
+    if (assetSelectorTab === 'hero') {
+      return editData.backgroundImage === asset.url;
+    }
+    if (assetSelectorTab === 'logo') {
+      return editData.logo === asset.url;
+    }
+    if (assetSelectorTab === 'icon') {
+      return (editData as any).icon === asset.url;
+    }
+    return false;
   };
 
   const handleLocalUpload = async () => {
@@ -940,7 +964,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     sliderValue,
     assetSelectorTab,
     selectedDimensionFilter,
-    currentPage
+    currentPage,
+    assetsData,
+    isLoadingAssets,
   ]);
 
   if (!item) return null;
@@ -1412,6 +1438,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           style={[styles.editInput, editModalFocusIndex === 2 && styles.editInputFocused]}
                           value={editData.title}
                           onChangeText={(text) => setEditData({ ...editData, title: text })}
+                          onFocus={() => setEditModalFocusIndex(2)}
                         />
 
                         {((editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web') && (
@@ -1431,7 +1458,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                         isActive && styles.platformBtnActiveNew,
                                         isFocused && styles.platformBtnFocusedNew
                                       ]}
-                                      onPress={() => setEditData({ ...editData, platform: plat.id })}
+                                      onPress={() => { setEditModalFocusIndex(focusIdx); setEditData({ ...editData, platform: plat.id }); }}
                                       onLayout={(e) => { editPlatformOffsets.current[idx] = e.nativeEvent.layout.x; }}
                                     >
                                       <MaterialCommunityIcons
@@ -1460,6 +1487,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           multiline
                           value={editData.description}
                           onChangeText={(text) => setEditData({ ...editData, description: text })}
+                          onFocus={() => setEditModalFocusIndex(14)}
                         />
                       </ScrollView>
                     </>
@@ -1478,6 +1506,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             placeholderTextColor="#888"
                             value={editData.path}
                             onChangeText={(text) => setEditData({ ...editData, path: text })}
+                            onFocus={() => setEditModalFocusIndex(22)}
                           />
                         ) : isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item) ? (
                           <>
@@ -1488,6 +1517,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               placeholderTextColor="#888"
                               value={editData.path}
                               onChangeText={(text) => setEditData({ ...editData, path: text })}
+                              onFocus={() => setEditModalFocusIndex(22)}
                             />
                             <View style={styles.pathDisplayBox}>
                               <Text style={styles.pathDisplayTextHeader}>Lanzamiento vía Steam</Text>
@@ -1500,7 +1530,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           <>
                             <TouchableOpacity
                               style={[styles.editSecondaryBtn, editModalFocusIndex === 22 && styles.editSecondaryBtnFocused]}
-                              onPress={handleSelectPath}
+                              onPress={() => { setEditModalFocusIndex(22); handleSelectPath(); }}
                             >
                               <Ionicons name="folder-open-outline" size={20} color="#FFF" />
                               <Text style={styles.editSecondaryBtnText}>{t('add.selectExe')}</Text>
@@ -1523,7 +1553,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <View style={styles.syncRow}>
                           <TouchableOpacity
                             style={[styles.editSyncBtnUnified, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.editSyncBtnUnifiedFocused]}
-                            onPress={handleUnifiedSync}
+                            onPress={() => { setEditModalFocusIndex(0); handleUnifiedSync(); }}
                             disabled={isSyncing}
                           >
                             <Ionicons name="sync-outline" size={18} color="#000" />
@@ -1535,7 +1565,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <View style={styles.artGrid}>
                           <TouchableOpacity
                             style={[styles.editArtFileBtn, editModalFocusIndex === 15 && styles.editArtFileBtnFocused]}
-                            onPress={() => openAssetSelector('capsule')}
+                            onPress={() => { setEditModalFocusIndex(15); openAssetSelector('capsule'); }}
                           >
                             <Ionicons name="image-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>{t('edit.cover')}</Text>
@@ -1544,7 +1574,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                           <TouchableOpacity
                             style={[styles.editArtFileBtn, editModalFocusIndex === 16 && styles.editArtFileBtnFocused]}
-                            onPress={() => openAssetSelector('logo')}
+                            onPress={() => { setEditModalFocusIndex(16); openAssetSelector('logo'); }}
                           >
                             <Ionicons name="color-palette-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>{t('edit.logoPng')}</Text>
@@ -1553,7 +1583,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                           <TouchableOpacity
                             style={[styles.editArtFileBtn, editModalFocusIndex === 17 && styles.editArtFileBtnFocused]}
-                            onPress={() => openAssetSelector('hero')}
+                            onPress={() => { setEditModalFocusIndex(17); openAssetSelector('hero'); }}
                           >
                             <Ionicons name="images-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>{t('edit.background')}</Text>
@@ -1562,7 +1592,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
                           <TouchableOpacity
                             style={[styles.editArtFileBtn, editModalFocusIndex === 18 && styles.editArtFileBtnFocused]}
-                            onPress={handleSelectVideo}
+                            onPress={() => { setEditModalFocusIndex(18); handleSelectVideo(); }}
                           >
                             <Ionicons name="videocam-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
                             <Text style={styles.artFileBtnTitle}>{t('edit.video')}</Text>
@@ -1579,7 +1609,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={[styles.editDeleteBtn, editModalFocusIndex === 19 && styles.editDeleteBtnFocused]}
-                    onPress={handleDeleteApp}
+                    onPress={() => { setEditModalFocusIndex(19); handleDeleteApp(); }}
                   >
                     <Ionicons name="trash-outline" size={20} color={editModalFocusIndex === 19 ? '#FFF' : '#FF3B30'} />
                   </TouchableOpacity>
@@ -1587,13 +1617,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 15 }}>
                     <TouchableOpacity
                       style={[styles.editSecondaryBtn, { paddingVertical: 14, paddingHorizontal: 24 }, editModalFocusIndex === 20 && styles.editSecondaryBtnFocused]}
-                      onPress={() => setEditModalVisible(false)}
+                      onPress={() => { setEditModalFocusIndex(20); setEditModalVisible(false); }}
                     >
                       <Text style={styles.editSecondaryBtnText}>{t('common.cancel')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.editPrimaryBtn, editModalFocusIndex === 21 && styles.editPrimaryBtnFocused]}
-                      onPress={handleSaveEdit}
+                      onPress={() => { setEditModalFocusIndex(21); handleSaveEdit(); }}
                     >
                       <Text style={styles.editPrimaryBtnText}>{t('common.save')}</Text>
                     </TouchableOpacity>
@@ -1620,7 +1650,17 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               <View style={styles.editContentContainer}>
                 {/* Header */}
                 <View style={styles.assetHeader}>
-                  <Text style={styles.editMainTitleLarge}>{t('edit.selectImage')}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+                    <Text style={styles.editMainTitleLarge}>{t('edit.selectImage')}</Text>
+                    <TouchableOpacity
+                      style={styles.assetSelectorDoneBtn}
+                      onPress={() => setAssetSelectorVisible(false)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="checkmark" size={18} color="#000" />
+                      <Text style={styles.assetSelectorDoneBtnText}>{t('common.save') || 'Listo'}</Text>
+                    </TouchableOpacity>
+                  </View>
 
                   {/* Tabs */}
                   <View style={styles.assetHeaderTabs}>
@@ -1670,7 +1710,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         styles.filterBtn,
                         assetSelectorFocusArea === 'filters' && filterFocusIndex === 0 && styles.filterBtnFocused
                       ]}
-                      onPress={cycleDimensionFilter}
+                      onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(0); cycleDimensionFilter(); }}
                     >
                       <Ionicons name="funnel-outline" size={16} color="#FFF" />
                       <Text style={styles.filterBtnText}>{getDimensionFilterLabel(selectedDimensionFilter)}</Text>
@@ -1683,7 +1723,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         styles.filterBtn,
                         assetSelectorFocusArea === 'filters' && filterFocusIndex === 1 && styles.filterBtnFocused
                       ]}
-                      onPress={handleLocalUpload}
+                      onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(1); handleLocalUpload(); }}
                     >
                       <Ionicons name="cloud-upload-outline" size={16} color="#FFF" />
                       <Text style={styles.filterBtnText}>{t('edit.uploadImage')}</Text>
@@ -1695,7 +1735,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           styles.filterBtn,
                           assetSelectorFocusArea === 'filters' && filterFocusIndex === 2 && styles.filterBtnFocused
                         ]}
-                        onPress={() => alert("Modo ajustar posición del logotipo activado (visual).")}
+                        onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(2); alert("Modo ajustar posición del logotipo activado (visual)."); }}
                       >
                         <Ionicons name="resize-outline" size={16} color="#FFF" />
                         <Text style={styles.filterBtnText}>{t('edit.adjustLogoPosition')}</Text>
@@ -1762,7 +1802,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                 act.isDelete && { backgroundColor: 'rgba(255, 45, 85, 0.05)', borderColor: 'rgba(255, 45, 85, 0.2)' },
                                 isFocused && (act.isDelete ? styles.manageCardDeleteFocused : styles.manageCardFocused)
                               ]}
-                              onPress={() => handleManageAction(act.index)}
+                              onPress={() => { setAssetSelectorFocusArea('grid'); setGridFocusIndex(act.index); handleManageAction(act.index); }}
                             >
                               <Ionicons
                                 name={act.icon as any}
@@ -1805,13 +1845,16 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           cardAspectRatio = 1;
                         }
 
+                        const isSelected = isAssetCurrentlySelected(asset);
+
                         return (
                           <TouchableOpacity
                             key={`${asset.id}_${idx}`}
                             style={[
                               styles.assetCard,
                               { width: cardWidthPercent },
-                              isFocused && styles.assetCardFocused
+                              isFocused && styles.assetCardFocused,
+                              isSelected && styles.assetCardSelected,
                             ]}
                             onLayout={(e) => {
                               cardLayoutsRef.current[idx] = {
@@ -1819,7 +1862,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                 height: e.nativeEvent.layout.height,
                               };
                             }}
-                            onPress={() => applySelectedAsset(asset.url)}
+                            onPress={() => { setAssetSelectorFocusArea('grid'); setGridFocusIndex(idx); applySelectedAsset(asset.url); }}
                           >
                             <View style={[
                               styles.assetCardImageWrapper,
@@ -1834,6 +1877,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               {(asset.width > 0 && asset.height > 0) ? (
                                 <View style={styles.resolutionBadge}>
                                   <Text style={styles.resolutionText}>{asset.width}x{asset.height}</Text>
+                                </View>
+                              ) : null}
+                              {isSelected ? (
+                                <View style={styles.selectedCheckBadge}>
+                                  <Ionicons name="checkmark" size={14} color="#000" />
                                 </View>
                               ) : null}
                             </View>
@@ -2692,6 +2740,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     zIndex: 2000,
   },
+  assetSelectorDoneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#4CD964',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 30,
+  } as any,
+  assetSelectorDoneBtnText: {
+    color: '#000',
+    fontSize: 14,
+    fontFamily: 'SSTBold',
+  },
   assetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2811,6 +2874,23 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
+  } as any,
+  assetCardSelected: {
+    borderColor: '#4CD964',
+  } as any,
+  selectedCheckBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4CD964',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.85)',
   } as any,
   assetCardImageWrapper: {
     width: '100%',
