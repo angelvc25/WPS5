@@ -17,13 +17,13 @@ interface LanguageContextValue {
 
 function loadLanguage(): Language {
   try {
-    if (typeof localStorage === 'undefined') return 'es';
+    if (typeof localStorage === 'undefined') return 'en';
     const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
     if (isLanguage(stored)) return stored;
   } catch {
     // ignore
   }
-  return 'es';
+  return 'en';
 }
 
 function persistLanguage(lang: Language) {
@@ -44,9 +44,9 @@ function interpolate(template: string, vars?: Vars) {
 }
 
 const LanguageContext = createContext<LanguageContextValue>({
-  language: 'es',
+  language: 'en',
   setLanguage: () => {},
-  t: (key) => translations.es[key] ?? String(key),
+  t: (key) => translations.en[key] ?? translations.es[key] ?? String(key),
 });
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
@@ -58,8 +58,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const t = useCallback((key: TranslationKey, vars?: Vars) => {
-    const dict = translations[language] || translations.es;
-    return interpolate(dict[key] ?? translations.es[key] ?? String(key), vars);
+    const dict = translations[language] || translations.en || translations.es;
+    return interpolate(dict[key] ?? translations.en[key] ?? translations.es[key] ?? String(key), vars);
   }, [language]);
 
   const value = useMemo(() => ({ language, setLanguage, t }), [language, setLanguage, t]);

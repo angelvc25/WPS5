@@ -67,14 +67,14 @@ const DEFAULT_USERS: UserProfile[] = [
     name: 'Player 1',
     avatar: 'assets/images/userDefault.jpeg',
     color: '#FF3B30',
-    settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES },
+    settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES, language: 'en' },
   },
   {
     id: '2',
     name: 'Player 2',
     avatar: 'assets/images/userDefault.jpeg',
     color: '#00D4FF',
-    settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES },
+    settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES, language: 'en' },
   },
 ];
 
@@ -287,6 +287,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
             name: `Player ${users.length + 1}`,
             avatar: 'assets/images/userDefault.jpeg',
             color: '#FFCC00',
+            settings: { autoPlayVideo: true, syncPreferences: DEFAULT_SYNC_PREFERENCES, language: 'en' },
           };
           const newList = [...users, newUser];
           setUsers(newList);
