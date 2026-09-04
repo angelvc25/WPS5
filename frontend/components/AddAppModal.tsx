@@ -242,9 +242,9 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
         const prog = selectedPrograms[i];
 
         if (selectedType === 'game') {
-          setSavingStatusText(`Descargando metadatos (${i + 1}/${total}): "${prog.name}"...`);
+          setSavingStatusText(t('addModal.downloadingMetadata', { current: i + 1, total, name: prog.name }));
         } else {
-          setSavingStatusText(`Añadiendo (${i + 1}/${total}): "${prog.name}"...`);
+          setSavingStatusText(t('addModal.addingApp', { current: i + 1, total, name: prog.name }));
         }
 
         let appToSave: any = {
@@ -273,9 +273,9 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
       }
 
       toastService.show(
-        `Se ${addedCount === 1 ? 'añadió' : 'añadieron'} ${addedCount} ${
-          addedCount === 1 ? 'juego/aplicación con metadatos' : 'juegos/aplicaciones con metadatos'
-        } a tu biblioteca`,
+        addedCount === 1
+          ? t('addModal.addedSingle', { count: addedCount })
+          : t('addModal.addedMultiple', { count: addedCount }),
         { icon: require('@/assets/images/install.png') }
       );
 
@@ -647,9 +647,9 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
           {/* HEADER */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Añadir un producto a la biblioteca</Text>
+              <Text style={styles.title}>{t('addModal.title')}</Text>
               <Text style={styles.subtitle}>
-                Selecciona los programas para añadirlos a tu biblioteca WPS5
+                {t('addModal.subtitle')}
               </Text>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
@@ -664,7 +664,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
               <TextInput
                 ref={searchInputRef}
                 style={styles.searchInput}
-                placeholder="Buscar en la lista..."
+                placeholder={t('addModal.searchPlaceholder')}
                 placeholderTextColor="rgba(255, 255, 255, 0.35)"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -692,10 +692,10 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
               </View>
             </TouchableOpacity>
             <View style={styles.tableHeaderColName}>
-              <Text style={styles.tableHeaderText}>PROGRAMA</Text>
+              <Text style={styles.tableHeaderText}>{t('addModal.colProgram')}</Text>
             </View>
             <View style={styles.tableHeaderColPath}>
-              <Text style={styles.tableHeaderText}>UBICACIÓN</Text>
+              <Text style={styles.tableHeaderText}>{t('addModal.colLocation')}</Text>
             </View>
           </View>
 
@@ -704,14 +704,14 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
             {loading ? (
               <View style={styles.loadingWrap}>
                 <ActivityIndicator size="large" color="#0070D1" />
-                <Text style={styles.loadingText}>Escaneando programas instalados...</Text>
+                <Text style={styles.loadingText}>{t('addModal.scanning')}</Text>
               </View>
             ) : filteredPrograms.length === 0 ? (
               <View style={styles.emptyWrap}>
                 <Text style={styles.emptyText}>
                   {searchQuery
-                    ? 'No se encontraron programas que coincidan con la búsqueda.'
-                    : 'No se detectaron programas instalados. Usa el botón "Buscar..." para agregar ejecutables manualmente.'}
+                    ? t('addModal.emptySearch')
+                    : t('addModal.emptyList')}
                 </Text>
               </View>
             ) : (
@@ -769,12 +769,12 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
             {/* Left: Browse manual file */}
             <TouchableOpacity style={styles.browseBtn} onPress={handleBrowseFile}>
               <Ionicons name="folder-open-outline" size={18} color="#FFF" />
-              <Text style={styles.browseBtnText}>Buscar...</Text>
+              <Text style={styles.browseBtnText}>{t('addModal.browseBtn')}</Text>
             </TouchableOpacity>
 
             {/* Middle: Type & Platform selectors */}
             <View style={styles.middleOptions}>
-              <Text style={styles.typeLabel}>Añadir como:</Text>
+              <Text style={styles.typeLabel}>{t('addModal.typeLabel')}</Text>
               <View style={styles.typeSelectorRow}>
                 <TouchableOpacity
                   style={[styles.typeBtn, selectedType === 'game' && styles.typeBtnActive]}
@@ -786,7 +786,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
                       selectedType === 'game' && styles.typeBtnTextActive,
                     ]}
                   >
-                    Juegos
+                    {t('cc.typeGames')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -799,7 +799,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
                       selectedType === 'media' && styles.typeBtnTextActive,
                     ]}
                   >
-                    Media
+                    {t('cc.typeMedia')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -812,7 +812,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
                       selectedType === 'web' && styles.typeBtnTextActive,
                     ]}
                   >
-                    Web
+                    {t('cc.typeWeb')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -856,7 +856,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
                 onPress={onClose}
                 disabled={isSaving}
               >
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
+                <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -873,10 +873,10 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
                 )}
                 <Text style={styles.saveBtnText}>
                   {isSaving
-                    ? (savingStatusText || 'Buscando metadatos y guardando...')
+                    ? (savingStatusText || t('addModal.savingDefault'))
                     : selectedCount > 0
-                    ? `Añadir seleccionados (${selectedCount})`
-                    : 'Añadir seleccionados'}
+                    ? t('addModal.addSelectedCount', { count: selectedCount })
+                    : t('addModal.addSelected')}
                 </Text>
               </TouchableOpacity>
             </View>
