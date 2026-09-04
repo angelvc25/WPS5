@@ -22,6 +22,7 @@ import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import { soundService } from '@/services/soundService';
 import { toastService, ToastHistoryItem } from '@/services/toastService';
+import { SpinningBorderSearch } from './SpinningBorderSearch';
 
 export interface AppNotification {
     id: string;
@@ -267,6 +268,7 @@ export default function NotificationsExpandedCard({
                         onPress={() => { setFocusedRow(0); setDoNotDisturb((p) => !p); }}
                         style={[styles.dndRow, focusedRow === 0 && styles.rowFocused]}
                     >
+                        {focusedRow === 0 && <SpinningBorderSearch size={50} spread={1} borderRadius={2} />}
                         <Text style={styles.dndLabel}>No molestar</Text>
                         <View style={[styles.toggleTrack, doNotDisturb && styles.toggleTrackActive]}>
                             <View style={[styles.toggleThumb, doNotDisturb && styles.toggleThumbActive]} />
@@ -296,6 +298,7 @@ export default function NotificationsExpandedCard({
                                         onPress={() => { setFocusedRow(rowIndex); activateFocusedRow(); }}
                                         style={[styles.notifCard, isFocused && styles.notifCardFocused]}
                                     >
+                                        {isFocused && <SpinningBorderSearch size={50} spread={1} borderRadius={2} />}
                                         <View style={styles.notifIconWrap}>
                                             {notif.appIcon ? (
                                                 <Image source={notif.appIcon} style={styles.notifIcon} contentFit="cover" />
@@ -360,27 +363,27 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingVertical: 12, paddingHorizontal: 4, borderRadius: 4, marginBottom: 14,
     },
-    rowFocused: { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
-    dndLabel: { color: '#fff', fontSize: 17, fontFamily: 'SSTLight' },
-    toggleTrack: { width: 46, height: 26, borderRadius: 13, backgroundColor: 'rgba(48, 49, 54, 1)', padding: 3, justifyContent: 'center' },
+    rowFocused: { backgroundColor: 'rgba(255, 255, 255, 0)' },
+    dndLabel: { color: '#fff', fontSize: 17, fontFamily: 'SSTLight', right: -7 },
+    toggleTrack: { width: 46, height: 26, borderRadius: 13, backgroundColor: 'rgba(48, 49, 54, 1)', padding: 3, justifyContent: 'center', left: -7 },
     toggleTrackActive: { backgroundColor: 'rgba(71, 73, 80, 1)' },
     toggleThumb: { width: 20, height: 20, borderWidth: 2, borderColor: 'rgba(94, 100, 105, 1)', borderRadius: 10, backgroundColor: 'rgba(48, 49, 54, 1)' },
     toggleThumbActive: { transform: [{ translateX: 20 }], backgroundColor: '#ffffffff', borderColor: 'rgba(255, 255, 255, 1)' },
     notifCard: {
         flexDirection: 'row', gap: 12, backgroundColor: 'rgba(255, 255, 255, 0)',
-        borderRadius: 0, borderBottomWidth: 1, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginLeft: -14, marginRight: -14, padding: 17, marginBottom: 10,
+        borderRadius: 0, borderBottomWidth: 1, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginLeft: 1, marginRight: 1, padding: 17, marginBottom: 10,
     },
-    notifCardFocused: { borderColor: 'rgba(255, 255, 255, 0.39)', backgroundColor: 'rgba(255, 255, 255, 0.02)' },
-    notifIconWrap: { width: 44, height: 44, borderRadius: 2, overflow: 'hidden' },
+    notifCardFocused: { borderColor: 'rgba(255, 255, 255, 0)', backgroundColor: 'rgba(255, 255, 255, 0.02)' },
+    notifIconWrap: { width: 44, height: 44, borderRadius: 2, overflow: 'hidden', left: -10 },
     notifIcon: { width: '100%', height: '100%' },
     notifIconFallback: { backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
     notifTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-    notifTitle: { color: '#ffffffce', fontSize: 15, fontFamily: 'SSTLight', flex: 1, marginRight: 8 },
+    notifTitle: { color: '#ffffffce', fontSize: 15, fontFamily: 'SSTLight', flex: 1, marginRight: 8, left: -10 },
     notifTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    notifTime: { color: 'rgba(255, 255, 255, 0.67)', fontSize: 13, fontFamily: 'SSTLight' },
-    unreadDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#4FA8FF' },
+    notifTime: { color: 'rgba(255, 255, 255, 0.67)', fontSize: 13, fontFamily: 'SSTLight', right: -10 },
+    unreadDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#4FA8FF', right: -10 },
     notifMessageRow: { flexDirection: 'row', alignItems: 'flex-start' },
-    notifMessage: { color: 'rgba(255, 255, 255, 0.86)', fontSize: 15, fontFamily: 'SSTRg', lineHeight: 18, flex: 1 },
+    notifMessage: { color: 'rgba(255, 255, 255, 0.86)', fontSize: 15, fontFamily: 'SSTRg', lineHeight: 18, flex: 1, left: -10 },
     emptyWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 10 },
     emptyText: { color: 'rgba(255, 255, 255, 0.86)', fontSize: 15, fontFamily: 'SSTRg' },
     footerHints: {
