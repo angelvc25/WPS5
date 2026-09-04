@@ -66,6 +66,12 @@ const DEFAULT_NOTIFICATIONS: AppNotification[] = [
     // },
 ];
 
+const SOURCE_LABELS: Record<string, string> = {
+    steam: 'Steam',
+    epic: 'Epic Games',
+    system: 'WPS5',
+};
+
 function formatRelativeTime(timestamp: number): string {
     const diffMin = Math.floor((Date.now() - timestamp) / 60000);
     if (diffMin < 1) return 'Ahora';
@@ -107,6 +113,9 @@ export default function NotificationsExpandedCard({
     const [shouldRender, setShouldRender] = useState(isOpen);
 
     // Se suscribe al historial de toasts en vivo (amigo jugando, instalación completa, etc.)
+    // useEffect(() => {
+    //     toastService.subscribeHistory(setToastHistory);
+    // }, []);
     useEffect(() => toastService.subscribeHistory(setToastHistory), []);
 
     useEffect(() => {
@@ -144,12 +153,12 @@ export default function NotificationsExpandedCard({
     const combinedNotifications = useMemo((): AppNotification[] => {
         const fromToasts: AppNotification[] = toastHistory.map((t) => ({
             id: t.id,
-            appName: 'Sistema',
-            title: 'WPS5',
+            appName: t.source ? SOURCE_LABELS[t.source] ?? t.source : 'Sistema',
+            title: t.source ? SOURCE_LABELS[t.source] ?? t.source : 'WPS5',
             message: t.message,
             time: formatRelativeTime(t.timestamp),
             unread: true,
-            appIcon: t.icon,
+            appIcon: t.coverImage ?? t.icon,
         }));
         return [...fromToasts, ...notifications];
     }, [toastHistory, notifications]);

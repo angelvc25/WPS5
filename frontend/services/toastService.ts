@@ -1,12 +1,16 @@
 export interface ToastOptions {
   duration?: number;
   icon?: any;
+  source?: string;
+  coverImage?: any;
 }
 
 export interface ToastHistoryItem {
   id: string;
   message: string;
   icon?: any;
+  source?: string;
+  coverImage?: any;
   timestamp: number;
 }
 
@@ -31,6 +35,8 @@ export const toastService = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       message,
       icon: options?.icon,
+      source: options?.source,
+      coverImage: options?.coverImage,
       timestamp: Date.now(),
     };
     history.unshift(item);

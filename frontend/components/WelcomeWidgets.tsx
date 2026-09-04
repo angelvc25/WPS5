@@ -144,8 +144,9 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
             const nowPlaying = friend.gameextrainfo;
             // Solo notifica si antes NO jugaba (o jugaba otra cosa) y ahora sí
             if (nowPlaying && nowPlaying !== wasPlaying) {
-              toastService.show(`${friend.personaname} está jugando a ${nowPlaying}`, {
+              toastService.show(t('notifiactions.friendPlaying', { friendName: friend.personaname, gameName: nowPlaying }), {
                 icon: require('@/assets/images/amigos.png'),
+                source: 'steam',
               });
             }
           });
@@ -179,7 +180,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     if (!friend) {
       // Sin amigo específico (o sin cuenta conectada): abre el panel general de amigos de Steam.
       const ok = await openWebLink('steam://friends/status');
-      if (!ok) toastService.show('No se pudo abrir Steam. ¿Está instalado y con sesión iniciada?');
+      if (!ok) toastService.show(t('notifications.noFriendSteam'), { source: 'steam' });
       return;
     }
 
@@ -187,12 +188,12 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       const url = buildSteamRunUrl(friend.gameid);
       console.log('[Friends widget] Lanzando el mismo juego que', friend.personaname, '→', url);
       const ok = await openWebLink(url);
-      if (!ok) toastService.show(`No se pudo lanzar "${friend.gameextrainfo}". Verifica que Steam esté abierto.`);
+      if (!ok) toastService.show(t('notifications.noLaunchFriendGame', { friendGame: friend.gameextrainfo }), { source: 'steam' });
     } else {
       const url = `steam://url/SteamIDFriendsPage/${friend.steamid}`;
       console.log('[Friends widget] Abriendo perfil de', friend.personaname, '→', url);
       const ok = await openWebLink(url);
-      if (!ok) toastService.show('No se pudo abrir el perfil de Steam de tu amigo.');
+      if (!ok) toastService.show(t('notifications.friendProfile'), { source: 'steam' });
     }
   };
 

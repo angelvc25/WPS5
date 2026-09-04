@@ -182,17 +182,17 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
   const handleFriendAction = async (friend: SteamFriend | null) => {
     if (!friend) {
       const ok = await openWebLink('steam://friends/status');
-      if (!ok) toastService.show('No se pudo abrir Steam. ¿Está instalado y con sesión iniciada?');
+      if (!ok) toastService.show('No se pudo abrir Steam. ¿Está instalado y con sesión iniciada?', { source: 'steam' });
       return;
     }
     if (friend.gameextrainfo && friend.gameid) {
       const url = buildSteamRunUrl(friend.gameid);
       const ok = await openWebLink(url);
-      if (!ok) toastService.show(`No se pudo lanzar "${friend.gameextrainfo}". Verifica que Steam esté abierto.`);
+      if (!ok) toastService.show(`No se pudo lanzar "${friend.gameextrainfo}". Verifica que Steam esté abierto.`, { source: 'steam' });
     } else {
       const url = `steam://url/SteamIDPage/${friend.steamid}`;
       const ok = await openWebLink(url);
-      if (!ok) toastService.show('No se pudo abrir el perfil de Steam de tu amigo.');
+      if (!ok) toastService.show('No se pudo abrir el perfil de Steam de tu amigo.', { source: 'steam' });
     }
   };
 
@@ -203,7 +203,7 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
       return;
     }
     const ok = await openWebLink('steam://friends/status');
-    if (!ok) toastService.show('No se pudo abrir Steam.');
+    if (!ok) toastService.show('No se pudo abrir Steam.', { source: 'steam' });
   };
 
   if (!shouldRender) return null;

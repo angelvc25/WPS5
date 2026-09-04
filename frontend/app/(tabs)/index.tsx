@@ -602,8 +602,10 @@ export default function ConsoleHome() {
                 steamGames.find(g => g.id === `steam_${id}`) ||
                 games.find(g => g.id === `steam_${id}`);
               if (game) {
-                toastService.show(`"${game.title}" se ha instalado correctamente`, {
+                toastService.show(t('notifications.steam', { gameTitle: game.title }), {
                   icon: require('@/assets/images/install.png'),
+                  source: 'steam',
+                  coverImage: game.image,
                 });
               }
             }
@@ -628,8 +630,9 @@ export default function ConsoleHome() {
         if (known) {
           deals.forEach(deal => {
             if (!known.has(deal.appid)) {
-              toastService.show(`"${deal.title}" de tu lista de deseados está en oferta (-${deal.discountPercent}%)`, {
+              toastService.show(t('notifiactions.wishlist', { gameTitle: deal.title, discountPercent: deal.discountPercent }), {
                 icon: require('@/assets/images/Steamico.png'),
+                source: 'steam',
               });
             }
           });
@@ -684,8 +687,10 @@ export default function ConsoleHome() {
         if (known) {
           const newOnes = withMetadata.filter(g => !known.includes(g.id));
           newOnes.forEach(g => {
-            toastService.show(`Se agregó "${g.title}" desde Epic Games`, {
+            toastService.show(t('notifications.epicGames', { gameTitle: g.title }), {
               icon: require('@/assets/images/Epicico.png'),
+              source: 'epic',
+              coverImage: g.image,
             });
           });
         }
@@ -1020,6 +1025,7 @@ export default function ConsoleHome() {
           toastService.show(t('toast.controllerConnected'), {
             duration: 2500,
             icon: require('@/assets/images/controller.png'),
+            source: 'system',
           });
         }
         const checkButton = (idx: number, key: string) => {

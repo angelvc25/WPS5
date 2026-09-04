@@ -371,7 +371,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   const handleSelect = (user: UserProfile) => {
     soundService.playActivation?.();
     setTimeout(() => {
-      toastService.show(t('toast.loggedPS5'));
+      toastService.show(t('toast.loggedPS5'), { source: 'system' });
     }, 700);
     onUserSelected(user);
   };
