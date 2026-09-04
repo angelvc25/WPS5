@@ -261,6 +261,7 @@ export default function ConsoleHome() {
   const [systemNavMaxCardIndex, setSystemNavMaxCardIndex] = useState(2);
   const [isSystemNavCardExpanded, setSystemNavCardExpanded] = useState(false);
   const [isFriendsCardOpen, setIsFriendsCardOpen] = useState(false);
+  const [isNotificationsCardOpen, setIsNotificationsCardOpen] = useState(false);
 
   const [wishlistDeals, setWishlistDeals] = useState<WishlistDeal[]>([]);
   const knownWishlistDealIdsRef = useRef<Set<number> | null>(null);
@@ -924,6 +925,9 @@ export default function ConsoleHome() {
     if (idx === 0) {
       // Inicio
       setFocusArea('main_carousel');
+    } else if (idx === 2) {
+      setIsNotificationsCardOpen(true);
+      soundService.playActivation?.();
     } else if (idx === 3) {
       // Game Base – abrir card de amigos (responsive, scrollable, oscurece fondo)
       setIsFriendsCardOpen(true);
@@ -1207,6 +1211,13 @@ export default function ConsoleHome() {
           if (isFriendsCardOpen) {
             if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
               setIsFriendsCardOpen(false);
+              soundService.playBack?.();
+            }
+            return;
+          }
+          if (isNotificationsCardOpen) {
+            if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+              setIsNotificationsCardOpen(false);
               soundService.playBack?.();
             }
             return;
@@ -2757,6 +2768,8 @@ export default function ConsoleHome() {
         onCardsCountChange={setSystemNavMaxCardIndex}
         isFriendsOpen={isFriendsCardOpen}
         onFriendsOpenChange={setIsFriendsCardOpen}
+        isNotificationsOpen={isNotificationsCardOpen}
+        onNotificationsOpenChange={setIsNotificationsCardOpen}
       />
 
       <FavoritesView

@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import ControlCenterCards from './ControlCenterCards';
 import FriendsExpandedCard from './FriendsExpandedCard';
+import NotificationsExpandedCard from './NotificationsExpandedCard';
 import RadarFocusWrapper from './RadarFocusWrapper';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { TranslationKey } from '@/i18n/translations';
@@ -44,6 +45,8 @@ interface FloatingSystemNavProps {
   // controlled Game Base friends card (levantado a index.tsx para coordinar Escape con el nav)
   isFriendsOpen?: boolean;
   onFriendsOpenChange?: (open: boolean) => void;
+  isNotificationsOpen?: boolean;
+  onNotificationsOpenChange?: (open: boolean) => void;
 }
 
 export default function FloatingSystemNav({
@@ -60,10 +63,15 @@ export default function FloatingSystemNav({
   onCardsCountChange,
   isFriendsOpen: controlledFriendsOpen,
   onFriendsOpenChange,
+  isNotificationsOpen: controlledNotificationsOpen,
+  onNotificationsOpenChange,
 }: FloatingSystemNavProps) {
   const { t } = useTranslation();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(50);
+
+  const notificationsBtnRef = useRef<any>(null);
+  const [notificationsAnchor, setNotificationsAnchor] = useState({ top: 0, left: 0 });
 
   // Game Base – Friends expanded card (controlado por padre si se provee, sino local)
   const [internalFriendsOpen, setInternalFriendsOpen] = useState(false);
@@ -74,14 +82,45 @@ export default function FloatingSystemNav({
     else setInternalFriendsOpen(next);
   };
 
+  // NUEVO — estado de la card de notificaciones (mismo patrón)
+  const [internalNotificationsOpen, setInternalNotificationsOpen] = useState(false);
+  const isNotificationsOpen = controlledNotificationsOpen !== undefined ? controlledNotificationsOpen : internalNotificationsOpen;
+  const setIsNotificationsOpen = (v: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? (v as any)(isNotificationsOpen) : v;
+    if (onNotificationsOpenChange) onNotificationsOpenChange(next);
+    else setInternalNotificationsOpen(next);
+  };
+
   // cerrar amigos si se cierra el nav
   useEffect(() => {
-    if (!isFocused) setIsFriendsOpen(false);
+    if (!isFocused) {
+      setIsFriendsOpen(false);
+      setIsNotificationsOpen(false);
+    }
   }, [isFocused]);
 
+
+  useEffect(() => {
+    if (isNotificationsOpen) {
+      notificationsBtnRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+        setNotificationsAnchor({ top: y, left: x + width / 2 });
+      });
+    }
+  }, [isNotificationsOpen]);
+
   const handlePressItem = (index: number) => {
-    // índice 3 = Game Base (people). Abrir card expandida de amigos en vez de acción padre.
+    if (index === 2) {
+      if (isFriendsOpen) setIsFriendsOpen(false);
+      if (!isNotificationsOpen) {
+        setIsNotificationsOpen(true);
+        soundService.playActivation?.();
+      } else {
+        soundService.playNavigation();
+      }
+      return;
+    }
     if (index === 3) {
+      if (isNotificationsOpen) setIsNotificationsOpen(false);
       if (!isFriendsOpen) {
         setIsFriendsOpen(true);
         soundService.playActivation?.();
@@ -90,13 +129,18 @@ export default function FloatingSystemNav({
       }
       return;
     }
-    // si la card de amigos está abierta, cerrarla antes de ir a otra sección
     if (isFriendsOpen) setIsFriendsOpen(false);
+    if (isNotificationsOpen) setIsNotificationsOpen(false);
     onPressItem(index);
   };
 
   const handleCloseFriends = () => {
     setIsFriendsOpen(false);
+    soundService.playBack?.();
+  };
+
+  const handleCloseNotifications = () => {
+    setIsNotificationsOpen(false);
     soundService.playBack?.();
   };
 
@@ -142,17 +186,22 @@ export default function FloatingSystemNav({
           (la card tiene su propio backdrop). */}
       <Animated.View
         style={[StyleSheet.absoluteFill, { opacity: 0 }]}
-        pointerEvents={isFocused && !isCardExpanded && !isFriendsOpen ? 'auto' : 'none'}
+        pointerEvents={isFocused && !isCardExpanded && !isFriendsOpen && !isNotificationsOpen ? 'auto' : 'none'}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
 
       {/* FriendsExpandedCard – encima del gradient pero debajo del pill para mantener el fondo oscurecido */}
       <FriendsExpandedCard isOpen={isFriendsOpen} onClose={handleCloseFriends} />
+      <NotificationsExpandedCard
+        isOpen={isNotificationsOpen}
+        onClose={handleCloseNotifications}
+        anchorLeft={notificationsAnchor.left}
+        anchorTop={notificationsAnchor.top}
+      />
 
       <Animated.View style={[styles.menuContainer, menuStyle, { zIndex: 2 }]}>
-        {/* Always show cards while the menu is open – ocultar cuando amigos está abierto */}
-        {isFocused && !isFriendsOpen && (
+        {isFocused && !isFriendsOpen && !isNotificationsOpen && (
           <ControlCenterCards
             isFocusedLayer={isFocused && navLevel === 1}
             focusedIndex={cardIndex}
@@ -170,10 +219,12 @@ export default function FloatingSystemNav({
             const isActive = isFocused && focusedIndex === index;
             // resaltar Game Base cuando la card de amigos está abierta
             const isFriendsActive = isFriendsOpen && index === 3;
-            const showActiveRing = isActive || isFriendsActive;
+            const isNotificationsActive = isNotificationsOpen && index === 2;
+            const showActiveRing = isActive || isFriendsActive || isNotificationsActive;
             return (
               <TouchableOpacity
                 key={index}
+                ref={index === 2 ? notificationsBtnRef : undefined}
                 activeOpacity={0.7}
                 onPress={() => handlePressItem(index)}
                 style={styles.iconButton}
