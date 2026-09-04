@@ -29,6 +29,7 @@ export interface AppNotification {
     id: string;
     appName: string;
     appIcon?: any;
+    appCoverImage?: any;
     title: string;
     message: string;
     time: string;
@@ -158,7 +159,8 @@ export default function NotificationsExpandedCard({
             message: t.message,
             time: formatRelativeTime(t.timestamp),
             unread: true,
-            appIcon: t.coverImage ?? t.icon,
+            appIcon: t.icon,
+            appCoverImage: t.coverImage,
         }));
         return [...fromToasts, ...notifications];
     }, [toastHistory, notifications]);
@@ -311,8 +313,12 @@ export default function NotificationsExpandedCard({
                                     >
                                         {isFocused && <SpinningBorderSearch size={50} spread={1} borderRadius={2} />}
                                         <View style={styles.notifIconWrap}>
-                                            {notif.appIcon ? (
-                                                <Image source={notif.appIcon} style={styles.notifIcon} contentFit="cover" />
+                                            {(notif.appCoverImage || notif.appIcon) ? (
+                                                <Image
+                                                    source={notif.appCoverImage || notif.appIcon}
+                                                    style={styles.notifIcon}
+                                                    contentFit={notif.appCoverImage ? 'cover' : 'contain'}
+                                                />
                                             ) : (
                                                 <View style={[styles.notifIcon, styles.notifIconFallback]}>
                                                     <Ionicons name="game-controller" size={18} color="rgba(255,255,255,0.6)" />

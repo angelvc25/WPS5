@@ -830,36 +830,25 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                                         const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
                                         const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
 
-                                        return (
-                                          <View style={styles.platformRow}>
-                                            {steamGame ? (
-                                              // 🎮 Juego de Steam
-                                              <View
-                                                style={{
-                                                  flexDirection: 'row',
-                                                  alignItems: 'center',
-                                                  justifyContent: 'center',
-                                                }}
-                                              >
-                                                <MaterialCommunityIcons
-                                                  name={iconName as any}
-                                                  size={20}
-                                                  color="#000000"
-                                                  style={{ marginRight: 6 }}
-                                                />
+                                        const isEpicGame = platformId === 'Epic';
+                                        const isSteam = steamGame || platformId === 'Steam';
+                                        const platformBgColor = isEpicGame ? '#000000' : isSteam ? 'rgba(2, 15, 36, 1)' : 'white';
 
-                                                <Text
-                                                  style={{
-                                                    color: '#000000',
-                                                    fontFamily: 'SSTBoldIt',
-                                                    fontSize: 12,
-                                                  }}
-                                                >
-                                                  {platformId}
-                                                </Text>
-                                              </View>
+                                        return (
+                                          <View style={[styles.platformRow, { backgroundColor: platformBgColor }]}>
+                                            {steamGame ? (
+                                              <Image
+                                                source={require('@/assets/images/SteamBadge.png')}
+                                                style={styles.platformBadgeImage}
+                                                contentFit="contain"
+                                              />
+                                            ) : isEpicGame ? (
+                                              <Image
+                                                source={require('@/assets/images/EpicBadge.png')}
+                                                style={styles.platformBadgeImage}
+                                                contentFit="contain"
+                                              />
                                             ) : (
-                                              // 🎮 Resto de plataformas: mantener comportamiento actual
                                               <Text
                                                 style={{
                                                   color: '#000000',
@@ -1289,5 +1278,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
     height: 30,
+  },
+  platformBadgeImage: {
+    width: 60,
+    height: 24,
+    marginTop: 4,
   },
 });

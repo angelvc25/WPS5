@@ -243,25 +243,28 @@ export const ConsoleCarousel = ({
                     const platformId =
                       platformSource.platform || (steamGame ? 'Steam' : 'PC');
 
-                    return (
-                      <View style={styles.platformBadge}>
-                        {steamGame ? (
-                          <View style={styles.steamPlatformContent}>
-                            <MaterialCommunityIcons
-                              name="steam"
-                              size={18}
-                              color="#000000"
-                              style={styles.steamPlatformIcon}
-                            />
+                    const isEpicGame = platformId === 'Epic';
 
-                            <Text style={styles.steamPlatformBadgeText}>
+                    return (
+                      <View style={[styles.platformBadge, { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 0 }]}>
+                        {steamGame ? (
+                          <Image
+                            source={require('@/assets/images/SteamBadge.png')}
+                            style={styles.platformBadgeImage}
+                            contentFit="contain"
+                          />
+                        ) : isEpicGame ? (
+                          <Image
+                            source={require('@/assets/images/EpicBadge.png')}
+                            style={styles.platformBadgeImage}
+                            contentFit="contain"
+                          />
+                        ) : (
+                          <View style={styles.platformBadge}>
+                            <Text style={styles.platformBadgeText}>
                               {platformId}
                             </Text>
                           </View>
-                        ) : (
-                          <Text style={styles.platformBadgeText}>
-                            {platformId}
-                          </Text>
                         )}
                       </View>
                     );
@@ -404,6 +407,14 @@ const styles = StyleSheet.create({
     // Cambia esta fuente por la que quieras utilizar para Steam
     fontFamily: 'SSTBoldIt',
     fontSize: 13,
+  },
+  platformBadgeImage: {
+    width: 55,
+    height: 30,
+    marginTop: 6,
+    marginBottom: 2,
+    backgroundColor: 'black',
+    borderRadius: 4,
   },
   activeGameTitle: {
     color: '#FFFFFF',
