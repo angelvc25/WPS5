@@ -25,6 +25,7 @@ import { soundService } from '@/services/soundService';
 import { musicHistoryService, HistoryTrackItem } from '@/services/musicHistoryService';
 import { useSystemMedia } from '@/hooks/useSystemMedia';
 import { notifyNowPlayingToast } from '@/services/toastService';
+import { SpinningBorderSearch } from './SpinningBorderSearch';
 import {
   sendMediaControl,
   getMediaControlTarget,
@@ -263,6 +264,7 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
                       style={[styles.row, isFocused && styles.rowFocused]}
                     >
                       {/* Portada */}
+                      {isFocused && <SpinningBorderSearch size={50} spread={1} borderRadius={2} />}
                       <View style={styles.artworkWrap}>
                         {item.thumbnail ? (
                           <Image
@@ -314,19 +316,19 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
             <View style={styles.footerLeft}>
               <TouchableOpacity style={styles.footerHint} onPress={handlePrevTrack} activeOpacity={0.7}>
                 <PSIcon char={PSIcons.l1} size={18} color="rgba(255, 255, 255, 0.9)" />
-                <Text style={styles.footerHintText}>Anterior</Text>
+                <Text style={styles.footerHintText}>{t('musicExpanded.previous')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.footerHint} onPress={handleNextTrack} activeOpacity={0.7}>
                 <PSIcon char={PSIcons.r1} size={18} color="rgba(255, 255, 255, 0.9)" />
-                <Text style={styles.footerHintText}>Siguiente</Text>
+                <Text style={styles.footerHintText}>{t('musicExpanded.next')}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.footerRight}>
               <View style={styles.footerHint}>
                 <PSIcon char={PSIcons.square} size={16} color="rgba(255, 255, 255, 0.7)" />
-                <Text style={styles.footerHintText}>Play/Pausa</Text>
+                <Text style={styles.footerHintText}>{t('musicExpanded.playPause')}</Text>
               </View>
               <View style={styles.footerHint}>
                 <PSIcon char={PSIcons.circle} size={16} color="rgba(255, 255, 255, 0.7)" />
@@ -347,10 +349,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   card: {
-    backgroundColor: 'rgba(22, 23, 31, 0.96)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(31, 32, 36, 1)',
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.6,
@@ -382,10 +382,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#FFF',
+    color: '#cfcfcfff',
     fontSize: 18,
-    fontFamily: 'SSTBold',
-    fontWeight: '700',
+    fontFamily: 'SSTLight',
   },
   headerClose: {
     width: 28,
@@ -424,23 +423,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 10,
+    borderBottomWidth: 2,
+    width: '85%',
+    left: '15%',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
     marginVertical: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
   rowFocused: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   artworkWrap: {
     position: 'relative',
     marginRight: 14,
   },
   artwork: {
-    width: 46,
-    height: 46,
-    borderRadius: 8,
+    width: 56,
+    height: 56,
+    borderRadius: 2,
   },
   artworkFallback: {
     backgroundColor: '#2A2A2E',
@@ -464,13 +463,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   itemTitle: {
-    color: '#FFF',
-    fontSize: 15,
-    fontFamily: 'SSTMedium',
+    color: '#ebebebff',
+    fontSize: 17.5,
+    fontFamily: 'SSTLight',
   },
   itemSubtitle: {
     color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'SSTLight',
     marginTop: 3,
   },
@@ -505,8 +504,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     backgroundColor: 'rgba(15, 16, 22, 0.6)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   footerLeft: {
     flexDirection: 'row',
@@ -525,7 +522,7 @@ const styles = StyleSheet.create({
   },
   footerHintText: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'SSTMedium',
   },
 });

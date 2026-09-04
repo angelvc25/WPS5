@@ -452,6 +452,9 @@ const es = {
   'musicExpanded.noHistory': 'Sin canciones escuchadas',
   'musicExpanded.noHistorySub': 'Las canciones que escuches en tu sesión aparecerán aquí.',
   'musicExpanded.nowPlaying': 'En reproducción',
+  'musicExpanded.next': 'Siguiente',
+  'musicExpanded.previous': 'Anterior',
+  'musicExpanded.playPause': 'Reproducir/Pausar',
 
   'edit.searchingAssetsShort': 'Buscando recursos...',
 
@@ -915,6 +918,9 @@ const en: Record<TranslationKey, string> = {
   'musicExpanded.noHistory': 'No recently played tracks',
   'musicExpanded.noHistorySub': 'Songs played during your session will appear here.',
   'musicExpanded.nowPlaying': 'Now Playing',
+  'musicExpanded.next': 'Next',
+  'musicExpanded.previous': 'Previous',
+  'musicExpanded.playPause': 'Play/Pause',
 
   'addModal.addedSingle': 'Added {count} application to your library',
   'addModal.addedMultiple': 'Added {count} applications to your library',
@@ -1374,6 +1380,10 @@ const pt: Record<TranslationKey, string> = {
   'musicExpanded.noHistory': 'Sem faixas ouvidas',
   'musicExpanded.noHistorySub': 'As músicas ouvidas na sua sessão aparecerão aqui.',
   'musicExpanded.nowPlaying': 'A tocar',
+  'musicExpanded.next': 'Próxima',
+  'musicExpanded.previous': 'Anterior',
+  'musicExpanded.playPause': 'Reproduzir/Pausar',
+
   'edit.searchingAssetsShort': 'Procurando assets...',
 
   'addModal.addedSingle': 'Foi adicionada {count} aplicação à sua biblioteca',
