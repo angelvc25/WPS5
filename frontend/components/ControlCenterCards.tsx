@@ -38,9 +38,11 @@ import {
   getAppIconName,
   sendMediaControl,
   getMediaControlTarget,
+  cleanAppName,
   SystemMediaSession,
 } from '@/services/systemMediaService';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { notifyNowPlayingToast } from '@/services/toastService';
 import { TranslationKey } from '@/i18n/translations';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
@@ -1612,7 +1614,7 @@ function NowPlayingCardBody({
         </View>
         <View style={styles.mediaCollapsedMeta}>
           <Text style={styles.mediaNowPlayingLabel} numberOfLines={1}>
-            {t('cc.playingOn')} {session.appName}
+            {t('cc.playingOn')} {cleanAppName(session.appName)}
           </Text>
           <Text style={styles.mediaTrackTitle} numberOfLines={1}>{session.title}</Text>
           <Text style={styles.mediaTrackArtist} numberOfLines={1}>{session.artist}</Text>
@@ -1626,7 +1628,7 @@ function NowPlayingCardBody({
       <View style={styles.mediaExpandedHeader}>
         <AppSourceBadge appName={session.appName} />
         <Text style={styles.mediaExpandedHeaderText} numberOfLines={1}>
-          {t('cc.playingOn')} {session.appName}
+          {t('cc.playingOn')} {cleanAppName(session.appName)}
         </Text>
       </View>
 
@@ -1767,12 +1769,24 @@ export default function ControlCenterCards({
   const { nowPlaying } = useSystemMedia();
   const { t } = useTranslation();
 
+  // ── Notificar cambio de canción desde la tarjeta Now Playing del Centro de Control ──
+  useEffect(() => {
+    if (!nowPlaying || nowPlaying.playbackStatus !== 'playing') return;
+    notifyNowPlayingToast({
+      id: nowPlaying.id,
+      title: nowPlaying.title,
+      artist: nowPlaying.artist,
+      thumbnail: nowPlaying.thumbnail,
+      t,
+    });
+  }, [nowPlaying?.id, nowPlaying?.title, nowPlaying?.artist, nowPlaying?.playbackStatus, t]);
+
   const cardsToShow = React.useMemo(() => {
     const nowPlayingCard: CardData | null = nowPlaying
       ? {
         id: 'now-playing',
         title: nowPlaying.title,
-        subtitle: `${t('cc.playingOn')} ${nowPlaying.appName}`,
+        subtitle: `${t('cc.playingOn')} ${cleanAppName(nowPlaying.appName)}`,
         icon: 'musical-notes',
         imageUri: nowPlaying.thumbnail,
         type: 'nowPlaying',

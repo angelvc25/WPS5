@@ -40,11 +40,27 @@ type RawMediaSession = {
   controls?: SystemMediaSession['controls'];
 };
 
+export function cleanAppName(name?: string): string {
+  if (!name) return 'Media';
+  let cleaned = name.trim();
+  cleaned = cleaned.replace(/\.exe!.*/i, '');
+  cleaned = cleaned.replace(/\.exe$/i, '');
+
+  const lower = cleaned.toLowerCase();
+  if (lower === 'spotify') return 'Spotify';
+  if (lower === 'chrome' || lower === 'google chrome') return 'Google Chrome';
+  if (lower === 'firefox' || lower === 'mozilla firefox') return 'Mozilla Firefox';
+  if (lower === 'msedge' || lower === 'microsoft edge' || lower === 'microsoft-edge') return 'Microsoft Edge';
+
+  return cleaned || 'Media';
+}
+
 function normalizeSession(raw: RawMediaSession): SystemMediaSession {
+  const rawAppName = raw.sourceAppDisplayName || raw.sourceAppUserModelId || 'Media';
   return {
     id: raw.id,
     sourceAppUserModelId: raw.sourceAppUserModelId,
-    appName: raw.sourceAppDisplayName || raw.sourceAppUserModelId || 'Media',
+    appName: cleanAppName(rawAppName),
     title: raw.title?.trim() || 'Sin título',
     artist: raw.artist?.trim() || raw.albumTitle?.trim() || 'Artista desconocido',
     albumTitle: raw.albumTitle,

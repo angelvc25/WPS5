@@ -152,16 +152,18 @@ export default function NotificationsExpandedCard({
 
     // Combina notificaciones "de app" con el historial de toasts del sistema (amigos, instalaciones, ofertas...)
     const combinedNotifications = useMemo((): AppNotification[] => {
-        const fromToasts: AppNotification[] = toastHistory.map((t) => ({
-            id: t.id,
-            appName: t.source ? SOURCE_LABELS[t.source] ?? t.source : 'Sistema',
-            title: t.source ? SOURCE_LABELS[t.source] ?? t.source : 'WPS5',
-            message: t.message,
-            time: formatRelativeTime(t.timestamp),
-            unread: true,
-            appIcon: t.icon,
-            appCoverImage: t.coverImage,
-        }));
+        const fromToasts: AppNotification[] = toastHistory
+            .filter((t) => t.source !== 'music')
+            .map((t) => ({
+                id: t.id,
+                appName: t.source ? SOURCE_LABELS[t.source] ?? t.source : 'Sistema',
+                title: t.source ? SOURCE_LABELS[t.source] ?? t.source : 'WPS5',
+                message: t.message,
+                time: formatRelativeTime(t.timestamp),
+                unread: true,
+                appIcon: t.icon,
+                appCoverImage: t.coverImage,
+            }));
         return [...fromToasts, ...notifications];
     }, [toastHistory, notifications]);
 
