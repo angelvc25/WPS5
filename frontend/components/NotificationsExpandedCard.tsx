@@ -23,6 +23,7 @@ import { PSIcons } from '@/constants/psIcons';
 import { soundService } from '@/services/soundService';
 import { toastService, ToastHistoryItem } from '@/services/toastService';
 import { SpinningBorderSearch } from './SpinningBorderSearch';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export interface AppNotification {
     id: string;
@@ -84,6 +85,7 @@ export default function NotificationsExpandedCard({
     anchorTop = 0,
 }: NotificationsExpandedCardProps) {
     const { width: winW, height: winH } = useWindowDimensions();
+    const { t } = useTranslation();
 
     const [notifications, setNotifications] = useState<AppNotification[]>(
         notificationsProp ?? DEFAULT_NOTIFICATIONS,
@@ -269,7 +271,7 @@ export default function NotificationsExpandedCard({
                         style={[styles.dndRow, focusedRow === 0 && styles.rowFocused]}
                     >
                         {focusedRow === 0 && <SpinningBorderSearch size={50} spread={1} borderRadius={2} />}
-                        <Text style={styles.dndLabel}>No molestar</Text>
+                        <Text style={styles.dndLabel}>{t('notifications.doNotDisturb')}</Text>
                         <View style={[styles.toggleTrack, doNotDisturb && styles.toggleTrackActive]}>
                             <View style={[styles.toggleThumb, doNotDisturb && styles.toggleThumbActive]} />
                         </View>
@@ -278,7 +280,7 @@ export default function NotificationsExpandedCard({
                     {visibleNotifications.length === 0 ? (
                         <View style={styles.emptyWrap}>
                             <Ionicons name="notifications-off-outline" size={30} color="rgba(255,255,255,0.2)" />
-                            <Text style={styles.emptyText}>No tienes notificaciones</Text>
+                            <Text style={styles.emptyText}>{t('notifications.noNotifications')}</Text>
                         </View>
                     ) : (
                         <ScrollView
@@ -333,11 +335,11 @@ export default function NotificationsExpandedCard({
                     <View style={styles.footerHints}>
                         <TouchableOpacity style={styles.hintItem} activeOpacity={0.7} onPress={deleteFocusedNotification}>
                             <PSIcon char={PSIcons.square} size={16} color="rgba(255,255,255,0.9)" />
-                            <Text style={styles.hintText}>Eliminar</Text>
+                            <Text style={styles.hintText}>{t('context.delete')}</Text>
                         </TouchableOpacity>
                         <View style={styles.hintItem}>
                             <Ionicons name="menu" size={15} color="rgba(255,255,255,0.9)" />
-                            <Text style={styles.hintText}>Opciones</Text>
+                            <Text style={styles.hintText}>{t('cc.options')}</Text>
                         </View>
                     </View>
                 </Animated.View>

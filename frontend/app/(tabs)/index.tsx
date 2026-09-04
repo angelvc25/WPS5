@@ -1017,7 +1017,7 @@ export default function ConsoleHome() {
           lastGpId.current = gp.id;
           setGamepadInfo({ connected: true, name: gp.id, battery: 0.75 });
 
-          toastService.show('Controller connected.', {
+          toastService.show(t('toast.controllerConnected'), {
             duration: 2500,
             icon: require('@/assets/images/controller.png'),
           });

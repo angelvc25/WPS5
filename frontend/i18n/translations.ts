@@ -421,6 +421,19 @@ const es = {
   'friends.messages': 'Mensajes',
   'friends.comingSoon': 'Próximamente',
 
+  'notifications.noNotifications': 'No tienes notificaciones',
+  'notifications.noNotificationsDesc': 'No hay notificaciones en este momento',
+  'notifications.doNotDisturb': 'No molestar',
+  'notifications.clearAll': 'Limpiar todas',
+  'notifications.loading': 'Cargando notificaciones...',
+  'notifications.notifications': 'Notificaciones',
+  'notifications.system': 'Sistema',
+
+  'toast.loggedPS5': 'Iniciaste sesión en tu WPS5',
+
+  'toast.controllerDisconnected': 'Control desconectado',
+  'toast.controllerConnected': 'Control conectado',
+
   'edit.searchingAssetsShort': 'Buscando recursos...',
 } as const;
 
@@ -834,6 +847,17 @@ const en: Record<TranslationKey, string> = {
   'friends.messages': 'Messages',
   'friends.comingSoon': 'Coming soon',
   'edit.searchingAssetsShort': 'Searching assets...',
+  'notifications.noNotifications': 'No notifications',
+  'notifications.noNotificationsDesc': 'There are no notifications at this time',
+  'notifications.doNotDisturb': 'Do not disturb',
+  'notifications.clearAll': 'Clear all',
+  'notifications.loading': 'Loading notifications...',
+  'notifications.notifications': 'Notifications',
+  'notifications.system': 'System',
+
+  'toast.loggedPS5': 'Logged in to your PS5.',
+  'toast.controllerDisconnected': 'Controller disconnected',
+  'toast.controllerConnected': 'Controller connected',
 };
 
 const pt: Record<TranslationKey, string> = {
@@ -1244,6 +1268,17 @@ const pt: Record<TranslationKey, string> = {
   'friends.searchPlayers': 'Buscar jogadores',
   'friends.messages': 'Mensagens',
   'friends.comingSoon': 'Em breve',
+  'notifications.noNotifications': 'Não há notificações',
+  'notifications.noNotificationsDesc': 'Não há notificações neste momento',
+  'notifications.doNotDisturb': 'Não incomodar',
+  'notifications.clearAll': 'Limpar todas',
+  'notifications.loading': 'Carregando notificações...',
+  'notifications.notifications': 'Notificações',
+  'notifications.system': 'Sistema',
+
+  'toast.loggedPS5': 'Iniciou sessão na sua WPS5',
+  'toast.controllerDisconnected': 'Controle desconectado',
+  'toast.controllerConnected': 'Controle conectado',
 
   'edit.searchingAssetsShort': 'Procurando assets...',
 };
