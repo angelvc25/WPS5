@@ -38,6 +38,6 @@ export const musicHistoryService = {
   },
   subscribe(fn: MusicHistoryListener) {
     listeners.add(fn);
-    return () => listeners.delete(fn);
+    return () => { listeners.delete(fn); };
   },
 };

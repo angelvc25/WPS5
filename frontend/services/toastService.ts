@@ -48,14 +48,14 @@ export const toastService = {
   },
   subscribe(fn: ToastListener) {
     listeners.add(fn);
-    return () => listeners.delete(fn);
+    return () => { listeners.delete(fn); };
   },
   getHistory(): ToastHistoryItem[] {
     return [...history];
   },
   subscribeHistory(fn: HistoryListener) {
     historyListeners.add(fn);
-    return () => historyListeners.delete(fn);
+    return () => { historyListeners.delete(fn); };
   },
 };
 
@@ -70,7 +70,7 @@ export function notifyNowPlayingToast(params: {
   artist?: string;
   thumbnail?: any;
   appName?: string;
-  t: (key: string, options?: any) => string;
+  t: (key: any, options?: any) => string;
 }) {
   const { id, title, artist, thumbnail, appName, t } = params;
   const key = `track_${id}_${title}_${artist || ''}`;

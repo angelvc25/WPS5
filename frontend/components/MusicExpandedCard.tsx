@@ -24,6 +24,7 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import { soundService } from '@/services/soundService';
 import { musicHistoryService, HistoryTrackItem } from '@/services/musicHistoryService';
 import { useSystemMedia } from '@/hooks/useSystemMedia';
+import { notifyNowPlayingToast } from '@/services/toastService';
 import {
   sendMediaControl,
   getMediaControlTarget,
@@ -81,6 +82,27 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
   useEffect(() => {
     return musicHistoryService.subscribe(setHistoryList);
   }, []);
+
+  // Notificar cambio de canción vía Toast y registrar en el historial mientras la card está abierta
+  useEffect(() => {
+    if (!isOpen || !nowPlaying || nowPlaying.playbackStatus !== 'playing') return;
+    notifyNowPlayingToast({
+      id: nowPlaying.id,
+      title: nowPlaying.title,
+      artist: nowPlaying.artist,
+      thumbnail: nowPlaying.thumbnail,
+      appName: nowPlaying.appName,
+      t,
+    });
+  }, [
+    isOpen,
+    nowPlaying?.id,
+    nowPlaying?.title,
+    nowPlaying?.artist,
+    nowPlaying?.playbackStatus,
+    nowPlaying?.appName,
+    t,
+  ]);
 
   useEffect(() => {
     if (isOpen) setShouldRender(true);
