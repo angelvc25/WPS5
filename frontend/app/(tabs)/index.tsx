@@ -703,6 +703,14 @@ export default function ConsoleHome() {
               });
             }
           });
+        } else {
+          // Primera carga: notificar los juegos en oferta encontrados
+          deals.slice(0, 5).forEach(deal => {
+            toastService.show(t('notifiactions.wishlist', { gameTitle: deal.title, discountPercent: deal.discountPercent }), {
+              icon: require('@/assets/images/Steamico.png'),
+              source: 'steam',
+            });
+          });
         }
         knownWishlistDealIdsRef.current = new Set(deals.map(d => d.appid));
       });

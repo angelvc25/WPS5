@@ -1,15 +1,26 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
+  LinearTransition,
+} from 'react-native-reanimated';
 import { toastService, ToastOptions } from '@/services/toastService';
 import { soundService } from '@/services/soundService';
 
 const DEFAULT_TOAST_DURATION_MS = 5000;
 
-export default function ToastHost() {
-  const [message, setMessage] = useState<string | null>(null);
-  const [icon, setIcon] = useState<any>(null);
+interface ToastData {
+  id: string;
+  message: string;
+  icon?: any;
+  duration?: number;
+}
+
+function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: string) => void }) {
   const opacity = useSharedValue(0);
   const translateX = useSharedValue(24);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -17,38 +28,33 @@ export default function ToastHost() {
   const hide = useCallback(() => {
     opacity.value = withTiming(0, { duration: 280 });
     translateX.value = withTiming(24, { duration: 280 }, (finished) => {
-      if (finished) runOnJS(setMessage)(null);
+      if (finished) runOnJS(onRemove)(toast.id);
     });
-  }, [opacity, translateX]);
-
-  const show = useCallback((payload: { message: string; options?: ToastOptions }) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setMessage(payload.message);
-    setIcon(payload.options?.icon ?? null);
-    soundService.playNotification();
-    opacity.value = withTiming(1, { duration: 280 });
-    translateX.value = withTiming(0, { duration: 280 });
-    const duration = payload.options?.duration ?? DEFAULT_TOAST_DURATION_MS;
-    timerRef.current = setTimeout(hide, duration);
-  }, [hide, opacity, translateX]);
+  }, [toast.id, opacity, translateX, onRemove]);
 
   useEffect(() => {
-    return toastService.subscribe(show);
-  }, [show]);
+    opacity.value = withTiming(1, { duration: 280 });
+    translateX.value = withTiming(0, { duration: 280 });
 
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-  }, []);
+    const duration = toast.duration ?? DEFAULT_TOAST_DURATION_MS;
+    timerRef.current = setTimeout(hide, duration);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [hide, opacity, translateX, toast.duration]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [{ translateX: translateX.value }],
   }));
 
-  if (!message) return null;
-
   return (
-    <Animated.View style={[styles.container, animatedStyle]} pointerEvents="none">
+    <Animated.View
+      layout={LinearTransition.duration(200)}
+      style={[styles.toastItemContainer, animatedStyle]}
+      pointerEvents="none"
+    >
       <View style={styles.toast}>
         <div
           style={{
@@ -71,15 +77,50 @@ export default function ToastHost() {
             transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         />
-        {icon && (
-          <Image source={icon} style={styles.icon} contentFit="contain" />
+        {toast.icon && (
+          <Image source={toast.icon} style={styles.icon} contentFit="contain" />
         )}
-        <Text style={styles.label}>{message}</Text>
+        <Text style={styles.label}>{toast.message}</Text>
       </View>
     </Animated.View>
   );
 }
 
+export default function ToastHost() {
+  const [toasts, setToasts] = useState<ToastData[]>([]);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const show = useCallback((payload: { message: string; options?: ToastOptions }) => {
+    soundService.playNotification();
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((prev) => [
+      ...prev,
+      {
+        id,
+        message: payload.message,
+        icon: payload.options?.icon ?? null,
+        duration: payload.options?.duration ?? DEFAULT_TOAST_DURATION_MS,
+      },
+    ]);
+  }, []);
+
+  useEffect(() => {
+    return toastService.subscribe(show);
+  }, [show]);
+
+  if (toasts.length === 0) return null;
+
+  return (
+    <View style={styles.container} pointerEvents="none">
+      {toasts.map((toast) => (
+        <ToastItem key={toast.id} toast={toast} onRemove={removeToast} />
+      ))}
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -87,7 +128,11 @@ const styles = StyleSheet.create({
     top: 24,
     right: 20,
     zIndex: 99999,
+    flexDirection: 'column',
+    gap: 10,
+    alignItems: 'flex-end',
   },
+  toastItemContainer: {},
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
