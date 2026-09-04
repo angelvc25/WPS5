@@ -548,13 +548,44 @@ export default function ConsoleHome() {
     }).catch(() => { });
   }, [isSearchVisible]);
 
+  // Cargar juegos de Steam cacheados para el usuario actual al iniciar o cambiar usuario
+  useEffect(() => {
+    const steamId = activeUser?.settings?.steamId;
+    if (steamId) {
+      const cachedRaw = localStorage.getItem(`steam_games_${steamId}`);
+      if (cachedRaw) {
+        try {
+          const parsed = JSON.parse(cachedRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSteamGames(parsed);
+          }
+        } catch (e) {
+          console.error('Error loading cached steam games:', e);
+        }
+      }
+    } else {
+      setSteamGames([]);
+    }
+  }, [activeUser?.settings?.steamId]);
+
   useEffect(() => {
     if (libraryTab === 'collection' && steamGames.length === 0 && !loadingSteam) {
-      // Reemplaza 'TU_API_KEY_AQUI' con tu verdadera Steam Web API Key
       const GLOBAL_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
       const steamId = activeUser?.settings?.steamId;
 
       if (steamId) {
+        // Si ya existen juegos en la caché de este usuario, no volvemos a consultar la API ni a re-sincronizar portadas
+        const cachedRaw = localStorage.getItem(`steam_games_${steamId}`);
+        if (cachedRaw) {
+          try {
+            const cached = JSON.parse(cachedRaw);
+            if (Array.isArray(cached) && cached.length > 0) {
+              setSteamGames(cached);
+              return;
+            }
+          } catch (e) { }
+        }
+
         setLoadingSteam(true);
         fetchSteamOwnedGames(GLOBAL_STEAM_API_KEY, steamId).then(async (gamesList) => {
           const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => ({
@@ -571,6 +602,15 @@ export default function ConsoleHome() {
 
           const withMetadata = await Promise.all(
             baseFormatted.map(async (game) => {
+              // Respetar portadas o metadatos personalizados previamente guardados por el usuario
+              const existingOverride = games.find(g => g.id === game.id);
+              if (existingOverride?.image) {
+                return {
+                  ...game,
+                  ...existingOverride,
+                };
+              }
+
               try {
                 const res = (window as any).electronAPI?.fetchSteamGridData
                   ? await (window as any).electronAPI.fetchSteamGridData(game.title)
@@ -591,11 +631,14 @@ export default function ConsoleHome() {
           );
 
           setSteamGames(withMetadata);
+          try {
+            localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(withMetadata));
+          } catch (e) { }
           setLoadingSteam(false);
         }).catch(() => setLoadingSteam(false));
       }
     }
-  }, [libraryTab, activeUser, steamGames.length, loadingSteam]);
+  }, [libraryTab, activeUser, steamGames.length, loadingSteam, games]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
@@ -854,6 +897,24 @@ export default function ConsoleHome() {
       });
       return merged;
     };
+
+    if (id.startsWith('steam_')) {
+      setSteamGames(prev => {
+        const updatedList = prev.map(g => g.id === id ? formatUpdated(g) : g);
+        const steamId = activeUser?.settings?.steamId;
+        if (steamId) {
+          try {
+            localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updatedList));
+          } catch (e) { }
+        }
+        return updatedList;
+      });
+    }
+
+    if (selectedItem && selectedItem.id === id) {
+      setSelectedItem(prev => prev ? formatUpdated(prev) : null);
+    }
+
     setGames(prev => {
       const exists = prev.some(g => g.id === id);
       if (exists) {
@@ -1087,8 +1148,8 @@ export default function ConsoleHome() {
         checkButton(5, 'e');
         checkButton(6, 'z'); // L2 -> Z
         checkButton(7, 'c'); // R2 -> C
-        checkButton(8, 's'); // Share/Create -> Menú contextual
-        checkButton(9, 'Home');
+        checkButton(9, 's'); // Share/Create -> Menú contextual
+        checkButton(8, 'Home');
       } else {
         if (lastGpId.current !== null) {
           lastGpId.current = null;

@@ -1890,7 +1890,7 @@ const getDiscoverCategories = (t: (key: string) => string) => [
           <>
             {t('cc.floatingMenuDesc')}{' '}
             <PSIcon
-              char={PSIcons.options}
+              char={PSIcons.share}
               size={10}
               color="rgba(255, 255, 255, 0.9)"
               style={{ verticalAlign: 'middle' }}
@@ -1949,7 +1949,7 @@ const getDiscoverCategories = (t: (key: string) => string) => [
           <>
             {t('cc.addGameManuallyDesc')}{' '}
             <PSIcon
-              char={PSIcons.options}
+              char={PSIcons.share}
               size={10}
               color="rgba(255, 255, 255, 0.9)"
               style={{ verticalAlign: 'middle' }}
@@ -1993,7 +1993,7 @@ const getDiscoverCategories = (t: (key: string) => string) => [
           <>
             {t('cc.settingGamesDesc')}{' '}
             <PSIcon
-              char={PSIcons.share}
+              char={PSIcons.options}
               size={10}
               color="rgba(255, 255, 255, 0.9)"
               style={{ verticalAlign: 'middle' }}
