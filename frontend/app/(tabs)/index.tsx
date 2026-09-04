@@ -45,6 +45,7 @@ import AvatarPickerModal from '@/components/AvatarPickerModal';
 import SearchView from '@/components/SearchView';
 import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
 import { fetchStoreOffers, StoreOffer, LOCAL_FALLBACK_OFFERS } from '@/services/storeService';
+import { fetchSteamGridData } from '@/services/steamGridService';
 import { UserProfile } from '@/components/UserSelectScreen';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { LANGUAGE_OPTIONS, isLanguage, Language } from '@/i18n/translations';
@@ -555,19 +556,41 @@ export default function ConsoleHome() {
 
       if (steamId) {
         setLoadingSteam(true);
-        fetchSteamOwnedGames(GLOBAL_STEAM_API_KEY, steamId).then(gamesList => {
-          const formatted: ConsoleItem[] = gamesList.map((g: any) => ({
+        fetchSteamOwnedGames(GLOBAL_STEAM_API_KEY, steamId).then(async (gamesList) => {
+          const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => ({
             id: `steam_${g.appid}`,
             title: g.name,
             time: 'Steam',
-            image: { uri: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900_2x.jpg` },
+            image: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900_2x.jpg`,
             description: t('game.playedTime', { hours: Math.round((g.playtime_forever || 0) / 60) }),
             playtime_forever: Number(g.playtime_forever || 0),
             playtimeMinutes: Number(g.playtime_forever || 0),
             platform: 'Steam',
             path: buildSteamRunUrl(g.appid),
           }));
-          setSteamGames(formatted);
+
+          const withMetadata = await Promise.all(
+            baseFormatted.map(async (game) => {
+              try {
+                const res = (window as any).electronAPI?.fetchSteamGridData
+                  ? await (window as any).electronAPI.fetchSteamGridData(game.title)
+                  : await fetchSteamGridData(game.title);
+                if (res?.success && res.data) {
+                  return {
+                    ...game,
+                    image: res.data.grid || game.image,
+                    backgroundImage: res.data.hero || game.backgroundImage,
+                    logo: res.data.logo || game.logo,
+                  };
+                }
+              } catch (e) {
+                console.error('[Steam] Error fetching metadata for:', game.title, e);
+              }
+              return game;
+            })
+          );
+
+          setSteamGames(withMetadata);
           setLoadingSteam(false);
         }).catch(() => setLoadingSteam(false));
       }
@@ -664,7 +687,9 @@ export default function ConsoleHome() {
       const withMetadata = await Promise.all(
         baseFormatted.map(async (game) => {
           try {
-            const res = await (window as any).electronAPI.fetchSteamGridData(game.title);
+            const res = (window as any).electronAPI?.fetchSteamGridData
+              ? await (window as any).electronAPI.fetchSteamGridData(game.title)
+              : await fetchSteamGridData(game.title);
             if (res?.success && res.data) {
               return {
                 ...game,
@@ -2035,7 +2060,9 @@ export default function ConsoleHome() {
       };
       if (!appToSave.image && appToSave.type === 'game') {
         try {
-          const res = await (window as any).electronAPI.fetchSteamGridData(appToSave.title);
+          const res = (window as any).electronAPI?.fetchSteamGridData
+            ? await (window as any).electronAPI.fetchSteamGridData(appToSave.title)
+            : await fetchSteamGridData(appToSave.title);
           if (res.success && res.data) {
             if (res.data.grid) appToSave.image = res.data.grid;
             if (res.data.hero) (appToSave as any).backgroundImage = res.data.hero;

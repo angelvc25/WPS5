@@ -12,7 +12,7 @@ import GameInfoPanel from './GameInfoPanel';
 import { useUser } from '../contexts/UserContext';
 import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
-import { fetchSteamGridAssets as fetchSteamGridAssetsService } from '../services/steamGridService';
+import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
 import { soundService } from '../services/soundService';
 import { getSteamLaunchPath, isSteamGame, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
 import PSIcon from './PSIcon';
@@ -1074,8 +1074,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
     // Fetch SteamGridDB if needed
     if (syncPrefs.cover === 'steamgrid' || syncPrefs.background === 'steamgrid' || syncPrefs.logo === 'steamgrid') {
-      const resultSteam = await (window as any).electronAPI.fetchSteamGridData(editData.title);
-      if (resultSteam.success) {
+      const resultSteam = (window as any).electronAPI?.fetchSteamGridData
+        ? await (window as any).electronAPI.fetchSteamGridData(editData.title)
+        : await fetchSteamGridDataService(editData.title);
+      if (resultSteam.success && resultSteam.data) {
         const assets = resultSteam.data;
         if (syncPrefs.cover === 'steamgrid' && assets.grid) newEditData.image = assets.grid;
         if (syncPrefs.background === 'steamgrid' && assets.hero) newEditData.backgroundImage = assets.hero;

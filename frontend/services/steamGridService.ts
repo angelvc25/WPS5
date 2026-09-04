@@ -64,6 +64,84 @@ function mapAsset(raw: any): SteamGridAsset {
   };
 }
 
+export interface SteamGridDataResult {
+  success: boolean;
+  data?: {
+    grid: string | null;
+    hero: string | null;
+    logo: string | null;
+  };
+  error?: string;
+}
+
+/**
+  * Obtiene la portada (priorizando 1:1, luego 2:3, luego cualquiera), el fondo (hero) y el logo de un juego desde SteamGridDB.
+  */
+export async function fetchSteamGridData(
+  title: string
+): Promise<SteamGridDataResult> {
+  if (!title) return { success: false, error: 'Título no proporcionado' };
+
+  if (typeof window !== 'undefined' && (window as any).electronAPI?.fetchSteamGridData) {
+    try {
+      const res = await (window as any).electronAPI.fetchSteamGridData(title);
+      if (res.success) return res;
+    } catch (err) {
+      console.warn('[SteamGrid] electronAPI fetchSteamGridData failed, trying direct fetch:', err);
+    }
+  }
+
+  try {
+    const gameId = await searchGame(title);
+    if (!gameId) return { success: false, error: 'Juego no encontrado en SteamGridDB' };
+
+    const [grids1x1Res, grids2x3Res, gridsAllRes, heroesRes, logosRes] = await Promise.all([
+      fetch(`${BASE}/grids/game/${gameId}?dimensions=512x512,1024x1024`, { headers }),
+      fetch(`${BASE}/grids/game/${gameId}?dimensions=600x900`, { headers }),
+      fetch(`${BASE}/grids/game/${gameId}`, { headers }),
+      fetch(`${BASE}/heroes/game/${gameId}?limit=1`, { headers }),
+      fetch(`${BASE}/logos/game/${gameId}?limit=1`, { headers }),
+    ]);
+
+    const [grids1x1, grids2x3, gridsAll, heroes, logos] = await Promise.all([
+      grids1x1Res.ok ? grids1x1Res.json() : { success: false, data: [] },
+      grids2x3Res.ok ? grids2x3Res.json() : { success: false, data: [] },
+      gridsAllRes.ok ? gridsAllRes.json() : { success: false, data: [] },
+      heroesRes.ok ? heroesRes.json() : { success: false, data: [] },
+      logosRes.ok ? logosRes.json() : { success: false, data: [] },
+    ]);
+
+    let chosenGrid: string | null = null;
+    if (grids1x1.success && grids1x1.data && grids1x1.data.length > 0) {
+      chosenGrid = grids1x1.data[0].url || grids1x1.data[0].thumb;
+    } else if (grids2x3.success && grids2x3.data && grids2x3.data.length > 0) {
+      chosenGrid = grids2x3.data[0].url || grids2x3.data[0].thumb;
+    } else if (gridsAll.success && gridsAll.data && gridsAll.data.length > 0) {
+      const square = gridsAll.data.find((g: any) => g.width && g.height && g.width === g.height);
+      const vertical2x3 = gridsAll.data.find((g: any) => g.width && g.height && Math.abs((g.width / g.height) - (2 / 3)) < 0.05);
+      if (square) {
+        chosenGrid = square.url || square.thumb;
+      } else if (vertical2x3) {
+        chosenGrid = vertical2x3.url || vertical2x3.thumb;
+      } else {
+        chosenGrid = gridsAll.data[0].url || gridsAll.data[0].thumb;
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        grid: chosenGrid,
+        hero: heroes.success && heroes.data && heroes.data.length > 0 ? (heroes.data[0].url || heroes.data[0].thumb) : null,
+        logo: logos.success && logos.data && logos.data.length > 0 ? (logos.data[0].url || logos.data[0].thumb) : null,
+      },
+    };
+  } catch (err: any) {
+    console.error('[SteamGrid] Direct fetch failed:', err);
+    return { success: false, error: err?.message || 'Error al obtener datos de SteamGridDB' };
+  }
+}
+
 /**
  * Obtiene TODOS los assets de un juego dado su nombre.
  */
@@ -117,13 +195,20 @@ export async function fetchSteamGridAssets(
       iconsRes.ok ? iconsRes.json() : { success: false, data: [] },
     ]);
 
-    const mergedGrids = [
-      ...(grids.success ? grids.data : []),
-      ...(squares.success ? squares.data : [])
-    ];
+    const list1x1 = (squares.success ? squares.data : []).map(mapAsset);
+    const listAll = (grids.success ? grids.data : []).map(mapAsset);
+    const list2x3 = listAll.filter((g: SteamGridAsset) => g.width && g.height && Math.abs((g.width / g.height) - (2 / 3)) < 0.05);
+    const remaining = listAll.filter((g: SteamGridAsset) => !list1x1.some((s: SteamGridAsset) => s.id === g.id) && !list2x3.some((v: SteamGridAsset) => v.id === g.id));
+
+    const mergedGridsMap = new Map<number, SteamGridAsset>();
+    [...list1x1, ...list2x3, ...remaining].forEach(item => {
+      if (!mergedGridsMap.has(item.id)) {
+        mergedGridsMap.set(item.id, item);
+      }
+    });
 
     return {
-      grids: mergedGrids.map(mapAsset),
+      grids: Array.from(mergedGridsMap.values()),
       heroes: (heroes.success ? heroes.data : []).map(mapAsset),
       logos: (logos.success ? logos.data : []).map(mapAsset),
       icons: (icons.success ? icons.data : []).map(mapAsset),

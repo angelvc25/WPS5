@@ -23,6 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { fetchSteamGridData } from '../services/steamGridService';
 import { Video, ResizeMode } from 'expo-av';
 import SpinningBorder from './Spinningborder';
 import SpinningBorderNoticias from './SpinningborderNoticias';
@@ -283,9 +284,11 @@ function AnimatedCard({
         platform: type === 'game' ? platform : undefined,
       };
 
-      if (!appToSave.image && type === 'game' && (window as any).electronAPI?.fetchSteamGridData) {
+      if (!appToSave.image && type === 'game') {
         try {
-          const res = await (window as any).electronAPI.fetchSteamGridData(title);
+          const res = (window as any).electronAPI?.fetchSteamGridData
+            ? await (window as any).electronAPI.fetchSteamGridData(title)
+            : await fetchSteamGridData(title);
           if (res.success && res.data) {
             if (res.data.grid) appToSave.image = res.data.grid;
             if (res.data.hero) appToSave.backgroundImage = res.data.hero;

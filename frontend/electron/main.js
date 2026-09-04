@@ -1515,9 +1515,7 @@ app.whenReady().then(() => {
       return { success: false, error: 'Configuración pendiente: Pon tu API Key en la línea 17 de main.js' };
     }
 
-
     console.log('Buscando en SteamGridDB:', title);
-
 
     try {
       // 1. Buscar el juego para obtener el ID
@@ -1536,24 +1534,47 @@ app.whenReady().then(() => {
 
       const gameId = searchData.data[0].id;
 
-
-      // 2. Buscar Grids (Portadas), Heroes (Fondos) y Logos en paralelo
-      // Quitamos filtros restrictivos de dimensiones para asegurar que siempre encuentre algo
-      const [gridsRes, heroesRes, logosRes] = await Promise.all([
-        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}?dimensions=512x512,1024x1024&limit=1`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
+      // 2. Buscar Grids 1:1, Grids 2:3, Grids Generales, Heroes (Fondos) y Logos en paralelo
+      const [grids1x1Res, grids2x3Res, gridsAllRes, heroesRes, logosRes] = await Promise.all([
+        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}?dimensions=512x512,1024x1024`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
+        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}?dimensions=600x900`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
+        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
         fetch(`https://www.steamgriddb.com/api/v2/heroes/game/${gameId}?limit=1`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
         fetch(`https://www.steamgriddb.com/api/v2/logos/game/${gameId}?limit=1`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } })
       ]);
 
+      const [grids1x1, grids2x3, gridsAll, heroes, logos] = await Promise.all([
+        grids1x1Res.ok ? grids1x1Res.json() : { success: false, data: [] },
+        grids2x3Res.ok ? grids2x3Res.json() : { success: false, data: [] },
+        gridsAllRes.ok ? gridsAllRes.json() : { success: false, data: [] },
+        heroesRes.ok ? heroesRes.json() : { success: false, data: [] },
+        logosRes.ok ? logosRes.json() : { success: false, data: [] }
+      ]);
 
-      const [grids, heroes, logos] = await Promise.all([gridsRes.json(), heroesRes.json(), logosRes.json()]);
+      // Selección prioritaria de la portada: 1:1 -> 2:3 -> cualquier otra disponible
+      let chosenGrid = null;
+      if (grids1x1.success && grids1x1.data && grids1x1.data.length > 0) {
+        chosenGrid = grids1x1.data[0].url || grids1x1.data[0].thumb;
+      } else if (grids2x3.success && grids2x3.data && grids2x3.data.length > 0) {
+        chosenGrid = grids2x3.data[0].url || grids2x3.data[0].thumb;
+      } else if (gridsAll.success && gridsAll.data && gridsAll.data.length > 0) {
+        const square = gridsAll.data.find(g => g.width && g.height && g.width === g.height);
+        const vertical2x3 = gridsAll.data.find(g => g.width && g.height && Math.abs((g.width / g.height) - (2 / 3)) < 0.05);
+        if (square) {
+          chosenGrid = square.url || square.thumb;
+        } else if (vertical2x3) {
+          chosenGrid = vertical2x3.url || vertical2x3.thumb;
+        } else {
+          chosenGrid = gridsAll.data[0].url || gridsAll.data[0].thumb;
+        }
+      }
 
       return {
         success: true,
         data: {
-          grid: grids.success && grids.data.length > 0 ? grids.data[0].url : null,
-          hero: heroes.success && heroes.data.length > 0 ? heroes.data[0].url : null,
-          logo: logos.success && logos.data.length > 0 ? logos.data[0].url : null
+          grid: chosenGrid,
+          hero: heroes.success && heroes.data && heroes.data.length > 0 ? (heroes.data[0].url || heroes.data[0].thumb) : null,
+          logo: logos.success && logos.data && logos.data.length > 0 ? (logos.data[0].url || logos.data[0].thumb) : null
         }
       };
     } catch (error) {
@@ -1600,10 +1621,18 @@ app.whenReady().then(() => {
         iconsRes.json()
       ]);
 
-      const mergedGrids = [
-        ...(grids.success ? grids.data : []),
-        ...(squares.success ? squares.data : [])
-      ];
+      const list1x1 = squares.success ? squares.data : [];
+      const listAll = grids.success ? grids.data : [];
+      const list2x3 = listAll.filter(g => g.width && g.height && Math.abs((g.width / g.height) - (2 / 3)) < 0.05);
+      const remaining = listAll.filter(g => !list1x1.some(s => s.id === g.id) && !list2x3.some(v => v.id === g.id));
+
+      const mergedGridsMap = new Map();
+      [...list1x1, ...list2x3, ...remaining].forEach(item => {
+        if (!mergedGridsMap.has(item.id)) {
+          mergedGridsMap.set(item.id, item);
+        }
+      });
+      const mergedGrids = Array.from(mergedGridsMap.values());
 
       return {
         success: true,
