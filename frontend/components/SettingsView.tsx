@@ -2066,22 +2066,25 @@ const styles = StyleSheet.create({
     width: 52,
     height: 30,
     borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(48, 49, 54, 1)',
     padding: 3,
     justifyContent: 'center',
   },
   psSwitchActive: {
-    backgroundColor: '#8d8d8dff',
+    backgroundColor: 'rgba(71, 73, 80, 1)',
   },
   psSwitchThumb: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#969696ff',
+    borderWidth: 2,
+    borderColor: 'rgba(94, 100, 105, 1)',
+    backgroundColor: 'rgba(48, 49, 54, 1)',
   },
   psSwitchThumbActive: {
     transform: [{ translateX: 22 }],
     backgroundColor: '#ffffffff',
+    borderColor: 'rgba(255, 255, 255, 1)',
   },
 
   // Platform/Sync buttons

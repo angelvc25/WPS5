@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     rowFocused: { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
     dndLabel: { color: '#fff', fontSize: 17, fontFamily: 'SSTLight' },
     toggleTrack: { width: 46, height: 26, borderRadius: 13, backgroundColor: 'rgba(48, 49, 54, 1)', padding: 3, justifyContent: 'center' },
-    toggleTrackActive: { backgroundColor: '#8d8d8dff' },
+    toggleTrackActive: { backgroundColor: 'rgba(71, 73, 80, 1)' },
     toggleThumb: { width: 20, height: 20, borderWidth: 2, borderColor: 'rgba(94, 100, 105, 1)', borderRadius: 10, backgroundColor: 'rgba(48, 49, 54, 1)' },
     toggleThumbActive: { transform: [{ translateX: 20 }], backgroundColor: '#ffffffff', borderColor: 'rgba(255, 255, 255, 1)' },
     notifCard: {
