@@ -445,6 +445,24 @@ const es = {
   'toast.controllerConnected': 'Control conectado',
 
   'edit.searchingAssetsShort': 'Buscando recursos...',
+
+  'addModal.addedSingle': 'Se añadió {count} aplicación a tu biblioteca',
+  'addModal.addedMultiple': 'Se añadieron {count} aplicaciones a tu biblioteca',
+  'addModal.downloadingMetadata': 'Descargando metadatos ({current}/{total}): "{name}"...',
+  'addModal.addingApp': 'Añadiendo ({current}/{total}): "{name}"...',
+  'addModal.scanning': 'Escaneando programas instalados...',
+  'addModal.title': 'Añadir un producto a la biblioteca',
+  'addModal.subtitle': 'Selecciona los programas para añadirlos a tu biblioteca WPS5',
+  'addModal.searchPlaceholder': 'Buscar en la lista...',
+  'addModal.colProgram': 'PROGRAMA',
+  'addModal.colLocation': 'UBICACIÓN',
+  'addModal.emptySearch': 'No se encontraron programas que coincidan con la búsqueda.',
+  'addModal.emptyList': 'No se detectaron programas instalados. Usa el botón "Buscar..." para agregar ejecutables manualmente.',
+  'addModal.browseBtn': 'Buscar...',
+  'addModal.typeLabel': 'Añadir como:',
+  'addModal.addSelectedCount': 'Añadir seleccionados ({count})',
+  'addModal.addSelected': 'Añadir seleccionados',
+  'addModal.savingDefault': 'Buscando metadatos y guardando...',
 } as const;
 
 export type TranslationKey = keyof typeof es;
@@ -878,6 +896,24 @@ const en: Record<TranslationKey, string> = {
   'toast.loggedPS5': 'Logged in to your PS5.',
   'toast.controllerDisconnected': 'Controller disconnected',
   'toast.controllerConnected': 'Controller connected',
+
+  'addModal.addedSingle': 'Added {count} application to your library',
+  'addModal.addedMultiple': 'Added {count} applications to your library',
+  'addModal.downloadingMetadata': 'Downloading metadata ({current}/{total}): "{name}"...',
+  'addModal.addingApp': 'Adding ({current}/{total}): "{name}"...',
+  'addModal.scanning': 'Scanning installed programs...',
+  'addModal.title': 'Add a product to library',
+  'addModal.subtitle': 'Select programs to add them to your WPS5 library',
+  'addModal.searchPlaceholder': 'Search in the list...',
+  'addModal.colProgram': 'PROGRAM',
+  'addModal.colLocation': 'LOCATION',
+  'addModal.emptySearch': 'No programs found matching the search.',
+  'addModal.emptyList': 'No installed programs detected. Use the "Browse..." button to add executables manually.',
+  'addModal.browseBtn': 'Browse...',
+  'addModal.typeLabel': 'Add as:',
+  'addModal.addSelectedCount': 'Add selected ({count})',
+  'addModal.addSelected': 'Add selected',
+  'addModal.savingDefault': 'Fetching metadata and saving...',
 };
 
 const pt: Record<TranslationKey, string> = {
@@ -1309,8 +1345,25 @@ const pt: Record<TranslationKey, string> = {
   'toast.loggedPS5': 'Iniciou sessão na sua WPS5',
   'toast.controllerDisconnected': 'Controle desconectado',
   'toast.controllerConnected': 'Controle conectado',
-
   'edit.searchingAssetsShort': 'Procurando assets...',
+
+  'addModal.addedSingle': 'Foi adicionada {count} aplicação à sua biblioteca',
+  'addModal.addedMultiple': 'Foram adicionadas {count} aplicações à sua biblioteca',
+  'addModal.downloadingMetadata': 'Baixando metadados ({current}/{total}): "{name}"...',
+  'addModal.addingApp': 'Adicionando ({current}/{total}): "{name}"...',
+  'addModal.scanning': 'Escaneando programas instalados...',
+  'addModal.title': 'Adicionar um produto à biblioteca',
+  'addModal.subtitle': 'Selecione os programas para adicioná-los à sua biblioteca WPS5',
+  'addModal.searchPlaceholder': 'Pesquisar na lista...',
+  'addModal.colProgram': 'PROGRAMA',
+  'addModal.colLocation': 'LOCALIZAÇÃO',
+  'addModal.emptySearch': 'Nenhum programa encontrado correspondente à pesquisa.',
+  'addModal.emptyList': 'Nenhum programa instalado detetado. Use o botão "Procurar..." para adicionar executáveis manualmente.',
+  'addModal.browseBtn': 'Procurar...',
+  'addModal.typeLabel': 'Adicionar como:',
+  'addModal.addSelectedCount': 'Adicionar selecionados ({count})',
+  'addModal.addSelected': 'Adicionar selecionados',
+  'addModal.savingDefault': 'Buscando metadados e salvando...',
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {
