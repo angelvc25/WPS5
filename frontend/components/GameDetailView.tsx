@@ -969,6 +969,30 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     isLoadingAssets,
   ]);
 
+  // ─── Mando: botón Options/Start guarda y cierra el selector de imágenes ───
+  // Se sondea directamente la Gamepad API (independiente del despacho de
+  // teclado sintético usado para D-Pad/Cross en otras pantallas) para no
+  // depender de que el botón Options/Start esté mapeado en el nivel superior.
+  const optionsBtnPrevRef = useRef(false);
+  useEffect(() => {
+    if (!isAssetSelectorVisible || Platform.OS !== 'web') return;
+    let rafId: number;
+    const poll = () => {
+      const gp = navigator.getGamepads?.()[0];
+      // Botón Options/Start: índice 9 en el mapeo estándar de la Gamepad API
+      // (algunos mandos/navegadores lo exponen también en el índice 8).
+      const pressed = !!(gp?.buttons?.[9]?.pressed || gp?.buttons?.[8]?.pressed);
+      if (pressed && !optionsBtnPrevRef.current) {
+        soundService.playActivation?.();
+        setAssetSelectorVisible(false);
+      }
+      optionsBtnPrevRef.current = pressed;
+      rafId = requestAnimationFrame(poll);
+    };
+    rafId = requestAnimationFrame(poll);
+    return () => cancelAnimationFrame(rafId);
+  }, [isAssetSelectorVisible]);
+
   if (!item) return null;
 
   const handleSelectPath = async () => {
@@ -1652,14 +1676,6 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 <View style={styles.assetHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
                     <Text style={styles.editMainTitleLarge}>{t('edit.selectImage')}</Text>
-                    <TouchableOpacity
-                      style={styles.assetSelectorDoneBtn}
-                      onPress={() => setAssetSelectorVisible(false)}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons name="checkmark" size={18} color="#000" />
-                      <Text style={styles.assetSelectorDoneBtnText}>{t('common.save') || 'Listo'}</Text>
-                    </TouchableOpacity>
                   </View>
 
                   {/* Tabs */}
@@ -1983,6 +1999,24 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       </View>
                       <Text style={styles.promptItemText}>{t('common.back')}</Text>
                     </View>
+
+                    <TouchableOpacity
+                      style={styles.promptSaveItem}
+                      onPress={() => {
+                        soundService.playActivation?.();
+                        setAssetSelectorVisible(false);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.promptBtnBadge}>
+                        <PSIcon
+                          char={PSIcons.options}
+                          size={22}
+                          color='#000'
+                        />
+                      </View>
+                      <Text style={styles.promptSaveItemText}>{t('common.save') || 'Guardar'}</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -2740,21 +2774,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     zIndex: 2000,
   },
-  assetSelectorDoneBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#4CD964',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginBottom: 30,
-  } as any,
-  assetSelectorDoneBtnText: {
-    color: '#000',
-    fontSize: 14,
-    fontFamily: 'SSTBold',
-  },
   assetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2989,6 +3008,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  promptSaveItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#4CD964',
+    borderRadius: 20,
+    paddingLeft: 6,
+    paddingRight: 16,
+    paddingVertical: 4,
+    marginLeft: 4,
+  } as any,
+  promptSaveItemText: {
+    color: '#000',
+    fontSize: 15,
+    fontFamily: 'SSTBold',
   },
   promptBtnBadge: {
     paddingHorizontal: 8,
