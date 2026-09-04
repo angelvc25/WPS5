@@ -629,7 +629,7 @@ export default function ConsoleHome() {
           deals.forEach(deal => {
             if (!known.has(deal.appid)) {
               toastService.show(`"${deal.title}" de tu lista de deseados está en oferta (-${deal.discountPercent}%)`, {
-                icon: require('@/assets/images/PlaystationStore_copi.png'),
+                icon: require('@/assets/images/Steamico.png'),
               });
             }
           });
@@ -685,7 +685,7 @@ export default function ConsoleHome() {
           const newOnes = withMetadata.filter(g => !known.includes(g.id));
           newOnes.forEach(g => {
             toastService.show(`Se agregó "${g.title}" desde Epic Games`, {
-              icon: require('@/assets/images/install.png'),
+              icon: require('@/assets/images/Epicico.png'),
             });
           });
         }
