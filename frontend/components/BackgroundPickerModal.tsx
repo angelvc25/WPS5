@@ -14,6 +14,9 @@ import { Image } from 'expo-image';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
+import { useTranslation } from '@/contexts/LanguageContext';
+import PSIcon from './PSIcon';
+import { PSIcons } from '@/constants/psIcons';
 
 interface FolderImage {
   uri: string;
@@ -33,10 +36,10 @@ interface BackgroundPickerModalProps {
 }
 
 const TABS = [
-  { id: 'playstation', label: 'De PlayStation' },
-  { id: 'games', label: 'Juegos' },
-  { id: 'gallery', label: 'Galería multimedia' },
-  { id: 'slideshow', label: 'Diapositivas' },
+  { id: 'playstation', label: 'From PlayStation' },
+  { id: 'games', label: 'Games' },
+  { id: 'gallery', label: 'Gallery' },
+  { id: 'slideshow', label: 'Slideshow' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -65,6 +68,7 @@ const BackgroundTile = React.memo<BackgroundTileProps>(({
   onFocus,
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setIsLoaded(false);
@@ -103,7 +107,7 @@ const BackgroundTile = React.memo<BackgroundTileProps>(({
             />
             {isGif && isLoaded && (
               <View style={styles.gifBadge}>
-                <Text style={styles.gifBadgeText}>animado</Text>
+                <Text style={styles.gifBadgeText}>{t('bg.animated')}</Text>
               </View>
             )}
           </>
@@ -176,7 +180,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'SSTLight',
     letterSpacing: 0.3,
-  },
+  }
 });
 
 
@@ -204,6 +208,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
   const gridFocusIndexRef = useRef(gridFocusIndex);
   const imagesRef = useRef(images);
   const lastNavSoundRef = useRef(0);
+  const { t } = useTranslation();
 
   // Tracks the visible window of the grid ScrollView so we only mount/load
   // thumbnails for rows that are actually on screen (plus a small buffer),
@@ -545,13 +550,13 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
       zIndex: 3,
     },
     footerText: {
-      color: 'rgba(255,255,255,0.55)',
-      fontSize: s(13),
-      fontFamily: 'SSTLight',
+      color: 'rgba(255, 255, 255, 1)',
+      fontSize: s(15),
+      fontFamily: 'SSTMedium',
     },
     footerKey: {
       color: 'rgba(255,255,255,0.85)',
-      fontSize: s(13),
+      fontSize: s(15),
       fontFamily: 'SSTBold',
     },
     loadingWrap: {
@@ -566,15 +571,24 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
       fontSize: s(14),
       fontFamily: 'SSTLight',
     },
+    footerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      borderRadius: s(2),
+      paddingHorizontal: s(18),
+      paddingVertical: s(10),
+    },
   }), [s]);
 
   const emptyMessages: Record<TabId, string> = {
     playstation: wallpaperPath
-      ? 'No hay imágenes en la carpeta configurada de fondos de PlayStation.'
-      : 'No hay fondos disponibles. Configura una carpeta en Ajustes → Inicio → Carpeta de Fondos, o añade imágenes a la carpeta predeterminada.',
-    games: 'Los fondos de juegos estarán disponibles próximamente.',
-    gallery: 'No hay capturas en la carpeta de capturas. Configúrala en Ajustes → Inicio.',
-    slideshow: 'Las diapositivas estarán disponibles próximamente.',
+      ? t('bg.emptyPsFolder')
+      : t('bg.emptyWallpapers'),
+    games: t('bg.emptyGames'),
+    gallery: t('bg.emptyGallery'),
+    slideshow: t('bg.emptySlideshow'),
   };
 
   return (
@@ -596,7 +610,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
         <View style={styles.backdropDim} />
 
         <Animated.View style={[styles.content, uiStyles.content]} entering={FadeIn.delay(60).duration(240)}>
-          <Text style={uiStyles.title}>Cambiar fondo</Text>
+          <Text style={uiStyles.title}>{t('bg.change')}</Text>
 
           <View style={uiStyles.tabsRow}>
             {TABS.map((tab, idx) => {
@@ -670,17 +684,52 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
         </Animated.View>
 
         <View style={uiStyles.footerLeft}>
-          <Text style={uiStyles.footerKey}>↑↓←→</Text>
-          <Text style={uiStyles.footerText}>Navegar</Text>
-          <Text style={uiStyles.footerKey}>Enter</Text>
-          <Text style={uiStyles.footerText}>Seleccionar</Text>
+          <View style={uiStyles.footerRow}>
+            <PSIcon
+              char={PSIcons.dpadUp}
+              size={22}
+              color='#d3d3d3ff'
+            />
+            <PSIcon
+              char={PSIcons.dpadDown}
+              size={22}
+              color='#d3d3d3ff'
+            />
+            <PSIcon
+              char={PSIcons.dpadLeft}
+              size={22}
+              color='#d3d3d3ff'
+            />
+            <PSIcon
+              char={PSIcons.dpadRight}
+              size={22}
+              color='#d3d3d3ff'
+            />
+            <Text style={uiStyles.footerText}>{t('common.navigate')}</Text>
+            <PSIcon
+              char={PSIcons.cross}
+              size={22}
+              color='#d3d3d3ff'
+            />
+            <Text style={uiStyles.footerText}>{t('common.select')}</Text>
+          </View>
         </View>
 
         <View style={uiStyles.footer}>
-          <Text style={uiStyles.footerKey}>[L1]</Text>
-          <Text style={uiStyles.footerText}>/</Text>
-          <Text style={uiStyles.footerKey}>[R1]</Text>
-          <Text style={uiStyles.footerText}>Cambiar pestañas</Text>
+          <View style={uiStyles.footerRow}>
+            <PSIcon
+              char={PSIcons.r1}
+              size={22}
+              color='#d3d3d3ff'
+            />
+            <Text style={uiStyles.footerText}>/</Text>
+            <PSIcon
+              char={PSIcons.l1}
+              size={22}
+              color='#d3d3d3ff'
+            />
+            <Text style={uiStyles.footerText}>{t('search.changeTabs')}</Text>
+          </View>
         </View>
       </Animated.View>
     </Modal>

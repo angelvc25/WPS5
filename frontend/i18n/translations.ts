@@ -276,6 +276,7 @@ const es = {
   'search.mediaApps': 'Aplicaciones multimedia',
 
   'bg.change': 'Cambiar fondo',
+  'bg.animated': 'Animado',
   'bg.sortByDate': 'Ordenar por: Fecha en que se agregó (nuevo - antiguo)',
   'bg.preparingThumbs': 'Preparando miniaturas…',
   'bg.emptyPsFolder': 'No hay imágenes en la carpeta configurada de fondos de PlayStation.',
@@ -712,6 +713,7 @@ const en: Record<TranslationKey, string> = {
   'search.mediaApps': 'Media applications',
 
   'bg.change': 'Change background',
+  'bg.animated': 'Animated',
   'bg.sortByDate': 'Sort by: Date added (new - old)',
   'bg.preparingThumbs': 'Preparing thumbnails…',
   'bg.emptyPsFolder': 'There are no images in the configured PlayStation wallpaper folder.',
@@ -1142,6 +1144,7 @@ const pt: Record<TranslationKey, string> = {
   'search.mediaApps': 'Aplicações multimédia',
 
   'bg.change': 'Mudar fundo',
+  'bg.animated': 'Animado',
   'bg.sortByDate': 'Ordenar por: Data em que foi adicionado (novo - antigo)',
   'bg.preparingThumbs': 'Preparando miniaturas…',
   'bg.emptyPsFolder': 'Não há imagens na pasta configurada de fundos da PlayStation.',
