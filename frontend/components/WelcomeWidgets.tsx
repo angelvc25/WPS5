@@ -123,7 +123,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   const [loadingFriends, setLoadingFriends] = useState(false);
   const steamId = activeUser?.settings?.steamId;
 
-  const FRIENDS_REFRESH_MS = 30000; // refresca cada 30s para reflejar cambios de estado/juego
+  const FRIENDS_REFRESH_MS = 10000; // refresca cada 10s para reflejar cambios de estado/juego
   const prevFriendsRef = useRef<Map<string, SteamFriend>>(new Map()); // Nuevo ref para recordar el estado anterior de cada amigo
 
   useEffect(() => {
