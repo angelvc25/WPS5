@@ -264,6 +264,7 @@ export default function ConsoleHome() {
   const [isSystemNavCardExpanded, setSystemNavCardExpanded] = useState(false);
   const [isFriendsCardOpen, setIsFriendsCardOpen] = useState(false);
   const [isNotificationsCardOpen, setIsNotificationsCardOpen] = useState(false);
+  const [isMusicCardOpen, setIsMusicCardOpen] = useState(false);
 
   const [wishlistDeals, setWishlistDeals] = useState<WishlistDeal[]>([]);
   const knownWishlistDealIdsRef = useRef<Set<number> | null>(null);
@@ -1031,6 +1032,10 @@ export default function ConsoleHome() {
     } else if (idx === 3) {
       // Game Base – abrir card de amigos (responsive, scrollable, oscurece fondo)
       setIsFriendsCardOpen(true);
+      soundService.playActivation?.();
+    } else if (idx === 4) {
+      // Música – abrir card de música expandida
+      setIsMusicCardOpen(true);
       soundService.playActivation?.();
     } else if (idx === 9) {
       // Perfil (Cambiar usuario)
@@ -2862,6 +2867,8 @@ export default function ConsoleHome() {
         onFriendsOpenChange={setIsFriendsCardOpen}
         isNotificationsOpen={isNotificationsCardOpen}
         onNotificationsOpenChange={setIsNotificationsCardOpen}
+        isMusicOpen={isMusicCardOpen}
+        onMusicOpenChange={setIsMusicCardOpen}
       />
 
       <FavoritesView

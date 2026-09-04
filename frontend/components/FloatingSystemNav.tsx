@@ -6,6 +6,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from '
 import ControlCenterCards from './ControlCenterCards';
 import FriendsExpandedCard from './FriendsExpandedCard';
 import NotificationsExpandedCard from './NotificationsExpandedCard';
+import MusicExpandedCard from './MusicExpandedCard';
 import RadarFocusWrapper from './RadarFocusWrapper';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { TranslationKey } from '@/i18n/translations';
@@ -47,6 +48,8 @@ interface FloatingSystemNavProps {
   onFriendsOpenChange?: (open: boolean) => void;
   isNotificationsOpen?: boolean;
   onNotificationsOpenChange?: (open: boolean) => void;
+  isMusicOpen?: boolean;
+  onMusicOpenChange?: (open: boolean) => void;
 }
 
 export default function FloatingSystemNav({
@@ -65,6 +68,8 @@ export default function FloatingSystemNav({
   onFriendsOpenChange,
   isNotificationsOpen: controlledNotificationsOpen,
   onNotificationsOpenChange,
+  isMusicOpen: controlledMusicOpen,
+  onMusicOpenChange,
 }: FloatingSystemNavProps) {
   const { t } = useTranslation();
   const opacity = useSharedValue(0);
@@ -82,7 +87,7 @@ export default function FloatingSystemNav({
     else setInternalFriendsOpen(next);
   };
 
-  // NUEVO — estado de la card de notificaciones (mismo patrón)
+  // NUEVO — estado de la card de notificaciones
   const [internalNotificationsOpen, setInternalNotificationsOpen] = useState(false);
   const isNotificationsOpen = controlledNotificationsOpen !== undefined ? controlledNotificationsOpen : internalNotificationsOpen;
   const setIsNotificationsOpen = (v: boolean | ((prev: boolean) => boolean)) => {
@@ -91,14 +96,23 @@ export default function FloatingSystemNav({
     else setInternalNotificationsOpen(next);
   };
 
-  // cerrar amigos si se cierra el nav
+  // NUEVO — estado de la card de música
+  const [internalMusicOpen, setInternalMusicOpen] = useState(false);
+  const isMusicOpen = controlledMusicOpen !== undefined ? controlledMusicOpen : internalMusicOpen;
+  const setIsMusicOpen = (v: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? (v as any)(isMusicOpen) : v;
+    if (onMusicOpenChange) onMusicOpenChange(next);
+    else setInternalMusicOpen(next);
+  };
+
+  // cerrar popups si se cierra el nav
   useEffect(() => {
     if (!isFocused) {
       setIsFriendsOpen(false);
       setIsNotificationsOpen(false);
+      setIsMusicOpen(false);
     }
   }, [isFocused]);
-
 
   useEffect(() => {
     if (isNotificationsOpen) {
@@ -111,6 +125,7 @@ export default function FloatingSystemNav({
   const handlePressItem = (index: number) => {
     if (index === 2) {
       if (isFriendsOpen) setIsFriendsOpen(false);
+      if (isMusicOpen) setIsMusicOpen(false);
       if (!isNotificationsOpen) {
         setIsNotificationsOpen(true);
         soundService.playActivation?.();
@@ -121,6 +136,7 @@ export default function FloatingSystemNav({
     }
     if (index === 3) {
       if (isNotificationsOpen) setIsNotificationsOpen(false);
+      if (isMusicOpen) setIsMusicOpen(false);
       if (!isFriendsOpen) {
         setIsFriendsOpen(true);
         soundService.playActivation?.();
@@ -129,8 +145,20 @@ export default function FloatingSystemNav({
       }
       return;
     }
+    if (index === 4) {
+      if (isNotificationsOpen) setIsNotificationsOpen(false);
+      if (isFriendsOpen) setIsFriendsOpen(false);
+      if (!isMusicOpen) {
+        setIsMusicOpen(true);
+        soundService.playActivation?.();
+      } else {
+        soundService.playNavigation();
+      }
+      return;
+    }
     if (isFriendsOpen) setIsFriendsOpen(false);
     if (isNotificationsOpen) setIsNotificationsOpen(false);
+    if (isMusicOpen) setIsMusicOpen(false);
     onPressItem(index);
   };
 
@@ -141,6 +169,11 @@ export default function FloatingSystemNav({
 
   const handleCloseNotifications = () => {
     setIsNotificationsOpen(false);
+    soundService.playBack?.();
+  };
+
+  const handleCloseMusic = () => {
+    setIsMusicOpen(false);
     soundService.playBack?.();
   };
 
@@ -186,12 +219,12 @@ export default function FloatingSystemNav({
           (la card tiene su propio backdrop). */}
       <Animated.View
         style={[StyleSheet.absoluteFill, { opacity: 0 }]}
-        pointerEvents={isFocused && !isCardExpanded && !isFriendsOpen && !isNotificationsOpen ? 'auto' : 'none'}
+        pointerEvents={isFocused && !isCardExpanded && !isFriendsOpen && !isNotificationsOpen && !isMusicOpen ? 'auto' : 'none'}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
 
-      {/* FriendsExpandedCard – encima del gradient pero debajo del pill para mantener el fondo oscurecido */}
+      {/* Expanded Cards */}
       <FriendsExpandedCard isOpen={isFriendsOpen} onClose={handleCloseFriends} />
       <NotificationsExpandedCard
         isOpen={isNotificationsOpen}
@@ -199,9 +232,10 @@ export default function FloatingSystemNav({
         anchorLeft={notificationsAnchor.left}
         anchorTop={notificationsAnchor.top}
       />
+      <MusicExpandedCard isOpen={isMusicOpen} onClose={handleCloseMusic} />
 
       <Animated.View style={[styles.menuContainer, menuStyle, { zIndex: 2 }]}>
-        {isFocused && !isFriendsOpen && !isNotificationsOpen && (
+        {isFocused && !isFriendsOpen && !isNotificationsOpen && !isMusicOpen && (
           <ControlCenterCards
             isFocusedLayer={isFocused && navLevel === 1}
             focusedIndex={cardIndex}
@@ -217,10 +251,10 @@ export default function FloatingSystemNav({
         <BlurView intensity={0} tint="dark" style={styles.pillContainer}>
           {NAV_ITEMS.map((item, index) => {
             const isActive = isFocused && focusedIndex === index;
-            // resaltar Game Base cuando la card de amigos está abierta
             const isFriendsActive = isFriendsOpen && index === 3;
             const isNotificationsActive = isNotificationsOpen && index === 2;
-            const showActiveRing = isActive || isFriendsActive || isNotificationsActive;
+            const isMusicActive = isMusicOpen && index === 4;
+            const showActiveRing = isActive || isFriendsActive || isNotificationsActive || isMusicActive;
             return (
               <TouchableOpacity
                 key={index}

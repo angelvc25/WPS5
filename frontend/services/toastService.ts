@@ -59,6 +59,8 @@ export const toastService = {
   },
 };
 
+import { musicHistoryService } from './musicHistoryService';
+
 let globalLastNotifiedTrackId: string | null = null;
 
 export function notifyNowPlayingToast(params: {
@@ -81,6 +83,13 @@ export function notifyNowPlayingToast(params: {
     const msg = hasArtist
       ? t('toast.nowPlaying', { title, artist })
       : t('toast.nowPlayingTitleOnly', { title });
+
+    musicHistoryService.addTrack({
+      title,
+      artist: hasArtist ? (artist as string) : '',
+      thumbnail,
+      source: 'music',
+    });
 
     toastService.show(msg, {
       icon: require('@/assets/images/music.png'),

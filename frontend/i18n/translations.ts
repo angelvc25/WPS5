@@ -445,6 +445,14 @@ const es = {
   'toast.nowPlaying': 'Reproduciendo: {title} - {artist}',
   'toast.nowPlayingTitleOnly': 'Reproduciendo: {title}',
 
+  'musicExpanded.title': 'Música',
+  'musicExpanded.recentlyPlayed': 'Escuchadas recientemente',
+  'musicExpanded.topPicks': 'Recomendadas',
+  'musicExpanded.musicSources': 'Fuentes de música',
+  'musicExpanded.noHistory': 'Sin canciones escuchadas',
+  'musicExpanded.noHistorySub': 'Las canciones que escuches en tu sesión aparecerán aquí.',
+  'musicExpanded.nowPlaying': 'En reproducción',
+
   'edit.searchingAssetsShort': 'Buscando recursos...',
 
   'addModal.addedSingle': 'Se añadió {count} aplicación a tu biblioteca',
@@ -900,6 +908,14 @@ const en: Record<TranslationKey, string> = {
   'toast.nowPlaying': 'Now Playing: {title} - {artist}',
   'toast.nowPlayingTitleOnly': 'Now Playing: {title}',
 
+  'musicExpanded.title': 'Music',
+  'musicExpanded.recentlyPlayed': 'Recently Played',
+  'musicExpanded.topPicks': 'Top Picks',
+  'musicExpanded.musicSources': 'Music sources',
+  'musicExpanded.noHistory': 'No recently played tracks',
+  'musicExpanded.noHistorySub': 'Songs played during your session will appear here.',
+  'musicExpanded.nowPlaying': 'Now Playing',
+
   'addModal.addedSingle': 'Added {count} application to your library',
   'addModal.addedMultiple': 'Added {count} applications to your library',
   'addModal.downloadingMetadata': 'Downloading metadata ({current}/{total}): "{name}"...',
@@ -1350,6 +1366,14 @@ const pt: Record<TranslationKey, string> = {
   'toast.controllerConnected': 'Controle conectado',
   'toast.nowPlaying': 'A tocar: {title} - {artist}',
   'toast.nowPlayingTitleOnly': 'A tocar: {title}',
+
+  'musicExpanded.title': 'Música',
+  'musicExpanded.recentlyPlayed': 'Ouvidas recientemente',
+  'musicExpanded.topPicks': 'Recomendadas',
+  'musicExpanded.musicSources': 'Fontes de música',
+  'musicExpanded.noHistory': 'Sem faixas ouvidas',
+  'musicExpanded.noHistorySub': 'As músicas ouvidas na sua sessão aparecerão aqui.',
+  'musicExpanded.nowPlaying': 'A tocar',
   'edit.searchingAssetsShort': 'Procurando assets...',
 
   'addModal.addedSingle': 'Foi adicionada {count} aplicação à sua biblioteca',
