@@ -582,6 +582,38 @@ export default function ConsoleHome() {
     fetchSteamInstalledAppIds().then(setInstalledSteamAppIds);
   }, [libraryTab, steamGames.length]);
 
+  // Detecta cuándo termina de instalarse un juego de Steam y avisa con un toast
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
+
+    const interval = setInterval(async () => {
+      const freshIds = await fetchSteamInstalledAppIds();
+
+      setInstalledSteamAppIds(prevIds => {
+        if (prevIds) {
+          freshIds.forEach(id => {
+            if (!prevIds.has(id)) {
+              const game =
+                steamGames.find(g => g.id === `steam_${id}`) ||
+                games.find(g => g.id === `steam_${id}`);
+              if (game) {
+                toastService.show(`"${game.title}" se ha instalado correctamente`, {
+                  icon: require('@/assets/images/install.png'),
+                });
+              }
+            }
+          });
+        }
+        return freshIds;
+      });
+    }, 15000); // cada 15s
+
+    return () => clearInterval(interval);
+  }, [steamGames, games]);
+
+
+
+
   useEffect(() => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getEpicInstalledGames) return;
     if (epicGames.length > 0 || loadingEpic) return;
@@ -615,6 +647,21 @@ export default function ConsoleHome() {
           return game;
         })
       );
+
+      // Notifica solo los juegos de Epic nuevos desde el último escaneo
+      try {
+        const knownRaw = localStorage.getItem('epic_known_games');
+        const known: string[] = knownRaw ? JSON.parse(knownRaw) : null;
+        if (known) {
+          const newOnes = withMetadata.filter(g => !known.includes(g.id));
+          newOnes.forEach(g => {
+            toastService.show(`Se agregó "${g.title}" desde Epic Games`, {
+              icon: require('@/assets/images/install.png'),
+            });
+          });
+        }
+        localStorage.setItem('epic_known_games', JSON.stringify(withMetadata.map(g => g.id)));
+      } catch (e) { /* noop */ }
 
       setEpicGames(withMetadata);
       setLoadingEpic(false);

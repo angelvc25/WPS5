@@ -124,6 +124,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   const steamId = activeUser?.settings?.steamId;
 
   const FRIENDS_REFRESH_MS = 30000; // refresca cada 30s para reflejar cambios de estado/juego
+  const prevFriendsRef = useRef<Map<string, SteamFriend>>(new Map()); // Nuevo ref para recordar el estado anterior de cada amigo
 
   useEffect(() => {
     if (!steamId) { setFriends([]); return; }
@@ -133,12 +134,31 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     const load = (showLoading: boolean) => {
       if (showLoading) setLoadingFriends(true);
       fetchSteamFriends(GLOBAL_STEAM_API_KEY, steamId)
-        .then((data) => { if (!cancelled) setFriends(data); })
+        .then((data) => {
+          if (cancelled) return;
+
+          const prevMap = prevFriendsRef.current;
+          data.forEach((friend) => {
+            const prev = prevMap.get(friend.steamid);
+            const wasPlaying = prev?.gameextrainfo;
+            const nowPlaying = friend.gameextrainfo;
+            // Solo notifica si antes NO jugaba (o jugaba otra cosa) y ahora sí
+            if (nowPlaying && nowPlaying !== wasPlaying) {
+              toastService.show(`${friend.personaname} está jugando a ${nowPlaying}`, {
+                icon: require('@/assets/images/amigos.png'),
+              });
+            }
+          });
+          prevMap.clear();
+          data.forEach((f) => prevMap.set(f.steamid, f));
+
+          setFriends(data);
+        })
         .finally(() => { if (!cancelled && showLoading) setLoadingFriends(false); });
     };
 
-    load(true); // carga inicial (con indicador de "Cargando amigos...")
-    const interval = setInterval(() => load(false), FRIENDS_REFRESH_MS); // refrescos silenciosos
+    load(true);
+    const interval = setInterval(() => load(false), FRIENDS_REFRESH_MS);
 
     return () => {
       cancelled = true;
