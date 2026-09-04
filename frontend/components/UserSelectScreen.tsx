@@ -157,6 +157,8 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   // and causing the stick to fire several moves almost instantly while held.
   const lastGamepadMoveTimeRef = useRef(0);
   const prevGamepadButtonsRef = useRef<boolean[]>(new Array(16).fill(false));
+  const isFirstPollRef = useRef(true);
+  const selectedRef = useRef(false);
 
   // ── Inject CSS animations once ──────────────────────────────────────────
   useEffect(() => {
@@ -333,6 +335,15 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     const poll = () => {
       const gp = navigator.getGamepads()[0];
       if (gp) {
+        if (isFirstPollRef.current) {
+          isFirstPollRef.current = false;
+          gp.buttons.forEach((b, idx) => {
+            prevGamepadButtonsRef.current[idx] = !!b?.pressed;
+          });
+          rafId = requestAnimationFrame(poll);
+          return;
+        }
+
         const now = Date.now();
         const dispatch = (key: string) => {
           setInputMode('gamepad');
@@ -369,6 +380,8 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   }, [hoveredId, users]);
 
   const handleSelect = (user: UserProfile) => {
+    if (selectedRef.current) return;
+    selectedRef.current = true;
     soundService.playActivation?.();
     setTimeout(() => {
       toastService.show(t('toast.loggedPS5'), { source: 'system' });

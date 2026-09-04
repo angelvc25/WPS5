@@ -1008,6 +1008,12 @@ export default function ConsoleHome() {
   const prevButtonsRef = useRef(new Array(16).fill(false));
   const prevAxesRef = useRef([0, 0, 0, 0]);
   const lastGpId = useRef<string | null>(null);
+  const isFirstPollRef = useRef(true);
+  const mountTimeRef = useRef(Date.now());
+
+  useEffect(() => {
+    mountTimeRef.current = Date.now();
+  }, []);
 
   // Gamepad Support
   useEffect(() => {
@@ -1016,6 +1022,21 @@ export default function ConsoleHome() {
       const gamepads = navigator.getGamepads();
       const gp = gamepads[0];
       if (gp) {
+        if (isFirstPollRef.current) {
+          isFirstPollRef.current = false;
+          gp.buttons.forEach((b, idx) => {
+            prevButtonsRef.current[idx] = !!b?.pressed;
+          });
+          prevAxesRef.current = [
+            gp.axes[0] || 0,
+            gp.axes[1] || 0,
+            gp.axes[2] || 0,
+            gp.axes[3] || 0,
+          ];
+          rafId = requestAnimationFrame(poll);
+          return;
+        }
+
         const buttons = gp.buttons;
         const dispatch = (key: string) => {
           setInputMode('gamepad');
@@ -1127,6 +1148,7 @@ export default function ConsoleHome() {
   useEffect(() => {
     if (Platform.OS === 'web') {
       const handleKeyDown = (e: any) => {
+        if (Date.now() - mountTimeRef.current < 400) return;
         if (!e.fromGamepad) setInputMode('keyboard');
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
         if (isLaunching) return;
