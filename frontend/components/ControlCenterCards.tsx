@@ -1777,9 +1777,10 @@ export default function ControlCenterCards({
       title: nowPlaying.title,
       artist: nowPlaying.artist,
       thumbnail: nowPlaying.thumbnail,
+      appName: nowPlaying.appName,
       t,
     });
-  }, [nowPlaying?.id, nowPlaying?.title, nowPlaying?.artist, nowPlaying?.playbackStatus, t]);
+  }, [nowPlaying?.id, nowPlaying?.title, nowPlaying?.artist, nowPlaying?.playbackStatus, nowPlaying?.appName, t]);
 
   const cardsToShow = React.useMemo(() => {
     const nowPlayingCard: CardData | null = nowPlaying

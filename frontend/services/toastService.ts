@@ -60,6 +60,7 @@ export const toastService = {
 };
 
 import { musicHistoryService } from './musicHistoryService';
+import { cleanAppName } from './systemMediaService';
 
 let globalLastNotifiedTrackId: string | null = null;
 
@@ -68,9 +69,10 @@ export function notifyNowPlayingToast(params: {
   title: string;
   artist?: string;
   thumbnail?: any;
+  appName?: string;
   t: (key: string, options?: any) => string;
 }) {
-  const { id, title, artist, thumbnail, t } = params;
+  const { id, title, artist, thumbnail, appName, t } = params;
   const key = `track_${id}_${title}_${artist || ''}`;
   if (globalLastNotifiedTrackId !== key) {
     globalLastNotifiedTrackId = key;
@@ -88,6 +90,7 @@ export function notifyNowPlayingToast(params: {
       title,
       artist: hasArtist ? (artist as string) : '',
       thumbnail,
+      appName: appName ? cleanAppName(appName) : 'Spotify',
       source: 'music',
     });
 

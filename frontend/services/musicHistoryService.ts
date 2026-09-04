@@ -4,6 +4,7 @@ export interface HistoryTrackItem {
   artist: string;
   album?: string;
   thumbnail?: any;
+  appName?: string;
   source?: string;
   timestamp: number;
 }

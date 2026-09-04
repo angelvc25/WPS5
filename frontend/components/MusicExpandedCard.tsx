@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import Animated, {
@@ -24,115 +24,49 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import { soundService } from '@/services/soundService';
 import { musicHistoryService, HistoryTrackItem } from '@/services/musicHistoryService';
 import { useSystemMedia } from '@/hooks/useSystemMedia';
-import staticTracks from '@/constants/tracks';
-import { openWebLink } from '@/services/linkService';
+import {
+  sendMediaControl,
+  getMediaControlTarget,
+  getAppIconName,
+  cleanAppName,
+} from '@/services/systemMediaService';
 
 interface MusicExpandedCardProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type SectionType = 'topPicks' | 'recentlyPlayed' | 'musicSources';
-
-interface CuratedItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  artwork: any;
-  color?: string;
-  type: 'playlist' | 'track' | 'source';
+function AppSourceBadge({ appName }: { appName?: string }) {
+  const icon = getAppIconName(appName || 'Spotify');
+  return (
+    <View style={[styles.appBadgeWrap, { backgroundColor: icon.bg }]}>
+      {icon.vendor === 'material' ? (
+        <MaterialCommunityIcons name={icon.name as any} size={13} color={icon.color} />
+      ) : (
+        <Ionicons name={icon.name as any} size={10} color={icon.color} />
+      )}
+    </View>
+  );
 }
 
-const TOP_PICKS: CuratedItem[] = [
-  {
-    id: 'tp-1',
-    title: 'Rap Life',
-    subtitle: 'Playlist',
-    artwork: require('@/assets/images/spotify_portada.png'),
-    color: '#E63946',
-    type: 'playlist',
-  },
-  {
-    id: 'tp-2',
-    title: 'Viral Hits',
-    subtitle: 'Playlist',
-    artwork: require('@/assets/images/wavesFondo.jpeg'),
-    color: '#457B9D',
-    type: 'playlist',
-  },
-  {
-    id: 'tp-3',
-    title: 'Immersive Gaming',
-    subtitle: 'Playlist',
-    artwork: require('@/assets/images/StoreBackground.jpg'),
-    color: '#2A9D8F',
-    type: 'playlist',
-  },
-  {
-    id: 'tp-4',
-    title: 'In My Room',
-    subtitle: 'Playlist',
-    artwork: require('@/assets/images/FondoDefault2.jpg'),
-    color: '#F4A261',
-    type: 'playlist',
-  },
-  {
-    id: 'tp-5',
-    title: 'Indie Anthems',
-    subtitle: 'Playlist',
-    artwork: require('@/assets/images/StoreFondo.jpg'),
-    color: '#E76F51',
-    type: 'playlist',
-  },
-  {
-    id: 'tp-6',
-    title: 'Favorites Mix',
-    subtitle: 'Playlist',
-    artwork: require('@/assets/images/cambioFondo.png'),
-    color: '#9B5DE5',
-    type: 'playlist',
-  },
-];
-
-const MUSIC_SOURCES: CuratedItem[] = [
-  {
-    id: 'src-spotify',
-    title: 'Spotify',
-    subtitle: 'Streaming de Música',
-    artwork: require('@/assets/images/spotify_logo.png'),
-    color: '#1DB954',
-    type: 'source',
-  },
-  {
-    id: 'src-apple',
-    title: 'Apple Music',
-    subtitle: 'Streaming de Música',
-    artwork: require('@/assets/images/music.png'),
-    color: '#FA233B',
-    type: 'source',
-  },
-  {
-    id: 'src-wps5',
-    title: 'WPS5 Local Player',
-    subtitle: 'Reproductor Integrado',
-    artwork: require('@/assets/images/Libreria.jpeg'),
-    color: '#0070D1',
-    type: 'source',
-  },
-];
+function formatRelativeTime(timestamp: number): string {
+  const diffSec = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (diffSec < 60) return 'Ahora mismo';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const diffHours = Math.floor(diffMin / 60);
+  return `Hace ${diffHours} h`;
+}
 
 export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCardProps) {
   const { t } = useTranslation();
   const { width: winW, height: winH } = useWindowDimensions();
   const { nowPlaying } = useSystemMedia();
 
-  const EXPANDED_W = Math.round(Math.min(Math.max(winW * 0.38, 420), 620));
-  const EXPANDED_H = Math.round(Math.min(Math.max(winH * 0.64, 440), 680));
+  const EXPANDED_W = Math.round(Math.min(Math.max(winW * 0.36, 400), 580));
+  const EXPANDED_H = Math.round(Math.min(Math.max(winH * 0.62, 420), 660));
 
-  const [activeSection, setActiveSection] = useState<SectionType>('recentlyPlayed');
-  const [activeColumn, setActiveColumn] = useState<'sidebar' | 'content'>('content');
-  const [sidebarFocusedIndex, setSidebarFocusedIndex] = useState(1);
-  const [contentFocusedIndex, setContentFocusedIndex] = useState(0);
+  const [focusedIndex, setFocusedIndex] = useState(0);
   const [historyList, setHistoryList] = useState<HistoryTrackItem[]>(() => musicHistoryService.getHistory());
 
   const scrollRef = useRef<ScrollView>(null);
@@ -158,8 +92,7 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
       cardOpacity.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) });
       cardTranslateY.value = withTiming(0, { duration: 320, easing: Easing.out(Easing.cubic) });
       cardScale.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
-      setActiveColumn('content');
-      setContentFocusedIndex(0);
+      setFocusedIndex(0);
     } else {
       backdropOpacity.value = withTiming(0, { duration: 200, easing: Easing.in(Easing.cubic) });
       cardOpacity.value = withTiming(0, { duration: 180, easing: Easing.in(Easing.cubic) });
@@ -176,25 +109,34 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
     transform: [{ translateY: cardTranslateY.value }, { scale: cardScale.value }],
   }));
 
-  const currentContentItems = useMemo(() => {
-    if (activeSection === 'topPicks') return TOP_PICKS;
-    if (activeSection === 'musicSources') return MUSIC_SOURCES;
-    return historyList;
-  }, [activeSection, historyList]);
-
   useEffect(() => {
-    if (contentFocusedIndex > Math.max(0, currentContentItems.length - 1)) {
-      setContentFocusedIndex(0);
+    if (focusedIndex > Math.max(0, historyList.length - 1)) {
+      setFocusedIndex(0);
     }
-  }, [currentContentItems.length, contentFocusedIndex]);
+  }, [historyList.length, focusedIndex]);
 
   useEffect(() => {
     if (!isOpen) return;
     const rowH = 68;
-    scrollRef.current?.scrollTo({ y: contentFocusedIndex * rowH, animated: true });
-  }, [contentFocusedIndex, isOpen]);
+    scrollRef.current?.scrollTo({ y: focusedIndex * rowH, animated: true });
+  }, [focusedIndex, isOpen]);
 
-  // Teclado y Mando
+  const handlePrevTrack = async () => {
+    soundService.playActivation?.();
+    await sendMediaControl('prev', getMediaControlTarget(nowPlaying));
+  };
+
+  const handleNextTrack = async () => {
+    soundService.playActivation?.();
+    await sendMediaControl('next', getMediaControlTarget(nowPlaying));
+  };
+
+  const handleTogglePlay = async () => {
+    soundService.playActivation?.();
+    await sendMediaControl('play_pause', getMediaControlTarget(nowPlaying));
+  };
+
+  // Teclado y Mando (L1 -> Prev, R1 -> Next)
   useEffect(() => {
     if (!isOpen || Platform.OS !== 'web') return;
 
@@ -203,82 +145,38 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
         e.preventDefault();
         e.stopPropagation();
         onClose();
-      } else if (e.key === 'ArrowLeft') {
+      } else if (e.key === 'q' || e.key === 'Q') {
+        // L1 -> Canción anterior
         e.preventDefault();
         e.stopPropagation();
-        if (activeColumn === 'content') {
-          setActiveColumn('sidebar');
-          soundService.playNavigation();
-        }
-      } else if (e.key === 'ArrowRight') {
+        void handlePrevTrack();
+      } else if (e.key === 'e' || e.key === 'E') {
+        // R1 -> Canción siguiente
         e.preventDefault();
         e.stopPropagation();
-        if (activeColumn === 'sidebar') {
-          setActiveColumn('content');
-          soundService.playNavigation();
-        }
+        void handleNextTrack();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         e.stopPropagation();
+        setFocusedIndex((prev) => Math.min(Math.max(0, historyList.length - 1), prev + 1));
         soundService.playNavigation();
-        if (activeColumn === 'sidebar') {
-          setSidebarFocusedIndex((prev) => {
-            const next = Math.min(2, prev + 1);
-            if (next === 0) setActiveSection('topPicks');
-            else if (next === 1) setActiveSection('recentlyPlayed');
-            else setActiveSection('musicSources');
-            return next;
-          });
-        } else {
-          setContentFocusedIndex((prev) => Math.min(Math.max(0, currentContentItems.length - 1), prev + 1));
-        }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         e.stopPropagation();
+        setFocusedIndex((prev) => Math.max(0, prev - 1));
         soundService.playNavigation();
-        if (activeColumn === 'sidebar') {
-          setSidebarFocusedIndex((prev) => {
-            const next = Math.max(0, prev - 1);
-            if (next === 0) setActiveSection('topPicks');
-            else if (next === 1) setActiveSection('recentlyPlayed');
-            else setActiveSection('musicSources');
-            return next;
-          });
-        } else {
-          setContentFocusedIndex((prev) => Math.max(0, prev - 1));
-        }
       } else if (e.key === 'Enter' || e.key === 'x' || e.key === 'X') {
         e.preventDefault();
         e.stopPropagation();
-        soundService.playActivation?.();
-        if (activeColumn === 'sidebar') {
-          setActiveColumn('content');
-        } else {
-          handleItemSelect(currentContentItems[contentFocusedIndex]);
-        }
+        void handleTogglePlay();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, activeColumn, sidebarFocusedIndex, contentFocusedIndex, currentContentItems]);
-
-  const handleItemSelect = (item: any) => {
-    if (!item) return;
-    if (item.id === 'src-spotify') {
-      void openWebLink('https://open.spotify.com');
-    } else if (item.id === 'src-apple') {
-      void openWebLink('https://music.apple.com');
-    }
-  };
+  }, [isOpen, historyList, nowPlaying]);
 
   if (!shouldRender) return null;
-
-  const sidebarSections: { key: SectionType; label: string; icon: string; badge?: number }[] = [
-    { key: 'topPicks', label: t('musicExpanded.topPicks'), icon: 'flame-outline' },
-    { key: 'recentlyPlayed', label: t('musicExpanded.recentlyPlayed'), icon: 'time-outline', badge: historyList.length },
-    { key: 'musicSources', label: t('musicExpanded.musicSources'), icon: 'apps-outline' },
-  ];
 
   return (
     <View style={[StyleSheet.absoluteFill, { zIndex: 50 }]} pointerEvents={isOpen ? 'auto' : 'none'}>
@@ -293,14 +191,7 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
               <View style={styles.appIconBadge}>
                 <Ionicons name="musical-notes" size={16} color="#FFF" />
               </View>
-              <Text style={styles.headerTitle}>
-                {activeSection === 'topPicks'
-                  ? t('musicExpanded.topPicks')
-                  : activeSection === 'recentlyPlayed'
-                  ? t('musicExpanded.recentlyPlayed')
-                  : t('musicExpanded.title')}
-              </Text>
-              <Ionicons name="chevron-down" size={16} color="rgba(255,255,255,0.6)" style={{ marginLeft: 4 }} />
+              <Text style={styles.headerTitle}>{t('musicExpanded.recentlyPlayed')}</Text>
             </View>
 
             <TouchableOpacity style={styles.headerClose} onPress={onClose} activeOpacity={0.7}>
@@ -308,145 +199,107 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
             </TouchableOpacity>
           </View>
 
-          {/* Cuerpo Dos Columnas */}
+          {/* Cuerpo - Lista de Canciones Escuchadas Recientemente */}
           <View style={styles.body}>
-            {/* Columna Izquierda: Menú / Sidebar */}
-            <View style={styles.sidebar}>
-              {sidebarSections.map((sec, idx) => {
-                const isSelectedSection = activeSection === sec.key;
-                const isSidebarFocused = activeColumn === 'sidebar' && sidebarFocusedIndex === idx;
+            {historyList.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="musical-notes-outline" size={44} color="rgba(255,255,255,0.2)" />
+                <Text style={styles.emptyTitle}>{t('musicExpanded.noHistory')}</Text>
+                <Text style={styles.emptySub}>{t('musicExpanded.noHistorySub')}</Text>
+              </View>
+            ) : (
+              <ScrollView
+                ref={scrollRef}
+                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingBottom: 16 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {historyList.map((item, idx) => {
+                  const isFocused = idx === focusedIndex;
+                  const isPlayingNow =
+                    nowPlaying?.playbackStatus === 'playing' &&
+                    nowPlaying.title.toLowerCase() === item.title.toLowerCase();
+                  const appName = item.appName || (isPlayingNow ? nowPlaying?.appName : 'Spotify');
 
-                return (
-                  <TouchableOpacity
-                    key={sec.key}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      setActiveSection(sec.key);
-                      setSidebarFocusedIndex(idx);
-                      setActiveColumn('sidebar');
-                      soundService.playNavigation();
-                    }}
-                    style={[
-                      styles.sidebarItem,
-                      isSelectedSection && styles.sidebarItemActive,
-                      isSidebarFocused && styles.sidebarItemFocused,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.sidebarText,
-                        isSelectedSection && styles.sidebarTextActive,
-                        isSidebarFocused && styles.sidebarTextFocused,
-                      ]}
-                      numberOfLines={1}
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        setFocusedIndex(idx);
+                        void handleTogglePlay();
+                      }}
+                      style={[styles.row, isFocused && styles.rowFocused]}
                     >
-                      {sec.label}
-                    </Text>
-                    {Boolean(sec.badge) && (
-                      <View style={styles.sidebarBadge}>
-                        <Text style={styles.sidebarBadgeText}>{sec.badge}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Separador vertical */}
-            <View style={styles.divider} />
-
-            {/* Columna Derecha: Lista de Contenido */}
-            <View style={styles.contentArea}>
-              {currentContentItems.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="musical-notes-outline" size={44} color="rgba(255,255,255,0.2)" />
-                  <Text style={styles.emptyTitle}>{t('musicExpanded.noHistory')}</Text>
-                  <Text style={styles.emptySub}>{t('musicExpanded.noHistorySub')}</Text>
-                </View>
-              ) : (
-                <ScrollView
-                  ref={scrollRef}
-                  style={{ flex: 1 }}
-                  contentContainerStyle={{ paddingBottom: 16 }}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {currentContentItems.map((item: any, idx: number) => {
-                    const isFocused = activeColumn === 'content' && idx === contentFocusedIndex;
-                    const isPlayingNow =
-                      nowPlaying?.playbackStatus === 'playing' &&
-                      nowPlaying.title.toLowerCase() === (item.title || '').toLowerCase();
-
-                    return (
-                      <TouchableOpacity
-                        key={item.id || idx}
-                        activeOpacity={0.85}
-                        onPress={() => {
-                          setContentFocusedIndex(idx);
-                          setActiveColumn('content');
-                          soundService.playActivation?.();
-                          handleItemSelect(item);
-                        }}
-                        style={[styles.row, isFocused && styles.rowFocused]}
-                      >
-                        <View style={styles.artworkWrap}>
-                          {item.thumbnail || item.artwork ? (
-                            <Image
-                              source={
-                                typeof (item.thumbnail || item.artwork) === 'string'
-                                  ? { uri: item.thumbnail || item.artwork }
-                                  : item.thumbnail || item.artwork
-                              }
-                              style={styles.artwork}
-                              contentFit="cover"
-                            />
-                          ) : (
-                            <View style={[styles.artwork, styles.artworkFallback]}>
-                              <Ionicons name="musical-notes" size={22} color="#FFF" />
-                            </View>
-                          )}
-
-                          {isPlayingNow && (
-                            <View style={styles.playingBadge}>
-                              <Ionicons name="volume-medium" size={12} color="#1DB954" />
-                            </View>
-                          )}
-                        </View>
-
-                        <View style={styles.itemMeta}>
-                          <Text style={styles.itemTitle} numberOfLines={1}>
-                            {item.title}
-                          </Text>
-                          <Text style={styles.itemSubtitle} numberOfLines={1}>
-                            {item.artist || item.subtitle || t('musicExpanded.nowPlaying')}
-                          </Text>
-                        </View>
-
-                        {isPlayingNow && (
-                          <View style={styles.statusPill}>
-                            <Text style={styles.statusPillText}>{t('musicExpanded.nowPlaying')}</Text>
+                      {/* Portada + Badge de Logo de la App */}
+                      <View style={styles.artworkWrap}>
+                        {item.thumbnail ? (
+                          <Image
+                            source={
+                              typeof item.thumbnail === 'string'
+                                ? { uri: item.thumbnail }
+                                : item.thumbnail
+                            }
+                            style={styles.artwork}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View style={[styles.artwork, styles.artworkFallback]}>
+                            <Ionicons name="musical-notes" size={22} color="#FFF" />
                           </View>
                         )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              )}
-            </View>
+                        <AppSourceBadge appName={appName} />
+                      </View>
+
+                      {/* Título y Artista */}
+                      <View style={styles.itemMeta}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        <Text style={styles.itemSubtitle} numberOfLines={1}>
+                          {item.artist || 'Artista desconocido'}
+                        </Text>
+                      </View>
+
+                      {/* Marca de tiempo o Badge En reproducción */}
+                      <View style={styles.itemRight}>
+                        {isPlayingNow ? (
+                          <View style={styles.statusPill}>
+                            <Ionicons name="volume-medium" size={12} color="#1DB954" style={{ marginRight: 4 }} />
+                            <Text style={styles.statusPillText}>{t('musicExpanded.nowPlaying')}</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.timeText}>{formatRelativeTime(item.timestamp)}</Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
           </View>
 
-          {/* Footer de Pistas/Controles */}
+          {/* Footer con hints de L1/R1 y botones */}
           <View style={styles.footer}>
-            <View style={styles.footerHint}>
-              <PSIcon char={PSIcons.options} size={18} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.footerHintText}>Options</Text>
+            <View style={styles.footerLeft}>
+              <TouchableOpacity style={styles.footerHint} onPress={handlePrevTrack} activeOpacity={0.7}>
+                <PSIcon char={PSIcons.l1} size={18} color="rgba(255, 255, 255, 0.9)" />
+                <Text style={styles.footerHintText}>Anterior</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.footerHint} onPress={handleNextTrack} activeOpacity={0.7}>
+                <PSIcon char={PSIcons.r1} size={18} color="rgba(255, 255, 255, 0.9)" />
+                <Text style={styles.footerHintText}>Siguiente</Text>
+              </TouchableOpacity>
             </View>
+
             <View style={styles.footerRight}>
               <View style={styles.footerHint}>
-                <PSIcon char={PSIcons.square} size={16} color="rgba(255,255,255,0.7)" />
-                <Text style={styles.footerHintText}>{t('common.confirm')}</Text>
+                <PSIcon char={PSIcons.square} size={16} color="rgba(255, 255, 255, 0.7)" />
+                <Text style={styles.footerHintText}>Play/Pausa</Text>
               </View>
               <View style={styles.footerHint}>
-                <PSIcon char={PSIcons.circle} size={16} color="rgba(255,255,255,0.7)" />
+                <PSIcon char={PSIcons.circle} size={16} color="rgba(255, 255, 255, 0.7)" />
                 <Text style={styles.footerHintText}>{t('common.back')}</Text>
               </View>
             </View>
@@ -483,6 +336,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -513,65 +368,8 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingBottom: 10,
-  },
-  sidebar: {
-    width: 170,
-    flexDirection: 'column',
-    gap: 8,
-    paddingRight: 10,
-    paddingTop: 8,
-  },
-  sidebarItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  sidebarItemActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  sidebarItemFocused: {
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-  },
-  sidebarText: {
-    color: 'rgba(255, 255, 255, 0.45)',
-    fontSize: 15,
-    fontFamily: 'SSTMedium',
-  },
-  sidebarTextActive: {
-    color: '#FFF',
-    fontFamily: 'SSTBold',
-  },
-  sidebarTextFocused: {
-    color: '#FFF',
-  },
-  sidebarBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  sidebarBadgeText: {
-    color: '#FFF',
-    fontSize: 11,
-    fontFamily: 'SSTBold',
-  },
-  divider: {
-    width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: 4,
-  },
-  contentArea: {
-    flex: 1,
-    paddingLeft: 14,
-    paddingTop: 4,
+    paddingTop: 10,
   },
   emptyContainer: {
     flex: 1,
@@ -596,10 +394,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     borderRadius: 10,
-    marginVertical: 3,
-    backgroundColor: 'transparent',
+    marginVertical: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
   rowFocused: {
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
@@ -611,8 +409,8 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   artwork: {
-    width: 48,
-    height: 48,
+    width: 46,
+    height: 46,
     borderRadius: 8,
   },
   artworkFallback: {
@@ -620,13 +418,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playingBadge: {
+  appBadgeWrap: {
     position: 'absolute',
     bottom: -3,
     right: -3,
-    backgroundColor: '#12131F',
-    borderRadius: 8,
-    padding: 3,
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#12131F',
   },
   itemMeta: {
     flex: 1,
@@ -643,7 +445,18 @@ const styles = StyleSheet.create({
     fontFamily: 'SSTLight',
     marginTop: 3,
   },
+  itemRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  timeText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    fontFamily: 'SSTLight',
+  },
   statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(29, 185, 84, 0.2)',
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -666,15 +479,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
-  footerHint: {
+  footerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 16,
   },
   footerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  footerHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   footerHintText: {
     color: 'rgba(255, 255, 255, 0.7)',

@@ -229,6 +229,7 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
         title: nowPlaying.title,
         artist: nowPlaying.artist,
         thumbnail: nowPlaying.thumbnail,
+        appName: nowPlaying.appName,
         t,
       });
     } else {
@@ -238,6 +239,7 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
         title: track.title,
         artist: track.artist,
         thumbnail: track.artwork,
+        appName: 'WPS5',
         t,
       });
     }
