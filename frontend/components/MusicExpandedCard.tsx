@@ -210,9 +210,19 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
           {/* Header Superior */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <View style={styles.appIconBadge}>
-                <Ionicons name="musical-notes" size={16} color="#FFF" />
-              </View>
+              {(() => {
+                const currentApp = nowPlaying?.appName || historyList[0]?.appName || 'Spotify';
+                const headerAppIcon = getAppIconName(currentApp);
+                return (
+                  <View style={[styles.appIconBadge, { backgroundColor: headerAppIcon.bg }]}>
+                    {headerAppIcon.vendor === 'material' ? (
+                      <MaterialCommunityIcons name={headerAppIcon.name as any} size={17} color={headerAppIcon.color} />
+                    ) : (
+                      <Ionicons name={headerAppIcon.name as any} size={15} color={headerAppIcon.color} />
+                    )}
+                  </View>
+                );
+              })()}
               <Text style={styles.headerTitle}>{t('musicExpanded.recentlyPlayed')}</Text>
             </View>
 
@@ -241,7 +251,6 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
                   const isPlayingNow =
                     nowPlaying?.playbackStatus === 'playing' &&
                     nowPlaying.title.toLowerCase() === item.title.toLowerCase();
-                  const appName = item.appName || (isPlayingNow ? nowPlaying?.appName : 'Spotify');
 
                   return (
                     <TouchableOpacity
@@ -253,7 +262,7 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
                       }}
                       style={[styles.row, isFocused && styles.rowFocused]}
                     >
-                      {/* Portada + Badge de Logo de la App */}
+                      {/* Portada */}
                       <View style={styles.artworkWrap}>
                         {item.thumbnail ? (
                           <Image
@@ -270,7 +279,6 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
                             <Ionicons name="musical-notes" size={22} color="#FFF" />
                           </View>
                         )}
-                        <AppSourceBadge appName={appName} />
                       </View>
 
                       {/* Título y Artista */}
@@ -370,7 +378,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 6,
-    backgroundColor: '#FA233B',
     alignItems: 'center',
     justifyContent: 'center',
   },
