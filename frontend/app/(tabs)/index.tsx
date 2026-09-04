@@ -14,6 +14,7 @@ import { Linking } from 'react-native';
 import { fetchGamingNews, NewsArticle } from '@/services/newsService';
 import { soundService } from '@/services/soundService';
 import { toastService } from '@/services/toastService';
+import { fetchWishlistDeals, WishlistDeal } from '@/services/steamWishlistService';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
@@ -260,6 +261,9 @@ export default function ConsoleHome() {
   const [systemNavMaxCardIndex, setSystemNavMaxCardIndex] = useState(2);
   const [isSystemNavCardExpanded, setSystemNavCardExpanded] = useState(false);
   const [isFriendsCardOpen, setIsFriendsCardOpen] = useState(false);
+
+  const [wishlistDeals, setWishlistDeals] = useState<WishlistDeal[]>([]);
+  const knownWishlistDealIdsRef = useRef<Set<number> | null>(null);
 
   // Background transition states
   const [bgA, setBgA] = useState<any>(null);
@@ -612,7 +616,31 @@ export default function ConsoleHome() {
   }, [steamGames, games]);
 
 
+  useEffect(() => {
+    const steamId = activeUser?.settings?.steamId;
+    if (!steamId) return;
 
+    const checkWishlist = () => {
+      fetchWishlistDeals(steamId).then(deals => {
+        setWishlistDeals(deals);
+        const known = knownWishlistDealIdsRef.current;
+        if (known) {
+          deals.forEach(deal => {
+            if (!known.has(deal.appid)) {
+              toastService.show(`"${deal.title}" de tu lista de deseados está en oferta (-${deal.discountPercent}%)`, {
+                icon: require('@/assets/images/PlaystationStore_copi.png'),
+              });
+            }
+          });
+        }
+        knownWishlistDealIdsRef.current = new Set(deals.map(d => d.appid));
+      });
+    };
+
+    checkWishlist();
+    const interval = setInterval(checkWishlist, 30 * 60 * 1000); // cada 30 min
+    return () => clearInterval(interval);
+  }, [activeUser?.settings?.steamId]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getEpicInstalledGames) return;
@@ -3231,11 +3259,11 @@ const styles = StyleSheet.create({
   },
   navItemActive: {
     color: '#FFFFFF',
-    fontFamily: 'SSTRg',
+    fontFamily: 'SSTBold',
     //fontWeight: '400',
   },
   tabFocused: {
-    color: '#FFFFFF',
+    color: '#ffffffff',
     //borderColor: "#a8a8a8ff",
   },
   headerRight: {
