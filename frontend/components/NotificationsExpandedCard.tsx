@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     toggleThumbActive: { transform: [{ translateX: 20 }], backgroundColor: '#ffffffff', borderColor: 'rgba(255, 255, 255, 1)' },
     notifCard: {
         flexDirection: 'row', gap: 12, backgroundColor: 'rgba(255, 255, 255, 0)',
-        borderRadius: 0, borderBottomWidth: 1, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginLeft: 1, marginRight: 1, padding: 17, marginBottom: 10,
+        borderRadius: 0, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginLeft: 1, marginRight: 1, padding: 17, marginBottom: 10,
     },
     notifCardFocused: { borderColor: 'rgba(255, 255, 255, 0)', backgroundColor: 'rgba(255, 255, 255, 0.02)' },
     notifIconWrap: { width: 44, height: 44, borderRadius: 2, overflow: 'hidden', left: -10 },
