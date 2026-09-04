@@ -326,8 +326,6 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
         height: Math.min(sH(780), windowHeight * 0.88),
         backgroundColor: '#12171F',
         borderRadius: s(16),
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.12)',
         overflow: 'hidden',
         boxShadow: '0 20px 60px rgba(0, 0, 0, 0.8)',
         display: 'flex',
@@ -875,8 +873,8 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
                   {isSaving
                     ? (savingStatusText || t('addModal.savingDefault'))
                     : selectedCount > 0
-                    ? t('addModal.addSelectedCount', { count: selectedCount })
-                    : t('addModal.addSelected')}
+                      ? t('addModal.addSelectedCount', { count: selectedCount })
+                      : t('addModal.addSelected')}
                 </Text>
               </TouchableOpacity>
             </View>
