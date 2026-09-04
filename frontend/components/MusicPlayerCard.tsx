@@ -48,6 +48,8 @@ import {
   getMediaControlTarget,
 } from '@/services/systemMediaService';
 import { soundService } from '@/services/soundService';
+import { toastService } from '@/services/toastService';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 type MediaControlAction = 'prev' | 'play_pause' | 'next';
 const MEDIA_CONTROLS: MediaControlAction[] = ['prev', 'play_pause', 'next'];
@@ -199,7 +201,9 @@ async function importAudioFile(existingCount: number): Promise<RuntimeTrack | nu
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardProps) {
+  const { t } = useTranslation();
   const soundRef = useRef<Audio.Sound | null>(null);
+  const lastNotifiedTrackIdRef = useRef<string | null>(null);
   const { nowPlaying } = useSystemMedia();
   const systemActive = Boolean(nowPlaying);
   const systemTarget = getMediaControlTarget(nowPlaying);
@@ -215,6 +219,58 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
   const [controlFocusIndex, setControlFocusIndex] = useState(1);
 
   const track = allTracks[trackIndex];
+
+  // ── Notificar cambio de canción vía Toast ─────────────────────────────────
+  useEffect(() => {
+    if (systemActive) {
+      if (!nowPlaying || nowPlaying.playbackStatus !== 'playing') return;
+      const systemKey = `sys_${nowPlaying.id}_${nowPlaying.title}_${nowPlaying.artist}`;
+      if (lastNotifiedTrackIdRef.current !== systemKey) {
+        lastNotifiedTrackIdRef.current = systemKey;
+        const title = nowPlaying.title;
+        const artist = nowPlaying.artist;
+        const hasArtist = artist && artist !== 'Artista desconocido' && artist !== 'Unknown artist';
+        const msg = hasArtist
+          ? t('toast.nowPlaying', { title, artist })
+          : t('toast.nowPlayingTitleOnly', { title });
+
+        toastService.show(msg, {
+          icon: require('@/assets/images/music.png'),
+          coverImage: nowPlaying.thumbnail ? { uri: nowPlaying.thumbnail } : undefined,
+          source: 'music',
+        });
+      }
+    } else {
+      if (!track) return;
+      const trackKey = `local_${track.id}`;
+      const isNewTrack = lastNotifiedTrackIdRef.current !== trackKey;
+
+      if (isNewTrack && isPlaying) {
+        lastNotifiedTrackIdRef.current = trackKey;
+        const title = track.title;
+        const artist = track.artist;
+        const hasArtist = artist && artist !== 'Desconocido' && artist !== 'Unknown';
+        const msg = hasArtist
+          ? t('toast.nowPlaying', { title, artist })
+          : t('toast.nowPlayingTitleOnly', { title });
+
+        toastService.show(msg, {
+          icon: require('@/assets/images/music.png'),
+          coverImage: track.artwork,
+          source: 'music',
+        });
+      }
+    }
+  }, [
+    systemActive,
+    nowPlaying?.id,
+    nowPlaying?.title,
+    nowPlaying?.artist,
+    nowPlaying?.playbackStatus,
+    track?.id,
+    isPlaying,
+    t,
+  ]);
 
   useEffect(() => {
     if (isFocused) setControlFocusIndex(1);

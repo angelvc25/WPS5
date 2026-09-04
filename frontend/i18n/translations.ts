@@ -440,9 +440,10 @@ const es = {
   'notifications.steamAvatarsDesc': 'Configura una carpeta en Ajustes → Accesibilidad → Avatares, o añade imágenes a la carpeta predeterminada.',
 
   'toast.loggedPS5': 'Iniciaste sesión en tu WPS5',
-
   'toast.controllerDisconnected': 'Control desconectado',
   'toast.controllerConnected': 'Control conectado',
+  'toast.nowPlaying': 'Reproduciendo: {title} - {artist}',
+  'toast.nowPlayingTitleOnly': 'Reproduciendo: {title}',
 
   'edit.searchingAssetsShort': 'Buscando recursos...',
 
@@ -896,6 +897,8 @@ const en: Record<TranslationKey, string> = {
   'toast.loggedPS5': 'Logged in to your PS5.',
   'toast.controllerDisconnected': 'Controller disconnected',
   'toast.controllerConnected': 'Controller connected',
+  'toast.nowPlaying': 'Now Playing: {title} - {artist}',
+  'toast.nowPlayingTitleOnly': 'Now Playing: {title}',
 
   'addModal.addedSingle': 'Added {count} application to your library',
   'addModal.addedMultiple': 'Added {count} applications to your library',
@@ -1345,6 +1348,8 @@ const pt: Record<TranslationKey, string> = {
   'toast.loggedPS5': 'Iniciou sessão na sua WPS5',
   'toast.controllerDisconnected': 'Controle desconectado',
   'toast.controllerConnected': 'Controle conectado',
+  'toast.nowPlaying': 'A tocar: {title} - {artist}',
+  'toast.nowPlayingTitleOnly': 'A tocar: {title}',
   'edit.searchingAssetsShort': 'Procurando assets...',
 
   'addModal.addedSingle': 'Foi adicionada {count} aplicação à sua biblioteca',

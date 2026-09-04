@@ -17,6 +17,7 @@ interface ToastData {
   id: string;
   message: string;
   icon?: any;
+  coverImage?: any;
   duration?: number;
 }
 
@@ -77,9 +78,11 @@ function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: strin
             transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         />
-        {toast.icon && (
+        {toast.coverImage ? (
+          <Image source={toast.coverImage} style={styles.coverImage} contentFit="cover" />
+        ) : toast.icon ? (
           <Image source={toast.icon} style={styles.icon} contentFit="contain" />
-        )}
+        ) : null}
         <Text style={styles.label}>{toast.message}</Text>
       </View>
     </Animated.View>
@@ -102,6 +105,7 @@ export default function ToastHost() {
         id,
         message: payload.message,
         icon: payload.options?.icon ?? null,
+        coverImage: payload.options?.coverImage ?? null,
         duration: payload.options?.duration ?? DEFAULT_TOAST_DURATION_MS,
       },
     ]);
@@ -143,6 +147,13 @@ const styles = StyleSheet.create({
     minWidth: 370,
     minHeight: 70,
   },
+  coverImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    marginRight: 14,
+    zIndex: 2,
+  },
   icon: {
     width: 26,
     height: 26,
@@ -156,6 +167,7 @@ const styles = StyleSheet.create({
     fontFamily: 'SSTLight',
     fontWeight: '300',
     letterSpacing: 0.2,
+    flexShrink: 1,
   },
   keysRow: {
     flexDirection: 'row',
