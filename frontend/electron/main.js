@@ -1771,6 +1771,138 @@ app.whenReady().then(() => {
     }
   });
 
+  // IPC: Obtener lista de programas instalados en Windows (estilo Steam)
+  ipcMain.handle('get-installed-programs', async () => {
+    if (process.platform !== 'win32') {
+      return { success: true, programs: [] };
+    }
+
+    const programs = [];
+    const seenPaths = new Set();
+    const seenNames = new Set();
+
+    const scanDir = (dirPath, maxDepth = 4, depth = 0) => {
+      if (depth > maxDepth || !fs.existsSync(dirPath)) return;
+      try {
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dirPath, entry.name);
+          if (entry.isDirectory()) {
+            const lowerDir = entry.name.toLowerCase();
+            if (
+              lowerDir.includes('uninstall') ||
+              lowerDir.includes('desinstal') ||
+              lowerDir.includes('documentation') ||
+              lowerDir.includes('help')
+            ) {
+              continue;
+            }
+            scanDir(fullPath, maxDepth, depth + 1);
+          } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.lnk')) {
+            const lowerName = entry.name.toLowerCase();
+            if (
+              lowerName.includes('uninstall') ||
+              lowerName.includes('desinstal') ||
+              lowerName.includes('help') ||
+              lowerName.includes('ayuda') ||
+              lowerName.includes('readme') ||
+              lowerName.includes('website') ||
+              lowerName.includes('página web') ||
+              lowerName.includes('documentation') ||
+              lowerName.includes('licencia') ||
+              lowerName.includes('license')
+            ) {
+              continue;
+            }
+
+            let targetPath = fullPath;
+            let appName = entry.name.replace(/\.lnk$/i, '');
+
+            try {
+              const shortcut = shell.readShortcutLink(fullPath);
+              if (shortcut && shortcut.target) {
+                const targetLower = shortcut.target.toLowerCase();
+                if (
+                  targetLower.endsWith('.exe') &&
+                  !targetLower.includes('unins') &&
+                  !targetLower.includes('cmd.exe') &&
+                  !targetLower.includes('powershell.exe')
+                ) {
+                  targetPath = shortcut.target;
+                }
+              }
+            } catch (_) {}
+
+            const normPath = targetPath.toLowerCase();
+            const normName = appName.toLowerCase();
+            if (seenPaths.has(normPath) || seenNames.has(normName)) continue;
+
+            if (fs.existsSync(targetPath)) {
+              seenPaths.add(normPath);
+              seenNames.add(normName);
+              programs.push({
+                name: appName,
+                path: targetPath,
+                lnkPath: fullPath,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error scanning dir for programs:', dirPath, err.message);
+      }
+    };
+
+    const startMenuUser = path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+    const startMenuCommon = path.join(process.env.ProgramData || 'C:\\ProgramData', 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+    const desktopUser = path.join(process.env.USERPROFILE || '', 'Desktop');
+    const desktopCommon = path.join(process.env.PUBLIC || 'C:\\Users\\Public', 'Desktop');
+
+    scanDir(startMenuUser);
+    scanDir(startMenuCommon);
+    scanDir(desktopUser);
+    scanDir(desktopCommon);
+
+    // Incluir juegos de Epic Games si existen
+    try {
+      const epicGames = getEpicInstalledGames();
+      for (const eg of epicGames) {
+        const normPath = (eg.launchPath || eg.installLocation).toLowerCase();
+        const normName = eg.title.toLowerCase();
+        if (!seenPaths.has(normPath) && !seenNames.has(normName)) {
+          seenPaths.add(normPath);
+          seenNames.add(normName);
+          programs.push({
+            name: eg.title,
+            path: eg.launchPath || eg.installLocation,
+            source: 'epic',
+          });
+        }
+      }
+    } catch (_) {}
+
+    programs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+    // Extraer icono base64 para cada programa mediante app.getFileIcon
+    const programsWithIcons = await Promise.all(
+      programs.map(async (p) => {
+        let iconBase64 = null;
+        try {
+          const iconNative = await app.getFileIcon(p.path, { size: 'normal' });
+          if (iconNative && !iconNative.isEmpty()) {
+            iconBase64 = iconNative.toDataURL();
+          }
+        } catch (_) {}
+        return {
+          ...p,
+          icon: iconBase64,
+        };
+      })
+    );
+
+    return { success: true, programs: programsWithIcons };
+  });
+
   // IPC: Login de Steam OpenID a través del navegador por defecto
   ipcMain.handle('steam-login', async () => {
     return new Promise((resolve) => {

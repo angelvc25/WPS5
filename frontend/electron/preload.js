@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   steamLogin: () => ipcRenderer.invoke('steam-login'),
   getSteamInstalledApps: () => ipcRenderer.invoke('get-steam-installed-apps'),
   getEpicInstalledGames: () => ipcRenderer.invoke('get-epic-installed-games'),
+  getInstalledPrograms: () => ipcRenderer.invoke('get-installed-programs'),
   onGameClosed: (callback) => ipcRenderer.on('game-closed', (_event, id) => callback(id)),
   removeGameClosedListener: () => ipcRenderer.removeAllListeners('game-closed'),
   getMediaSessions: () => ipcRenderer.invoke('get-media-sessions'),

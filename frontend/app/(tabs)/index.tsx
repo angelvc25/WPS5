@@ -42,6 +42,7 @@ import GameInfoPanel from '@/components/GameInfoPanel';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
 import BackgroundPickerModal from '@/components/BackgroundPickerModal';
 import AvatarPickerModal from '@/components/AvatarPickerModal';
+import AddAppModal from '@/components/AddAppModal';
 import SearchView from '@/components/SearchView';
 import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
 import { fetchStoreOffers, StoreOffer, LOCAL_FALLBACK_OFFERS } from '@/services/storeService';
@@ -1408,39 +1409,6 @@ export default function ConsoleHome() {
         }
         if (isAddModalVisible) {
           if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setAddModalVisible(false);
-          else if (e.key === 'ArrowDown') {
-            if (addModalFocusIndex === 0) setAddModalFocusIndex(1);
-            else if (addModalFocusIndex >= 1 && addModalFocusIndex <= 3) setAddModalFocusIndex(newApp.type === 'game' ? 4 : 15);
-            else if (addModalFocusIndex >= 4 && addModalFocusIndex <= 3 + PLATFORMS.length) setAddModalFocusIndex(15);
-            else if (addModalFocusIndex === 15) setAddModalFocusIndex(16);
-            else if (addModalFocusIndex === 16) setAddModalFocusIndex(18);
-            else if (addModalFocusIndex === 17) setAddModalFocusIndex(18);
-          } else if (e.key === 'ArrowUp') {
-            if (addModalFocusIndex === 18 || addModalFocusIndex === 17) setAddModalFocusIndex(16);
-            else if (addModalFocusIndex === 16) setAddModalFocusIndex(15);
-            else if (addModalFocusIndex === 15) setAddModalFocusIndex(newApp.type === 'game' ? 4 : 1);
-            else if (addModalFocusIndex >= 4 && addModalFocusIndex <= 3 + PLATFORMS.length) setAddModalFocusIndex(1);
-            else if (addModalFocusIndex >= 1 && addModalFocusIndex <= 3) setAddModalFocusIndex(0);
-          } else if (e.key === 'ArrowRight') {
-            if (addModalFocusIndex >= 1 && addModalFocusIndex < 3) setAddModalFocusIndex(prev => prev + 1);
-            else if (addModalFocusIndex >= 4 && addModalFocusIndex < 3 + PLATFORMS.length) setAddModalFocusIndex(prev => prev + 1);
-            else if (addModalFocusIndex === 17) setAddModalFocusIndex(18);
-          } else if (e.key === 'ArrowLeft') {
-            if (addModalFocusIndex > 1 && addModalFocusIndex <= 3) setAddModalFocusIndex(prev => prev - 1);
-            else if (addModalFocusIndex > 4 && addModalFocusIndex <= 3 + PLATFORMS.length) setAddModalFocusIndex(prev => prev - 1);
-            else if (addModalFocusIndex === 18) setAddModalFocusIndex(17);
-          } else if (e.key === 'Enter') {
-            if (addModalFocusIndex === 0) addModalTitleRef.current?.focus();
-            else if (addModalFocusIndex === 1) setNewApp({ ...newApp, type: 'game' });
-            else if (addModalFocusIndex === 2) setNewApp({ ...newApp, type: 'media', platform: '' });
-            else if (addModalFocusIndex === 3) setNewApp({ ...newApp, type: 'web', platform: '' });
-            else if (addModalFocusIndex >= 4 && addModalFocusIndex <= 3 + PLATFORMS.length) {
-              setNewApp({ ...newApp, platform: PLATFORM_IDS[addModalFocusIndex - 4] });
-            } else if (addModalFocusIndex === 15) { if (newApp.type === 'web') addModalPathRef.current?.focus(); else handleSelectExecutable(); }
-            else if (addModalFocusIndex === 16) handleSelectImage();
-            else if (addModalFocusIndex === 17) setAddModalVisible(false);
-            else if (addModalFocusIndex === 18) handleSaveApp();
-          }
           return;
         }
         if (isHomeBgModalVisible) return;
@@ -2909,93 +2877,11 @@ export default function ConsoleHome() {
       />
 
       {/* ADD APP MODAL */}
-      <Modal visible={isAddModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {Platform.OS === 'web' && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: `
-                    linear-gradient(
-                      45deg,
-                      rgba(255, 255, 255, 0.08) 0%,
-                      rgba(255,255,255,0.03) 40%,
-                      rgba(255,255,255,0.01) 60%,
-                      rgba(0,0,0,0.00) 100%
-                    )
-                  `,
-                  pointerEvents: 'none',
-                  zIndex: 1,
-                }}
-              />
-            )}
-            <View style={{ zIndex: 2 }}>
-              <Text style={styles.modalTitle}>{t('add.title')}</Text>
-              <TextInput
-                ref={addModalTitleRef}
-                style={[styles.input, addModalFocusIndex === 0 && styles.inputFocused]}
-                placeholder={t('add.appName')}
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                value={newApp.title}
-                onChangeText={(text) => setNewApp({ ...newApp, title: text })}
-              />
-              <View style={styles.pickerRow}>
-                <TouchableOpacity style={[styles.typeBtn, newApp.type === 'game' && styles.typeBtnActive, addModalFocusIndex === 1 && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, type: 'game' })}>
-                  <Text style={[styles.typeBtnText, newApp.type === 'game' && styles.typeBtnTextActive]}>{t('cc.typeGames')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.typeBtn, newApp.type === 'media' && styles.typeBtnActive, addModalFocusIndex === 2 && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, type: 'media', platform: '' })}>
-                  <Text style={[styles.typeBtnText, newApp.type === 'media' && styles.typeBtnTextActive]}>{t('cc.typeMedia')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.typeBtn, newApp.type === 'web' && styles.typeBtnActive, addModalFocusIndex === 3 && styles.inputFocused]} onPress={() => setNewApp({ ...newApp, type: 'web', platform: '' })}>
-                  <Text style={[styles.typeBtnText, newApp.type === 'web' && styles.typeBtnTextActive]}>{t('cc.typeWeb')}</Text>
-                </TouchableOpacity>
-              </View>
-              {newApp.type === 'game' && (
-                <View style={{ marginBottom: 15 }}>
-                  <ScrollView ref={addModalPlatformScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
-                    {PLATFORMS.map((plat, idx) => {
-                      const focusIdx = 4 + idx;
-                      return (
-                        <TouchableOpacity
-                          key={plat.id}
-                          style={[styles.platformBtn, newApp.platform === plat.id && styles.platformBtnActive, addModalFocusIndex === focusIdx && styles.inputFocused]}
-                          onPress={() => setNewApp({ ...newApp, platform: plat.id })}
-                          onLayout={(e) => { addModalPlatformOffsets.current[idx] = e.nativeEvent.layout.x; }}
-                        >
-                          <MaterialCommunityIcons name={plat.icon as any} size={20} color={newApp.platform === plat.id ? '#FFF' : 'rgba(255,255,255,0.5)'} />
-                          <Text style={[styles.platformBtnText, newApp.platform === plat.id && styles.platformBtnTextActive]}>{plat.id}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              )}
-              {newApp.type === 'web' ? (
-                <TextInput ref={addModalPathRef} style={[styles.input, addModalFocusIndex === 15 && styles.inputFocused]} placeholder="URL (https://...)" placeholderTextColor="rgba(255,255,255,0.3)" value={newApp.path} onChangeText={(text) => setNewApp({ ...newApp, path: text })} />
-              ) : (
-                <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 15 && styles.inputFocused]} onPress={handleSelectExecutable}>
-                  <Ionicons name="folder-open" size={20} color="rgba(255,255,255,0.7)" />
-                  <Text style={styles.fileBtnText}>{newApp.path ? t('add.path', { path: newApp.path.slice(-20) }) : t('add.selectExe')}</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={[styles.fileBtn, addModalFocusIndex === 16 && styles.inputFocused]} onPress={handleSelectImage}>
-                <Ionicons name="image" size={20} color="rgba(255,255,255,0.7)" />
-                <Text style={styles.fileBtnText}>{newApp.image ? t('add.cover', { path: newApp.image.slice(-20) }) : t('add.coverOptional')}</Text>
-              </TouchableOpacity>
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.cancelBtn, isSaving && { opacity: 0.5 }, addModalFocusIndex === 17 && styles.inputFocused]} onPress={() => !isSaving && setAddModalVisible(false)} disabled={isSaving}>
-                  <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.saveBtn, isSaving && { backgroundColor: 'rgba(255,255,255,0.05)' }, addModalFocusIndex === 18 && styles.inputFocused]} onPress={handleSaveApp} disabled={isSaving}>
-                  <Text style={styles.saveBtnText}>{isSaving ? t('edit.searchingAssetsShort') : t('common.save')}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <AddAppModal
+        visible={isAddModalVisible}
+        onClose={() => setAddModalVisible(false)}
+        onAppsAdded={() => loadApps()}
+      />
 
       {/* MEDIA LIGHTBOX MODAL */}
       <Modal
