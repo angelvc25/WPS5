@@ -7,6 +7,7 @@ import ControlCenterCards from './ControlCenterCards';
 import FriendsExpandedCard from './FriendsExpandedCard';
 import NotificationsExpandedCard from './NotificationsExpandedCard';
 import MusicExpandedCard from './MusicExpandedCard';
+import DownloadsExpandedCard from './DownloadsExpandedCard';
 import RadarFocusWrapper from './RadarFocusWrapper';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { TranslationKey } from '@/i18n/translations';
@@ -50,6 +51,8 @@ interface FloatingSystemNavProps {
   onNotificationsOpenChange?: (open: boolean) => void;
   isMusicOpen?: boolean;
   onMusicOpenChange?: (open: boolean) => void;
+  isDownloadsOpen?: boolean;
+  onDownloadsOpenChange?: (open: boolean) => void;
 }
 
 export default function FloatingSystemNav({
@@ -70,6 +73,8 @@ export default function FloatingSystemNav({
   onNotificationsOpenChange,
   isMusicOpen: controlledMusicOpen,
   onMusicOpenChange,
+  isDownloadsOpen: controlledDownloadsOpen,
+  onDownloadsOpenChange,
 }: FloatingSystemNavProps) {
   const { t } = useTranslation();
   const opacity = useSharedValue(0);
@@ -105,12 +110,22 @@ export default function FloatingSystemNav({
     else setInternalMusicOpen(next);
   };
 
+  // Downloads expanded card state
+  const [internalDownloadsOpen, setInternalDownloadsOpen] = useState(false);
+  const isDownloadsOpen = controlledDownloadsOpen !== undefined ? controlledDownloadsOpen : internalDownloadsOpen;
+  const setIsDownloadsOpen = (v: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? (v as any)(isDownloadsOpen) : v;
+    if (onDownloadsOpenChange) onDownloadsOpenChange(next);
+    else setInternalDownloadsOpen(next);
+  };
+
   // cerrar popups si se cierra el nav
   useEffect(() => {
     if (!isFocused) {
       setIsFriendsOpen(false);
       setIsNotificationsOpen(false);
       setIsMusicOpen(false);
+      setIsDownloadsOpen(false);
     }
   }, [isFocused]);
 
@@ -148,8 +163,21 @@ export default function FloatingSystemNav({
     if (index === 4) {
       if (isNotificationsOpen) setIsNotificationsOpen(false);
       if (isFriendsOpen) setIsFriendsOpen(false);
+      if (isDownloadsOpen) setIsDownloadsOpen(false);
       if (!isMusicOpen) {
         setIsMusicOpen(true);
+        soundService.playActivation?.();
+      } else {
+        soundService.playNavigation();
+      }
+      return;
+    }
+    if (index === 5) {
+      if (isNotificationsOpen) setIsNotificationsOpen(false);
+      if (isFriendsOpen) setIsFriendsOpen(false);
+      if (isMusicOpen) setIsMusicOpen(false);
+      if (!isDownloadsOpen) {
+        setIsDownloadsOpen(true);
         soundService.playActivation?.();
       } else {
         soundService.playNavigation();
@@ -159,6 +187,7 @@ export default function FloatingSystemNav({
     if (isFriendsOpen) setIsFriendsOpen(false);
     if (isNotificationsOpen) setIsNotificationsOpen(false);
     if (isMusicOpen) setIsMusicOpen(false);
+    if (isDownloadsOpen) setIsDownloadsOpen(false);
     onPressItem(index);
   };
 
@@ -174,6 +203,11 @@ export default function FloatingSystemNav({
 
   const handleCloseMusic = () => {
     setIsMusicOpen(false);
+    soundService.playBack?.();
+  };
+
+  const handleCloseDownloads = () => {
+    setIsDownloadsOpen(false);
     soundService.playBack?.();
   };
 
@@ -219,7 +253,7 @@ export default function FloatingSystemNav({
           (la card tiene su propio backdrop). */}
       <Animated.View
         style={[StyleSheet.absoluteFill, { opacity: 0 }]}
-        pointerEvents={isFocused && !isCardExpanded && !isFriendsOpen && !isNotificationsOpen && !isMusicOpen ? 'auto' : 'none'}
+        pointerEvents={isFocused && !isCardExpanded && !isFriendsOpen && !isNotificationsOpen && !isMusicOpen && !isDownloadsOpen ? 'auto' : 'none'}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
@@ -233,9 +267,10 @@ export default function FloatingSystemNav({
         anchorTop={notificationsAnchor.top}
       />
       <MusicExpandedCard isOpen={isMusicOpen} onClose={handleCloseMusic} />
+      <DownloadsExpandedCard isOpen={isDownloadsOpen} onClose={handleCloseDownloads} />
 
       <Animated.View style={[styles.menuContainer, menuStyle, { zIndex: 2 }]}>
-        {isFocused && !isFriendsOpen && !isNotificationsOpen && !isMusicOpen && (
+        {isFocused && !isFriendsOpen && !isNotificationsOpen && !isMusicOpen && !isDownloadsOpen && (
           <ControlCenterCards
             isFocusedLayer={isFocused && navLevel === 1}
             focusedIndex={cardIndex}
@@ -254,7 +289,8 @@ export default function FloatingSystemNav({
             const isFriendsActive = isFriendsOpen && index === 3;
             const isNotificationsActive = isNotificationsOpen && index === 2;
             const isMusicActive = isMusicOpen && index === 4;
-            const showActiveRing = isActive || isFriendsActive || isNotificationsActive || isMusicActive;
+            const isDownloadsActive = isDownloadsOpen && index === 5;
+            const showActiveRing = isActive || isFriendsActive || isNotificationsActive || isMusicActive || isDownloadsActive;
             return (
               <TouchableOpacity
                 key={index}

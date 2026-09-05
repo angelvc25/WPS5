@@ -265,6 +265,7 @@ export default function ConsoleHome() {
   const [isFriendsCardOpen, setIsFriendsCardOpen] = useState(false);
   const [isNotificationsCardOpen, setIsNotificationsCardOpen] = useState(false);
   const [isMusicCardOpen, setIsMusicCardOpen] = useState(false);
+  const [isDownloadsCardOpen, setIsDownloadsCardOpen] = useState(false);
 
   const [wishlistDeals, setWishlistDeals] = useState<WishlistDeal[]>([]);
   const knownWishlistDealIdsRef = useRef<Set<number> | null>(null);
@@ -1036,6 +1037,10 @@ export default function ConsoleHome() {
     } else if (idx === 4) {
       // Música – abrir card de música expandida
       setIsMusicCardOpen(true);
+      soundService.playActivation?.();
+    } else if (idx === 5) {
+      // Descargas – abrir card de descargas expandida
+      setIsDownloadsCardOpen(true);
       soundService.playActivation?.();
     } else if (idx === 9) {
       // Perfil (Cambiar usuario)
@@ -2869,6 +2874,8 @@ export default function ConsoleHome() {
         onNotificationsOpenChange={setIsNotificationsCardOpen}
         isMusicOpen={isMusicCardOpen}
         onMusicOpenChange={setIsMusicCardOpen}
+        isDownloadsOpen={isDownloadsCardOpen}
+        onDownloadsOpenChange={setIsDownloadsCardOpen}
       />
 
       <FavoritesView
