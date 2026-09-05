@@ -81,6 +81,10 @@ const es = {
   'settings.supportBody': 'Si gustas en apoyarnos puedes visitar nuestras redes sociales o unirte a nuestro canal de Patreon. Tu apoyo nos ayuda a seguir mejorando y añadiendo nuevas funcionalidades.',
   'settings.patrons': 'Colaboradores y Patrocinadores',
 
+  'settings.accept': 'Aceptar',
+  'settings.cancel': 'Cancelar',
+  'settings.deleteGame': 'Este elemento se eliminará del almacenamiento de la consola.',
+
   'profile.overview': 'Información general',
   'profile.games': 'Juegos',
   'profile.friends': 'Amigos',
@@ -565,6 +569,10 @@ const en: Record<TranslationKey, string> = {
   'settings.supportBody': 'If you would like to support us, visit our social networks or join our Patreon. Your support helps us keep improving and adding new features.',
   'settings.patrons': 'Contributors and Sponsors',
 
+  'settings.accept': 'Accept',
+  'settings.cancel': 'Cancel',
+  'settings.deleteGame': 'This element will be deleted from the console storage.',
+
   'profile.overview': 'Overview',
   'profile.games': 'Games',
   'profile.friends': 'Friends',
@@ -1043,6 +1051,10 @@ const pt: Record<TranslationKey, string> = {
   'settings.thanks': 'Obrigado por usar o nosso Launcher!',
   'settings.supportBody': 'Se quiser nos apoiar, visite as nossas redes sociais ou junte-se ao nosso Patreon. O seu apoio ajuda-nos a continuar melhorando e adicionando novas funções.',
   'settings.patrons': 'Colaboradores e Patrocinadores',
+
+  'settings.accept': 'Aceitar',
+  'settings.cancel': 'Cancelar',
+  'settings.deleteGame': 'Este item será excluído do armazenamento da consola.',
 
   'profile.overview': 'Visão Geral',
   'profile.games': 'Jogos',

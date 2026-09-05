@@ -34,6 +34,7 @@ import FloatingSystemNav from '@/components/FloatingSystemNav';
 import OverlayTab from '@/components/OverlayTab';
 import GameContextMenu from '@/components/GameContextMenu';
 import GameDetailView from '@/components/GameDetailView';
+import DeleteConfirmView from '@/components/DeleteConfirmView';
 import ProfileDropdownMenu from '@/components/ProfileDropdownMenu';
 
 // Modular components
@@ -306,6 +307,7 @@ export default function ConsoleHome() {
   const activeCardRef = useAnimatedRef<View>();
   const [contextMenuCoords, setContextMenuCoords] = useState({ top: 250, left: 335 });
   const [isDetailVisible, setDetailVisible] = useState(false);
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<ConsoleItem | null>(null);
   const [isLibraryDetailVisible, setIsLibraryDetailVisible] = useState(false);
 
   const [isOnline, setIsOnline] = useState(true);
@@ -1041,6 +1043,27 @@ export default function ConsoleHome() {
     });
   };
 
+  const handleConfirmDeleteGame = async () => {
+    const target = deleteConfirmItem;
+    if (!target) return;
+    setDeleteConfirmItem(null);
+
+    if (Platform.OS === 'web' && (window as any).electronAPI?.deleteApp) {
+      const result = await (window as any).electronAPI.deleteApp(target.id);
+      if (result?.success) {
+        setGames(prev => prev.filter(g => g.id !== target.id));
+        setSteamGames(prev => prev.filter(g => g.id !== target.id));
+        if (selectedItem?.id === target.id) {
+          setDetailVisible(false);
+          setSelectedItem(null);
+        }
+        loadApps();
+      } else {
+        alert('Error al eliminar: ' + (result?.error || 'desconocido'));
+      }
+    }
+  };
+
   useEffect(() => {
     loadApps();
     fetchGamingNews().then(() => { });
@@ -1102,18 +1125,8 @@ export default function ConsoleHome() {
         }
       }
     } else if (idx === 2) {
-      // Eliminar
-      const confirmed = window.confirm(`¿Estás seguro de que quieres eliminar "${item.title}"? Esta acción no se puede deshacer.`);
-      if (confirmed) {
-        if (Platform.OS === 'web' && (window as any).electronAPI) {
-          const result = await (window as any).electronAPI.deleteApp(item.id);
-          if (result.success) {
-            loadApps();
-          } else {
-            alert('Error al eliminar: ' + result.error);
-          }
-        }
-      }
+      // Eliminar juego
+      setDeleteConfirmItem(item);
     }
   };
 
@@ -1327,6 +1340,7 @@ export default function ConsoleHome() {
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
         if (isLaunching) return;
         if (isDetailVisible || isLibraryDetailVisible) return;
+        if (deleteConfirmItem) return;
         if (isLibraryFilterPanelOpen) return; // el panel de filtros gestiona su propia navegación
         if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
         if (isSearchVisible) return;
@@ -1972,7 +1986,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, isSearchVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, systemNavMaxCardIndex, libraryGridFocusIndex, libraryTabsFocused, libraryFilterFocused, libraryFilterFromTabs, isLibraryFilterPanelOpen, displayedLibraryGames, lastPlayedGame, activeUser, storeOffers, toolbarFocusIndex]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, isSearchVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, systemNavMaxCardIndex, libraryGridFocusIndex, libraryTabsFocused, libraryFilterFocused, libraryFilterFromTabs, isLibraryFilterPanelOpen, displayedLibraryGames, lastPlayedGame, activeUser, storeOffers, toolbarFocusIndex, deleteConfirmItem]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -2958,6 +2972,13 @@ export default function ConsoleHome() {
         onLaunch={(_id, _path) => {
           if (selectedItem) handleLaunchApp(selectedItem);
         }}
+      />
+
+      <DeleteConfirmView
+        visible={!!deleteConfirmItem}
+        item={deleteConfirmItem ? { title: deleteConfirmItem.title, image: deleteConfirmItem.image } : null}
+        onCancel={() => setDeleteConfirmItem(null)}
+        onConfirm={handleConfirmDeleteGame}
       />
 
       <FloatingSystemNav

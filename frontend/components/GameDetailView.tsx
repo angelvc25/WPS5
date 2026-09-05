@@ -9,6 +9,7 @@ import { ConsoleItem } from '../app/(tabs)/index';
 import YoutubePlayer from './YoutubePlayer';
 import ControlPrompt from './ControlPrompt';
 import GameInfoPanel from './GameInfoPanel';
+import DeleteConfirmView from './DeleteConfirmView';
 import { useUser } from '../contexts/UserContext';
 import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
@@ -45,6 +46,7 @@ const resolveEditSource = (val: string | undefined): { uri: string } | null => {
 
 const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null }) => {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
+  const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
   const [isSyncing, setIsSyncing] = useState(false);
   const [focusIndex, setFocusIndex] = useState(0); // 0:Jugar, 1:···, 2:Trofeos, 3:Amigos
@@ -737,6 +739,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           e.preventDefault();
         }
 
+        if (isDeleteConfirmVisible) {
+          return;
+        }
+
         if (isAssetSelectorVisible) {
           handleAssetSelectorKeyDown(e);
           return;
@@ -948,6 +954,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   }, [
     isVisible,
     isEditModalVisible,
+    isDeleteConfirmVisible,
     isAssetSelectorVisible,
     selectedMediaIndex,
     focusIndex,
@@ -1108,16 +1115,19 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   };
 
   const handleDeleteApp = async () => {
-    if ((window as any).electronAPI && item.id) {
-      const confirmed = window.confirm(`¿Estás seguro de que quieres eliminar "${item.title}"? Esta acción no se puede deshacer.`);
-      if (confirmed) {
-        const result = await (window as any).electronAPI.deleteApp(item.id);
-        if (result.success) {
-          onClose();
-          if (onRefresh) onRefresh({ id: item.id, _deleted: true } as any);
-        } else {
-          alert('Error al eliminar: ' + result.error);
-        }
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDeleteApp = async () => {
+    setDeleteConfirmVisible(false);
+    if ((window as any).electronAPI && item?.id) {
+      const result = await (window as any).electronAPI.deleteApp(item.id);
+      if (result.success) {
+        setEditModalVisible(false);
+        onClose();
+        if (onRefresh) onRefresh({ id: item.id, _deleted: true } as any);
+      } else {
+        alert('Error al eliminar: ' + result.error);
       }
     }
   };
@@ -1127,906 +1137,915 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const paginatedList = currentList.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
 
   return (
-    <Modal visible={isVisible} transparent={false} animationType="fade" onRequestClose={onClose}>
-      <View style={styles.detailContainer}>
+    <>
+      <Modal visible={isVisible} transparent={false} animationType="fade" onRequestClose={onClose}>
+        <View style={styles.detailContainer}>
 
-        {/* FULLSCREEN BACKGROUND */}
-        {(editData.backgroundImage || item.backgroundImage) ? (
-          <Image
-            source={resolveEditSource(editData.backgroundImage) ?? item.backgroundImage}
-            style={styles.detailBg}
-            contentFit="cover"
-          />
-        ) : (editData.image || item.image) ? (
-          <Image
-            source={resolveEditSource(editData.image) ?? item.image}
-            style={styles.detailBg}
-            contentFit="cover"
-          />
-        ) : null}
-
-        {/* BOTTOM GRADIENT */}
-        {Platform.OS === 'web' && (
-          <div style={{
-            position: 'absolute', inset: 0, zIndex: 1,
-            background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.0) 65%)',
-            pointerEvents: 'none',
-          } as any} />
-        )}
-
-        {/* TOP LEFT: game cover + title (replaces back/escape button) */}
-        <View style={styles.topHeader}>
-          {(editData.image || item.image) && (
+          {/* FULLSCREEN BACKGROUND */}
+          {(editData.backgroundImage || item.backgroundImage) ? (
             <Image
-              source={resolveEditSource(editData.image) ?? item.image}
-              style={styles.topHeaderImage}
+              source={resolveEditSource(editData.backgroundImage) ?? item.backgroundImage}
+              style={styles.detailBg}
               contentFit="cover"
             />
+          ) : (editData.image || item.image) ? (
+            <Image
+              source={resolveEditSource(editData.image) ?? item.image}
+              style={styles.detailBg}
+              contentFit="cover"
+            />
+          ) : null}
+
+          {/* BOTTOM GRADIENT */}
+          {Platform.OS === 'web' && (
+            <div style={{
+              position: 'absolute', inset: 0, zIndex: 1,
+              background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.0) 65%)',
+              pointerEvents: 'none',
+            } as any} />
           )}
-          <Text style={styles.topHeaderTitle} numberOfLines={1}>{editData.title || item.title}</Text>
+
+          {/* TOP LEFT: game cover + title (replaces back/escape button) */}
+          <View style={styles.topHeader}>
+            {(editData.image || item.image) && (
+              <Image
+                source={resolveEditSource(editData.image) ?? item.image}
+                style={styles.topHeaderImage}
+                contentFit="cover"
+              />
+            )}
+            <Text style={styles.topHeaderTitle} numberOfLines={1}>{editData.title || item.title}</Text>
+          </View>
+
+          {/* DARK OVERLAY — se oscurece al enfocar cards */}
+          {Platform.OS === 'web' && (
+            <Animated.View style={[{
+              position: 'absolute', inset: 0, zIndex: 2,
+              backgroundColor: '#000',
+              pointerEvents: 'none',
+            } as any, darkOverlayStyle]} />
+          )}
+
+          {/* BOTTOM INFO PANEL — scrollable */}
+          <ScrollView
+            style={styles.ps5BottomPanel}
+            contentContainerStyle={{ paddingBottom: 80 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View style={scrollPaddingStyle}>
+              <GameInfoPanel
+                activeItem={{
+                  ...item,
+                  ...editData,
+                  image: resolveEditSource(editData.image) ?? item.image,
+                  logo: resolveEditSource(editData.logo) ?? item.logo,
+                  backgroundImage: resolveEditSource(editData.backgroundImage) ?? item.backgroundImage,
+                } as ConsoleItem}
+                activeIndex={0}
+                lastPlayedGame={null}
+                focusArea="game_panel"
+                gamePanelFocusIndex={focusIndex}
+                setGamePanelFocusIndex={setFocusIndex}
+                setFocusArea={() => { }}
+                handleLaunchApp={async () => {
+                  const launchPath = resolveSteamLaunchPath({ ...item, ...editData } as ConsoleItem, installedSteamAppIds);
+                  if (launchPath) {
+                    if (onLaunch) onLaunch(item.id, launchPath);
+                    else if (Platform.OS === 'web' && (window as any).electronAPI)
+                      (window as any).electronAPI.launchApp(item.id, launchPath);
+                  } else {
+                    setActiveTab('path');
+                    setEditModalVisible(true);
+                  }
+                }}
+                setSelectedItem={() => { }}
+                setDetailVisible={setEditModalVisible}
+                steamMedia={steamMedia}
+                mediaLoading={mediaLoading}
+                setSelectedMediaIndex={setSelectedMediaIndex}
+                steamNews={steamNews}
+                newsLoading={newsLoading}
+                activeUser={activeUser}
+                windowWidth={windowWidth}
+                windowHeight={windowHeight}
+                gameInfoPanelStyle={{}}
+                spacerStyle={{}}
+                infoCardsStyle={infoCardsStyle}
+                topPanelStyle={topPanelStyle}
+                installedSteamAppIds={installedSteamAppIds}
+              />
+            </Animated.View>
+          </ScrollView>
+
+          {isLaunching && item && (
+            <Animated.View
+              entering={FadeIn.duration(800)}
+              style={[StyleSheet.absoluteFill, { zIndex: 1000, backgroundColor: '#000' }]}
+            >
+              {/* Fondo del juego oscurecido */}
+              {item.backgroundImage ? (
+                <Image
+                  source={item.backgroundImage}
+                  style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}
+                  contentFit="cover"
+                />
+              ) : item.image ? (
+                <Image
+                  source={item.image}
+                  style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}
+                  contentFit="cover"
+                />
+              ) : null}
+
+              {/* Gradiente oscuro */}
+              {Platform.OS === 'web' && (
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.3) 100%)',
+                  pointerEvents: 'none',
+                } as any} />
+              )}
+
+              <View style={styles.launchingOverlay}>
+                <Animated.View
+                  entering={FadeInDown.delay(300).duration(800)}
+                  style={{ alignItems: 'center', marginBottom: 40 }}
+                >
+                  {item.logo ? (
+                    <Image
+                      source={item.logo}
+                      style={{ width: 450, height: 180, marginBottom: 20 }}
+                      contentFit="contain"
+                    />
+                  ) : (
+                    <Text style={[styles.launchingText, { fontSize: 42, fontWeight: '200', letterSpacing: 2 }]}>
+                      {item.title}
+                    </Text>
+                  )}
+                </Animated.View>
+              </View>
+            </Animated.View>
+          )}
         </View>
 
-        {/* DARK OVERLAY — se oscurece al enfocar cards */}
-        {Platform.OS === 'web' && (
-          <Animated.View style={[{
-            position: 'absolute', inset: 0, zIndex: 2,
-            backgroundColor: '#000',
-            pointerEvents: 'none',
-          } as any, darkOverlayStyle]} />
-        )}
-
-        {/* BOTTOM INFO PANEL — scrollable */}
-        <ScrollView
-          style={styles.ps5BottomPanel}
-          contentContainerStyle={{ paddingBottom: 80 }}
-          showsVerticalScrollIndicator={false}
+        {/* MEDIA LIGHTBOX MODAL */}
+        <Modal
+          visible={selectedMediaIndex !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedMediaIndex(null)}
         >
-          <Animated.View style={scrollPaddingStyle}>
-            <GameInfoPanel
-              activeItem={{
-                ...item,
-                ...editData,
-                image: resolveEditSource(editData.image) ?? item.image,
-                logo: resolveEditSource(editData.logo) ?? item.logo,
-                backgroundImage: resolveEditSource(editData.backgroundImage) ?? item.backgroundImage,
-              } as ConsoleItem}
-              activeIndex={0}
-              lastPlayedGame={null}
-              focusArea="game_panel"
-              gamePanelFocusIndex={focusIndex}
-              setGamePanelFocusIndex={setFocusIndex}
-              setFocusArea={() => { }}
-              handleLaunchApp={async () => {
-                const launchPath = resolveSteamLaunchPath({ ...item, ...editData } as ConsoleItem, installedSteamAppIds);
-                if (launchPath) {
-                  if (onLaunch) onLaunch(item.id, launchPath);
-                  else if (Platform.OS === 'web' && (window as any).electronAPI)
-                    (window as any).electronAPI.launchApp(item.id, launchPath);
-                } else {
-                  setActiveTab('path');
-                  setEditModalVisible(true);
-                }
-              }}
-              setSelectedItem={() => { }}
-              setDetailVisible={setEditModalVisible}
-              steamMedia={steamMedia}
-              mediaLoading={mediaLoading}
-              setSelectedMediaIndex={setSelectedMediaIndex}
-              steamNews={steamNews}
-              newsLoading={newsLoading}
-              activeUser={activeUser}
-              windowWidth={windowWidth}
-              windowHeight={windowHeight}
-              gameInfoPanelStyle={{}}
-              spacerStyle={{}}
-              infoCardsStyle={infoCardsStyle}
-              topPanelStyle={topPanelStyle}
-              installedSteamAppIds={installedSteamAppIds}
-            />
-          </Animated.View>
-        </ScrollView>
-
-        {isLaunching && item && (
-          <Animated.View
-            entering={FadeIn.duration(800)}
-            style={[StyleSheet.absoluteFill, { zIndex: 1000, backgroundColor: '#000' }]}
-          >
-            {/* Fondo del juego oscurecido */}
-            {item.backgroundImage ? (
-              <Image
-                source={item.backgroundImage}
-                style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}
-                contentFit="cover"
-              />
-            ) : item.image ? (
-              <Image
-                source={item.image}
-                style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}
-                contentFit="cover"
-              />
-            ) : null}
-
-            {/* Gradiente oscuro */}
-            {Platform.OS === 'web' && (
-              <div style={{
-                position: 'absolute', inset: 0,
-                background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.3) 100%)',
-                pointerEvents: 'none',
-              } as any} />
-            )}
-
-            <View style={styles.launchingOverlay}>
-              <Animated.View
-                entering={FadeInDown.delay(300).duration(800)}
-                style={{ alignItems: 'center', marginBottom: 40 }}
-              >
-                {item.logo ? (
-                  <Image
-                    source={item.logo}
-                    style={{ width: 450, height: 180, marginBottom: 20 }}
-                    contentFit="contain"
-                  />
-                ) : (
-                  <Text style={[styles.launchingText, { fontSize: 42, fontWeight: '200', letterSpacing: 2 }]}>
-                    {item.title}
-                  </Text>
-                )}
-              </Animated.View>
-            </View>
-          </Animated.View>
-        )}
-      </View>
-
-      {/* MEDIA LIGHTBOX MODAL */}
-      <Modal
-        visible={selectedMediaIndex !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelectedMediaIndex(null)}
-      >
-        <View style={styles.lightboxOverlay}>
-          {/* Cierre con clic fuera */}
-          <TouchableOpacity
-            style={StyleSheet.absoluteFillObject}
-            activeOpacity={1}
-            onPress={() => setSelectedMediaIndex(null)}
-          />
-
-          {/* Contenido */}
-          <View style={styles.lightboxContent} pointerEvents="box-none">
-            {selectedMedia?.type === 'movie' && selectedMedia.mp4_url ? (
-              <Video
-                source={{ uri: selectedMedia.mp4_url }}
-                style={styles.lightboxVideo}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay
-                useNativeControls
-              />
-            ) : selectedMedia?.full ? (
-              <Image
-                source={{ uri: selectedMedia.full }}
-                style={styles.lightboxImage}
-                contentFit="contain"
-              />
-            ) : null}
-
-            {/* Botón cerrar */}
+          <View style={styles.lightboxOverlay}>
+            {/* Cierre con clic fuera */}
             <TouchableOpacity
-              style={styles.lightboxCloseBtn}
+              style={StyleSheet.absoluteFillObject}
+              activeOpacity={1}
               onPress={() => setSelectedMediaIndex(null)}
-            >
-              <Ionicons name="close" size={24} color="#FFF" />
-            </TouchableOpacity>
+            />
 
-            {/* Badge tipo */}
-            {selectedMedia?.type === 'movie' && (
-              <View style={styles.lightboxBadge}>
-                <Ionicons name="play-circle" size={14} color="#FFF" />
-                <Text style={styles.lightboxBadgeText}>Trailer</Text>
-              </View>
+            {/* Contenido */}
+            <View style={styles.lightboxContent} pointerEvents="box-none">
+              {selectedMedia?.type === 'movie' && selectedMedia.mp4_url ? (
+                <Video
+                  source={{ uri: selectedMedia.mp4_url }}
+                  style={styles.lightboxVideo}
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay
+                  useNativeControls
+                />
+              ) : selectedMedia?.full ? (
+                <Image
+                  source={{ uri: selectedMedia.full }}
+                  style={styles.lightboxImage}
+                  contentFit="contain"
+                />
+              ) : null}
+
+              {/* Botón cerrar */}
+              <TouchableOpacity
+                style={styles.lightboxCloseBtn}
+                onPress={() => setSelectedMediaIndex(null)}
+              >
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+
+              {/* Badge tipo */}
+              {selectedMedia?.type === 'movie' && (
+                <View style={styles.lightboxBadge}>
+                  <Ionicons name="play-circle" size={14} color="#FFF" />
+                  <Text style={styles.lightboxBadgeText}>Trailer</Text>
+                </View>
+              )}
+
+              {/* Contador */}
+              {steamMedia.length > 1 && selectedMediaIndex !== null && (
+                <View style={styles.lightboxCounter}>
+                  <Text style={styles.lightboxCounterText}>
+                    {selectedMediaIndex + 1} / {steamMedia.length}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Flecha anterior */}
+            {selectedMediaIndex !== null && selectedMediaIndex > 0 && (
+              <TouchableOpacity
+                style={[styles.lightboxArrow, styles.lightboxArrowLeft]}
+                onPress={() => setSelectedMediaIndex(prev => prev !== null ? prev - 1 : prev)}
+              >
+                <Ionicons name="chevron-back" size={28} color="#FFF" />
+              </TouchableOpacity>
             )}
 
-            {/* Contador */}
-            {steamMedia.length > 1 && selectedMediaIndex !== null && (
-              <View style={styles.lightboxCounter}>
-                <Text style={styles.lightboxCounterText}>
-                  {selectedMediaIndex + 1} / {steamMedia.length}
-                </Text>
+            {/* Flecha siguiente */}
+            {selectedMediaIndex !== null && selectedMediaIndex < steamMedia.length - 1 && (
+              <TouchableOpacity
+                style={[styles.lightboxArrow, styles.lightboxArrowRight]}
+                onPress={() => setSelectedMediaIndex(prev => prev !== null ? prev + 1 : prev)}
+              >
+                <Ionicons name="chevron-forward" size={28} color="#FFF" />
+              </TouchableOpacity>
+            )}
+
+            {/* Miniaturas bottom strip */}
+            {steamMedia.length > 1 && (
+              <View style={styles.lightboxStrip} pointerEvents="box-none">
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.lightboxStripContent}
+                >
+                  {steamMedia.map((m, i) => (
+                    <TouchableOpacity
+                      key={m.id}
+                      onPress={() => setSelectedMediaIndex(i)}
+                      style={[
+                        styles.lightboxThumb,
+                        selectedMediaIndex === i && styles.lightboxThumbActive,
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: m.thumbnail }}
+                        style={{ width: '100%', height: '100%' }}
+                        contentFit="cover"
+                      />
+                      {m.type === 'movie' && (
+                        <View style={styles.lightboxThumbPlay}>
+                          <Ionicons name="play" size={10} color="#FFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
             )}
           </View>
+        </Modal>
 
-          {/* Flecha anterior */}
-          {selectedMediaIndex !== null && selectedMediaIndex > 0 && (
-            <TouchableOpacity
-              style={[styles.lightboxArrow, styles.lightboxArrowLeft]}
-              onPress={() => setSelectedMediaIndex(prev => prev !== null ? prev - 1 : prev)}
-            >
-              <Ionicons name="chevron-back" size={28} color="#FFF" />
-            </TouchableOpacity>
-          )}
+        {/* EDIT MODAL */}
+        <Modal visible={isEditModalVisible} transparent animationType="fade">
+          <View style={styles.editViewContainer}>
+            {/* background video */}
+            <Video
+              source={require('../assets/video/waves_ajustes.mp4')}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode={ResizeMode.COVER}
+              shouldPlay
+              isLooping
+              isMuted
+            />
+            {/* subtle dark overlay */}
+            <View style={styles.editOverlayDark} />
 
-          {/* Flecha siguiente */}
-          {selectedMediaIndex !== null && selectedMediaIndex < steamMedia.length - 1 && (
-            <TouchableOpacity
-              style={[styles.lightboxArrow, styles.lightboxArrowRight]}
-              onPress={() => setSelectedMediaIndex(prev => prev !== null ? prev + 1 : prev)}
-            >
-              <Ionicons name="chevron-forward" size={28} color="#FFF" />
-            </TouchableOpacity>
-          )}
+            <View style={styles.editContentContainer}>
+              {/* Title Header */}
+              <Text style={styles.editMainTitleLarge}>{t('edit.title')}</Text>
 
-          {/* Miniaturas bottom strip */}
-          {steamMedia.length > 1 && (
-            <View style={styles.lightboxStrip} pointerEvents="box-none">
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.lightboxStripContent}
-              >
-                {steamMedia.map((m, i) => (
-                  <TouchableOpacity
-                    key={m.id}
-                    onPress={() => setSelectedMediaIndex(i)}
-                    style={[
-                      styles.lightboxThumb,
-                      selectedMediaIndex === i && styles.lightboxThumbActive,
-                    ]}
-                  >
-                    <Image
-                      source={{ uri: m.thumbnail }}
-                      style={{ width: '100%', height: '100%' }}
-                      contentFit="cover"
-                    />
-                    {m.type === 'movie' && (
-                      <View style={styles.lightboxThumbPlay}>
-                        <Ionicons name="play" size={10} color="#FFF" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-        </View>
-      </Modal>
+              {/* Two Column Layout */}
+              <View style={styles.editTwoColumns}>
+                {/* SIDEBAR TABS */}
+                <View style={styles.editSidebar}>
+                  {[
+                    { id: 'basic', label: t('edit.basic'), icon: 'information-circle-outline', index: 23 },
+                    { id: 'path', label: t('edit.path'), icon: 'folder-open-outline', index: 24 },
+                    { id: 'art', label: t('edit.art'), icon: 'image-outline', index: 25 },
+                  ].map((tab) => {
+                    const isTabActive = activeTab === tab.id;
+                    const isTabFocused = editModalFocusIndex === tab.index;
 
-      {/* EDIT MODAL */}
-      <Modal visible={isEditModalVisible} transparent animationType="fade">
-        <View style={styles.editViewContainer}>
-          {/* background video */}
-          <Video
-            source={require('../assets/video/waves_ajustes.mp4')}
-            style={StyleSheet.absoluteFillObject}
-            resizeMode={ResizeMode.COVER}
-            shouldPlay
-            isLooping
-            isMuted
-          />
-          {/* subtle dark overlay */}
-          <View style={styles.editOverlayDark} />
-
-          <View style={styles.editContentContainer}>
-            {/* Title Header */}
-            <Text style={styles.editMainTitleLarge}>{t('edit.title')}</Text>
-
-            {/* Two Column Layout */}
-            <View style={styles.editTwoColumns}>
-              {/* SIDEBAR TABS */}
-              <View style={styles.editSidebar}>
-                {[
-                  { id: 'basic', label: t('edit.basic'), icon: 'information-circle-outline', index: 23 },
-                  { id: 'path', label: t('edit.path'), icon: 'folder-open-outline', index: 24 },
-                  { id: 'art', label: t('edit.art'), icon: 'image-outline', index: 25 },
-                ].map((tab) => {
-                  const isTabActive = activeTab === tab.id;
-                  const isTabFocused = editModalFocusIndex === tab.index;
-
-                  return (
-                    <TouchableOpacity
-                      key={tab.id}
-                      style={[
-                        styles.editTab,
-                        isTabActive && styles.editTabActive,
-                        isTabFocused && styles.editTabFocused
-                      ]}
-                      onPress={() => {
-                        setEditModalFocusIndex(tab.index);
-                        setActiveTab(tab.id as any);
-                      }}
-                    >
-                      <Ionicons
-                        name={tab.icon as any}
-                        size={22}
-                        color={isTabActive ? '#FFF' : 'rgba(255, 255, 255, 0.6)'}
-                      />
-                      <Text style={[
-                        styles.editTabText,
-                        isTabActive && styles.editTabTextActive
-                      ]}>
-                        {tab.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* RIGHT CONTENT AREA */}
-              <View style={styles.editMainContent}>
-                <View style={{ flex: 1 }}>
-                  {activeTab === 'basic' && (
-                    <>
-                      <Text style={styles.editSectionTitle}>{t('edit.basic')}</Text>
-                      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-                        <Text style={styles.editLabel}>{t('edit.gameTitle')}</Text>
-                        <TextInput
-                          ref={editTitleRef}
-                          style={[styles.editInput, editModalFocusIndex === 2 && styles.editInputFocused]}
-                          value={editData.title}
-                          onChangeText={(text) => setEditData({ ...editData, title: text })}
-                          onFocus={() => setEditModalFocusIndex(2)}
+                    return (
+                      <TouchableOpacity
+                        key={tab.id}
+                        style={[
+                          styles.editTab,
+                          isTabActive && styles.editTabActive,
+                          isTabFocused && styles.editTabFocused
+                        ]}
+                        onPress={() => {
+                          setEditModalFocusIndex(tab.index);
+                          setActiveTab(tab.id as any);
+                        }}
+                      >
+                        <Ionicons
+                          name={tab.icon as any}
+                          size={22}
+                          color={isTabActive ? '#FFF' : 'rgba(255, 255, 255, 0.6)'}
                         />
+                        <Text style={[
+                          styles.editTabText,
+                          isTabActive && styles.editTabTextActive
+                        ]}>
+                          {tab.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
 
-                        {((editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web') && (
-                          <>
-                            <Text style={styles.editLabel}>{t('library.sortPlatform')}</Text>
-                            <View style={{ marginBottom: 25 }}>
-                              <ScrollView ref={editPlatformScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
-                                {PLATFORMS.map((plat, idx) => {
-                                  const focusIdx = 3 + idx;
-                                  const isActive = editData.platform === plat.id;
-                                  const isFocused = editModalFocusIndex === focusIdx;
-                                  return (
-                                    <TouchableOpacity
-                                      key={plat.id}
-                                      style={[
-                                        styles.platformBtnNew,
-                                        isActive && styles.platformBtnActiveNew,
-                                        isFocused && styles.platformBtnFocusedNew
-                                      ]}
-                                      onPress={() => { setEditModalFocusIndex(focusIdx); setEditData({ ...editData, platform: plat.id }); }}
-                                      onLayout={(e) => { editPlatformOffsets.current[idx] = e.nativeEvent.layout.x; }}
-                                    >
-                                      <MaterialCommunityIcons
-                                        name={plat.icon as any}
-                                        size={20}
-                                        color={isActive ? '#000' : '#FFF'}
-                                      />
-                                      <Text style={[
-                                        styles.platformBtnTextNew,
-                                        isActive && styles.platformBtnTextActiveNew
-                                      ]}>
-                                        {plat.id}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </ScrollView>
-                            </View>
-                          </>
-                        )}
-
-                        <Text style={styles.editLabel}>{t('edit.description')}</Text>
-                        <TextInput
-                          ref={editDescRef}
-                          style={[styles.editInput, { height: 140, textAlignVertical: 'top' }, editModalFocusIndex === 14 && styles.editInputFocused]}
-                          multiline
-                          value={editData.description}
-                          onChangeText={(text) => setEditData({ ...editData, description: text })}
-                          onFocus={() => setEditModalFocusIndex(14)}
-                        />
-                      </ScrollView>
-                    </>
-                  )}
-
-                  {activeTab === 'path' && (
-                    <>
-                      <Text style={styles.editSectionTitle}>{t('edit.path')}</Text>
-                      <ScrollView showsVerticalScrollIndicator={false}>
-                        <Text style={styles.editLabel}>{t('edit.executableLocation')}</Text>
-                        {((editData.type || item?.type) === 'web') ? (
+                {/* RIGHT CONTENT AREA */}
+                <View style={styles.editMainContent}>
+                  <View style={{ flex: 1 }}>
+                    {activeTab === 'basic' && (
+                      <>
+                        <Text style={styles.editSectionTitle}>{t('edit.basic')}</Text>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                          <Text style={styles.editLabel}>{t('edit.gameTitle')}</Text>
                           <TextInput
-                            ref={editPathInputRef}
-                            style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
-                            placeholder="URL (https://...)"
-                            placeholderTextColor="#888"
-                            value={editData.path}
-                            onChangeText={(text) => setEditData({ ...editData, path: text })}
-                            onFocus={() => setEditModalFocusIndex(22)}
+                            ref={editTitleRef}
+                            style={[styles.editInput, editModalFocusIndex === 2 && styles.editInputFocused]}
+                            value={editData.title}
+                            onChangeText={(text) => setEditData({ ...editData, title: text })}
+                            onFocus={() => setEditModalFocusIndex(2)}
                           />
-                        ) : isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item) ? (
-                          <>
+
+                          {((editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web') && (
+                            <>
+                              <Text style={styles.editLabel}>{t('library.sortPlatform')}</Text>
+                              <View style={{ marginBottom: 25 }}>
+                                <ScrollView ref={editPlatformScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
+                                  {PLATFORMS.map((plat, idx) => {
+                                    const focusIdx = 3 + idx;
+                                    const isActive = editData.platform === plat.id;
+                                    const isFocused = editModalFocusIndex === focusIdx;
+                                    return (
+                                      <TouchableOpacity
+                                        key={plat.id}
+                                        style={[
+                                          styles.platformBtnNew,
+                                          isActive && styles.platformBtnActiveNew,
+                                          isFocused && styles.platformBtnFocusedNew
+                                        ]}
+                                        onPress={() => { setEditModalFocusIndex(focusIdx); setEditData({ ...editData, platform: plat.id }); }}
+                                        onLayout={(e) => { editPlatformOffsets.current[idx] = e.nativeEvent.layout.x; }}
+                                      >
+                                        <MaterialCommunityIcons
+                                          name={plat.icon as any}
+                                          size={20}
+                                          color={isActive ? '#000' : '#FFF'}
+                                        />
+                                        <Text style={[
+                                          styles.platformBtnTextNew,
+                                          isActive && styles.platformBtnTextActiveNew
+                                        ]}>
+                                          {plat.id}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                                </ScrollView>
+                              </View>
+                            </>
+                          )}
+
+                          <Text style={styles.editLabel}>{t('edit.description')}</Text>
+                          <TextInput
+                            ref={editDescRef}
+                            style={[styles.editInput, { height: 140, textAlignVertical: 'top' }, editModalFocusIndex === 14 && styles.editInputFocused]}
+                            multiline
+                            value={editData.description}
+                            onChangeText={(text) => setEditData({ ...editData, description: text })}
+                            onFocus={() => setEditModalFocusIndex(14)}
+                          />
+                        </ScrollView>
+                      </>
+                    )}
+
+                    {activeTab === 'path' && (
+                      <>
+                        <Text style={styles.editSectionTitle}>{t('edit.path')}</Text>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                          <Text style={styles.editLabel}>{t('edit.executableLocation')}</Text>
+                          {((editData.type || item?.type) === 'web') ? (
                             <TextInput
                               ref={editPathInputRef}
                               style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
-                              placeholder="steam://rungameid/..."
+                              placeholder="URL (https://...)"
                               placeholderTextColor="#888"
                               value={editData.path}
                               onChangeText={(text) => setEditData({ ...editData, path: text })}
                               onFocus={() => setEditModalFocusIndex(22)}
                             />
-                            <View style={styles.pathDisplayBox}>
-                              <Text style={styles.pathDisplayTextHeader}>Lanzamiento vía Steam</Text>
-                              <Text style={styles.pathDisplayText}>
-                                Este juego se ejecutará directamente desde Steam usando el protocolo steam://
-                              </Text>
-                            </View>
-                          </>
-                        ) : (
-                          <>
+                          ) : isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item) ? (
+                            <>
+                              <TextInput
+                                ref={editPathInputRef}
+                                style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
+                                placeholder="steam://rungameid/..."
+                                placeholderTextColor="#888"
+                                value={editData.path}
+                                onChangeText={(text) => setEditData({ ...editData, path: text })}
+                                onFocus={() => setEditModalFocusIndex(22)}
+                              />
+                              <View style={styles.pathDisplayBox}>
+                                <Text style={styles.pathDisplayTextHeader}>Lanzamiento vía Steam</Text>
+                                <Text style={styles.pathDisplayText}>
+                                  Este juego se ejecutará directamente desde Steam usando el protocolo steam://
+                                </Text>
+                              </View>
+                            </>
+                          ) : (
+                            <>
+                              <TouchableOpacity
+                                style={[styles.editSecondaryBtn, editModalFocusIndex === 22 && styles.editSecondaryBtnFocused]}
+                                onPress={() => { setEditModalFocusIndex(22); handleSelectPath(); }}
+                              >
+                                <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                                <Text style={styles.editSecondaryBtnText}>{t('add.selectExe')}</Text>
+                              </TouchableOpacity>
+                              <View style={styles.pathDisplayBox}>
+                                <Text style={styles.pathDisplayTextHeader}>{t('edit.currentPath')} </Text>
+                                <Text style={styles.pathDisplayText}>{editData.path || t('edit.noPath')}</Text>
+                              </View>
+                            </>
+                          )}
+                        </ScrollView>
+                      </>
+                    )}
+
+                    {activeTab === 'art' && (
+                      <>
+                        <Text style={styles.editSectionTitle}>{t('edit.art')}</Text>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                          <Text style={styles.editLabel}>{t('edit.smartSync')}</Text>
+                          <View style={styles.syncRow}>
                             <TouchableOpacity
-                              style={[styles.editSecondaryBtn, editModalFocusIndex === 22 && styles.editSecondaryBtnFocused]}
-                              onPress={() => { setEditModalFocusIndex(22); handleSelectPath(); }}
+                              style={[styles.editSyncBtnUnified, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.editSyncBtnUnifiedFocused]}
+                              onPress={() => { setEditModalFocusIndex(0); handleUnifiedSync(); }}
+                              disabled={isSyncing}
                             >
-                              <Ionicons name="folder-open-outline" size={20} color="#FFF" />
-                              <Text style={styles.editSecondaryBtnText}>{t('add.selectExe')}</Text>
+                              <Ionicons name="sync-outline" size={18} color="#000" />
+                              <Text style={styles.editSyncBtnUnifiedText}>{isSyncing ? t('edit.syncing') : t('edit.syncData')}</Text>
                             </TouchableOpacity>
-                            <View style={styles.pathDisplayBox}>
-                              <Text style={styles.pathDisplayTextHeader}>{t('edit.currentPath')} </Text>
-                              <Text style={styles.pathDisplayText}>{editData.path || t('edit.noPath')}</Text>
-                            </View>
-                          </>
-                        )}
-                      </ScrollView>
-                    </>
-                  )}
+                          </View>
 
-                  {activeTab === 'art' && (
-                    <>
-                      <Text style={styles.editSectionTitle}>{t('edit.art')}</Text>
-                      <ScrollView showsVerticalScrollIndicator={false}>
-                        <Text style={styles.editLabel}>{t('edit.smartSync')}</Text>
-                        <View style={styles.syncRow}>
-                          <TouchableOpacity
-                            style={[styles.editSyncBtnUnified, isSyncing && { opacity: 0.7 }, editModalFocusIndex === 0 && styles.editSyncBtnUnifiedFocused]}
-                            onPress={() => { setEditModalFocusIndex(0); handleUnifiedSync(); }}
-                            disabled={isSyncing}
-                          >
-                            <Ionicons name="sync-outline" size={18} color="#000" />
-                            <Text style={styles.editSyncBtnUnifiedText}>{isSyncing ? t('edit.syncing') : t('edit.syncData')}</Text>
-                          </TouchableOpacity>
-                        </View>
+                          <Text style={styles.editLabel}>{t('edit.localFiles')}</Text>
+                          <View style={styles.artGrid}>
+                            <TouchableOpacity
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 15 && styles.editArtFileBtnFocused]}
+                              onPress={() => { setEditModalFocusIndex(15); openAssetSelector('capsule'); }}
+                            >
+                              <Ionicons name="image-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
+                              <Text style={styles.artFileBtnTitle}>{t('edit.cover')}</Text>
+                              <Text style={styles.artFileBtnSub}>{t('edit.coverSub')}</Text>
+                            </TouchableOpacity>
 
-                        <Text style={styles.editLabel}>{t('edit.localFiles')}</Text>
-                        <View style={styles.artGrid}>
-                          <TouchableOpacity
-                            style={[styles.editArtFileBtn, editModalFocusIndex === 15 && styles.editArtFileBtnFocused]}
-                            onPress={() => { setEditModalFocusIndex(15); openAssetSelector('capsule'); }}
-                          >
-                            <Ionicons name="image-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
-                            <Text style={styles.artFileBtnTitle}>{t('edit.cover')}</Text>
-                            <Text style={styles.artFileBtnSub}>{t('edit.coverSub')}</Text>
-                          </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 16 && styles.editArtFileBtnFocused]}
+                              onPress={() => { setEditModalFocusIndex(16); openAssetSelector('logo'); }}
+                            >
+                              <Ionicons name="color-palette-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
+                              <Text style={styles.artFileBtnTitle}>{t('edit.logoPng')}</Text>
+                              <Text style={styles.artFileBtnSub}>{t('edit.transparent')}</Text>
+                            </TouchableOpacity>
 
-                          <TouchableOpacity
-                            style={[styles.editArtFileBtn, editModalFocusIndex === 16 && styles.editArtFileBtnFocused]}
-                            onPress={() => { setEditModalFocusIndex(16); openAssetSelector('logo'); }}
-                          >
-                            <Ionicons name="color-palette-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
-                            <Text style={styles.artFileBtnTitle}>{t('edit.logoPng')}</Text>
-                            <Text style={styles.artFileBtnSub}>{t('edit.transparent')}</Text>
-                          </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 17 && styles.editArtFileBtnFocused]}
+                              onPress={() => { setEditModalFocusIndex(17); openAssetSelector('hero'); }}
+                            >
+                              <Ionicons name="images-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
+                              <Text style={styles.artFileBtnTitle}>{t('edit.background')}</Text>
+                              <Text style={styles.artFileBtnSub}>{t('edit.horizontal')}</Text>
+                            </TouchableOpacity>
 
-                          <TouchableOpacity
-                            style={[styles.editArtFileBtn, editModalFocusIndex === 17 && styles.editArtFileBtnFocused]}
-                            onPress={() => { setEditModalFocusIndex(17); openAssetSelector('hero'); }}
-                          >
-                            <Ionicons name="images-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
-                            <Text style={styles.artFileBtnTitle}>{t('edit.background')}</Text>
-                            <Text style={styles.artFileBtnSub}>{t('edit.horizontal')}</Text>
-                          </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 18 && styles.editArtFileBtnFocused]}
+                              onPress={() => { setEditModalFocusIndex(18); handleSelectVideo(); }}
+                            >
+                              <Ionicons name="videocam-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
+                              <Text style={styles.artFileBtnTitle}>{t('edit.video')}</Text>
+                              <Text style={styles.artFileBtnSub}>Trailer/Gameplay</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </ScrollView>
+                      </>
+                    )}
+                  </View>
 
-                          <TouchableOpacity
-                            style={[styles.editArtFileBtn, editModalFocusIndex === 18 && styles.editArtFileBtnFocused]}
-                            onPress={() => { setEditModalFocusIndex(18); handleSelectVideo(); }}
-                          >
-                            <Ionicons name="videocam-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
-                            <Text style={styles.artFileBtnTitle}>{t('edit.video')}</Text>
-                            <Text style={styles.artFileBtnSub}>Trailer/Gameplay</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </ScrollView>
-                    </>
-                  )}
-                </View>
-
-                {/* MODAL ACTIONS FOOTER */}
-                <View style={styles.modalDivider} />
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.editDeleteBtn, editModalFocusIndex === 19 && styles.editDeleteBtnFocused]}
-                    onPress={() => { setEditModalFocusIndex(19); handleDeleteApp(); }}
-                  >
-                    <Ionicons name="trash-outline" size={20} color={editModalFocusIndex === 19 ? '#FFF' : '#FF3B30'} />
-                  </TouchableOpacity>
-
-                  <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 15 }}>
+                  {/* MODAL ACTIONS FOOTER */}
+                  <View style={styles.modalDivider} />
+                  <View style={styles.modalActions}>
                     <TouchableOpacity
-                      style={[styles.editSecondaryBtn, { paddingVertical: 14, paddingHorizontal: 24 }, editModalFocusIndex === 20 && styles.editSecondaryBtnFocused]}
-                      onPress={() => { setEditModalFocusIndex(20); setEditModalVisible(false); }}
+                      style={[styles.editDeleteBtn, editModalFocusIndex === 19 && styles.editDeleteBtnFocused]}
+                      onPress={() => { setEditModalFocusIndex(19); handleDeleteApp(); }}
                     >
-                      <Text style={styles.editSecondaryBtnText}>{t('common.cancel')}</Text>
+                      <Ionicons name="trash-outline" size={20} color={editModalFocusIndex === 19 ? '#FFF' : '#FF3B30'} />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.editPrimaryBtn, editModalFocusIndex === 21 && styles.editPrimaryBtnFocused]}
-                      onPress={() => { setEditModalFocusIndex(21); handleSaveEdit(); }}
-                    >
-                      <Text style={styles.editPrimaryBtnText}>{t('common.save')}</Text>
-                    </TouchableOpacity>
+
+                    <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 15 }}>
+                      <TouchableOpacity
+                        style={[styles.editSecondaryBtn, { paddingVertical: 14, paddingHorizontal: 24 }, editModalFocusIndex === 20 && styles.editSecondaryBtnFocused]}
+                        onPress={() => { setEditModalFocusIndex(20); setEditModalVisible(false); }}
+                      >
+                        <Text style={styles.editSecondaryBtnText}>{t('common.cancel')}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.editPrimaryBtn, editModalFocusIndex === 21 && styles.editPrimaryBtnFocused]}
+                        onPress={() => { setEditModalFocusIndex(21); handleSaveEdit(); }}
+                      >
+                        <Text style={styles.editPrimaryBtnText}>{t('common.save')}</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </View>
             </View>
-          </View>
 
-          {/* STEAMGRIDDB ASSET SELECTOR SCREEN OVERLAY */}
-          {isAssetSelectorVisible && (
-            <View style={styles.assetSelectorOverlay}>
-              {/* background video */}
-              <Video
-                source={require('../assets/video/waves_ajustes.mp4')}
-                style={StyleSheet.absoluteFillObject}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay
-                isLooping
-                isMuted
-              />
-              <View style={styles.editOverlayDark} />
+            {/* STEAMGRIDDB ASSET SELECTOR SCREEN OVERLAY */}
+            {isAssetSelectorVisible && (
+              <View style={styles.assetSelectorOverlay}>
+                {/* background video */}
+                <Video
+                  source={require('../assets/video/waves_ajustes.mp4')}
+                  style={StyleSheet.absoluteFillObject}
+                  resizeMode={ResizeMode.COVER}
+                  shouldPlay
+                  isLooping
+                  isMuted
+                />
+                <View style={styles.editOverlayDark} />
 
-              <View style={styles.editContentContainer}>
-                {/* Header */}
-                <View style={styles.assetHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
-                    <Text style={styles.editMainTitleLarge}>{t('edit.selectImage')}</Text>
-                  </View>
-
-                  {/* Tabs */}
-                  <View style={styles.assetHeaderTabs}>
-                    {[
-                      { id: 'capsule', label: t('edit.capsule') },
-                      { id: 'capsule_wide', label: t('edit.capsuleWide') },
-                      { id: 'hero', label: t('edit.hero') },
-                      { id: 'logo', label: 'Logo' },
-                      { id: 'icon', label: t('edit.icon') },
-                      { id: 'manage', label: t('edit.manage') },
-                    ].map((tab, idx) => {
-                      const isTabActive = assetSelectorTab === tab.id;
-                      const isTabFocused = assetSelectorFocusArea === 'tabs' && tab.id === assetSelectorTab;
-                      return (
-                        <TouchableOpacity
-                          key={tab.id}
-                          style={[
-                            styles.editTab,
-                            { paddingVertical: 10, paddingHorizontal: 15, marginBottom: 0 },
-                            isTabActive && styles.editTabActive,
-                            isTabFocused && styles.editTabFocused
-                          ]}
-                          onPress={() => {
-                            setAssetSelectorTab(tab.id as any);
-                            setAssetSelectorFocusArea('tabs');
-                            setGridFocusIndex(0);
-                          }}
-                        >
-                          <Text style={[
-                            styles.editTabText,
-                            { fontSize: 15 },
-                            isTabActive && styles.editTabTextActive
-                          ]}>
-                            {tab.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                {/* Filter and slider bar */}
-                <View style={styles.filterBar}>
-                  <View style={styles.filterActions}>
-                    <TouchableOpacity
-                      style={[
-                        styles.filterBtn,
-                        assetSelectorFocusArea === 'filters' && filterFocusIndex === 0 && styles.filterBtnFocused
-                      ]}
-                      onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(0); cycleDimensionFilter(); }}
-                    >
-                      <Ionicons name="funnel-outline" size={16} color="#FFF" />
-                      <Text style={styles.filterBtnText}>{getDimensionFilterLabel(selectedDimensionFilter)}</Text>
-                    </TouchableOpacity>
-
-                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginLeft: 10, alignSelf: 'center' }}>v1.0.2</Text>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.filterBtn,
-                        assetSelectorFocusArea === 'filters' && filterFocusIndex === 1 && styles.filterBtnFocused
-                      ]}
-                      onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(1); handleLocalUpload(); }}
-                    >
-                      <Ionicons name="cloud-upload-outline" size={16} color="#FFF" />
-                      <Text style={styles.filterBtnText}>{t('edit.uploadImage')}</Text>
-                    </TouchableOpacity>
-
-                    {(assetSelectorTab === 'logo' || assetSelectorTab === 'hero') && (
-                      <TouchableOpacity
-                        style={[
-                          styles.filterBtn,
-                          assetSelectorFocusArea === 'filters' && filterFocusIndex === 2 && styles.filterBtnFocused
-                        ]}
-                        onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(2); alert("Modo ajustar posición del logotipo activado (visual)."); }}
-                      >
-                        <Ionicons name="resize-outline" size={16} color="#FFF" />
-                        <Text style={styles.filterBtnText}>{t('edit.adjustLogoPosition')}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  <View style={styles.sliderWrapper}>
-                    <Text style={styles.sliderLabel}>{t('edit.size')}</Text>
-                    <View
-                      ref={sliderContainerRef}
-                      onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
-                      {...(Platform.OS === 'web'
-                        ? { onMouseDown: handleSliderMouseDown }
-                        : { onTouchStart: handleSliderPress })}
-                      style={[
-                        styles.sliderContainer,
-                        Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null,
-                        assetSelectorFocusArea === 'filters' && filterFocusIndex === 3 && styles.sliderFocused
-                      ]}
-                    >
-                      <View style={styles.sliderTrackBackground} pointerEvents="none">
-                        <View style={[styles.sliderTrackFill, { width: `${((sliderValue - 3) / 5) * 100}%` }]} />
-                        <View style={[styles.sliderThumb, { left: `${((sliderValue - 3) / 5) * 100}%` }]} />
-                      </View>
+                <View style={styles.editContentContainer}>
+                  {/* Header */}
+                  <View style={styles.assetHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+                      <Text style={styles.editMainTitleLarge}>{t('edit.selectImage')}</Text>
                     </View>
-                  </View>
-                </View>
 
-                {/* GRID OF ASSETS */}
-                <ScrollView
-                  ref={assetGridScrollRef}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ flexGrow: 1 }}
-                  scrollEventThrottle={16}
-                  onScroll={(e) => {
-                    assetGridScrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-                  }}
-                  onLayout={(e) => {
-                    assetGridVisibleHeightRef.current = e.nativeEvent.layout.height;
-                  }}
-                >
-                  {isLoadingAssets ? (
-                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-                      <MaterialCommunityIcons name="loading" size={40} color="#FFF" style={{ marginBottom: 12 }} />
-                      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>Buscando assets en SteamGridDB...</Text>
-                    </View>
-                  ) : assetSelectorTab === 'manage' ? (
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.editSectionTitle}>{t('edit.manageImages')}</Text>
-                      <View style={[styles.gridContainer, { gap: 20 }]}>
-                        {[
-                          { title: t('edit.uploadCover'), desc: t('edit.coverSub'), icon: 'image-outline', index: 0 },
-                          { title: t('edit.uploadLogo'), desc: t('edit.uploadLogoDesc'), icon: 'color-palette-outline', index: 1 },
-                          { title: t('edit.uploadBg'), desc: t('edit.horizontal'), icon: 'images-outline', index: 2 },
-                          { title: t('edit.resetAll'), desc: t('edit.resetAllDesc'), icon: 'trash-outline', index: 3, isDelete: true }
-                        ].map((act) => {
-                          const isFocused = assetSelectorFocusArea === 'grid' && gridFocusIndex === act.index;
-                          return (
-                            <TouchableOpacity
-                              key={act.index}
-                              style={[
-                                styles.manageCard,
-                                act.isDelete && { backgroundColor: 'rgba(255, 45, 85, 0.05)', borderColor: 'rgba(255, 45, 85, 0.2)' },
-                                isFocused && (act.isDelete ? styles.manageCardDeleteFocused : styles.manageCardFocused)
-                              ]}
-                              onPress={() => { setAssetSelectorFocusArea('grid'); setGridFocusIndex(act.index); handleManageAction(act.index); }}
-                            >
-                              <Ionicons
-                                name={act.icon as any}
-                                size={40}
-                                color={act.isDelete ? '#FF3B30' : '#FFF'}
-                                style={{ marginBottom: 12 }}
-                              />
-                              <Text style={styles.manageCardTitle}>{act.title}</Text>
-                              <Text style={styles.manageCardDesc}>{act.desc}</Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  ) : currentList.length === 0 ? (
-                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-                      <Ionicons name="images-outline" size={48} color="rgba(255,255,255,0.2)" style={{ marginBottom: 12 }} />
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16 }}>No se encontraron imágenes en esta categoría.</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.gridContainer}>
-                      {paginatedList.map((asset, idx) => {
-                        const isFocused = assetSelectorFocusArea === 'grid' && gridFocusIndex === idx;
-                        const numColsLocal = Math.round(sliderValue);
-                        const isFirstInRow = idx % numColsLocal === 0;
-                        const cardWidthPercent = `${100 / Math.round(sliderValue) - 1.5}%`;
-
-                        let cardAspectRatio = 2 / 3;
-                        if (assetSelectorTab === 'capsule' || assetSelectorTab === 'capsule_wide') {
-                          if (asset.width > 0 && asset.height > 0) {
-                            cardAspectRatio = asset.width / asset.height;
-                          } else {
-                            cardAspectRatio = assetSelectorTab === 'capsule_wide' ? 16 / 7.5 : 2 / 3;
-                          }
-                        } else if (assetSelectorTab === 'hero') {
-                          cardAspectRatio = 16 / 9;
-                        } else if (assetSelectorTab === 'logo') {
-                          cardAspectRatio = 16 / 10;
-                        } else if (assetSelectorTab === 'icon') {
-                          cardAspectRatio = 1;
-                        }
-
-                        const isSelected = isAssetCurrentlySelected(asset);
-
+                    {/* Tabs */}
+                    <View style={styles.assetHeaderTabs}>
+                      {[
+                        { id: 'capsule', label: t('edit.capsule') },
+                        { id: 'capsule_wide', label: t('edit.capsuleWide') },
+                        { id: 'hero', label: t('edit.hero') },
+                        { id: 'logo', label: 'Logo' },
+                        { id: 'icon', label: t('edit.icon') },
+                        { id: 'manage', label: t('edit.manage') },
+                      ].map((tab, idx) => {
+                        const isTabActive = assetSelectorTab === tab.id;
+                        const isTabFocused = assetSelectorFocusArea === 'tabs' && tab.id === assetSelectorTab;
                         return (
                           <TouchableOpacity
-                            key={`${asset.id}_${idx}`}
+                            key={tab.id}
                             style={[
-                              styles.assetCard,
-                              { width: cardWidthPercent },
-                              isFocused && styles.assetCardFocused,
-                              isSelected && styles.assetCardSelected,
+                              styles.editTab,
+                              { paddingVertical: 10, paddingHorizontal: 15, marginBottom: 0 },
+                              isTabActive && styles.editTabActive,
+                              isTabFocused && styles.editTabFocused
                             ]}
-                            onLayout={(e) => {
-                              cardLayoutsRef.current[idx] = {
-                                y: e.nativeEvent.layout.y,
-                                height: e.nativeEvent.layout.height,
-                              };
+                            onPress={() => {
+                              setAssetSelectorTab(tab.id as any);
+                              setAssetSelectorFocusArea('tabs');
+                              setGridFocusIndex(0);
                             }}
-                            onPress={() => { setAssetSelectorFocusArea('grid'); setGridFocusIndex(idx); applySelectedAsset(asset.url); }}
                           >
-                            <View style={[
-                              styles.assetCardImageWrapper,
-                              { aspectRatio: cardAspectRatio },
-                              assetSelectorTab === 'logo' && styles.logoBgWrapper
+                            <Text style={[
+                              styles.editTabText,
+                              { fontSize: 15 },
+                              isTabActive && styles.editTabTextActive
                             ]}>
-                              <Image
-                                source={{ uri: asset.thumb || asset.url }}
-                                style={styles.assetCardImage}
-                                contentFit={assetSelectorTab === 'logo' ? "contain" : "cover"}
-                              />
-                              {(asset.width > 0 && asset.height > 0) ? (
-                                <View style={styles.resolutionBadge}>
-                                  <Text style={styles.resolutionText}>{asset.width}x{asset.height}</Text>
-                                </View>
-                              ) : null}
-                              {isSelected ? (
-                                <View style={styles.selectedCheckBadge}>
-                                  <Ionicons name="checkmark" size={14} color="#000" />
-                                </View>
-                              ) : null}
-                            </View>
-                            <View style={styles.assetCardInfo}>
-                              {asset.author ? (
-                                <>
-                                  <Image
-                                    source={asset.author.avatar ? { uri: asset.author.avatar } : require('../assets/images/Home.png')}
-                                    style={styles.authorAvatar}
-                                    contentFit="cover"
-                                  />
-                                  <Text style={styles.authorName} numberOfLines={1}>
-                                    {asset.author.name || 'Anonymous'}
-                                  </Text>
-                                </>
-                              ) : (
-                                <Text style={styles.authorName} numberOfLines={1}>
-                                  SteamGridDB
-                                </Text>
-                              )}
-                            </View>
+                              {tab.label}
+                            </Text>
                           </TouchableOpacity>
                         );
                       })}
                     </View>
-                  )}
-                </ScrollView>
-
-                {/* Bottom navigation helper */}
-                <View style={styles.bottomBarPrompts}>
-                  <View style={styles.promptLeft}>
-                    <Ionicons name="game-controller-outline" size={20} color="#FFF" />
-                    <Text style={styles.promptLeftText}>{t('edit.menu')}</Text>
                   </View>
-                  <View style={styles.promptRight}>
-                    <View style={styles.promptItem}>
-                      <View style={styles.promptBtnBadge}>
-                        <PSIcon
-                          char={PSIcons.r1}
-                          size={22}
-                          color='#fff'
 
-                        />
-                        <Text style={styles.promptBtnText}>/</Text>
-                        <PSIcon
-                          char={PSIcons.l1}
-                          size={22}
-                          color='#fff'
-                        />
-                      </View>
-                      <Text style={styles.promptItemText}>{t('edit.tab')}</Text>
-                    </View>
-                    <View style={styles.promptItem}>
-                      <View style={styles.promptBtnBadge}>
-                        <PSIcon
-                          char={PSIcons.l2}
-                          size={22}
-                          color='#fff'
-                        />
-                        <Text style={styles.promptBtnText}>/</Text>
-                        <PSIcon
-                          char={PSIcons.r2}
-                          size={22}
-                          color='#fff'
-                        />
-                      </View>
-                      <Text style={styles.promptItemText}>{t('edit.page')}({currentPage + 1}/{totalPages || 1})</Text>
-                    </View>
-                    <View style={styles.promptItem}>
-                      <View style={styles.promptBtnBadge}>
-                        <PSIcon
-                          char={PSIcons.square}
-                          size={22}
-                          color='#fff'
+                  {/* Filter and slider bar */}
+                  <View style={styles.filterBar}>
+                    <View style={styles.filterActions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.filterBtn,
+                          assetSelectorFocusArea === 'filters' && filterFocusIndex === 0 && styles.filterBtnFocused
+                        ]}
+                        onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(0); cycleDimensionFilter(); }}
+                      >
+                        <Ionicons name="funnel-outline" size={16} color="#FFF" />
+                        <Text style={styles.filterBtnText}>{getDimensionFilterLabel(selectedDimensionFilter)}</Text>
+                      </TouchableOpacity>
 
-                        />
-                      </View>
-                      <Text style={styles.promptItemText}>{t('edit.filters')}</Text>
-                    </View>
-                    <View style={styles.promptItem}>
-                      <View style={styles.promptBtnBadge}>
-                        <PSIcon
-                          char={PSIcons.cross}
-                          size={22}
-                          color='#fff'
+                      <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginLeft: 10, alignSelf: 'center' }}>v1.0.2</Text>
 
-                        />
-                      </View>
-                      <Text style={styles.promptItemText}>{t('common.select')}</Text>
-                    </View>
-                    <View style={styles.promptItem}>
-                      <View style={styles.promptBtnBadge}>
-                        <PSIcon
-                          char={PSIcons.circle}
-                          size={22}
-                          color='#fff'
+                      <TouchableOpacity
+                        style={[
+                          styles.filterBtn,
+                          assetSelectorFocusArea === 'filters' && filterFocusIndex === 1 && styles.filterBtnFocused
+                        ]}
+                        onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(1); handleLocalUpload(); }}
+                      >
+                        <Ionicons name="cloud-upload-outline" size={16} color="#FFF" />
+                        <Text style={styles.filterBtnText}>{t('edit.uploadImage')}</Text>
+                      </TouchableOpacity>
 
-                        />
-                      </View>
-                      <Text style={styles.promptItemText}>{t('common.back')}</Text>
+                      {(assetSelectorTab === 'logo' || assetSelectorTab === 'hero') && (
+                        <TouchableOpacity
+                          style={[
+                            styles.filterBtn,
+                            assetSelectorFocusArea === 'filters' && filterFocusIndex === 2 && styles.filterBtnFocused
+                          ]}
+                          onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(2); alert("Modo ajustar posición del logotipo activado (visual)."); }}
+                        >
+                          <Ionicons name="resize-outline" size={16} color="#FFF" />
+                          <Text style={styles.filterBtnText}>{t('edit.adjustLogoPosition')}</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
 
-                    <TouchableOpacity
-                      style={styles.promptSaveItem}
-                      onPress={() => {
-                        soundService.playActivation?.();
-                        setAssetSelectorVisible(false);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.promptBtnBadge}>
-                        <PSIcon
-                          char={PSIcons.options}
-                          size={22}
-                          color='#000'
-                        />
+                    <View style={styles.sliderWrapper}>
+                      <Text style={styles.sliderLabel}>{t('edit.size')}</Text>
+                      <View
+                        ref={sliderContainerRef}
+                        onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
+                        {...(Platform.OS === 'web'
+                          ? { onMouseDown: handleSliderMouseDown }
+                          : { onTouchStart: handleSliderPress })}
+                        style={[
+                          styles.sliderContainer,
+                          Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null,
+                          assetSelectorFocusArea === 'filters' && filterFocusIndex === 3 && styles.sliderFocused
+                        ]}
+                      >
+                        <View style={styles.sliderTrackBackground} pointerEvents="none">
+                          <View style={[styles.sliderTrackFill, { width: `${((sliderValue - 3) / 5) * 100}%` }]} />
+                          <View style={[styles.sliderThumb, { left: `${((sliderValue - 3) / 5) * 100}%` }]} />
+                        </View>
                       </View>
-                      <Text style={styles.promptSaveItemText}>{t('common.save') || 'Guardar'}</Text>
-                    </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* GRID OF ASSETS */}
+                  <ScrollView
+                    ref={assetGridScrollRef}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    scrollEventThrottle={16}
+                    onScroll={(e) => {
+                      assetGridScrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+                    }}
+                    onLayout={(e) => {
+                      assetGridVisibleHeightRef.current = e.nativeEvent.layout.height;
+                    }}
+                  >
+                    {isLoadingAssets ? (
+                      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+                        <MaterialCommunityIcons name="loading" size={40} color="#FFF" style={{ marginBottom: 12 }} />
+                        <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>Buscando assets en SteamGridDB...</Text>
+                      </View>
+                    ) : assetSelectorTab === 'manage' ? (
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.editSectionTitle}>{t('edit.manageImages')}</Text>
+                        <View style={[styles.gridContainer, { gap: 20 }]}>
+                          {[
+                            { title: t('edit.uploadCover'), desc: t('edit.coverSub'), icon: 'image-outline', index: 0 },
+                            { title: t('edit.uploadLogo'), desc: t('edit.uploadLogoDesc'), icon: 'color-palette-outline', index: 1 },
+                            { title: t('edit.uploadBg'), desc: t('edit.horizontal'), icon: 'images-outline', index: 2 },
+                            { title: t('edit.resetAll'), desc: t('edit.resetAllDesc'), icon: 'trash-outline', index: 3, isDelete: true }
+                          ].map((act) => {
+                            const isFocused = assetSelectorFocusArea === 'grid' && gridFocusIndex === act.index;
+                            return (
+                              <TouchableOpacity
+                                key={act.index}
+                                style={[
+                                  styles.manageCard,
+                                  act.isDelete && { backgroundColor: 'rgba(255, 45, 85, 0.05)', borderColor: 'rgba(255, 45, 85, 0.2)' },
+                                  isFocused && (act.isDelete ? styles.manageCardDeleteFocused : styles.manageCardFocused)
+                                ]}
+                                onPress={() => { setAssetSelectorFocusArea('grid'); setGridFocusIndex(act.index); handleManageAction(act.index); }}
+                              >
+                                <Ionicons
+                                  name={act.icon as any}
+                                  size={40}
+                                  color={act.isDelete ? '#FF3B30' : '#FFF'}
+                                  style={{ marginBottom: 12 }}
+                                />
+                                <Text style={styles.manageCardTitle}>{act.title}</Text>
+                                <Text style={styles.manageCardDesc}>{act.desc}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    ) : currentList.length === 0 ? (
+                      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+                        <Ionicons name="images-outline" size={48} color="rgba(255,255,255,0.2)" style={{ marginBottom: 12 }} />
+                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16 }}>No se encontraron imágenes en esta categoría.</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.gridContainer}>
+                        {paginatedList.map((asset, idx) => {
+                          const isFocused = assetSelectorFocusArea === 'grid' && gridFocusIndex === idx;
+                          const numColsLocal = Math.round(sliderValue);
+                          const isFirstInRow = idx % numColsLocal === 0;
+                          const cardWidthPercent = `${100 / Math.round(sliderValue) - 1.5}%`;
+
+                          let cardAspectRatio = 2 / 3;
+                          if (assetSelectorTab === 'capsule' || assetSelectorTab === 'capsule_wide') {
+                            if (asset.width > 0 && asset.height > 0) {
+                              cardAspectRatio = asset.width / asset.height;
+                            } else {
+                              cardAspectRatio = assetSelectorTab === 'capsule_wide' ? 16 / 7.5 : 2 / 3;
+                            }
+                          } else if (assetSelectorTab === 'hero') {
+                            cardAspectRatio = 16 / 9;
+                          } else if (assetSelectorTab === 'logo') {
+                            cardAspectRatio = 16 / 10;
+                          } else if (assetSelectorTab === 'icon') {
+                            cardAspectRatio = 1;
+                          }
+
+                          const isSelected = isAssetCurrentlySelected(asset);
+
+                          return (
+                            <TouchableOpacity
+                              key={`${asset.id}_${idx}`}
+                              style={[
+                                styles.assetCard,
+                                { width: cardWidthPercent },
+                                isFocused && styles.assetCardFocused,
+                                isSelected && styles.assetCardSelected,
+                              ]}
+                              onLayout={(e) => {
+                                cardLayoutsRef.current[idx] = {
+                                  y: e.nativeEvent.layout.y,
+                                  height: e.nativeEvent.layout.height,
+                                };
+                              }}
+                              onPress={() => { setAssetSelectorFocusArea('grid'); setGridFocusIndex(idx); applySelectedAsset(asset.url); }}
+                            >
+                              <View style={[
+                                styles.assetCardImageWrapper,
+                                { aspectRatio: cardAspectRatio },
+                                assetSelectorTab === 'logo' && styles.logoBgWrapper
+                              ]}>
+                                <Image
+                                  source={{ uri: asset.thumb || asset.url }}
+                                  style={styles.assetCardImage}
+                                  contentFit={assetSelectorTab === 'logo' ? "contain" : "cover"}
+                                />
+                                {(asset.width > 0 && asset.height > 0) ? (
+                                  <View style={styles.resolutionBadge}>
+                                    <Text style={styles.resolutionText}>{asset.width}x{asset.height}</Text>
+                                  </View>
+                                ) : null}
+                                {isSelected ? (
+                                  <View style={styles.selectedCheckBadge}>
+                                    <Ionicons name="checkmark" size={14} color="#000" />
+                                  </View>
+                                ) : null}
+                              </View>
+                              <View style={styles.assetCardInfo}>
+                                {asset.author ? (
+                                  <>
+                                    <Image
+                                      source={asset.author.avatar ? { uri: asset.author.avatar } : require('../assets/images/Home.png')}
+                                      style={styles.authorAvatar}
+                                      contentFit="cover"
+                                    />
+                                    <Text style={styles.authorName} numberOfLines={1}>
+                                      {asset.author.name || 'Anonymous'}
+                                    </Text>
+                                  </>
+                                ) : (
+                                  <Text style={styles.authorName} numberOfLines={1}>
+                                    SteamGridDB
+                                  </Text>
+                                )}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </ScrollView>
+
+                  {/* Bottom navigation helper */}
+                  <View style={styles.bottomBarPrompts}>
+                    <View style={styles.promptLeft}>
+                      <Ionicons name="game-controller-outline" size={20} color="#FFF" />
+                      <Text style={styles.promptLeftText}>{t('edit.menu')}</Text>
+                    </View>
+                    <View style={styles.promptRight}>
+                      <View style={styles.promptItem}>
+                        <View style={styles.promptBtnBadge}>
+                          <PSIcon
+                            char={PSIcons.r1}
+                            size={22}
+                            color='#fff'
+
+                          />
+                          <Text style={styles.promptBtnText}>/</Text>
+                          <PSIcon
+                            char={PSIcons.l1}
+                            size={22}
+                            color='#fff'
+                          />
+                        </View>
+                        <Text style={styles.promptItemText}>{t('edit.tab')}</Text>
+                      </View>
+                      <View style={styles.promptItem}>
+                        <View style={styles.promptBtnBadge}>
+                          <PSIcon
+                            char={PSIcons.l2}
+                            size={22}
+                            color='#fff'
+                          />
+                          <Text style={styles.promptBtnText}>/</Text>
+                          <PSIcon
+                            char={PSIcons.r2}
+                            size={22}
+                            color='#fff'
+                          />
+                        </View>
+                        <Text style={styles.promptItemText}>{t('edit.page')}({currentPage + 1}/{totalPages || 1})</Text>
+                      </View>
+                      <View style={styles.promptItem}>
+                        <View style={styles.promptBtnBadge}>
+                          <PSIcon
+                            char={PSIcons.square}
+                            size={22}
+                            color='#fff'
+
+                          />
+                        </View>
+                        <Text style={styles.promptItemText}>{t('edit.filters')}</Text>
+                      </View>
+                      <View style={styles.promptItem}>
+                        <View style={styles.promptBtnBadge}>
+                          <PSIcon
+                            char={PSIcons.cross}
+                            size={22}
+                            color='#fff'
+
+                          />
+                        </View>
+                        <Text style={styles.promptItemText}>{t('common.select')}</Text>
+                      </View>
+                      <View style={styles.promptItem}>
+                        <View style={styles.promptBtnBadge}>
+                          <PSIcon
+                            char={PSIcons.circle}
+                            size={22}
+                            color='#fff'
+
+                          />
+                        </View>
+                        <Text style={styles.promptItemText}>{t('common.back')}</Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.promptSaveItem}
+                        onPress={() => {
+                          soundService.playActivation?.();
+                          setAssetSelectorVisible(false);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.promptBtnBadge}>
+                          <PSIcon
+                            char={PSIcons.options}
+                            size={22}
+                            color='#000'
+                          />
+                        </View>
+                        <Text style={styles.promptSaveItemText}>{t('common.save') || 'Guardar'}</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </View>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
+        </Modal>
       </Modal>
-    </Modal>
+
+      <DeleteConfirmView
+        visible={isDeleteConfirmVisible}
+        item={{ title: editData.title || item.title, image: resolveEditSource(editData.image) ?? item.image }}
+        onCancel={() => setDeleteConfirmVisible(false)}
+        onConfirm={handleConfirmDeleteApp}
+      />
+    </>
   );
 };
 
