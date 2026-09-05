@@ -73,7 +73,10 @@ export default function DownloadsExpandedCard({
   const { t } = useTranslation();
   const { downloads, completedDownloads, dismissCompletion } = useSteamDownloads(2000);
 
-  const [selectedDownload, setSelectedDownload] = useState<SteamDownloadItem | null>(null);
+  const [selectedDownloadId, setSelectedDownloadId] = useState<string | null>(null);
+  const selectedDownload = selectedDownloadId
+    ? downloads.find(d => d.appId === selectedDownloadId) ?? null
+    : null;
   const [focusedRow, setFocusedRow] = useState(0);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -98,7 +101,7 @@ export default function DownloadsExpandedCard({
       cardTranslateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic) });
       cardScale.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
       setFocusedRow(0);
-      setSelectedDownload(null);
+      setSelectedDownloadId(null);
     } else {
       backdropOpacity.value = withTiming(0, { duration: 180, easing: Easing.in(Easing.cubic) });
       cardOpacity.value = withTiming(0, { duration: 160, easing: Easing.in(Easing.cubic) });
@@ -129,18 +132,18 @@ export default function DownloadsExpandedCard({
   }, [focusedRow, isOpen, selectedDownload]);
 
   const activateFocusedRow = () => {
-    if (selectedDownload) return;
+    if (selectedDownloadId) return;
     if (focusedRow < downloads.length) {
       const item = downloads[focusedRow];
       if (item) {
-        setSelectedDownload(item);
+        setSelectedDownloadId(item.appId);
         soundService.playActivation?.();
       }
     }
   };
 
   const handleBackFromDetail = () => {
-    setSelectedDownload(null);
+    setSelectedDownloadId(null);
     soundService.playBack?.();
   };
 
@@ -306,7 +309,7 @@ export default function DownloadsExpandedCard({
                     activeOpacity={0.85}
                     onPress={() => {
                       setFocusedRow(idx);
-                      setSelectedDownload(item);
+                      setSelectedDownloadId(item.appId);   // antes: setSelectedDownload(item)
                       soundService.playActivation?.();
                     }}
                     style={[styles.downloadCard, isFocused && styles.downloadCardFocused]}
