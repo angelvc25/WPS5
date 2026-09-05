@@ -133,63 +133,65 @@ export const GameInfoPanel = ({
           {/* Action Buttons */}
           {canPlay && (
             <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={styles.actionButtons}>
-              {activeDownload ? (
-                <View
-                  style={[
-                    styles.downloadContainer,
-                    { width: s(320), height: s(65), borderRadius: s(28), paddingHorizontal: s(24) },
-                  ]}
-                >
-                  <View style={styles.downloadHeaderRow}>
-                    <Text style={[styles.downloadLabel, { fontSize: s(15) }]}>
-                      {t('action.downloading')}
-                    </Text>
-                    <Text style={[styles.downloadPercent, { fontSize: s(15) }]}>
-                      {Math.round(activeDownload.percent)}%
-                    </Text>
+              {/* PLAY + ... */}
+              <View style={styles.mainActions}>
+                {activeDownload ? (
+                  <View
+                    style={[
+                      styles.downloadContainer,
+                      { width: s(320), height: s(65), borderRadius: s(28), paddingHorizontal: s(24) },
+                    ]}
+                  >
+                    <View style={styles.downloadHeaderRow}>
+                      <Text style={[styles.downloadLabel, { fontSize: s(15) }]}>
+                        {t('action.downloading')}
+                      </Text>
+                      <Text style={[styles.downloadPercent, { fontSize: s(15) }]}>
+                        {Math.round(activeDownload.percent)}%
+                      </Text>
+                    </View>
+                    <View style={styles.downloadTrack}>
+                      <View
+                        style={[
+                          styles.downloadFill,
+                          { width: `${Math.max(2, Math.round(activeDownload.percent))}%` },
+                        ]}
+                      />
+                    </View>
                   </View>
-                  <View style={styles.downloadTrack}>
-                    <View
-                      style={[
-                        styles.downloadFill,
-                        { width: `${Math.max(2, Math.round(activeDownload.percent))}%` },
-                      ]}
-                    />
-                  </View>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  id="play-btn"
-                  style={[
-                    styles.playBtn,
-                    {
-                      width: s(320),
-                      height: s(65),
-                      paddingHorizontal: s(52),
-                      paddingVertical: s(14),
-                      borderRadius: s(28),
-                    },
-                    focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnFocused
-                  ]}
-                  activeOpacity={0.85}
-                  onPress={() => {
-                    if (activeItem) { handleLaunchApp(activeItem); }
-                  }}
-                >
-                  <Text style={[
-                    styles.playBtnText,
-                    { fontSize: s(25) },
-                    focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
-                  ]}>
-                    {buttonLabel}
-                  </Text>
+                ) : (
+                  <TouchableOpacity
+                    id="play-btn"
+                    style={[
+                      styles.playBtn,
+                      {
+                        width: s(320),
+                        height: s(65),
+                        paddingHorizontal: s(52),
+                        paddingVertical: s(14),
+                        borderRadius: s(28),
+                      },
+                      focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnFocused
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      if (activeItem) { handleLaunchApp(activeItem); }
+                    }}
+                  >
+                    <Text style={[
+                      styles.playBtnText,
+                      { fontSize: s(25) },
+                      focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
+                    ]}>
+                      {buttonLabel}
+                    </Text>
 
-                  {Platform.OS === 'web' &&
-                    focusArea === 'game_panel' &&
-                    gamePanelFocusIndex === 0 && (
-                      <>
-                        <style>
-                          {`
+                    {Platform.OS === 'web' &&
+                      focusArea === 'game_panel' &&
+                      gamePanelFocusIndex === 0 && (
+                        <>
+                          <style>
+                            {`
                           /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -273,71 +275,74 @@ export const GameInfoPanel = ({
                             animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                           }
                       `}
-                        </style>
+                          </style>
 
-                        <div className="wc-spinning-container2">
-                          {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
-                          <div className="wc-spinning-inner" />
-                        </div>
-                      </>
+                          <div className="wc-spinning-container2">
+                            {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
+                            <div className="wc-spinning-inner" />
+                          </div>
+                        </>
+                      )}
+
+                    {/* SHIMMER */}
+                    {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 0 && (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 1,
+                          right: 1,
+                          bottom: 0,
+                          borderRadius: 30,
+                          zIndex: 5,
+                          overflow: 'hidden',
+                        } as any}
+                        pointerEvents="none"
+                      >
+                        {/* @ts-ignore */}
+                        <div className="wc-shimmer-line2" />
+                      </View>
                     )}
-
-                  {/* SHIMMER */}
-                  {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 0 && (
-                    <View
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 1,
-                        right: 1,
-                        bottom: 0,
-                        borderRadius: 30,
-                        zIndex: 5,
-                        overflow: 'hidden',
-                      } as any}
-                      pointerEvents="none"
-                    >
-                      {/* @ts-ignore */}
-                      <div className="wc-shimmer-line2" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                id="more-btn"
-                style={[
-                  styles.moreBtn,
-                  {
-                    width: s(62),
-                    height: s(62),
-                    borderRadius: s(31),
-                  },
-                  focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnFocused
-                ]}
-                activeOpacity={0.8}
-                onPress={() => {
-                  if (activeItem) {
-                    const target = activeItem.isLastPlayed ? lastPlayedGame : activeItem;
-                    if (target) {
-                      setSelectedItem(target);
-                      setDetailVisible(true);
-                    } else {
-                      alert(t('game.noPlayedGame'));
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  id="more-btn"
+                  style={[
+                    styles.moreBtn,
+                    {
+                      width: s(62),
+                      height: s(62),
+                      borderRadius: s(31),
+                    },
+                    focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnFocused
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (activeItem) {
+                      const target = activeItem.isLastPlayed ? lastPlayedGame : activeItem;
+                      if (target) {
+                        setSelectedItem(target);
+                        setDetailVisible(true);
+                      } else {
+                        alert(t('game.noPlayedGame'));
+                      }
                     }
-                  }
-                }}
-              >
-                <Text style={[
-                  styles.moreBtnText,
-                  { fontSize: s(22) },
-                  focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnTextFocused
-                ]}>···</Text>
-              </TouchableOpacity>
-              <View style={[styles.playtimeContainer, { minHeight: s(62), minWidth: s(100) }]}>
-                <MaterialCommunityIcons name="clock-outline" size={s(22)} color="rgba(255,255,255,0.72)" />
-                <Text style={[styles.playtimeText, { fontSize: s(16) }]} numberOfLines={1}>
-                  {formatPlaytime(Number(playtimeItem?.playtimeMinutes ?? playtimeItem?.playtime_forever ?? 0), t as any)}
-                </Text>
+                  }}
+                >
+                  <Text style={[
+                    styles.moreBtnText,
+                    { fontSize: s(22) },
+                    focusArea === 'game_panel' && gamePanelFocusIndex === 1 && styles.moreBtnTextFocused
+                  ]}>···</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.playtimeWrapper}>
+                <View style={[styles.playtimeContainer, { minHeight: s(62), minWidth: s(100) }]}>
+                  <MaterialCommunityIcons name="clock" size={s(22)} color="rgba(255, 255, 255, 0.97)" />
+                  <Text style={[styles.playtimeText, { fontSize: s(16) }]} numberOfLines={1}>
+                    {formatPlaytime(Number(playtimeItem?.playtimeMinutes ?? playtimeItem?.playtime_forever ?? 0), t as any)}
+                  </Text>
+                </View>
               </View>
             </Animated.View>
           )}
@@ -1214,7 +1219,18 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  mainActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 14,
+  },
+
+  playtimeWrapper: {
+    alignItems: 'flex-start',
+    marginRight: 100,
   },
   playBtn: {
     backgroundColor: '#9999991c',
@@ -1276,13 +1292,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: 'rgba(1, 1, 2, 0.4)',
-    //borderWidth: 1,
-    //borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 18,
+    backgroundColor: 'rgba(1, 1, 2, 0.84)',
   },
   playtimeText: {
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(255, 255, 255, 0.97)',
     fontFamily: 'SSTLight',
     fontWeight: '600',
   },
