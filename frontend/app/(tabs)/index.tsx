@@ -682,7 +682,7 @@ export default function ConsoleHome() {
         }
         return freshIds;
       });
-    }, 15000); // cada 15s
+    }, 5000); // cada 15s
 
     return () => clearInterval(interval);
   }, [steamGames, games]);

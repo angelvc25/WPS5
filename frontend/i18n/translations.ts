@@ -469,6 +469,8 @@ const es = {
   'downloads.completed': 'Instalado',
   'downloads.downloading': 'Descargando',
   'downloads.installing': 'Instalando',
+  'downloads.validating': 'Validando...',
+  'downloads.paused': 'Pausado',
 
   'edit.searchingAssetsShort': 'Buscando recursos...',
 
@@ -949,6 +951,8 @@ const en: Record<TranslationKey, string> = {
   'downloads.completed': 'Installed',
   'downloads.downloading': 'Downloading',
   'downloads.installing': 'Installing',
+  'downloads.validating': 'Validating...',
+  'downloads.paused': 'Paused',
 
   'addModal.addedSingle': 'Added {count} application to your library',
   'addModal.addedMultiple': 'Added {count} applications to your library',
@@ -1425,6 +1429,8 @@ const pt: Record<TranslationKey, string> = {
   'downloads.completed': 'Instalado',
   'downloads.downloading': 'Transferindo',
   'downloads.installing': 'Instalando',
+  'downloads.validating': 'Validando...',
+  'downloads.paused': 'Pausado',
 
   'edit.searchingAssetsShort': 'Procurando assets...',
 

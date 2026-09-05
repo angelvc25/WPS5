@@ -920,7 +920,21 @@ function getSteamLibraryFolders(steamPath) {
     }
   }
 
-  return [...new Set(folders)];
+  // Deduplicar por ruta normalizada (case-insensitive en Windows), porque
+  // libraryfolders.vdf casi siempre repite la carpeta principal como
+  // entrada "0" y el Set() por string no la detecta si difiere el casing.
+  const seen = new Set();
+  const unique = [];
+  for (const folder of folders) {
+    const key = process.platform === 'win32'
+      ? path.normalize(folder).toLowerCase()
+      : path.normalize(folder);
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(folder);
+    }
+  }
+  return unique;
 }
 
 function getInstalledSteamAppIds() {
@@ -930,13 +944,54 @@ function getInstalledSteamAppIds() {
   const appIds = new Set();
   const libraryFolders = getSteamLibraryFolders(steamPath);
 
+  // Bits reales de StateFlags (EAppState de SteamKit)
+  const STATE_FULLY_INSTALLED = 0x4;
+  const STATE_UPDATE_RUNNING = 0x100;
+  const STATE_UPDATE_STARTED = 0x400;
+  const STATE_VALIDATING = 0x20000;
+  const STATE_PREALLOCATING = 0x80000;
+  const STATE_DOWNLOADING = 0x100000;
+  const STATE_STAGING = 0x200000;
+  const STATE_COMMITTING = 0x400000;
+  const STILL_WORKING_MASK =
+    STATE_UPDATE_RUNNING | STATE_UPDATE_STARTED | STATE_VALIDATING |
+    STATE_PREALLOCATING | STATE_DOWNLOADING | STATE_STAGING | STATE_COMMITTING;
+
   for (const steamappsDir of libraryFolders) {
     if (!fs.existsSync(steamappsDir)) continue;
 
     try {
       for (const file of fs.readdirSync(steamappsDir)) {
         const match = file.match(/^appmanifest_(\d+)\.acf$/i);
-        if (match) appIds.add(match[1]);
+        if (!match) continue;
+
+        const appId = match[1];
+        const manifestPath = path.join(steamappsDir, file);
+
+        try {
+          const content = fs.readFileSync(manifestPath, 'utf8');
+          const get = (key) => {
+            const m = content.match(new RegExp('"' + key + '"\\s+"([^"]*)"'));
+            return m ? m[1] : '';
+          };
+
+          const stateFlags = parseInt(get('StateFlags') || '0', 10) || 0;
+          const bytesToDownload = parseInt(get('BytesToDownload') || '0', 10) || 0;
+          const bytesDownloaded = parseInt(get('BytesDownloaded') || '0', 10) || 0;
+          const downloadingFolder = path.join(steamappsDir, 'downloading', appId);
+
+          const isFullyInstalled = (stateFlags & STATE_FULLY_INSTALLED) !== 0;
+          const isStillWorking = (stateFlags & STILL_WORKING_MASK) !== 0;
+          const hasPendingBytes = bytesToDownload > 0 && bytesDownloaded < bytesToDownload;
+          const hasDownloadingFolder = fs.existsSync(downloadingFolder);
+
+          // Solo lo contamos como "instalado" si Steam lo marca como
+          // completamente instalado Y no hay ningún indicio de que
+          // todavía se esté descargando/procesando.
+          if (isFullyInstalled && !isStillWorking && !hasPendingBytes && !hasDownloadingFolder) {
+            appIds.add(appId);
+          }
+        } catch { /* ignorar manifiesto corrupto/ilegible */ }
       }
     } catch (e) {
       console.error('Error scanning Steam library folder:', steamappsDir, e);
@@ -946,10 +1001,222 @@ function getInstalledSteamAppIds() {
   return Array.from(appIds);
 }
 
+// ── Steam download progress tracking (real-time via content_log.txt + fs.watch) ──
+const downloadInfoCache = new Map();
+const downloadWatchers = [];
+const watchedDirs = new Set();
+
+function parseContentLogForDownloads() {
+  const steamPath = getSteamInstallPath();
+  if (!steamPath) return;
+
+  const libraryFolders = getSteamLibraryFolders(steamPath);
+  for (const steamappsDir of libraryFolders) {
+    const logPath = path.join(steamappsDir, '..', 'logs', 'content_log.txt');
+    if (!fs.existsSync(logPath)) continue;
+
+    try {
+      const stat = fs.statSync(logPath);
+      const readSize = Math.min(stat.size, 512 * 1024);
+      const fd = fs.openSync(logPath, 'r');
+      const buffer = Buffer.alloc(readSize);
+      fs.readSync(fd, buffer, 0, readSize, stat.size - readSize);
+      fs.closeSync(fd);
+
+      const content = buffer.toString('utf8');
+      const lines = content.split('\n');
+
+      let lastSpeed = 0;
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const speedMatch = lines[i].match(/Current download rate:\s*([\d.]+)\s*Mbps/);
+        if (speedMatch) {
+          lastSpeed = parseFloat(speedMatch[1]);
+          break;
+        }
+      }
+
+      const appUpdates = new Map();
+      for (const line of lines) {
+        const match = line.match(/AppID\s+(\d+)\s+update started\s*:\s*download\s+(\d+)\/(\d+)/);
+        if (match) {
+          const appId = match[1];
+          const downloaded = parseInt(match[2], 10);
+          const total = parseInt(match[3], 10);
+          const tsMatch = line.match(/^\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]/);
+          let timestamp = Date.now();
+          if (tsMatch) timestamp = new Date(tsMatch[1]).getTime();
+          appUpdates.set(appId, { downloaded, total, timestamp });
+        }
+      }
+
+      const now = Date.now();
+      for (const [appId, info] of appUpdates) {
+        const existing = downloadInfoCache.get(appId);
+        if (!existing || info.timestamp >= existing.updated) {
+          const elapsedSec = (now - info.timestamp) / 1000;
+          const speedBytesPerSec = (lastSpeed * 1000000) / 8;
+          const estimatedAdditional = speedBytesPerSec * elapsedSec;
+          const estimatedDownloaded = Math.min(info.total, info.downloaded + estimatedAdditional);
+          downloadInfoCache.set(appId, { downloaded: estimatedDownloaded, total: info.total, speed: lastSpeed, updated: now });
+        } else {
+          const elapsedSec = (now - existing.updated) / 1000;
+          const speedBytesPerSec = (lastSpeed * 1000000) / 8;
+          existing.downloaded = Math.min(existing.total, existing.downloaded + speedBytesPerSec * elapsedSec);
+          existing.speed = lastSpeed;
+          existing.updated = now;
+        }
+      }
+
+      for (const [appId, info] of downloadInfoCache) {
+        if (!appUpdates.has(appId) && info.speed > 0 && info.downloaded < info.total) {
+          const elapsedSec = (now - info.updated) / 1000;
+          const speedBytesPerSec = (info.speed * 1000000) / 8;
+          info.downloaded = Math.min(info.total, info.downloaded + speedBytesPerSec * elapsedSec);
+          info.updated = now;
+        }
+      }
+    } catch { /* ignore */ }
+  }
+}
+
+function setupDownloadWatchers() {
+  const steamPath = getSteamInstallPath();
+  if (!steamPath) return;
+
+  const libraryFolders = getSteamLibraryFolders(steamPath);
+  for (const steamappsDir of libraryFolders) {
+    if (watchedDirs.has(steamappsDir) || !fs.existsSync(steamappsDir)) continue;
+    watchedDirs.add(steamappsDir);
+
+    try {
+      const watcher = fs.watch(steamappsDir, { persistent: false }, (_eventType, filename) => {
+        if (filename && filename.startsWith('appmanifest_') && filename.endsWith('.acf')) {
+          parseContentLogForDownloads();
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('steam-download-updated');
+          }
+        }
+      });
+      downloadWatchers.push(watcher);
+    } catch { /* ignore */ }
+  }
+}
+
+function broadcastDownloadProgress() {
+  parseContentLogForDownloads();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('steam-download-updated');
+  }
+}
+
+function getSteamDownloadProgress() {
+  const steamPath = getSteamInstallPath();
+  if (!steamPath) return [];
+
+  const downloads = [];
+  const seenAppIds = new Set(); // defensa extra por si algo se cuela duplicado
+  const libraryFolders = getSteamLibraryFolders(steamPath);
+
+  parseContentLogForDownloads();
+
+  // Bits reales de StateFlags (EAppState de SteamKit)
+  const STATE_UPDATE_RUNNING = 0x100;
+  const STATE_UPDATE_PAUSED = 0x200;
+  const STATE_UPDATE_STARTED = 0x400;
+  const STATE_VALIDATING = 0x20000;
+  const STATE_PREALLOCATING = 0x80000;
+  const STATE_DOWNLOADING = 0x100000;
+  const STATE_STAGING = 0x200000;
+  const STATE_COMMITTING = 0x400000;
+
+  for (const steamappsDir of libraryFolders) {
+    if (!fs.existsSync(steamappsDir)) continue;
+
+    try {
+      const files = fs.readdirSync(steamappsDir);
+      for (const file of files) {
+        const match = file.match(/^appmanifest_(\d+)\.acf$/);
+        if (!match) continue;
+
+        const appId = match[1];
+        if (seenAppIds.has(appId)) continue; // ya lo procesamos desde otra carpeta duplicada
+
+        const manifestPath = path.join(steamappsDir, file);
+
+        try {
+          const content = fs.readFileSync(manifestPath, 'utf8');
+          const get = (key) => {
+            const m = content.match(new RegExp('"' + key + '"\\s+"([^"]*)"'));
+            return m ? m[1] : '';
+          };
+
+          const name = get('name');
+          const bytesToDownload = parseInt(get('BytesToDownload') || '0', 10) || 0;
+          const bytesDownloaded = parseInt(get('BytesDownloaded') || '0', 10) || 0;
+          const bytesToStage = parseInt(get('BytesToStage') || '0', 10) || 0;
+          const bytesStaged = parseInt(get('BytesStaged') || '0', 10) || 0;
+          const stateFlags = parseInt(get('StateFlags') || '0', 10) || 0;
+
+          const downloading = (stateFlags & (STATE_DOWNLOADING | STATE_PREALLOCATING | STATE_UPDATE_RUNNING | STATE_UPDATE_STARTED)) !== 0;
+          const validating = (stateFlags & STATE_VALIDATING) !== 0;
+          const paused = (stateFlags & STATE_UPDATE_PAUSED) !== 0;
+          const isStaging = (stateFlags & (STATE_STAGING | STATE_COMMITTING)) !== 0;
+
+          const downloadingFolder = path.join(steamappsDir, 'downloading', appId);
+          const hasDownloadingFolder = fs.existsSync(downloadingFolder);
+
+          const realTimeInfo = downloadInfoCache.get(appId);
+
+          let total, downloaded;
+          if (realTimeInfo && realTimeInfo.total > 0) {
+            total = realTimeInfo.total;
+            downloaded = realTimeInfo.downloaded;
+          } else if (isStaging && bytesToStage > 0) {
+            total = bytesToStage;
+            downloaded = bytesStaged;
+          } else if (bytesToDownload > 0) {
+            total = bytesToDownload;
+            downloaded = bytesDownloaded;
+          } else {
+            total = 0;
+            downloaded = 0;
+          }
+
+          const percent = total > 0 ? Math.min(100, (downloaded / total) * 100) : 0;
+          const downloadSpeed = realTimeInfo?.speed || 0;
+
+          // "Activo" = realmente descargando/procesando AHORA, no solo con
+          // una actualización pendiente (eso es lo que hace que un juego
+          // "Programado" se marque como activo para siempre).
+          const isActive = downloading || validating || paused || isStaging || hasDownloadingFolder;
+
+          if (isActive) {
+            seenAppIds.add(appId);
+            downloads.push({
+              appId, name, bytesToDownload, bytesDownloaded, bytesToStage, bytesStaged,
+              stateFlags, downloading: downloading || hasDownloadingFolder, validating, paused, percent, downloadSpeed
+            });
+          }
+        } catch { /* ignore malformed manifest */ }
+      }
+    } catch { /* ignore unreadable directory */ }
+  }
+
+  return downloads;
+}
+
+let downloadParseInterval = null;
+
 app.whenReady().then(() => {
   initDB();
   startStoreBackend();
   startMediaSessionsBridge();
+  setupDownloadWatchers();
+
+  // Backup timer: re-parse content_log.txt every 2 seconds for smooth progress
+  downloadParseInterval = setInterval(() => {
+    broadcastDownloadProgress();
+  }, 2000);
 
   // Registrar protocolo personalizado para cargar imágenes locales y videos de forma segura
   // Usamos protocol.handle para mejor soporte en versiones recientes de Electron
@@ -1760,6 +2027,17 @@ app.whenReady().then(() => {
     }
   });
 
+  // IPC: Obtener progreso de descargas de Steam en tiempo real
+  ipcMain.handle('get-steam-download-progress', async () => {
+    try {
+      const downloads = getSteamDownloadProgress();
+      return downloads;
+    } catch (error) {
+      console.error('Error getting Steam download progress:', error);
+      return [];
+    }
+  });
+
   // IPC: Obtener juegos instalados localmente de Epic Games
   ipcMain.handle('get-epic-installed-games', async () => {
     try {
@@ -1831,7 +2109,7 @@ app.whenReady().then(() => {
                   targetPath = shortcut.target;
                 }
               }
-            } catch (_) {}
+            } catch (_) { }
 
             const normPath = targetPath.toLowerCase();
             const normName = appName.toLowerCase();
@@ -1879,7 +2157,7 @@ app.whenReady().then(() => {
           });
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     programs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
@@ -1892,7 +2170,7 @@ app.whenReady().then(() => {
           if (iconNative && !iconNative.isEmpty()) {
             iconBase64 = iconNative.toDataURL();
           }
-        } catch (_) {}
+        } catch (_) { }
         return {
           ...p,
           icon: iconBase64,
@@ -1989,4 +2267,12 @@ app.on('window-all-closed', function () {
 app.on('before-quit', () => {
   stopStoreBackend();
   stopMediaSessionsBridge();
+  if (downloadParseInterval) {
+    clearInterval(downloadParseInterval);
+    downloadParseInterval = null;
+  }
+  for (const watcher of downloadWatchers) {
+    try { watcher.close(); } catch { /* ignore */ }
+  }
+  downloadWatchers.length = 0;
 });

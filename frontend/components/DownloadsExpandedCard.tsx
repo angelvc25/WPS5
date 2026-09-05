@@ -23,87 +23,12 @@ import Animated, {
 import { useTranslation } from '@/contexts/LanguageContext';
 import { soundService } from '@/services/soundService';
 import { SpinningBorderSearch } from './SpinningBorderSearch';
-
-export interface DownloadItem {
-  id: string;
-  appName: string;
-  appIcon?: any;
-  appCoverImage?: any;
-  platform?: string;
-  progress: number;
-  totalSize: number;
-  downloadedSize: number;
-  timeRemaining: string;
-  status: 'downloading' | 'installing' | 'completed';
-  startTime: number;
-}
+import { useSteamDownloads, SteamDownloadItem } from '@/hooks/useSteamDownloads';
 
 interface DownloadsExpandedCardProps {
   isOpen: boolean;
   onClose: () => void;
-  downloads?: DownloadItem[];
 }
-
-const MOCK_DOWNLOADS: DownloadItem[] = [
-  {
-    id: 'dl-1',
-    appName: 'Wobbly Life',
-    platform: 'PS5',
-    progress: 14.8,
-    totalSize: 2132000000,
-    downloadedSize: 317200000,
-    timeRemaining: '3m',
-    status: 'downloading',
-    startTime: Date.now() - 120000,
-  },
-];
-
-const MOCK_COMPLETED: DownloadItem[] = [
-  {
-    id: 'dl-c1',
-    appName: 'Software del sistema',
-    platform: 'PS5',
-    progress: 100,
-    totalSize: 0,
-    downloadedSize: 0,
-    timeRemaining: '',
-    status: 'completed',
-    startTime: Date.now() - 86400000,
-  },
-  {
-    id: 'dl-c2',
-    appName: 'FINAL FANTASY XVI',
-    platform: 'PS5',
-    progress: 100,
-    totalSize: 0,
-    downloadedSize: 0,
-    timeRemaining: '',
-    status: 'completed',
-    startTime: Date.now() - 172800000,
-  },
-  {
-    id: 'dl-c3',
-    appName: "ASTRO's PLAYROOM",
-    platform: 'PS5',
-    progress: 100,
-    totalSize: 0,
-    downloadedSize: 0,
-    timeRemaining: '',
-    status: 'completed',
-    startTime: Date.now() - 259200000,
-  },
-  {
-    id: 'dl-c4',
-    appName: 'Apple TV',
-    platform: 'PS5',
-    progress: 100,
-    totalSize: 0,
-    downloadedSize: 0,
-    timeRemaining: '',
-    status: 'completed',
-    startTime: Date.now() - 345600000,
-  },
-];
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -113,17 +38,42 @@ function formatBytes(bytes: number): string {
   return `${mb.toFixed(1)} MB`;
 }
 
+function formatTimeRemaining(bytesRemaining: number, speedMbps: number): string {
+  if (speedMbps <= 0 || bytesRemaining <= 0) return '...';
+  const speedBytesPerSec = (speedMbps * 1000000) / 8;
+  const seconds = Math.ceil(bytesRemaining / speedBytesPerSec);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${minutes}m ${secs}s`;
+}
+
+function formatSpeed(speedMbps: number): string {
+  if (speedMbps <= 0) return '';
+  if (speedMbps >= 1) return `${speedMbps.toFixed(1)} Mbps`;
+  const kbps = speedMbps * 1000;
+  return `${Math.round(kbps)} Kbps`;
+}
+
+function getTimeSince(timestamp: number): string {
+  const diffMin = Math.floor((Date.now() - timestamp) / 60000);
+  if (diffMin < 1) return 'Ahora';
+  if (diffMin < 60) return `${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH} h`;
+  const diffD = Math.floor(diffH / 24);
+  return `${diffD} día${diffD > 1 ? 's' : ''}`;
+}
+
 export default function DownloadsExpandedCard({
   isOpen,
   onClose,
-  downloads: downloadsProp,
 }: DownloadsExpandedCardProps) {
   const { width: winW, height: winH } = useWindowDimensions();
   const { t } = useTranslation();
+  const { downloads, completedDownloads, dismissCompletion } = useSteamDownloads(2000);
 
-  const [downloads] = useState<DownloadItem[]>(downloadsProp ?? MOCK_DOWNLOADS);
-  const [completed] = useState<DownloadItem[]>(MOCK_COMPLETED);
-  const [selectedDownload, setSelectedDownload] = useState<DownloadItem | null>(null);
+  const [selectedDownload, setSelectedDownload] = useState<SteamDownloadItem | null>(null);
   const [focusedRow, setFocusedRow] = useState(0);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -165,11 +115,7 @@ export default function DownloadsExpandedCard({
     transform: [{ translateY: cardTranslateY.value }, { scale: cardScale.value }],
   }));
 
-  const allItems = useMemo(() => {
-    return [...downloads, ...completed];
-  }, [downloads, completed]);
-
-  const totalRows = selectedDownload ? 1 : allItems.length;
+  const totalRows = selectedDownload ? 1 : downloads.length + completedDownloads.length;
 
   useEffect(() => {
     if (focusedRow > totalRows - 1) setFocusedRow(Math.max(0, totalRows - 1));
@@ -184,10 +130,12 @@ export default function DownloadsExpandedCard({
 
   const activateFocusedRow = () => {
     if (selectedDownload) return;
-    const item = allItems[focusedRow];
-    if (item && item.status !== 'completed') {
-      setSelectedDownload(item);
-      soundService.playActivation?.();
+    if (focusedRow < downloads.length) {
+      const item = downloads[focusedRow];
+      if (item) {
+        setSelectedDownload(item);
+        soundService.playActivation?.();
+      }
     }
   };
 
@@ -230,11 +178,14 @@ export default function DownloadsExpandedCard({
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, totalRows, focusedRow, allItems, selectedDownload]);
+  }, [isOpen, totalRows, focusedRow, downloads, selectedDownload]);
 
   if (!shouldRender) return null;
 
   if (selectedDownload) {
+    const bytesRemaining = selectedDownload.bytesToDownload - selectedDownload.bytesDownloaded;
+    const timeRemaining = formatTimeRemaining(bytesRemaining, selectedDownload.downloadSpeed);
+
     return (
       <View style={[StyleSheet.absoluteFill, { zIndex: 50 }]} pointerEvents={isOpen ? 'auto' : 'none'}>
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.55)' }, backdropStyle]} />
@@ -253,40 +204,33 @@ export default function DownloadsExpandedCard({
             ]}
           >
             <View style={styles.detailHeader}>
-              {selectedDownload.platform && (
-                <View style={styles.platformBadge}>
-                  <Text style={styles.platformBadgeText}>{selectedDownload.platform}</Text>
-                </View>
-              )}
-              <Text style={styles.detailHeaderTitle} numberOfLines={1}>{selectedDownload.appName}</Text>
+              <View style={styles.platformBadge}>
+                <Text style={styles.platformBadgeText}>Steam</Text>
+              </View>
+              <Text style={styles.detailHeaderTitle} numberOfLines={1}>{selectedDownload.name}</Text>
             </View>
 
             <View style={styles.detailBody}>
               <View style={styles.detailCard}>
                 <View style={styles.detailCardInner}>
-                  <View style={styles.detailIconWrap}>
-                    {selectedDownload.appCoverImage || selectedDownload.appIcon ? (
-                      <Image
-                        source={selectedDownload.appCoverImage || selectedDownload.appIcon}
-                        style={styles.detailIcon}
-                        contentFit={selectedDownload.appCoverImage ? 'cover' : 'contain'}
-                      />
-                    ) : (
-                      <View style={[styles.detailIcon, styles.detailIconFallback]}>
-                        <Ionicons name="game-controller" size={28} color="rgba(255,255,255,0.6)" />
-                      </View>
-                    )}
+                  <View style={[styles.detailIcon, styles.detailIconFallback]}>
+                    <Ionicons name="game-controller" size={28} color="rgba(255,255,255,0.6)" />
                   </View>
 
                   <View style={styles.detailMeta}>
-                    <Text style={styles.detailTitle} numberOfLines={1}>{selectedDownload.appName}</Text>
+                    <Text style={styles.detailTitle} numberOfLines={1}>{selectedDownload.name}</Text>
                     <Text style={styles.detailSubtitle}>
                       {t('downloads.installTime', {
-                        time: selectedDownload.timeRemaining,
-                        downloaded: formatBytes(selectedDownload.downloadedSize),
-                        total: formatBytes(selectedDownload.totalSize),
+                        time: timeRemaining,
+                        downloaded: formatBytes(selectedDownload.bytesDownloaded),
+                        total: formatBytes(selectedDownload.bytesToDownload),
                       })}
                     </Text>
+                    {selectedDownload.downloadSpeed > 0 && (
+                      <Text style={styles.detailSpeed}>
+                        {formatSpeed(selectedDownload.downloadSpeed)}
+                      </Text>
+                    )}
                   </View>
                 </View>
 
@@ -295,11 +239,24 @@ export default function DownloadsExpandedCard({
                     <View
                       style={[
                         styles.progressBarFill,
-                        { width: `${Math.min(selectedDownload.progress, 100)}%` },
+                        { width: `${Math.min(selectedDownload.percent, 100)}%` },
                       ]}
                     />
                   </View>
                 </View>
+
+                {selectedDownload.validating && (
+                  <View style={styles.statusRow}>
+                    <Ionicons name="checkmark-circle" size={14} color="#4CD964" />
+                    <Text style={styles.statusText}>{t('downloads.validating') || 'Validando...'}</Text>
+                  </View>
+                )}
+                {selectedDownload.paused && (
+                  <View style={styles.statusRow}>
+                    <Ionicons name="pause-circle" size={14} color="#FF9500" />
+                    <Text style={styles.statusText}>{t('downloads.paused') || 'Pausado'}</Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -338,11 +295,14 @@ export default function DownloadsExpandedCard({
 
           {downloads.length > 0 && (
             <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('downloads.activeDownloads')}</Text>
               {downloads.map((item, idx) => {
                 const isFocused = focusedRow === idx;
+                const bytesRemaining = item.bytesToDownload - item.bytesDownloaded;
+                const timeRemaining = formatTimeRemaining(bytesRemaining, item.downloadSpeed);
                 return (
                   <TouchableOpacity
-                    key={item.id}
+                    key={item.appId}
                     activeOpacity={0.85}
                     onPress={() => {
                       setFocusedRow(idx);
@@ -353,33 +313,19 @@ export default function DownloadsExpandedCard({
                   >
                     {isFocused && <SpinningBorderSearch size={50} spread={1} borderRadius={2} />}
                     <View style={styles.downloadCardInner}>
-                      <View style={styles.downloadIconWrap}>
-                        {item.appCoverImage || item.appIcon ? (
-                          <Image
-                            source={item.appCoverImage || item.appIcon}
-                            style={styles.downloadIcon}
-                            contentFit={item.appCoverImage ? 'cover' : 'contain'}
-                          />
-                        ) : (
-                          <View style={[styles.downloadIcon, styles.downloadIconFallback]}>
-                            <Ionicons name="game-controller" size={18} color="rgba(255,255,255,0.6)" />
-                          </View>
-                        )}
+                      <View style={[styles.downloadIcon, styles.downloadIconFallback]}>
+                        <Ionicons name="game-controller" size={18} color="rgba(255,255,255,0.6)" />
                       </View>
 
                       <View style={styles.downloadMeta}>
                         <View style={styles.downloadTopRow}>
-                          <Text style={styles.downloadTitle} numberOfLines={1}>{item.appName}</Text>
+                          <Text style={styles.downloadTitle} numberOfLines={1}>{item.name}</Text>
                           <View style={styles.downloadInfoRight}>
-                            {item.platform && (
-                              <View style={styles.platformBadgeSmall}>
-                                <Text style={styles.platformBadgeSmallText}>{item.platform}</Text>
-                              </View>
-                            )}
+                            <View style={styles.platformBadgeSmall}>
+                              <Text style={styles.platformBadgeSmallText}>Steam</Text>
+                            </View>
                             <Text style={styles.downloadTime}>
-                              {t('downloads.timeRemaining', { time: item.timeRemaining })}
-                              {' '}
-                              {t('downloads.itemsRemaining', { count: 1, plural: '' })}
+                              {timeRemaining} restantes
                             </Text>
                           </View>
                         </View>
@@ -389,11 +335,15 @@ export default function DownloadsExpandedCard({
                             <View
                               style={[
                                 styles.progressBarFill,
-                                { width: `${Math.min(item.progress, 100)}%` },
+                                { width: `${Math.min(item.percent, 100)}%` },
                               ]}
                             />
                           </View>
                         </View>
+
+                        {item.downloadSpeed > 0 && (
+                          <Text style={styles.downloadSpeed}>{formatSpeed(item.downloadSpeed)}</Text>
+                        )}
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -402,58 +352,54 @@ export default function DownloadsExpandedCard({
             </View>
           )}
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('downloads.recentlyInstalled')}</Text>
-            {completed.map((item, idx) => {
-              const rowIndex = downloads.length + idx;
-              const isFocused = focusedRow === rowIndex;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  activeOpacity={0.85}
-                  onPress={() => setFocusedRow(rowIndex)}
-                  style={[styles.completedRow, isFocused && styles.completedRowFocused]}
-                >
-                  {isFocused && <SpinningBorderSearch size={50} spread={1} borderRadius={2} />}
-                  <View style={styles.completedIconWrap}>
-                    {item.appCoverImage || item.appIcon ? (
-                      <Image
-                        source={item.appCoverImage || item.appIcon}
-                        style={styles.completedIcon}
-                        contentFit={item.appCoverImage ? 'cover' : 'contain'}
-                      />
-                    ) : (
-                      <View style={[styles.completedIcon, styles.completedIconFallback]}>
-                        <Ionicons name="game-controller" size={16} color="rgba(255,255,255,0.6)" />
-                      </View>
-                    )}
-                  </View>
+          {downloads.length === 0 && completedDownloads.length === 0 && (
+            <View style={styles.emptyWrap}>
+              <Ionicons name="cloud-download-outline" size={30} color="rgba(255,255,255,0.2)" />
+              <Text style={styles.emptyText}>{t('downloads.noDownloads')}</Text>
+              <Text style={styles.emptySubText}>{t('downloads.noDownloadsSub')}</Text>
+            </View>
+          )}
 
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.completedTopRow}>
-                      <Text style={styles.completedTitle} numberOfLines={1}>{item.appName}</Text>
-                      <View style={styles.completedInfoRight}>
-                        {item.platform && (
-                          <View style={styles.platformBadgeSmall}>
-                            <Text style={styles.platformBadgeSmallText}>{item.platform}</Text>
-                          </View>
-                        )}
-                        <Text style={styles.completedStatus}>
-                          {t('downloads.completed')} ({item.status === 'completed' ? 1 : 0} {t('downloads.itemsRemaining', { count: 1, plural: '' }).replace(/[()]/g, '')})
-                        </Text>
-                      </View>
+          {completedDownloads.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('downloads.recentlyInstalled')}</Text>
+              {completedDownloads.map((item, idx) => {
+                const rowIndex = downloads.length + idx;
+                const isFocused = focusedRow === rowIndex;
+                return (
+                  <TouchableOpacity
+                    key={item.appId}
+                    activeOpacity={0.85}
+                    onPress={() => setFocusedRow(rowIndex)}
+                    style={[styles.completedRow, isFocused && styles.completedRowFocused]}
+                  >
+                    {isFocused && <SpinningBorderSearch size={50} spread={1} borderRadius={2} />}
+                    <View style={[styles.completedIcon, styles.completedIconFallback]}>
+                      <Ionicons name="checkmark-circle" size={18} color="#4CD964" />
                     </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.completedTopRow}>
+                        <Text style={styles.completedTitle} numberOfLines={1}>{item.name}</Text>
+                        <View style={styles.platformBadgeSmall}>
+                          <Text style={styles.platformBadgeSmallText}>Steam</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.completedStatus}>{t('downloads.completed')}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
           <View style={styles.footerHints}>
-            <TouchableOpacity style={styles.hintItem} activeOpacity={0.7} onPress={activateFocusedRow}>
-              <PSIcon char={PSIcons.cross} size={16} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.hintText}>{t('downloads.viewDetails')}</Text>
-            </TouchableOpacity>
+            {downloads.length > 0 && (
+              <TouchableOpacity style={styles.hintItem} activeOpacity={0.7} onPress={activateFocusedRow}>
+                <PSIcon char={PSIcons.cross} size={16} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.hintText}>{t('downloads.viewDetails')}</Text>
+              </TouchableOpacity>
+            )}
             <View style={styles.hintItem}>
               <PSIcon char={PSIcons.circle} size={16} color="rgba(255,255,255,0.9)" />
               <Text style={styles.hintText}>{t('downloads.back')}</Text>
@@ -505,13 +451,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  downloadIconWrap: {
+  downloadIcon: {
     width: 60,
     height: 60,
     borderRadius: 4,
-    overflow: 'hidden',
   },
-  downloadIcon: { width: '100%', height: '100%' },
   downloadIconFallback: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     alignItems: 'center',
@@ -540,6 +484,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.67)',
     fontSize: 13,
     fontFamily: 'SSTLight',
+  },
+  downloadSpeed: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    fontFamily: 'SSTLight',
+    marginTop: 4,
   },
   platformBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -586,13 +536,11 @@ const styles = StyleSheet.create({
   completedRowFocused: {
     backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
-  completedIconWrap: {
+  completedIcon: {
     width: 44,
     height: 44,
     borderRadius: 2,
-    overflow: 'hidden',
   },
-  completedIcon: { width: '100%', height: '100%' },
   completedIconFallback: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     alignItems: 'center',
@@ -610,15 +558,28 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
-  completedInfoRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   completedStatus: {
-    color: 'rgba(255, 255, 255, 0.67)',
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    fontFamily: 'SSTLight',
+    marginTop: 2,
+  },
+  emptyWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 10,
+  },
+  emptyText: {
+    color: 'rgba(255, 255, 255, 0.86)',
+    fontSize: 15,
+    fontFamily: 'SSTRg',
+  },
+  emptySubText: {
+    color: 'rgba(255, 255, 255, 0.4)',
     fontSize: 13,
     fontFamily: 'SSTLight',
+    textAlign: 'center',
   },
   detailHeader: {
     flexDirection: 'row',
@@ -648,13 +609,11 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 16,
   },
-  detailIconWrap: {
+  detailIcon: {
     width: 80,
     height: 80,
     borderRadius: 4,
-    overflow: 'hidden',
   },
-  detailIcon: { width: '100%', height: '100%' },
   detailIconFallback: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     alignItems: 'center',
@@ -670,6 +629,23 @@ const styles = StyleSheet.create({
   detailSubtitle: {
     color: 'rgba(255, 255, 255, 0.67)',
     fontSize: 14,
+    fontFamily: 'SSTLight',
+  },
+  detailSpeed: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 13,
+    fontFamily: 'SSTLight',
+    marginTop: 4,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  statusText: {
+    color: 'rgba(255, 255, 255, 0.67)',
+    fontSize: 13,
     fontFamily: 'SSTLight',
   },
   footerHints: {
