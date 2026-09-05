@@ -141,6 +141,7 @@ const es = {
   'library.sortPlatform': 'Plataforma',
   'library.filterByPlatform': 'Filtrar por plataforma',
   'library.all': 'Todos',
+  'notifications.steamOrphanDetected': 'Se agregó "{{gameTitle}}" a tu biblioteca (detectado localmente)',
 
   'lastPlayed.title': 'Último Jugado',
   'lastPlayed.never': '0 min',
@@ -634,6 +635,7 @@ const en: Record<TranslationKey, string> = {
   'library.sortPlatform': 'Platform',
   'library.filterByPlatform': 'Filter by platform',
   'library.all': 'All',
+  'notifications.steamOrphanDetected': 'Added "{{gameTitle}}" to your library (detected locally)',
 
   'lastPlayed.title': 'Last Played',
   'lastPlayed.never': '0 min',
@@ -1122,6 +1124,7 @@ const pt: Record<TranslationKey, string> = {
   'library.sortPlatform': 'Plataforma',
   'library.filterByPlatform': 'Filtrar por plataforma',
   'library.all': 'Todos',
+  'notifications.steamOrphanDetected': 'Adicionado "{gameTitle}" à sua biblioteca (detectado localmente)',
 
   'lastPlayed.title': 'Último Jogado',
   'lastPlayed.never': '0 min',

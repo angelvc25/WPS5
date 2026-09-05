@@ -27,6 +27,7 @@ import { Feather } from '@expo/vector-icons';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import MusicPlayerCard from '@/components/MusicPlayerCard';
 import SpinningBorderTabs from '@/components/SpinningBorderTabs';
+import { fetchSteamInstalledGamesDetailed } from '@/services/steamInstallService';
 
 // WPS5 UI Expansion Components
 import LibraryGrid, { LibraryGridHandle } from '@/components/LibraryGrid';
@@ -941,6 +942,105 @@ export default function ConsoleHome() {
       setLoadingEpic(false);
     }).catch(() => setLoadingEpic(false));
   }, []);
+
+  useEffect(() => {
+    if (libraryTab !== 'collection') return;
+    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledAppsDetailed) return;
+    if (steamGames.length === 0) return;
+
+    fetchSteamInstalledGamesDetailed().then(async (detailed) => {
+      if (detailed.length === 0) return;
+
+      const knownIds = new Set(
+        steamGames.map(g => getSteamAppId(g as any)).filter(Boolean)
+      );
+      const orphans = detailed.filter(d => !knownIds.has(d.appId));
+      if (orphans.length === 0) return;
+
+      console.log('[Steam] Juegos detectados localmente fuera de GetOwnedGames:', orphans.map(o => o.name));
+
+      // Evita repetir el toast para los mismos juegos en cada carga —
+      // mismo patrón que 'epic_known_games' para Epic.
+      const steamIdForNotify = activeUser?.settings?.steamId;
+      const notifiedKey = steamIdForNotify ? `steam_orphans_notified_${steamIdForNotify}` : null;
+      let alreadyNotified: string[] = [];
+      if (notifiedKey) {
+        try {
+          const raw = localStorage.getItem(notifiedKey);
+          alreadyNotified = raw ? JSON.parse(raw) : [];
+        } catch (e) { /* noop */ }
+      }
+      const newlyFound = orphans.filter(o => !alreadyNotified.includes(o.appId));
+
+      const withMetadata = await Promise.all(
+        orphans.map(async (o) => {
+          const base: ConsoleItem = {
+            id: `steam_${o.appId}`,
+            title: o.name,
+            time: 'Steam',
+            image: `https://steamcdn-a.akamaihd.net/steam/apps/${o.appId}/library_600x900_2x.jpg`,
+            description: t('game.playedTime', { hours: 0 }),
+            playtime_forever: 0,
+            playtimeMinutes: 0,
+            platform: 'Steam',
+            path: buildSteamRunUrl(o.appId),
+          };
+
+          try {
+            const res = (window as any).electronAPI?.fetchSteamGridData
+              ? await (window as any).electronAPI.fetchSteamGridData(o.name)
+              : await fetchSteamGridData(o.name);
+            if (res?.success && res.data) {
+              return {
+                ...base,
+                image: res.data.grid || base.image,
+                backgroundImage: res.data.hero,
+                logo: res.data.logo,
+              };
+            }
+          } catch (e) {
+            console.error('[Steam] Error fetching metadata for orphan game:', o.name, e);
+          }
+          return base;
+        })
+      );
+
+      setSteamGames(prev => {
+        const existingIds = new Set(prev.map(g => g.id));
+        const toAdd = withMetadata.filter(g => !existingIds.has(g.id));
+        if (toAdd.length === 0) return prev;
+
+        const updated = [...prev, ...toAdd];
+        const steamId = activeUser?.settings?.steamId;
+        if (steamId) {
+          try { localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updated)); } catch (e) { /* noop */ }
+        }
+        return updated;
+      });
+
+      // Notificar solo los que no se habían avisado antes
+      if (newlyFound.length > 0) {
+        newlyFound.forEach(o => {
+          const gameWithMeta = withMetadata.find(g => g.id === `steam_${o.appId}`);
+          toastService.show(
+            t('notifications.steamOrphanDetected', { gameTitle: o.name }),
+            {
+              icon: require('@/assets/images/Steamico.png'),
+              source: 'steam',
+              coverImage: gameWithMeta?.image,
+            }
+          );
+        });
+
+        if (notifiedKey) {
+          try {
+            const updatedNotified = [...alreadyNotified, ...newlyFound.map(o => o.appId)];
+            localStorage.setItem(notifiedKey, JSON.stringify(updatedNotified));
+          } catch (e) { /* noop */ }
+        }
+      }
+    });
+  }, [libraryTab, steamGames.length, activeUser?.settings?.steamId]);
 
   useEffect(() => {
     const currentItem = currentData[activeIndex];

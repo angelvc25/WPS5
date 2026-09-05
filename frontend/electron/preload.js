@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
   steamLogin: () => ipcRenderer.invoke('steam-login'),
   getSteamInstalledApps: () => ipcRenderer.invoke('get-steam-installed-apps'),
+  getSteamInstalledAppsDetailed: () => ipcRenderer.invoke('get-steam-installed-apps-detailed'),
   getEpicInstalledGames: () => ipcRenderer.invoke('get-epic-installed-games'),
   getInstalledPrograms: () => ipcRenderer.invoke('get-installed-programs'),
   onGameClosed: (callback) => ipcRenderer.on('game-closed', (_event, id) => callback(id)),

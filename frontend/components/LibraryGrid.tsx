@@ -500,8 +500,8 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     transform: [{ translateY: translateY.value }]
   }));
 
-  const currentRow = Math.floor(focusedIndex / COLUMNS);
-  const hasScrolled = currentRow > 1;
+  const currentRow = isFocused ? Math.floor(focusedIndex / COLUMNS) : 0;
+  const hasScrolled = isFocused && currentRow > 1;
 
   // ─── Teclado (web) ────────────────────────────────────────────────
   // Con el panel abierto: flechas arriba/abajo mueven la selección,
@@ -752,7 +752,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                   {(() => {
                     const totalRows = Math.ceil(filteredGames.length / COLUMNS);
                     const visibleRowCount = Math.ceil((windowHeight - 220) / rowHeight);
-                    const BUFFER = 3;
+                    const BUFFER = 2;
                     const startRow = Math.max(0, currentRow - BUFFER);
                     const endRow = Math.min(totalRows - 1, currentRow + visibleRowCount + BUFFER);
 
@@ -790,7 +790,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                             {isItemFocused && <SpinningBorder id={borderId} />}
 
                             <BlurView
-                              intensity={isItemFocused ? 45 : 25}
+                              intensity={isItemFocused ? 45 : 10}
                               tint="dark"
                               style={[
                                 styles.gameCard,

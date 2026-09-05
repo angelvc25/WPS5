@@ -1001,6 +1001,73 @@ function getInstalledSteamAppIds() {
   return Array.from(appIds);
 }
 
+function getInstalledSteamAppsDetailed() {
+  const steamPath = getSteamInstallPath();
+  if (!steamPath) return [];
+
+  const apps = [];
+  const seenAppIds = new Set();
+  const libraryFolders = getSteamLibraryFolders(steamPath);
+
+  const STATE_FULLY_INSTALLED = 0x4;
+  const STATE_UPDATE_RUNNING = 0x100;
+  const STATE_UPDATE_STARTED = 0x400;
+  const STATE_VALIDATING = 0x20000;
+  const STATE_PREALLOCATING = 0x80000;
+  const STATE_DOWNLOADING = 0x100000;
+  const STATE_STAGING = 0x200000;
+  const STATE_COMMITTING = 0x400000;
+  const STILL_WORKING_MASK =
+    STATE_UPDATE_RUNNING | STATE_UPDATE_STARTED | STATE_VALIDATING |
+    STATE_PREALLOCATING | STATE_DOWNLOADING | STATE_STAGING | STATE_COMMITTING;
+
+  for (const steamappsDir of libraryFolders) {
+    if (!fs.existsSync(steamappsDir)) continue;
+
+    try {
+      for (const file of fs.readdirSync(steamappsDir)) {
+        const match = file.match(/^appmanifest_(\d+)\.acf$/i);
+        if (!match) continue;
+
+        const appId = match[1];
+        if (seenAppIds.has(appId)) continue;
+
+        const manifestPath = path.join(steamappsDir, file);
+
+        try {
+          const content = fs.readFileSync(manifestPath, 'utf8');
+          const get = (key) => {
+            const m = content.match(new RegExp('"' + key + '"\\s+"([^"]*)"'));
+            return m ? m[1] : '';
+          };
+
+          const stateFlags = parseInt(get('StateFlags') || '0', 10) || 0;
+          const bytesToDownload = parseInt(get('BytesToDownload') || '0', 10) || 0;
+          const bytesDownloaded = parseInt(get('BytesDownloaded') || '0', 10) || 0;
+          const downloadingFolder = path.join(steamappsDir, 'downloading', appId);
+
+          const isFullyInstalled = (stateFlags & STATE_FULLY_INSTALLED) !== 0;
+          const isStillWorking = (stateFlags & STILL_WORKING_MASK) !== 0;
+          const hasPendingBytes = bytesToDownload > 0 && bytesDownloaded < bytesToDownload;
+          const hasDownloadingFolder = fs.existsSync(downloadingFolder);
+
+          if (isFullyInstalled && !isStillWorking && !hasPendingBytes && !hasDownloadingFolder) {
+            const name = get('name');
+            if (name) {
+              apps.push({ appId, name });
+              seenAppIds.add(appId);
+            }
+          }
+        } catch { /* ignorar manifiesto corrupto/ilegible */ }
+      }
+    } catch (e) {
+      console.error('Error scanning Steam library folder (detailed):', steamappsDir, e);
+    }
+  }
+
+  return apps;
+}
+
 // ── Steam download progress tracking (real-time via content_log.txt + fs.watch) ──
 const downloadInfoCache = new Map();
 const downloadWatchers = [];
@@ -2024,6 +2091,16 @@ app.whenReady().then(() => {
     } catch (error) {
       console.error('Error getting installed Steam apps:', error);
       return { success: false, appIds: [], error: error.message };
+    }
+  });
+
+  ipcMain.handle('get-steam-installed-apps-detailed', async () => {
+    try {
+      const apps = getInstalledSteamAppsDetailed();
+      return { success: true, apps };
+    } catch (error) {
+      console.error('Error getting installed Steam apps (detailed):', error);
+      return { success: false, apps: [], error: error.message };
     }
   });
 
