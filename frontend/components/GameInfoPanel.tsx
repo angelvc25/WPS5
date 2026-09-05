@@ -143,10 +143,10 @@ export const GameInfoPanel = ({
                     ]}
                   >
                     <View style={styles.downloadHeaderRow}>
-                      <Text style={[styles.downloadLabel, { fontSize: s(15) }]}>
+                      <Text style={[styles.downloadLabel, { fontSize: s(17) }]}>
                         {t('action.downloading')}
                       </Text>
-                      <Text style={[styles.downloadPercent, { fontSize: s(15) }]}>
+                      <Text style={[styles.downloadPercent, { fontSize: s(17) }]}>
                         {Math.round(activeDownload.percent)}%
                       </Text>
                     </View>
@@ -1414,13 +1414,11 @@ const styles = StyleSheet.create({
   downloadLabel: {
     color: '#FFFFFF',
     fontFamily: 'SSTBold',
-    fontWeight: '700',
     letterSpacing: 0.3,
   },
   downloadPercent: {
     color: 'rgba(255,255,255,0.85)',
     fontFamily: 'SSTBold',
-    fontWeight: '700',
   },
   downloadTrack: {
     height: 4,

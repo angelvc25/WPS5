@@ -134,7 +134,7 @@ const es = {
   'library.all': 'Todos',
 
   'lastPlayed.title': 'Último Jugado',
-  'lastPlayed.never': 'No ejecutado aún',
+  'lastPlayed.never': '0 min',
   'lastPlayed.noGamesYet': 'Aún no has jugado a ningún juego.',
   'time.minutes': '{minutes} min',
   'time.hoursMinutes': '{hours} h {minutes} min',
@@ -618,7 +618,7 @@ const en: Record<TranslationKey, string> = {
   'library.all': 'All',
 
   'lastPlayed.title': 'Last Played',
-  'lastPlayed.never': 'Not played yet',
+  'lastPlayed.never': '0 min',
   'lastPlayed.noGamesYet': "You haven't played any games yet.",
   'time.minutes': '{minutes} min',
   'time.hoursMinutes': '{hours} h {minutes} min',
@@ -1097,7 +1097,7 @@ const pt: Record<TranslationKey, string> = {
   'library.all': 'Todos',
 
   'lastPlayed.title': 'Último Jogado',
-  'lastPlayed.never': 'Ainda não executado',
+  'lastPlayed.never': '0 min',
   'lastPlayed.noGamesYet': 'Ainda não jogou nenhum jogo.',
   'time.minutes': '{minutes} min',
   'time.hoursMinutes': '{hours} h {minutes} min',

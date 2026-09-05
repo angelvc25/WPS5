@@ -9,6 +9,7 @@ import YoutubePlayer from '@/components/YoutubePlayer';
 import FavoritesView from '@/components/FavoritesView';
 import ControlPrompt from '@/components/ControlPrompt';
 import RandomSelectorView from '@/components/RandomSelectorView';
+import { cancelAnimation } from 'react-native-reanimated'; // agrégalo a tus imports de reanimated
 import { useUser } from '@/contexts/UserContext';
 import { Linking } from 'react-native';
 import { fetchGamingNews, NewsArticle } from '@/services/newsService';
@@ -239,6 +240,36 @@ export default function ConsoleHome() {
         playtimeMinutes: totalMinutes,
         playtime_forever: totalMinutes,
       });
+    }
+  };
+
+  const markGameAsLastPlayed = (item: ConsoleItem) => {
+    const now = Date.now();
+    const id = item.id;
+    const isSteamOrEpic = id.startsWith('steam_') || id.startsWith('epic_');
+
+    setGames(prev => prev.map(g => g.id === id ? { ...g, lastPlayed: now } : g));
+
+    if (isSteamOrEpic) {
+      setSteamGames(prev => {
+        if (!prev.some(g => g.id === id)) return prev;
+        const updated = prev.map(g => g.id === id ? { ...g, lastPlayed: now } : g);
+        const steamId = activeUser?.settings?.steamId;
+        if (steamId) {
+          try { localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updated)); } catch (e) { /* noop */ }
+        }
+        return updated;
+      });
+      setEpicGames(prev => prev.map(g => g.id === id ? { ...g, lastPlayed: now } : g));
+    }
+
+    setLastPlayedGame({ ...item, lastPlayed: now });
+
+    // Los juegos manuales ya guardan lastPlayed vía main.js al lanzarlos;
+    // para Steam/Epic evitamos crear un registro "fantasma" sin título/portada
+    // en games.json y confiamos en el estado en memoria + caché local.
+    if (!isSteamOrEpic && Platform.OS === 'web' && (window as any).electronAPI?.updateApp) {
+      (window as any).electronAPI.updateApp({ id, lastPlayed: now });
     }
   };
 
@@ -520,8 +551,30 @@ export default function ConsoleHome() {
   const baseCards = nonSteamGames.filter(g => BASE_CARD_IDS.includes(g.id));
   const otherSavedGames = nonSteamGames.filter(g => !BASE_CARD_IDS.includes(g.id));
 
+  // Juegos de Steam ya jugados (con lastPlayed) que no se están descargando
+  // ahora: deben aparecer como tarjetas normales del carrusel y correrse a
+  // la derecha según su fecha de juego, igual que los manuales.
+  const playedSteamGames = steamGames
+    .filter(g => {
+      if (!g.lastPlayed) return false;
+      if (lastPlayedGame && g.id === lastPlayedGame.id) return false; // ya está en "Último Jugado"
+      const appId = getSteamAppId(g as any);
+      return !(appId && downloadsByAppId.has(appId));
+    })
+    .map(g => ({ ...g, path: resolveLaunchPath(g) }));
+
+  const pinnedManual = otherSavedGames.filter(g => g.isPinned);
+  const unpinnedManual = otherSavedGames.filter(g => !g.isPinned);
+  const manualWithHistory = unpinnedManual.filter(g => g.lastPlayed);
+  const manualWithoutHistory = unpinnedManual.filter(g => !g.lastPlayed);
+
+  const combinedRecent = [...manualWithHistory, ...playedSteamGames]
+    .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+
+  const combinedOtherGames = [...pinnedManual, ...combinedRecent, ...manualWithoutHistory];
+
   let currentData = currentRenderedTab === 'Games'
-    ? [...baseCards, ...downloadingSteamGames, ...otherSavedGames]
+    ? [...baseCards, ...downloadingSteamGames, ...combinedOtherGames]
     : media;
 
   if (currentRenderedTab === 'Games') {
@@ -884,7 +937,19 @@ export default function ConsoleHome() {
         const sortedByLastPlayed = allFormatted
           .filter((i: any) => i.lastPlayed)
           .sort((a: any, b: any) => b.lastPlayed - a.lastPlayed);
-        const latestGame = sortedByLastPlayed[0] || null;
+        let latestGame = sortedByLastPlayed[0] || null;
+
+        if (latestGame && (latestGame.id?.toString().startsWith('steam_') || latestGame.id?.toString().startsWith('epic_'))) {
+          const richVersion = steamGames.find(g => g.id === latestGame!.id) || epicGames.find(g => g.id === latestGame!.id);
+          if (richVersion) {
+            latestGame = {
+              ...richVersion,
+              lastPlayed: latestGame.lastPlayed,
+              playtimeMinutes: latestGame.playtimeMinutes ?? richVersion.playtimeMinutes,
+              playtime_forever: latestGame.playtime_forever ?? richVersion.playtime_forever,
+            };
+          }
+        }
 
         // Exclude last played game from the row to avoid duplication.
         // Sort remaining games: most recently played first, then unplayed in original order.
@@ -2029,6 +2094,10 @@ export default function ConsoleHome() {
       sessionPlaytimeRef.current[targetItem.id] = Number(targetItem.playtimeMinutes ?? targetItem.playtime_forever ?? 0);
     }
 
+    if (targetItem?.id && (!targetItem.type || targetItem.type === 'game')) {
+      markGameAsLastPlayed(targetItem);
+    }
+
     const launchPath = resolveSteamLaunchPath(targetItem, installedSteamAppIds);
     if (!launchPath) {
       setSelectedItem(targetItem);
@@ -2289,19 +2358,24 @@ export default function ConsoleHome() {
   }, [activeIndex, activeUser?.settings?.invertTransitionDirection]);
 
   useEffect(() => {
-    // If it's the very first time setting the background, do it immediately without delay
     if (!bgA && !bgB) {
       setBgA(currentBg);
       return;
     }
 
+    // Evita que un cambio rápido de tarjeta interrumpa la animación anterior
+    // a medio camino (lo que deja la máscara "congelada" y se ve mitad y mitad).
+    cancelAnimation(fade);
+
     if (activeLayer === 'A') {
+      fade.value = 0; // deja A completamente asentada antes de mover a B
       if (currentBg !== bgA) {
         setBgB(currentBg);
         setActiveLayer('B');
         fade.value = withTiming(1, { duration: 600, easing: Easing.inOut(Easing.quad) });
       }
     } else {
+      fade.value = 1; // deja B completamente asentada antes de mover a A
       if (currentBg !== bgB) {
         setBgA(currentBg);
         setActiveLayer('A');
@@ -2459,6 +2533,7 @@ export default function ConsoleHome() {
         ) : (
           <>
             <Animated.View style={[StyleSheet.absoluteFill, animatedStyleA]}>
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} />
               {bgA && (
                 <Image
                   source={bgA}
@@ -2469,6 +2544,7 @@ export default function ConsoleHome() {
             </Animated.View>
 
             <Animated.View style={[StyleSheet.absoluteFill, animatedStyleB]}>
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} />
               {bgB && (
                 <Image
                   source={bgB}
