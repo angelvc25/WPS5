@@ -772,6 +772,63 @@ export default function ConsoleHome() {
   }, [steamGames, games]);
 
 
+  function compareVersions(a: string, b: string): number {
+    const aParts = a.split('.').map(Number);
+    const bParts = b.split('.').map(Number);
+    const length = Math.max(aParts.length, bParts.length);
+
+    for (let i = 0; i < length; i++) {
+      const aNum = aParts[i] || 0;
+      const bNum = bParts[i] || 0;
+      if (aNum > bNum) return 1;
+      if (aNum < bNum) return -1;
+    }
+    return 0;
+  }
+
+  const CheckUpdates = async () => {
+    try {
+      const res = await fetch(
+        'https://angelvc25.github.io/WPS5-API/WPS5-API-V.json'
+      );
+      if (!res.ok) throw new Error('Network response was not ok');
+      const data = await res.json() as {
+        name: string;
+        tipe: string;
+        version: string;
+        link: string;
+      }[];
+      const latest = data[0];
+      console.log(latest.version, latest.tipe, latest.link);
+      console.log(data);
+      const currentVersion = '1.1.3';
+      const comparison = compareVersions(latest.version, currentVersion);
+      if (comparison > 0) {
+        toastService.show(`${t('settings.updateAvailable')}\n${latest.version}`, {
+          icon: require('@/assets/images/applogo_clean.png'),
+          source: 'steam',
+        });
+      } else {
+        toastService.show(t('settings.youHaveTheLatestVersion'), {
+          icon: require('@/assets/images/applogo_clean.png'),
+          source: 'steam',
+        });
+      }
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+      toastService.show(t('settings.updateCheckFailed'), {
+        icon: require('@/assets/images/applogo_clean.png'),
+        source: 'steam',
+      });
+    }
+  }
+
+  useEffect(() => {
+    setTimeout(() => {
+      CheckUpdates();
+    }, 8000);
+  }, []);
+
   useEffect(() => {
     const steamId = activeUser?.settings?.steamId;
     if (!steamId) return;
