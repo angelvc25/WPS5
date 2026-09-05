@@ -9,6 +9,7 @@ import {
   Platform,
   Linking,
   Dimensions,
+  Alert,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Image } from 'expo-image';
@@ -22,6 +23,21 @@ import ControlPrompt from './ControlPrompt';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import BackgroundVideo from './BackgroundVideo';
+import { toastService } from '../services/toastService';
+
+function compareVersions(a: string, b: string): number {
+  const aParts = a.split('.').map(Number);
+  const bParts = b.split('.').map(Number);
+  const length = Math.max(aParts.length, bParts.length);
+
+  for (let i = 0; i < length; i++) {
+    const aNum = aParts[i] || 0;
+    const bNum = bParts[i] || 0;
+    if (aNum > bNum) return 1;
+    if (aNum < bNum) return -1;
+  }
+  return 0;
+}
 
 export type SettingsScreenType =
   | 'main'
@@ -149,6 +165,8 @@ export default function SettingsView({
       setEditCoverImage(activeUser.coverImage || '');
     }
   }, [activeUser]);
+
+
 
   const navigateToScreen = (screen: SettingsScreenType) => {
     soundService.playActivation?.();
@@ -1705,7 +1723,7 @@ export default function SettingsView({
                 <Text style={styles.rightSectionTitle}>{t('settings.systemSoftware')}</Text>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoRowLabel}>WPS5 Console OS</Text>
-                  <Text style={styles.infoRowValue}>Version 2.4.0 (Build 2026.8)</Text>
+                  <Text style={styles.infoRowValue}>Version 1.1.3 (Build 2026.9)</Text>
                 </View>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoRowLabel}>Environment</Text>
@@ -1716,6 +1734,53 @@ export default function SettingsView({
                   <Text style={styles.infoRowValue}>
                     {Math.round(Dimensions.get('window').width)} x {Math.round(Dimensions.get('window').height)}
                   </Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoRowLabel}>Check for updates</Text>
+                  <TouchableOpacity
+                    style={styles.psButtonLarge}
+                    onPress={async () => {
+                      try {
+                        const res = await fetch(
+                          'https://angelvc25.github.io/WPS5-API/WPS5-API-V.json'
+                        );
+                        if (!res.ok) throw new Error('Network response was not ok');
+                        const data = await res.json() as {
+                          name: string;
+                          tipe: string;
+                          version: string;
+                          link: string;
+                        }[];
+                        const latest = data[0];
+                        console.log(latest.version, latest.tipe, latest.link);
+                        console.log(data);
+                        const currentVersion = '1.1.3';
+                        const comparison = compareVersions(latest.version, currentVersion);
+                        if (comparison > 0) {
+                          toastService.show(`${t('settings.updateAvailable')}\n${latest.version}`, {
+                            icon: require('@/assets/images/applogo_clean.png'),
+                            source: 'steam',
+                          });
+                          setTimeout(() => {
+                            Linking.openURL(latest.link);
+                          }, 1500);
+                        } else {
+                          toastService.show(t('settings.youHaveTheLatestVersion'), {
+                            icon: require('@/assets/images/applogo_clean.png'),
+                            source: 'steam',
+                          });
+                        }
+                      } catch (error) {
+                        console.error('Error checking for updates:', error);
+                        toastService.show(t('settings.updateCheckFailed'), {
+                          icon: require('@/assets/images/applogo_clean.png'),
+                          source: 'steam',
+                        });
+                      }
+                    }}
+                  >
+                    <Text style={styles.psButtonLargeText}>Check</Text>
+                  </TouchableOpacity>
                 </View>
               </ScrollView>
             )}
@@ -2710,6 +2775,29 @@ const styles = StyleSheet.create({
   },
   languageSelectTextActive: {
     color: '#FFF',
+    fontFamily: 'SSTBold',
+  },
+
+  // PS Button Styles
+  psButtonLarge: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 5,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  psButtonLargeFocused: {
+    backgroundColor: 'rgba(255, 255, 255, 1)',
+  },
+  psButtonLargeText: {
+    color: '#ffffffff',
+    fontSize: 16,
+    fontFamily: 'SSTBold',
+  },
+  psButtonLargeTextFocused: {
+    color: '#000000',
     fontFamily: 'SSTBold',
   },
 });

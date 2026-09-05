@@ -779,26 +779,46 @@ export default function ConsoleHome() {
     const checkWishlist = () => {
       fetchWishlistDeals(steamId).then(deals => {
         setWishlistDeals(deals);
+
         const known = knownWishlistDealIdsRef.current;
+
         if (known) {
+          // Cargas posteriores: notificar inmediatamente los nuevos descuentos
           deals.forEach(deal => {
             if (!known.has(deal.appid)) {
-              toastService.show(t('notifiactions.wishlist', { gameTitle: deal.title, discountPercent: deal.discountPercent }), {
-                icon: require('@/assets/images/Steamico.png'),
-                source: 'steam',
-              });
+              toastService.show(
+                t('notifiactions.wishlist', {
+                  gameTitle: deal.title,
+                  discountPercent: deal.discountPercent,
+                }),
+                {
+                  icon: require('@/assets/images/Steamico.png'),
+                  source: 'steam',
+                }
+              );
             }
           });
+
+          knownWishlistDealIdsRef.current = new Set(deals.map(d => d.appid));
         } else {
-          // Primera carga: notificar los juegos en oferta encontrados
-          deals.slice(0, 5).forEach(deal => {
-            toastService.show(t('notifiactions.wishlist', { gameTitle: deal.title, discountPercent: deal.discountPercent }), {
-              icon: require('@/assets/images/Steamico.png'),
-              source: 'steam',
+          // Primera carga: esperar 5 segundos antes de mostrar las notificaciones
+          setTimeout(() => {
+            deals.slice(0, 5).forEach(deal => {
+              toastService.show(
+                t('notifiactions.wishlist', {
+                  gameTitle: deal.title,
+                  discountPercent: deal.discountPercent,
+                }),
+                {
+                  icon: require('@/assets/images/Steamico.png'),
+                  source: 'steam',
+                }
+              );
             });
-          });
+          }, 5000);
+
+          knownWishlistDealIdsRef.current = new Set(deals.map(d => d.appid));
         }
-        knownWishlistDealIdsRef.current = new Set(deals.map(d => d.appid));
       });
     };
 

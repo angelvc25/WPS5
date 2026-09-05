@@ -81,6 +81,10 @@ const es = {
   'settings.supportBody': 'Si gustas en apoyarnos puedes visitar nuestras redes sociales o unirte a nuestro canal de Patreon. Tu apoyo nos ayuda a seguir mejorando y añadiendo nuevas funcionalidades.',
   'settings.patrons': 'Colaboradores y Patrocinadores',
 
+  'settings.updateAvailable': 'Hay una actualización disponible',
+  'settings.youHaveTheLatestVersion': 'Tienes la última versión',
+  'settings.updateCheckFailed': 'Error al verificar actualizaciones',
+
   'settings.accept': 'Aceptar',
   'settings.cancel': 'Cancelar',
   'settings.deleteGame': 'Este elemento se eliminará del almacenamiento de la consola.',
@@ -105,6 +109,7 @@ const es = {
   'profile.noSharedMedia': 'No hay capturas o videos compartidos aún.',
 
   'common.cancel': 'Cancelar',
+  'common.open': 'Abrir',
   'common.save': 'Guardar',
   'common.online': 'Online',
   'common.invisible': 'Invisible',
@@ -569,6 +574,10 @@ const en: Record<TranslationKey, string> = {
   'settings.supportBody': 'If you would like to support us, visit our social networks or join our Patreon. Your support helps us keep improving and adding new features.',
   'settings.patrons': 'Contributors and Sponsors',
 
+  'settings.updateAvailable': 'Update available',
+  'settings.youHaveTheLatestVersion': 'You have the latest version',
+  'settings.updateCheckFailed': 'Error checking for updates',
+
   'settings.accept': 'Accept',
   'settings.cancel': 'Cancel',
   'settings.deleteGame': 'This element will be deleted from the console storage.',
@@ -593,6 +602,7 @@ const en: Record<TranslationKey, string> = {
   'profile.noSharedMedia': 'No shared captures or videos yet.',
 
   'common.cancel': 'Cancel',
+  'common.open': 'Open',
   'common.save': 'Save',
   'common.online': 'Online',
   'common.invisible': 'Invisible',
@@ -1052,6 +1062,10 @@ const pt: Record<TranslationKey, string> = {
   'settings.supportBody': 'Se quiser nos apoiar, visite as nossas redes sociais ou junte-se ao nosso Patreon. O seu apoio ajuda-nos a continuar melhorando e adicionando novas funções.',
   'settings.patrons': 'Colaboradores e Patrocinadores',
 
+  'settings.updateAvailable': 'Atualização disponível',
+  'settings.youHaveTheLatestVersion': 'Você tem a versão mais recente',
+  'settings.updateCheckFailed': 'Erro ao verificar atualizações',
+
   'settings.accept': 'Aceitar',
   'settings.cancel': 'Cancelar',
   'settings.deleteGame': 'Este item será excluído do armazenamento da consola.',
@@ -1076,6 +1090,7 @@ const pt: Record<TranslationKey, string> = {
   'profile.noSharedMedia': 'Sem capturas ou vídeos partilhados.',
 
   'common.cancel': 'Cancelar',
+  'common.open': 'Abrir',
   'common.save': 'Salvar',
   'common.online': 'Online',
   'common.invisible': 'Invisível',
