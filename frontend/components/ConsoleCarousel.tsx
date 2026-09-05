@@ -7,9 +7,11 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AnimatedCardWrapper from './AnimatedCardWrapper';
 import SpinningBorder from './SpinningBorderConic';
 import { ConsoleItem } from '../app/(tabs)/index';
-import { isSteamGame } from '@/services/steamLaunchService';
+import { isSteamGame, getSteamAppId } from '@/services/steamLaunchService';
+import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { LANGUAGE_OPTIONS, Language } from '@/i18n/translations';
+
 
 interface ConsoleCarouselProps {
   currentData: ConsoleItem[];
@@ -30,6 +32,7 @@ interface ConsoleCarouselProps {
   media: ConsoleItem[];
   games: ConsoleItem[];
   collapseAnim: SharedValue<number>;
+  downloadsByAppId?: Map<string, SteamDownloadItem>;
 }
 
 export const ConsoleCarousel = ({
@@ -51,6 +54,7 @@ export const ConsoleCarousel = ({
   media,
   games,
   collapseAnim,
+  downloadsByAppId,
 }: ConsoleCarouselProps) => {
   if (currentData.length === 0) {
     return (
@@ -198,9 +202,25 @@ export const ConsoleCarousel = ({
           );
         } else {
           const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
+          const itemAppId = getSteamAppId(item as any);
+          const download = itemAppId ? downloadsByAppId?.get(itemAppId) : undefined;
+          const showMiniProgress = !!download && !isActive;
+
           const cardImage = (
-            <Image source={imgSource} style={[styles.card, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]} contentFit="cover" />
+            <View>
+              <Image
+                source={imgSource}
+                style={[styles.card, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}
+                contentFit="cover"
+              />
+              {showMiniProgress && (
+                <View style={styles.miniProgressTrack} pointerEvents="none">
+                  <View style={[styles.miniProgressFill, { width: `${Math.max(2, Math.round(download!.percent))}%` }]} />
+                </View>
+              )}
+            </View>
           );
+
           cardContent = (
             <AnimatedCardWrapper key={`${item.id}-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
               <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
@@ -436,6 +456,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 15,
     fontWeight: '600',
+  },
+  miniProgressTrack: {
+    position: 'absolute',
+    left: 6,
+    right: 6,
+    bottom: 6,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    overflow: 'hidden',
+  },
+  miniProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
   },
 });
 

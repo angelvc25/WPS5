@@ -145,6 +145,7 @@ const es = {
   'action.assignPath': 'Asignar ruta',
   'action.download': 'Descargar',
   'action.running': 'Ejecutándose...',
+  'action.downloading': 'Descargando',
 
   'home.welcome': 'Bienvenido',
   'home.welcomeDesc': 'Bienvenido a tu consola personal. Accede a tus juegos y aplicaciones favoritas con una experiencia premium.',
@@ -628,6 +629,7 @@ const en: Record<TranslationKey, string> = {
   'action.assignPath': 'Assign path',
   'action.download': 'Download',
   'action.running': 'Running...',
+  'action.downloading': 'Downloading',
 
   'home.welcome': 'Welcome',
   'home.welcomeDesc': 'Welcome to your personal console. Access your favorite games and apps with a premium experience.',
@@ -1106,6 +1108,7 @@ const pt: Record<TranslationKey, string> = {
   'action.assignPath': 'Atribuir caminho',
   'action.download': 'Baixar',
   'action.running': 'Em execução...',
+  'action.downloading': 'Baixando',
 
   'home.welcome': 'Bem-vindo',
   'home.welcomeDesc': 'Bem-vindo ao seu console pessoal. Aceda aos seus jogos e aplicações favoritos com uma experiência premium.',

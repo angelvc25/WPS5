@@ -6,8 +6,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MusicPlayerCard from './MusicPlayerCard';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { getGameActionLabel } from '../services/steamLaunchService';
+import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { formatPlaytime } from '../services/playtimeService';
 import { useTranslation } from '@/contexts/LanguageContext';
+
 
 interface GameInfoPanelProps {
   activeItem: ConsoleItem;
@@ -35,6 +37,7 @@ interface GameInfoPanelProps {
   infoCardsStyle: any;
   topPanelStyle: any;
   installedSteamAppIds?: Set<string> | null;
+  activeDownload?: SteamDownloadItem | null;
 }
 
 export const GameInfoPanel = ({
@@ -61,6 +64,7 @@ export const GameInfoPanel = ({
   infoCardsStyle,
   topPanelStyle,
   installedSteamAppIds = null,
+  activeDownload = null,
 }: GameInfoPanelProps) => {
   const { t } = useTranslation();
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : t('lastPlayed.title')) : activeItem?.title;
@@ -129,38 +133,63 @@ export const GameInfoPanel = ({
           {/* Action Buttons */}
           {canPlay && (
             <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={styles.actionButtons}>
-              <TouchableOpacity
-                id="play-btn"
-                style={[
-                  styles.playBtn,
-                  {
-                    width: s(320),
-                    height: s(65),
-                    paddingHorizontal: s(52),
-                    paddingVertical: s(14),
-                    borderRadius: s(28),
-                  },
-                  focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnFocused
-                ]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  if (activeItem) { handleLaunchApp(activeItem); }
-                }}
-              >
-                <Text style={[
-                  styles.playBtnText,
-                  { fontSize: s(25) },
-                  focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
-                ]}>
-                  {buttonLabel}
-                </Text>
+              {activeDownload ? (
+                <View
+                  style={[
+                    styles.downloadContainer,
+                    { width: s(320), height: s(65), borderRadius: s(28), paddingHorizontal: s(24) },
+                  ]}
+                >
+                  <View style={styles.downloadHeaderRow}>
+                    <Text style={[styles.downloadLabel, { fontSize: s(15) }]}>
+                      {t('action.downloading')}
+                    </Text>
+                    <Text style={[styles.downloadPercent, { fontSize: s(15) }]}>
+                      {Math.round(activeDownload.percent)}%
+                    </Text>
+                  </View>
+                  <View style={styles.downloadTrack}>
+                    <View
+                      style={[
+                        styles.downloadFill,
+                        { width: `${Math.max(2, Math.round(activeDownload.percent))}%` },
+                      ]}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  id="play-btn"
+                  style={[
+                    styles.playBtn,
+                    {
+                      width: s(320),
+                      height: s(65),
+                      paddingHorizontal: s(52),
+                      paddingVertical: s(14),
+                      borderRadius: s(28),
+                    },
+                    focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnFocused
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (activeItem) { handleLaunchApp(activeItem); }
+                  }}
+                >
+                  <Text style={[
+                    styles.playBtnText,
+                    { fontSize: s(25) },
+                    focusArea === 'game_panel' && gamePanelFocusIndex === 0 && styles.playBtnTextFocused
+                  ]}>
+                    {buttonLabel}
+                  </Text>
 
-                {Platform.OS === 'web' &&
-                  focusArea === 'game_panel' &&
-                  gamePanelFocusIndex === 0 && (
-                    <>
-                      <style>
-                        {`
+                  {Platform.OS === 'web' &&
+                    focusArea === 'game_panel' &&
+                    gamePanelFocusIndex === 0 && (
+                      <>
+                        <style>
+                          {`
                           /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -220,59 +249,60 @@ export const GameInfoPanel = ({
                         }
 
                           /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
-  @keyframes wc-content-shimmer {
-    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
-    15% { opacity: 1; }
-    50% { opacity: 1; }
-    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-  }
-  .wc-shimmer-line2 {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 160%; 
-    height: 420%; 
-    background: linear-gradient(
-      to right,
-      transparent 0%,
-      rgba(255, 255, 255, 0.01) 20%,
-      rgba(255, 255, 255, 0.18) 50%, 
-      rgba(255, 255, 255, 0.01) 80%,
-      transparent 100%
-    );
-    animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
-  }
+                          @keyframes wc-content-shimmer {
+                            0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                            15% { opacity: 1; }
+                            50% { opacity: 1; }
+                            70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                            100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          }
+                          .wc-shimmer-line2 {
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            width: 160%; 
+                            height: 420%; 
+                            background: linear-gradient(
+                              to right,
+                              transparent 0%,
+                              rgba(255, 255, 255, 0.01) 20%,
+                              rgba(255, 255, 255, 0.18) 50%, 
+                              rgba(255, 255, 255, 0.01) 80%,
+                              transparent 100%
+                            );
+                            animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+                          }
                       `}
-                      </style>
+                        </style>
 
-                      <div className="wc-spinning-container2">
-                        {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
-                        <div className="wc-spinning-inner" />
-                      </div>
-                    </>
+                        <div className="wc-spinning-container2">
+                          {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
+                          <div className="wc-spinning-inner" />
+                        </div>
+                      </>
+                    )}
+
+                  {/* SHIMMER */}
+                  {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 0 && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 1,
+                        right: 1,
+                        bottom: 0,
+                        borderRadius: 30,
+                        zIndex: 5,
+                        overflow: 'hidden',
+                      } as any}
+                      pointerEvents="none"
+                    >
+                      {/* @ts-ignore */}
+                      <div className="wc-shimmer-line2" />
+                    </View>
                   )}
-
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 0 && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 1,
-                      right: 1,
-                      bottom: 0,
-                      borderRadius: 30,
-                      zIndex: 5,
-                      overflow: 'hidden',
-                    } as any}
-                    pointerEvents="none"
-                  >
-                    {/* @ts-ignore */}
-                    <div className="wc-shimmer-line2" />
-                  </View>
-                )}
-              </TouchableOpacity>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 id="more-btn"
                 style={[
@@ -1352,6 +1382,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.35)',
     zIndex: 2,
+  },
+  downloadContainer: {
+    backgroundColor: '#9999991c',
+    justifyContent: 'center',
+    width: 320,
+    height: 65,
+    borderRadius: 28,
+    paddingHorizontal: 24,
+  },
+  downloadHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  downloadLabel: {
+    color: '#FFFFFF',
+    fontFamily: 'SSTBold',
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  downloadPercent: {
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: 'SSTBold',
+    fontWeight: '700',
+  },
+  downloadTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    overflow: 'hidden',
+  },
+  downloadFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
   },
 });
 

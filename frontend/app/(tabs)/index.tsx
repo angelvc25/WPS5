@@ -51,6 +51,9 @@ import { UserProfile } from '@/components/UserSelectScreen';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { LANGUAGE_OPTIONS, isLanguage, Language } from '@/i18n/translations';
 import { PLATFORMS, PLATFORM_IDS } from '@/constants/platforms';
+import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta si difiere
+import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
+import { getSteamAppId } from '@/services/steamLaunchService';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -219,6 +222,7 @@ export default function ConsoleHome() {
   const welcomeWidgetsRef = useRef<WelcomeWidgetsHandle>(null);
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
   const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
+  const { downloads: steamDownloads } = useSteamDownloads();
   const [loadingSteam, setLoadingSteam] = useState(false);
   const [epicGames, setEpicGames] = useState<ConsoleItem[]>([]);
   const [loadingEpic, setLoadingEpic] = useState(false);
@@ -237,6 +241,25 @@ export default function ConsoleHome() {
       });
     }
   };
+
+  // Mapa rápido appId -> info de descarga
+  const downloadsByAppId = useMemo(() => {
+    const map = new Map<string, SteamDownloadItem>();
+    steamDownloads.forEach(d => map.set(d.appId, d));
+    return map;
+  }, [steamDownloads]);
+
+  // Juegos de la colección Steam que están descargando AHORA MISMO
+  const downloadingSteamGames = useMemo(() => {
+    if (downloadsByAppId.size === 0) return [] as ConsoleItem[];
+    return steamGames
+      .filter(sg => {
+        const appId = getSteamAppId(sg as any);
+        return !!appId && downloadsByAppId.has(appId);
+      })
+      .map(sg => ({ ...sg, path: resolveLaunchPath(sg) }));
+  }, [steamGames, downloadsByAppId]);
+
   const isSteamTrackedGame = (item: ConsoleItem | null | undefined) => {
     if (!item) return false;
     const path = typeof item.path === 'string' ? item.path : '';
@@ -493,10 +516,16 @@ export default function ConsoleHome() {
   const GAMES_LIMIT = 10;
   const nonSteamGames = games.filter(item => !item.id.toString().startsWith('steam_'));
 
-  let currentData = currentRenderedTab === 'Games' ? nonSteamGames : media;
+  const BASE_CARD_IDS = ['1', 'last_played', '5'];
+  const baseCards = nonSteamGames.filter(g => BASE_CARD_IDS.includes(g.id));
+  const otherSavedGames = nonSteamGames.filter(g => !BASE_CARD_IDS.includes(g.id));
+
+  let currentData = currentRenderedTab === 'Games'
+    ? [...baseCards, ...downloadingSteamGames, ...otherSavedGames]
+    : media;
 
   if (currentRenderedTab === 'Games') {
-    currentData = nonSteamGames.slice(0, GAMES_LIMIT);
+    currentData = currentData.slice(0, GAMES_LIMIT);
     currentData.push({
       id: 'more_library',
       title: t('library.viewLibrary'),
@@ -2325,6 +2354,9 @@ export default function ConsoleHome() {
 
   // Get the active item info for the bottom panel
   const activeItem = currentData[activeIndex];
+  const activeItemForDownload = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
+  const activeItemAppId = activeItemForDownload ? getSteamAppId(activeItemForDownload as any) : null;
+  const activeDownload = activeItemAppId ? downloadsByAppId.get(activeItemAppId) ?? null : null;
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : 'Último Jugado') : activeItem?.title;
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
   const displayDesc = activeItem?.isLastPlayed ? (lastPlayedGame?.description || '') : (activeItem?.description || '');
@@ -2725,6 +2757,7 @@ export default function ConsoleHome() {
         <Animated.View style={[styles.carouselSection, carouselStyle]}>
           <ConsoleCarousel
             currentData={currentData}
+            downloadsByAppId={downloadsByAppId}
             activeIndex={activeIndex}
             carouselKey={carouselKey}
             lastPlayedGame={lastPlayedGame}
@@ -2742,6 +2775,7 @@ export default function ConsoleHome() {
             media={media}
             games={games}
             collapseAnim={collapseAnim}
+
           />
         </Animated.View>
 
@@ -2823,6 +2857,7 @@ export default function ConsoleHome() {
               windowWidth={windowWidth}
               windowHeight={windowHeight}
               gameInfoPanelStyle={gameInfoPanelStyle}
+              activeDownload={activeDownload}
               spacerStyle={spacerStyle}
               infoCardsStyle={infoCardsStyle}
               topPanelStyle={topPanelStyle}
