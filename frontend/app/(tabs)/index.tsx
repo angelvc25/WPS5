@@ -806,20 +806,20 @@ export default function ConsoleHome() {
       const comparison = compareVersions(latest.version, currentVersion);
       if (comparison > 0) {
         toastService.show(`${t('settings.updateAvailable')}\n${latest.version}`, {
-          icon: require('@/assets/images/applogo_clean.png'),
-          source: 'steam',
+          icon: require('@/assets/icons/logoblanco.png'),
+          source: 'system',
         });
       } else {
         toastService.show(t('settings.youHaveTheLatestVersion'), {
-          icon: require('@/assets/images/applogo_clean.png'),
-          source: 'steam',
+          icon: require('@/assets/icons/logoblanco.png'),
+          source: 'system',
         });
       }
     } catch (error) {
       console.error('Error checking for updates:', error);
       toastService.show(t('settings.updateCheckFailed'), {
-        icon: require('@/assets/images/applogo_clean.png'),
-        source: 'steam',
+        icon: require('@/assets/icons/logoblanco.png'),
+        source: 'system',
       });
     }
   }

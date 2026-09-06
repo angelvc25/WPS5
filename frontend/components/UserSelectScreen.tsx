@@ -385,7 +385,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     selectedRef.current = true;
     soundService.playActivation?.();
     setTimeout(() => {
-      toastService.show(t('toast.loggedPS5'), { source: 'system' });
+      toastService.show(t('toast.loggedPS5'), { source: 'system', icon: require('@/assets/icons/Logonegro.png') });
     }, 700);
     onUserSelected(user);
   };
