@@ -218,10 +218,15 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   const styles = useMemo(() => {
     const scaleW = windowWidth / 1920;
     const scaleH = windowHeight / 1080;
-    const scale = Math.min(scaleW, scaleH);
+
+    // Escala uniforme (para fuentes, íconos, radios, etc.):
+    // usa el eje MÁS grande en vez del más chico, para no encoger todo
+    // en ventanas ultra-wide donde el alto queda corto respecto al ancho.
+    const scale = Math.min(Math.max(Math.max(scaleW, scaleH), 0.6), 1.25);
+
     const s = (px: number) => Math.max(1, Math.round(px * scale));
-    const sH = (px: number) => Math.max(1, Math.round(px * scaleH));
-    const sW = (px: number) => Math.max(1, Math.round(px * scaleW));
+    const sH = (px: number) => Math.max(1, Math.round(px * Math.min(Math.max(scaleH, 0.6), 1.25)));
+    const sW = (px: number) => Math.max(1, Math.round(px * Math.min(Math.max(scaleW, 0.6), 1.25)));
 
 
     /// ANCHO WIDGETS

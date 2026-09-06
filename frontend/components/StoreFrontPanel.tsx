@@ -38,7 +38,10 @@ export const StoreFrontPanel = ({
   const { t } = useTranslation();
 
   // Scale factor: 1.0 at 1080p
-  const scale = Math.min(Math.max(windowHeight / 1080, 0.6), 1);
+  const scale = Math.min(
+    Math.max(Math.max(windowWidth / 1920, windowHeight / 1080), 0.6),
+    1.25 // permite crecer un poco en pantallas grandes en vez de topar en 1x
+  );
   const s = (v: number) => Math.round(v * scale);
 
   const CARD_W = s(294);
