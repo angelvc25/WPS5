@@ -90,6 +90,7 @@
     "files": [
       "electron/**/*",
       "package.json",
+      "assets/**/*",
       "node_modules/windows-media-sessions/**/*",
       "node_modules/win-media-control/**/*"
     ],
