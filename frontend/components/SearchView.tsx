@@ -23,6 +23,7 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import SpinningBorderSearch from './SpinningBorderSearch';
+import BackgroundVideo from './BackgroundVideo';
 
 export interface SearchGameItem {
   id: string;
@@ -674,14 +675,13 @@ const SearchView: React.FC<SearchViewProps> = ({
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <Animated.View style={ui.root} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
-        <Video
-          source={require('@/assets/video/particles.mp4')}
+        <BackgroundVideo
+          source={require('../assets/video/particles.mp4')}
           style={StyleSheet.absoluteFillObject}
-          resizeMode={ResizeMode.COVER}
-          isLooping
+          resizeMode="cover"
           shouldPlay
-          isMuted
-          useNativeControls={false}
+          isLooping
+          muted
         />
         {/* <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11, 12, 16, 0.85)' }} pointerEvents="none" />
         <View style={ui.spotlight} pointerEvents="none" /> */}
