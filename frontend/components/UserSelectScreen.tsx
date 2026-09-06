@@ -422,7 +422,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
           rellenar un contenedor 21:9/32:9 que no comparte el aspect ratio
           original del video; COVER recorta manteniendo proporciones, igual
           que BackgroundVideo.tsx hace en el resto de la app. */}
-      <Video
+      <BackgroundVideo
         source={require('@/assets/video/particles.mp4')}
         style={StyleSheet.absoluteFillObject}
         resizeMode={ResizeMode.COVER}
