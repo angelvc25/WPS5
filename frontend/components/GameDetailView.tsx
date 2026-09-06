@@ -540,6 +540,21 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isSmallScreen = windowWidth < 1100;
 
+  // Escala de UI en función de la resolución real de la ventana.
+  // Usa el eje MAS grande (no el mas chico) respecto a 1920x1080, para que
+  // ventanas ultra-wide (mucho ancho, alto normal) no encojan todo el panel.
+  const s = useMemo<ScaleFn>(() => {
+    const scaleW = windowWidth / 1920;
+    const scaleH = windowHeight / 1080;
+    const scale = Math.min(Math.max(Math.max(scaleW, scaleH), 0.6), 1.25);
+    return (px: number) => {
+      if (px === 0) return 0;
+      const scaled = Math.round(px * scale);
+      return scaled === 0 ? Math.sign(px) : scaled;
+    };
+  }, [windowWidth, windowHeight]);
+  const styles = useMemo(() => createStyles(s), [s]);
+
   // focusIndex >= 2 → ocultar logo+botones (topPanel)
   // focusIndex >= 4 → ocultar cards trofeos/amigos
   const topPanelAnim = useSharedValue(1);   // 1=visible, 0=oculto
@@ -1330,13 +1345,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 style={styles.lightboxCloseBtn}
                 onPress={() => setSelectedMediaIndex(null)}
               >
-                <Ionicons name="close" size={24} color="#FFF" />
+                <Ionicons name="close" size={s(24)} color="#FFF" />
               </TouchableOpacity>
 
               {/* Badge tipo */}
               {selectedMedia?.type === 'movie' && (
                 <View style={styles.lightboxBadge}>
-                  <Ionicons name="play-circle" size={14} color="#FFF" />
+                  <Ionicons name="play-circle" size={s(14)} color="#FFF" />
                   <Text style={styles.lightboxBadgeText}>Trailer</Text>
                 </View>
               )}
@@ -1357,7 +1372,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 style={[styles.lightboxArrow, styles.lightboxArrowLeft]}
                 onPress={() => setSelectedMediaIndex(prev => prev !== null ? prev - 1 : prev)}
               >
-                <Ionicons name="chevron-back" size={28} color="#FFF" />
+                <Ionicons name="chevron-back" size={s(28)} color="#FFF" />
               </TouchableOpacity>
             )}
 
@@ -1367,7 +1382,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 style={[styles.lightboxArrow, styles.lightboxArrowRight]}
                 onPress={() => setSelectedMediaIndex(prev => prev !== null ? prev + 1 : prev)}
               >
-                <Ionicons name="chevron-forward" size={28} color="#FFF" />
+                <Ionicons name="chevron-forward" size={s(28)} color="#FFF" />
               </TouchableOpacity>
             )}
 
@@ -1395,7 +1410,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       />
                       {m.type === 'movie' && (
                         <View style={styles.lightboxThumbPlay}>
-                          <Ionicons name="play" size={10} color="#FFF" />
+                          <Ionicons name="play" size={s(10)} color="#FFF" />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -1452,7 +1467,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       >
                         <Ionicons
                           name={tab.icon as any}
-                          size={22}
+                          size={s(22)}
                           color={isTabActive ? '#FFF' : 'rgba(255, 255, 255, 0.6)'}
                         />
                         <Text style={[
@@ -1504,7 +1519,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                       >
                                         <MaterialCommunityIcons
                                           name={plat.icon as any}
-                                          size={20}
+                                          size={s(20)}
                                           color={isActive ? '#000' : '#FFF'}
                                         />
                                         <Text style={[
@@ -1573,7 +1588,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                 style={[styles.editSecondaryBtn, editModalFocusIndex === 22 && styles.editSecondaryBtnFocused]}
                                 onPress={() => { setEditModalFocusIndex(22); handleSelectPath(); }}
                               >
-                                <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                                <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                                 <Text style={styles.editSecondaryBtnText}>{t('add.selectExe')}</Text>
                               </TouchableOpacity>
                               <View style={styles.pathDisplayBox}>
@@ -1597,7 +1612,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               onPress={() => { setEditModalFocusIndex(0); handleUnifiedSync(); }}
                               disabled={isSyncing}
                             >
-                              <Ionicons name="sync-outline" size={18} color="#000" />
+                              <Ionicons name="sync-outline" size={s(18)} color="#000" />
                               <Text style={styles.editSyncBtnUnifiedText}>{isSyncing ? t('edit.syncing') : t('edit.syncData')}</Text>
                             </TouchableOpacity>
                           </View>
@@ -1608,7 +1623,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               style={[styles.editArtFileBtn, editModalFocusIndex === 15 && styles.editArtFileBtnFocused]}
                               onPress={() => { setEditModalFocusIndex(15); openAssetSelector('capsule'); }}
                             >
-                              <Ionicons name="image-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
+                              <Ionicons name="image-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.cover')}</Text>
                               <Text style={styles.artFileBtnSub}>{t('edit.coverSub')}</Text>
                             </TouchableOpacity>
@@ -1617,7 +1632,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               style={[styles.editArtFileBtn, editModalFocusIndex === 16 && styles.editArtFileBtnFocused]}
                               onPress={() => { setEditModalFocusIndex(16); openAssetSelector('logo'); }}
                             >
-                              <Ionicons name="color-palette-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
+                              <Ionicons name="color-palette-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.logoPng')}</Text>
                               <Text style={styles.artFileBtnSub}>{t('edit.transparent')}</Text>
                             </TouchableOpacity>
@@ -1626,7 +1641,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               style={[styles.editArtFileBtn, editModalFocusIndex === 17 && styles.editArtFileBtnFocused]}
                               onPress={() => { setEditModalFocusIndex(17); openAssetSelector('hero'); }}
                             >
-                              <Ionicons name="images-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
+                              <Ionicons name="images-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.background')}</Text>
                               <Text style={styles.artFileBtnSub}>{t('edit.horizontal')}</Text>
                             </TouchableOpacity>
@@ -1635,7 +1650,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               style={[styles.editArtFileBtn, editModalFocusIndex === 18 && styles.editArtFileBtnFocused]}
                               onPress={() => { setEditModalFocusIndex(18); handleSelectVideo(); }}
                             >
-                              <Ionicons name="videocam-outline" size={24} color="#FFF" style={{ marginBottom: 6 }} />
+                              <Ionicons name="videocam-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.video')}</Text>
                               <Text style={styles.artFileBtnSub}>Trailer/Gameplay</Text>
                             </TouchableOpacity>
@@ -1652,7 +1667,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       style={[styles.editDeleteBtn, editModalFocusIndex === 19 && styles.editDeleteBtnFocused]}
                       onPress={() => { setEditModalFocusIndex(19); handleDeleteApp(); }}
                     >
-                      <Ionicons name="trash-outline" size={20} color={editModalFocusIndex === 19 ? '#FFF' : '#FF3B30'} />
+                      <Ionicons name="trash-outline" size={s(20)} color={editModalFocusIndex === 19 ? '#FFF' : '#FF3B30'} />
                     </TouchableOpacity>
 
                     <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 15 }}>
@@ -1745,7 +1760,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         ]}
                         onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(0); cycleDimensionFilter(); }}
                       >
-                        <Ionicons name="funnel-outline" size={16} color="#FFF" />
+                        <Ionicons name="funnel-outline" size={s(16)} color="#FFF" />
                         <Text style={styles.filterBtnText}>{getDimensionFilterLabel(selectedDimensionFilter)}</Text>
                       </TouchableOpacity>
 
@@ -1758,7 +1773,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         ]}
                         onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(1); handleLocalUpload(); }}
                       >
-                        <Ionicons name="cloud-upload-outline" size={16} color="#FFF" />
+                        <Ionicons name="cloud-upload-outline" size={s(16)} color="#FFF" />
                         <Text style={styles.filterBtnText}>{t('edit.uploadImage')}</Text>
                       </TouchableOpacity>
 
@@ -1770,7 +1785,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           ]}
                           onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(2); alert("Modo ajustar posición del logotipo activado (visual)."); }}
                         >
-                          <Ionicons name="resize-outline" size={16} color="#FFF" />
+                          <Ionicons name="resize-outline" size={s(16)} color="#FFF" />
                           <Text style={styles.filterBtnText}>{t('edit.adjustLogoPosition')}</Text>
                         </TouchableOpacity>
                       )}
@@ -1813,7 +1828,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   >
                     {isLoadingAssets ? (
                       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-                        <MaterialCommunityIcons name="loading" size={40} color="#FFF" style={{ marginBottom: 12 }} />
+                        <MaterialCommunityIcons name="loading" size={s(40)} color="#FFF" style={{ marginBottom: 12 }} />
                         <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>Buscando assets en SteamGridDB...</Text>
                       </View>
                     ) : assetSelectorTab === 'manage' ? (
@@ -1839,7 +1854,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               >
                                 <Ionicons
                                   name={act.icon as any}
-                                  size={40}
+                                  size={s(40)}
                                   color={act.isDelete ? '#FF3B30' : '#FFF'}
                                   style={{ marginBottom: 12 }}
                                 />
@@ -1852,7 +1867,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       </View>
                     ) : currentList.length === 0 ? (
                       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-                        <Ionicons name="images-outline" size={48} color="rgba(255,255,255,0.2)" style={{ marginBottom: 12 }} />
+                        <Ionicons name="images-outline" size={s(48)} color="rgba(255,255,255,0.2)" style={{ marginBottom: 12 }} />
                         <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16 }}>No se encontraron imágenes en esta categoría.</Text>
                       </View>
                     ) : (
@@ -1914,7 +1929,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                 ) : null}
                                 {isSelected ? (
                                   <View style={styles.selectedCheckBadge}>
-                                    <Ionicons name="checkmark" size={14} color="#000" />
+                                    <Ionicons name="checkmark" size={s(14)} color="#000" />
                                   </View>
                                 ) : null}
                               </View>
@@ -1946,7 +1961,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   {/* Bottom navigation helper */}
                   <View style={styles.bottomBarPrompts}>
                     <View style={styles.promptLeft}>
-                      <Ionicons name="game-controller-outline" size={20} color="#FFF" />
+                      <Ionicons name="game-controller-outline" size={s(20)} color="#FFF" />
                       <Text style={styles.promptLeftText}>{t('edit.menu')}</Text>
                     </View>
                     <View style={styles.promptRight}>
@@ -1954,14 +1969,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <View style={styles.promptBtnBadge}>
                           <PSIcon
                             char={PSIcons.r1}
-                            size={22}
+                            size={s(22)}
                             color='#fff'
 
                           />
                           <Text style={styles.promptBtnText}>/</Text>
                           <PSIcon
                             char={PSIcons.l1}
-                            size={22}
+                            size={s(22)}
                             color='#fff'
                           />
                         </View>
@@ -1971,13 +1986,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <View style={styles.promptBtnBadge}>
                           <PSIcon
                             char={PSIcons.l2}
-                            size={22}
+                            size={s(22)}
                             color='#fff'
                           />
                           <Text style={styles.promptBtnText}>/</Text>
                           <PSIcon
                             char={PSIcons.r2}
-                            size={22}
+                            size={s(22)}
                             color='#fff'
                           />
                         </View>
@@ -1987,7 +2002,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <View style={styles.promptBtnBadge}>
                           <PSIcon
                             char={PSIcons.square}
-                            size={22}
+                            size={s(22)}
                             color='#fff'
 
                           />
@@ -1998,7 +2013,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <View style={styles.promptBtnBadge}>
                           <PSIcon
                             char={PSIcons.cross}
-                            size={22}
+                            size={s(22)}
                             color='#fff'
 
                           />
@@ -2009,7 +2024,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <View style={styles.promptBtnBadge}>
                           <PSIcon
                             char={PSIcons.circle}
-                            size={22}
+                            size={s(22)}
                             color='#fff'
 
                           />
@@ -2028,7 +2043,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <View style={styles.promptBtnBadge}>
                           <PSIcon
                             char={PSIcons.options}
-                            size={22}
+                            size={s(22)}
                             color='#000'
                           />
                         </View>
@@ -2053,7 +2068,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   );
 };
 
-const styles = StyleSheet.create({
+type ScaleFn = (px: number) => number;
+
+const createStyles = (s: ScaleFn) => StyleSheet.create({
   detailContainer: {
     flex: 1,
     backgroundColor: '#000',
@@ -2074,9 +2091,9 @@ const styles = StyleSheet.create({
   // === PS5-STYLE BOTTOM PANEL ===
   ps5BottomPanel: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: s(0),
+    left: s(0),
+    right: s(0),
     top: '10%',
     zIndex: 10,
   },
@@ -2084,39 +2101,39 @@ const styles = StyleSheet.create({
   // === TOP HEADER (game image + title, replaces back button) ===
   topHeader: {
     position: 'absolute',
-    top: 40,
-    left: 40,
+    top: s(40),
+    left: s(40),
     zIndex: 30,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: s(12),
   },
   topHeaderImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
+    width: s(48),
+    height: s(48),
+    borderRadius: s(10),
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   topHeaderTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: s(16),
     fontWeight: '500',
     letterSpacing: 0.3,
-    maxWidth: 300,
+    maxWidth: s(300),
     opacity: 0.9,
   },
 
   // === STEAM MEDIA / NEWS ===
   newsSectionWrapper: {
-    marginTop: 30,
+    marginTop: s(30),
   },
   newsScrollContent: {
-    gap: 16,
+    gap: s(16),
   },
   newsCard: {
-    width: 500,
-    height: 250,
-    borderRadius: 8,
+    width: s(500),
+    height: s(250),
+    borderRadius: s(8),
     backgroundColor: 'rgba(20,20,30,0.4)',
     overflow: 'hidden',
     borderWidth: 1.5,
@@ -2124,8 +2141,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   } as any,
   newsCard2: {
-    width: 320,
-    borderRadius: 8,
+    width: s(320),
+    borderRadius: s(8),
     backgroundColor: 'rgba(20,20,30,0.4)',
     overflow: 'hidden',
     borderWidth: 1.5,
@@ -2140,30 +2157,30 @@ const styles = StyleSheet.create({
   } as any,
   newsCardThumbnail: {
     width: '100%',
-    height: 281,
+    height: s(281),
     backgroundColor: '#333',
     position: 'relative',
   },
   newsCardContent: {
-    padding: 12,
+    padding: s(12),
     zIndex: 2,
   },
   newsCardTitle: {
     color: '#FFF',
-    fontSize: 14,
+    fontSize: s(14),
     fontWeight: '500',
-    lineHeight: 20,
-    marginBottom: 6,
+    lineHeight: s(20),
+    marginBottom: s(6),
   },
   newsLoadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
+    gap: s(6),
+    paddingVertical: s(8),
   },
   newsEmptyText: {
     color: 'rgba(255,255,255,0.25)',
-    fontSize: 11,
+    fontSize: s(11),
     fontStyle: 'italic',
   },
   mediaPlayBadge: {
@@ -2176,16 +2193,16 @@ const styles = StyleSheet.create({
   },
   infoCardsRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 20,
+    gap: s(16),
+    marginTop: s(20),
   },
   infoCard: {
-    padding: 16,
-    borderRadius: 12,
+    padding: s(16),
+    borderRadius: s(12),
     backgroundColor: 'rgb(38 41 47)',
     borderWidth: 1,
     borderColor: 'rgb(38 41 47)',
-    minWidth: 350,
+    minWidth: s(350),
     justifyContent: 'center',
   } as any,
   infoCardFocused: {
@@ -2196,26 +2213,26 @@ const styles = StyleSheet.create({
   } as any,
   detailBack: {
     position: 'absolute',
-    top: 40,
-    left: 40,
+    top: s(40),
+    left: s(40),
     zIndex: 30,
-    width: 50,
-    height: 50,
+    width: s(50),
+    height: s(50),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 25,
+    borderRadius: s(25),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)'
   },
   favoriteButton: {
     position: 'absolute',
-    top: 40,
+    top: s(40),
     right: 520, // Adjusted to be outside the info panel or inside it? Let's put it inside info panel or top right of the whole screen.
     zIndex: 30,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: s(50),
+    height: s(50),
+    borderRadius: s(25),
     backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2234,18 +2251,18 @@ const styles = StyleSheet.create({
   detailLeft: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingLeft: 80,
-    paddingBottom: 100
+    paddingLeft: s(80),
+    paddingBottom: s(100)
   },
   detailLogo: {
-    width: 450,
-    height: 220,
+    width: s(450),
+    height: s(220),
     resizeMode: 'contain'
   },
   detailCover: {
-    width: 320,
-    height: 190,
-    borderRadius: 18,
+    width: s(320),
+    height: s(190),
+    borderRadius: s(18),
     resizeMode: 'cover',
     borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.2)',
@@ -2256,21 +2273,21 @@ const styles = StyleSheet.create({
   },
   detailRight: {
     width: '40%', // Fixed width usually better, but let's make it responsive
-    maxWidth: 480,
-    minWidth: 380,
+    maxWidth: s(480),
+    minWidth: s(380),
     height: '100%',
     overflow: 'hidden',
   },
   infoPanel: {
     flex: 1,
-    padding: 50,
-    paddingTop: 120,
+    padding: s(50),
+    paddingTop: s(120),
   },
   detailTitle: {
     color: '#FFF',
-    fontSize: 34,
+    fontSize: s(34),
     fontWeight: '800',
-    marginBottom: 8,
+    marginBottom: s(8),
     letterSpacing: 0.5
   },
   platformBadge: {
@@ -2278,16 +2295,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.1)',
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginBottom: 12,
+    paddingHorizontal: s(12),
+    paddingVertical: s(4),
+    borderRadius: s(6),
+    marginBottom: s(12),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)'
   },
   platformText: {
     color: '#00FFFF',
-    fontSize: 12,
+    fontSize: s(12),
     fontWeight: 'bold',
     textTransform: 'uppercase',
     letterSpacing: 1
@@ -2295,18 +2312,18 @@ const styles = StyleSheet.create({
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30
+    marginBottom: s(30)
   },
   ratingText: {
     color: '#FFD700',
-    fontSize: 18,
+    fontSize: s(18),
     fontWeight: 'bold',
-    marginLeft: 8
+    marginLeft: s(8)
   },
   detailActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 40
+    marginBottom: s(40)
   },
   playButton: {
     flex: 1,
@@ -2314,10 +2331,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#00BD10',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 14,
-    marginRight: 12,
+    paddingHorizontal: s(30),
+    paddingVertical: s(15),
+    borderRadius: s(14),
+    marginRight: s(12),
     shadowColor: '#00BD10',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
@@ -2325,18 +2342,18 @@ const styles = StyleSheet.create({
   },
   playButtonText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: s(16),
     fontWeight: '800',
     letterSpacing: 1
   },
   optionsButton: {
-    width: 54,
-    height: 54,
+    width: s(54),
+    height: s(54),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 14,
+    borderRadius: s(14),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)'
   },
@@ -2345,21 +2362,21 @@ const styles = StyleSheet.create({
   },
   detailDescription: {
     color: 'rgba(255,255,255,0.75)',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTLight',
-    lineHeight: 24,
-    marginBottom: 30,
+    lineHeight: s(24),
+    marginBottom: s(30),
     fontWeight: '400'
   },
   mediaContainer: {
     width: '100%',
-    height: 200,
-    borderRadius: 16,
+    height: s(200),
+    borderRadius: s(16),
     overflow: 'hidden',
     backgroundColor: '#000',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    marginTop: 10,
+    marginTop: s(10),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -2413,15 +2430,15 @@ const styles = StyleSheet.create({
   saveBtn: { flex: 1, padding: 16, backgroundColor: '#00FFFF', borderRadius: 12, marginLeft: 10, alignItems: 'center' },
   saveBtnText: { color: '#000', fontFamily: 'SSTBold', fontSize: 16 },
   deleteBtn: {
-    width: 54,
-    height: 54,
+    width: s(54),
+    height: s(54),
     backgroundColor: 'rgba(255, 45, 85, 0.1)',
-    borderRadius: 12,
+    borderRadius: s(12),
     borderWidth: 1,
     borderColor: 'rgba(255, 45, 85, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10
+    marginRight: s(10)
   },
   syncBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFD700', padding: 16, borderRadius: 12, marginBottom: 20 },
   syncBtnText: { color: '#000', fontFamily: 'SSTBold', marginLeft: 10, fontSize: 15 },
@@ -2438,9 +2455,9 @@ const styles = StyleSheet.create({
   },
   launchingText: {
     color: '#00FFFF',
-    fontSize: 28,
+    fontSize: s(28),
     fontFamily: 'SSTBold',
-    marginTop: 25,
+    marginTop: s(25),
     letterSpacing: 6,
     textTransform: 'uppercase',
     textShadowColor: 'rgba(0, 255, 255, 0.6)',
@@ -2461,39 +2478,39 @@ const styles = StyleSheet.create({
   },
   editContentContainer: {
     flex: 1,
-    paddingTop: 60,
-    paddingBottom: 40,
-    paddingHorizontal: 80,
+    paddingTop: s(60),
+    paddingBottom: s(40),
+    paddingHorizontal: s(80),
   },
   editMainTitleLarge: {
     color: '#FFF',
-    fontSize: 40,
+    fontSize: s(40),
     fontWeight: '200',
     fontFamily: 'SSTLight',
     letterSpacing: 0.5,
-    marginBottom: 30,
+    marginBottom: s(30),
   },
   editTwoColumns: {
     flex: 1,
     flexDirection: 'row',
-    gap: 60,
+    gap: s(60),
   },
   editSidebar: {
-    width: 320,
+    width: s(320),
     borderRightWidth: 1,
     borderRightColor: 'rgba(255, 255, 255, 0.08)',
-    paddingRight: 40,
+    paddingRight: s(40),
     justifyContent: 'flex-start',
   },
   editTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    marginBottom: 10,
+    paddingVertical: s(18),
+    paddingHorizontal: s(20),
+    marginBottom: s(10),
     borderWidth: 2,
     borderColor: 'transparent',
-    gap: 15,
+    gap: s(15),
   },
   editTabActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -2503,11 +2520,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
-    borderRadius: 5,
+    borderRadius: s(5),
   },
   editTabText: {
     color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 18,
+    fontSize: s(18),
     fontWeight: '400',
     fontFamily: 'SSTLight'
   },
@@ -2517,34 +2534,34 @@ const styles = StyleSheet.create({
   },
   editMainContent: {
     flex: 1,
-    paddingHorizontal: 40,
-    paddingVertical: 20,
+    paddingHorizontal: s(40),
+    paddingVertical: s(20),
   },
   editSectionTitle: {
     color: '#FFF',
-    fontSize: 26,
+    fontSize: s(26),
     fontWeight: '300',
     fontFamily: 'SSTLight',
-    marginBottom: 30,
+    marginBottom: s(30),
   },
   editLabel: {
     color: '#8E8E93',
-    fontSize: 13,
+    fontSize: s(13),
     fontFamily: 'SSTMedium',
-    marginBottom: 15,
+    marginBottom: s(15),
     //textTransform: 'uppercase',
     letterSpacing: 1.5,
   },
   editInput: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     color: '#FFF',
-    padding: 16,
-    borderRadius: 14,
-    fontSize: 16,
+    padding: s(16),
+    borderRadius: s(14),
+    fontSize: s(16),
     fontFamily: 'SSTLight',
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginBottom: 20,
+    marginBottom: s(20),
   },
   editInputFocused: {
     borderColor: '#FFFFFF',
@@ -2554,9 +2571,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 16,
-    borderRadius: 14,
-    gap: 12,
+    padding: s(16),
+    borderRadius: s(14),
+    gap: s(12),
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
@@ -2566,7 +2583,7 @@ const styles = StyleSheet.create({
   },
   editSecondaryBtnText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: s(16),
     fontFamily: 'SSTMedium',
   },
   editPrimaryBtn: {
@@ -2574,9 +2591,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 14,
+    paddingVertical: s(16),
+    paddingHorizontal: s(24),
+    borderRadius: s(14),
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
@@ -2586,7 +2603,7 @@ const styles = StyleSheet.create({
   },
   editPrimaryBtnText: {
     color: '#000',
-    fontSize: 16,
+    fontSize: s(16),
     fontFamily: 'SSTBold',
   },
   editDeleteBtn: {
@@ -2594,9 +2611,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 45, 85, 0.1)',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 14,
+    paddingHorizontal: s(20),
+    paddingVertical: s(16),
+    borderRadius: s(14),
     borderWidth: 2,
     borderColor: 'rgba(255, 45, 85, 0.3)',
   },
@@ -2607,9 +2624,9 @@ const styles = StyleSheet.create({
   platformBtnNew: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    paddingVertical: s(12),
+    paddingHorizontal: s(20),
+    borderRadius: s(10),
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -2621,12 +2638,12 @@ const styles = StyleSheet.create({
   platformBtnTextNew: {
     color: 'rgba(255,255,255,0.6)',
     fontFamily: 'SSTRg', // fuente del badge
-    marginLeft: 6,
+    marginLeft: s(6),
   },
   platformBtnTextActiveNew: {
     color: '#000',
     fontFamily: 'SSTBold', // fuente del badge activo
-    marginLeft: 6,
+    marginLeft: s(6),
   },
   platformBtnFocusedNew: {
     borderColor: '#FFFFFF',
@@ -2634,8 +2651,8 @@ const styles = StyleSheet.create({
   editArtFileBtn: {
     width: '48%',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    padding: 20,
-    borderRadius: 14,
+    padding: s(20),
+    borderRadius: s(14),
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
@@ -2651,9 +2668,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 14,
+    paddingVertical: s(16),
+    paddingHorizontal: s(16),
+    borderRadius: s(14),
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
@@ -2664,8 +2681,8 @@ const styles = StyleSheet.create({
   editSyncBtnUnifiedText: {
     color: '#000',
     fontFamily: 'SSTBold',
-    marginLeft: 8,
-    fontSize: 15,
+    marginLeft: s(8),
+    fontSize: s(15),
   },
 
   // === MEDIA LIGHTBOX ===
@@ -2678,9 +2695,9 @@ const styles = StyleSheet.create({
   },
   lightboxContent: {
     width: '82%',
-    maxWidth: 1060,
+    maxWidth: s(1060),
     aspectRatio: 16 / 9,
-    borderRadius: 14,
+    borderRadius: s(14),
     overflow: 'hidden',
     backgroundColor: '#000',
     position: 'relative',
@@ -2695,11 +2712,11 @@ const styles = StyleSheet.create({
   },
   lightboxCloseBtn: {
     position: 'absolute',
-    top: 14,
-    right: 14,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    top: s(14),
+    right: s(14),
+    width: s(36),
+    height: s(36),
+    borderRadius: s(18),
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2707,45 +2724,45 @@ const styles = StyleSheet.create({
   },
   lightboxBadge: {
     position: 'absolute',
-    top: 14,
-    left: 14,
+    top: s(14),
+    left: s(14),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: s(6),
     backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: s(10),
+    paddingVertical: s(5),
+    borderRadius: s(8),
     zIndex: 10,
   },
   lightboxBadgeText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: s(12),
     fontFamily: 'SSTMedium',
     letterSpacing: 0.5,
   },
   lightboxCounter: {
     position: 'absolute',
-    bottom: 14,
-    right: 14,
+    bottom: s(14),
+    right: s(14),
     backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: s(10),
+    paddingVertical: s(5),
+    borderRadius: s(8),
     zIndex: 10,
   },
   lightboxCounterText: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
+    fontSize: s(12),
     fontFamily: 'SSTMedium',
   },
   lightboxArrow: {
     position: 'absolute',
     top: '50%' as any,
-    marginTop: -24,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    marginTop: s(-24),
+    width: s(48),
+    height: s(48),
+    borderRadius: s(24),
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
@@ -2761,21 +2778,21 @@ const styles = StyleSheet.create({
   },
   lightboxStrip: {
     position: 'absolute',
-    bottom: 28,
-    left: 0,
-    right: 0,
+    bottom: s(28),
+    left: s(0),
+    right: s(0),
     alignItems: 'center',
   },
   lightboxStripContent: {
-    paddingHorizontal: 20,
-    gap: 8,
+    paddingHorizontal: s(20),
+    gap: s(8),
     flexDirection: 'row',
     alignItems: 'center',
   },
   lightboxThumb: {
-    width: 80,
-    height: 46,
-    borderRadius: 6,
+    width: s(80),
+    height: s(46),
+    borderRadius: s(6),
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.2)',
@@ -2803,13 +2820,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: s(8),
     flexWrap: 'wrap',
-    gap: 16,
+    gap: s(16),
   },
   assetHeaderTabs: {
     flexDirection: 'row',
-    gap: 6,
+    gap: s(6),
     flexWrap: 'wrap',
   },
 
@@ -2818,23 +2835,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 12,
+    marginBottom: s(20),
+    gap: s(12),
     flexWrap: 'wrap',
   },
   filterActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: s(10),
     flexWrap: 'wrap',
   },
   filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: s(8),
     backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 10,
+    paddingVertical: s(10),
+    paddingHorizontal: s(18),
+    borderRadius: s(10),
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.08)',
   },
@@ -2844,25 +2861,25 @@ const styles = StyleSheet.create({
   },
   filterBtnText: {
     color: '#FFF',
-    fontSize: 14,
+    fontSize: s(14),
     fontFamily: 'SSTMedium',
   },
   sliderWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: s(14),
   },
   sliderLabel: {
     color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
+    fontSize: s(13),
     fontFamily: 'SSTMedium',
     letterSpacing: 0.5,
   },
   sliderContainer: {
-    width: 160,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderRadius: 10,
+    width: s(160),
+    paddingVertical: s(8),
+    paddingHorizontal: s(4),
+    borderRadius: s(10),
     borderWidth: 2,
     borderColor: 'transparent',
   },
@@ -2871,27 +2888,27 @@ const styles = StyleSheet.create({
   },
   sliderTrackBackground: {
     width: '100%',
-    height: 4,
-    borderRadius: 2,
+    height: s(4),
+    borderRadius: s(2),
     backgroundColor: 'rgba(255,255,255,0.15)',
     position: 'relative',
     justifyContent: 'center',
   },
   sliderTrackFill: {
-    height: 4,
-    borderRadius: 2,
+    height: s(4),
+    borderRadius: s(2),
     backgroundColor: '#FFFFFF',
     position: 'absolute',
-    left: 0,
+    left: s(0),
   } as any,
   sliderThumb: {
     position: 'absolute',
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: s(14),
+    height: s(14),
+    borderRadius: s(7),
     backgroundColor: '#FFFFFF',
-    top: -5,
-    marginLeft: -7,
+    top: s(-5),
+    marginLeft: s(-7),
     shadowColor: '#FFF',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
@@ -2902,11 +2919,11 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    paddingBottom: 30,
+    gap: s(12),
+    paddingBottom: s(30),
   },
   assetCard: {
-    borderRadius: 10,
+    borderRadius: s(10),
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
@@ -2924,11 +2941,11 @@ const styles = StyleSheet.create({
   } as any,
   selectedCheckBadge: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    top: s(8),
+    left: s(8),
+    width: s(24),
+    height: s(24),
+    borderRadius: s(12),
     backgroundColor: '#4CD964',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2951,20 +2968,20 @@ const styles = StyleSheet.create({
   assetCardInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    gap: s(8),
+    paddingHorizontal: s(10),
+    paddingVertical: s(8),
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   authorAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: s(20),
+    height: s(20),
+    borderRadius: s(10),
     backgroundColor: '#333',
   },
   authorName: {
     color: 'rgba(255,255,255,0.55)',
-    fontSize: 12,
+    fontSize: s(12),
     fontFamily: 'SSTMedium',
     flex: 1,
   },
@@ -2972,12 +2989,12 @@ const styles = StyleSheet.create({
   // Manage tab cards
   manageCard: {
     flex: 1,
-    minWidth: 160,
+    minWidth: s(160),
     backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 16,
+    borderRadius: s(16),
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.08)',
-    padding: 28,
+    padding: s(28),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2991,14 +3008,14 @@ const styles = StyleSheet.create({
   },
   manageCardTitle: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: s(16),
     fontFamily: 'SSTMedium',
-    marginBottom: 4,
+    marginBottom: s(4),
     textAlign: 'center',
   },
   manageCardDesc: {
     color: 'rgba(255,255,255,0.45)',
-    fontSize: 13,
+    fontSize: s(13),
     textAlign: 'center',
   },
 
@@ -3007,19 +3024,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 16,
+    paddingTop: s(16),
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.08)',
-    marginTop: 8,
+    marginTop: s(8),
   },
   promptLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: s(8),
   },
   promptLeftText: {
     color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
+    fontSize: s(13),
     fontFamily: 'SSTMedium',
     letterSpacing: 1,
   },
@@ -3027,62 +3044,62 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.69)',
-    gap: 20,
+    gap: s(20),
   },
   promptItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: s(8),
   },
   promptSaveItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: s(8),
     backgroundColor: '#4CD964',
-    borderRadius: 20,
-    paddingLeft: 6,
-    paddingRight: 16,
-    paddingVertical: 4,
-    marginLeft: 4,
+    borderRadius: s(20),
+    paddingLeft: s(6),
+    paddingRight: s(16),
+    paddingVertical: s(4),
+    marginLeft: s(4),
   } as any,
   promptSaveItemText: {
     color: '#000',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTBold',
   },
   promptBtnBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: s(8),
+    paddingVertical: s(4),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: s(4),
   },
   promptBtnText: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTMedium',
   },
   promptItemText: {
     color: 'rgba(255, 255, 255, 1)',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTMedium',
   },
   resolutionBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: s(8),
+    right: s(8),
     backgroundColor: 'rgba(0, 0, 0, 0.72)',
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 5,
+    paddingHorizontal: s(7),
+    paddingVertical: s(4),
+    borderRadius: s(5),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     zIndex: 10,
   },
   resolutionText: {
     color: '#FFF',
-    fontSize: 11,
+    fontSize: s(11),
     fontWeight: '700',
     fontFamily: 'SSTRg',
   },

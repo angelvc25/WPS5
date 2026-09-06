@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Linking,
   Dimensions,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Image } from 'expo-image';
@@ -112,6 +113,22 @@ export default function SettingsView({
   initialScreen = 'main',
 }: SettingsViewProps) {
   const { t } = useTranslation();
+
+  // Escala de UI en función de la resolución real de la ventana.
+  // Usa el eje MAS grande (no el mas chico) respecto a 1920x1080, para que
+  // ventanas ultra-wide (mucho ancho, alto normal) no encojan todo el panel.
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const s = useMemo<ScaleFn>(() => {
+    const scaleW = windowWidth / 1920;
+    const scaleH = windowHeight / 1080;
+    const scale = Math.min(Math.max(Math.max(scaleW, scaleH), 0.6), 1.25);
+    return (px: number) => {
+      if (px === 0) return 0;
+      const scaled = Math.round(px * scale);
+      return scaled === 0 ? Math.sign(px) : scaled;
+    };
+  }, [windowWidth, windowHeight]);
+  const styles = useMemo(() => createStyles(s), [s]);
 
   const [currentScreen, setCurrentScreen] = useState<SettingsScreenType>(initialScreen);
   const [screenHistory, setScreenHistory] = useState<SettingsScreenType[]>([]);
@@ -693,7 +710,7 @@ export default function SettingsView({
                     ) : (
                       <Ionicons
                         name={item.icon}
-                        size={26}
+                        size={s(26)}
                         color="#FFFFFF"
                         style={styles.mainMenuItemIcon}
                       />
@@ -719,7 +736,7 @@ export default function SettingsView({
       <View style={styles.contentWrapper}>
         <View style={styles.subScreenHeader}>
           <TouchableOpacity style={styles.backButtonInline} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
+            <Ionicons name="arrow-back" size={s(24)} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.subScreenHeaderTitle}>{t('settings.userGuide')}</Text>
         </View>
@@ -729,7 +746,7 @@ export default function SettingsView({
           <View style={styles.supportMessageContainer}>
             <Ionicons
               name="heart-circle-sharp"
-              size={64}
+              size={s(64)}
               color="#FF3B30"
               style={{ marginBottom: 16, alignSelf: 'center' }}
             />
@@ -743,7 +760,7 @@ export default function SettingsView({
               style={styles.supportLinkBtn}
               onPress={() => Linking.openURL('https://patreon.com/WPS5')}
             >
-              <Ionicons name="logo-octocat" size={22} color="#FF4500" />
+              <Ionicons name="logo-octocat" size={s(22)} color="#FF4500" />
               <Text style={styles.supportLinkBtnText}>Patreon</Text>
             </TouchableOpacity>
 
@@ -751,7 +768,7 @@ export default function SettingsView({
               style={styles.supportLinkBtn}
               onPress={() => Linking.openURL('https://github.com/angelvc25/WPS5')}
             >
-              <Ionicons name="logo-github" size={22} color="#FFF" />
+              <Ionicons name="logo-github" size={s(22)} color="#FFF" />
               <Text style={styles.supportLinkBtnText}>GitHub</Text>
             </TouchableOpacity>
 
@@ -759,7 +776,7 @@ export default function SettingsView({
               style={styles.supportLinkBtn}
               onPress={() => Linking.openURL('https://www.youtube.com/@Re-Devs')}
             >
-              <Ionicons name="logo-youtube" size={22} color="#FF0000" />
+              <Ionicons name="logo-youtube" size={s(22)} color="#FF0000" />
               <Text style={styles.supportLinkBtnText}>YouTube</Text>
             </TouchableOpacity>
           </View>
@@ -770,7 +787,7 @@ export default function SettingsView({
             <View style={styles.patronsListGrid}>
               {['angelvc25', 'Crizz_Vc', 'WPS5 Community'].map((name, idx) => (
                 <View key={idx} style={styles.patronCard}>
-                  <Ionicons name="star" size={14} color="#FFCC00" />
+                  <Ionicons name="star" size={s(14)} color="#FFCC00" />
                   <Text style={styles.patronName}>{name}</Text>
                 </View>
               ))}
@@ -797,7 +814,7 @@ export default function SettingsView({
       <View style={styles.contentWrapper}>
         <View style={styles.subScreenHeader}>
           <TouchableOpacity style={styles.backButtonInline} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
+            <Ionicons name="arrow-back" size={s(24)} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.subScreenHeaderTitle}>{t('settings.accessibility')}</Text>
         </View>
@@ -938,7 +955,7 @@ export default function SettingsView({
                         onOpenBgModal();
                       }}
                     >
-                      <Ionicons name="image-outline" size={20} color="#FFF" />
+                      <Ionicons name="image-outline" size={s(20)} color="#FFF" />
                       <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseWallpaper')}</Text>
                     </TouchableOpacity>
                   </View>
@@ -959,7 +976,7 @@ export default function SettingsView({
                         ]}
                         onPress={onSelectWallpaperFolder}
                       >
-                        <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                        <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
                       {hasWallpaperPath ? (
@@ -975,7 +992,7 @@ export default function SettingsView({
                             })
                           }
                         >
-                          <Ionicons name="trash-outline" size={18} color="#FF5566" />
+                          <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
                           </Text>
@@ -1000,7 +1017,7 @@ export default function SettingsView({
                         ]}
                         onPress={onSelectCaptureFolder}
                       >
-                        <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                        <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
                       {hasCapturePath ? (
@@ -1016,7 +1033,7 @@ export default function SettingsView({
                             })
                           }
                         >
-                          <Ionicons name="trash-outline" size={18} color="#FF5566" />
+                          <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
                           </Text>
@@ -1057,7 +1074,7 @@ export default function SettingsView({
                         onOpenAvatarModal?.();
                       }}
                     >
-                      <Ionicons name="person-circle-outline" size={20} color="#FFF" />
+                      <Ionicons name="person-circle-outline" size={s(20)} color="#FFF" />
                       <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseAvatar')}</Text>
                     </TouchableOpacity>
                   </View>
@@ -1078,7 +1095,7 @@ export default function SettingsView({
                         ]}
                         onPress={onSelectAvatarFolder}
                       >
-                        <Ionicons name="folder-open-outline" size={20} color="#FFF" />
+                        <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
                       {hasAvatarPath ? (
@@ -1094,7 +1111,7 @@ export default function SettingsView({
                             })
                           }
                         >
-                          <Ionicons name="trash-outline" size={18} color="#FF5566" />
+                          <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
                           </Text>
@@ -1120,7 +1137,7 @@ export default function SettingsView({
                   <View style={styles.cardSection}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <Ionicons name="logo-steam" size={26} color="#FFF" />
+                        <Ionicons name="logo-steam" size={s(26)} color="#FFF" />
                         <View>
                           <Text style={styles.toggleRowTitle}>Steam</Text>
                           {isConnected && (
@@ -1148,12 +1165,12 @@ export default function SettingsView({
                       >
                         {isConnected ? (
                           <>
-                            <Ionicons name="unlink-outline" size={18} color="#ffffffff" />
+                            <Ionicons name="unlink-outline" size={s(18)} color="#ffffffff" />
                             <Text style={[styles.actionBtnSecondaryText, { color: '#ffffffff' }]}>{t('settings.unlink')}</Text>
                           </>
                         ) : (
                           <>
-                            <Ionicons name="log-in-outline" size={18} color="#FFF" />
+                            <Ionicons name="log-in-outline" size={s(18)} color="#FFF" />
                             <Text style={styles.actionBtnSecondaryText}>{t('settings.steamLink')}</Text>
                           </>
                         )}
@@ -1294,7 +1311,7 @@ export default function SettingsView({
 
           {/* Back button in top-left */}
           <TouchableOpacity style={styles.profileBackButton} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={22} color="#FFF" />
+            <Ionicons name="arrow-back" size={s(22)} color="#FFF" />
           </TouchableOpacity>
         </View>
 
@@ -1305,7 +1322,7 @@ export default function SettingsView({
               {userAvatarUri ? (
                 <Image source={resolveImageSource(userAvatarUri)} style={styles.profileAvatarImg} />
               ) : (
-                <Ionicons name="person" size={54} color="rgba(255,255,255,0.6)" />
+                <Ionicons name="person" size={s(54)} color="rgba(255,255,255,0.6)" />
               )}
               {/* Online indicator dot */}
               <View style={styles.profileOnlineDot} />
@@ -1315,7 +1332,7 @@ export default function SettingsView({
               <View style={styles.profileNameRow}>
                 <Text style={styles.profileDisplayName}>{activeUser?.name || 'Player'}</Text>
                 <View style={styles.profilePlusBadge}>
-                  <Ionicons name="add" size={14} color="#000" />
+                  <Ionicons name="add" size={s(14)} color="#000" />
                 </View>
               </View>
               <View style={styles.profileHandleRow}>
@@ -1323,7 +1340,7 @@ export default function SettingsView({
                   {activeUser?.onlineId || activeUser?.name?.toLowerCase().replace(/\s+/g, '_') || 'player_1'}
                 </Text>
                 <Text style={styles.profileHandleSep}>|</Text>
-                <Ionicons name="game-controller" size={14} color="rgba(255,255,255,0.6)" />
+                <Ionicons name="game-controller" size={s(14)} color="rgba(255,255,255,0.6)" />
               </View>
             </View>
           </View>
@@ -1337,7 +1354,7 @@ export default function SettingsView({
               ]}
               onPress={() => navigateToScreen('profile_edit')}
             >
-              <Ionicons name="pencil" size={20} color="#FFF" />
+              <Ionicons name="pencil" size={s(20)} color="#FFF" />
               <Text style={styles.profileActionButtonLabel}>{t('profile.editProfile')}</Text>
             </TouchableOpacity>
 
@@ -1352,7 +1369,7 @@ export default function SettingsView({
                   if (nextUser && onSwitchUser) onSwitchUser(nextUser);
                 }}
               >
-                <Ionicons name="people-outline" size={20} color="#FFF" />
+                <Ionicons name="people-outline" size={s(20)} color="#FFF" />
               </TouchableOpacity>
             )}
           </View>
@@ -1385,17 +1402,17 @@ export default function SettingsView({
             <View style={styles.overviewContainer}>
               <View style={styles.overviewStatsRow}>
                 <View style={styles.statCard}>
-                  <Ionicons name="game-controller-outline" size={28} color="#00D4FF" />
+                  <Ionicons name="game-controller-outline" size={s(28)} color="#00D4FF" />
                   <Text style={styles.statNumber}>{libraryGames.length || 12}</Text>
                   <Text style={styles.statLabel}>{t('profile.gamesCount')}</Text>
                 </View>
                 <View style={styles.statCard}>
-                  <Ionicons name="time-outline" size={28} color="#FFCC00" />
+                  <Ionicons name="time-outline" size={s(28)} color="#FFCC00" />
                   <Text style={styles.statNumber}>148h</Text>
                   <Text style={styles.statLabel}>{t('profile.totalPlaytime')}</Text>
                 </View>
                 <View style={styles.statCard}>
-                  <Ionicons name="heart-outline" size={28} color="#FF3B30" />
+                  <Ionicons name="heart-outline" size={s(28)} color="#FF3B30" />
                   <Text style={styles.statNumber}>5</Text>
                   <Text style={styles.statLabel}>{t('profile.favoriteGames')}</Text>
                 </View>
@@ -1455,7 +1472,7 @@ export default function SettingsView({
       <View style={styles.contentWrapper}>
         <View style={styles.subScreenHeader}>
           <TouchableOpacity style={styles.backButtonInline} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
+            <Ionicons name="arrow-back" size={s(24)} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.subScreenHeaderTitle}>{t('settings.profile')}</Text>
         </View>
@@ -1491,7 +1508,7 @@ export default function SettingsView({
       <View style={styles.contentWrapper}>
         <View style={styles.subScreenHeader}>
           <TouchableOpacity style={styles.backButtonInline} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
+            <Ionicons name="arrow-back" size={s(24)} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.subScreenHeaderTitle}>{title}</Text>
         </View>
@@ -1540,10 +1557,10 @@ export default function SettingsView({
                     {userAvatarUri ? (
                       <Image source={resolveImageSource(userAvatarUri)} style={styles.avatarPickerImg} />
                     ) : (
-                      <Ionicons name="person" size={32} color="#FFF" />
+                      <Ionicons name="person" size={s(32)} color="#FFF" />
                     )}
                     <View style={styles.avatarEditOverlay}>
-                      <Ionicons name="camera" size={16} color="#FFF" />
+                      <Ionicons name="camera" size={s(16)} color="#FFF" />
                     </View>
                   </TouchableOpacity>
                   <View style={{ gap: 10, flex: 1 }}>
@@ -1554,11 +1571,11 @@ export default function SettingsView({
                         onOpenAvatarModal?.();
                       }}
                     >
-                      <Ionicons name="person-circle-outline" size={18} color="#FFF" />
+                      <Ionicons name="person-circle-outline" size={s(18)} color="#FFF" />
                       <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseAvatar')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.actionBtnSecondary, styles.actionBtnStretch]} onPress={handleSelectAvatar}>
-                      <Ionicons name="image-outline" size={18} color="#FFF" />
+                      <Ionicons name="image-outline" size={s(18)} color="#FFF" />
                       <Text style={styles.actionBtnSecondaryText}>{t('settings.profilePhoto')}</Text>
                     </TouchableOpacity>
                   </View>
@@ -1592,7 +1609,7 @@ export default function SettingsView({
                 <Text style={styles.editListLabel}>{t('profile.coverImage')}</Text>
                 <View style={styles.coverActionsRow}>
                   <TouchableOpacity style={[styles.actionBtnSecondary, styles.actionBtnStretch]} onPress={handleSelectCover}>
-                    <Ionicons name="image-outline" size={18} color="#FFF" />
+                    <Ionicons name="image-outline" size={s(18)} color="#FFF" />
                     <Text style={styles.actionBtnSecondaryText}>{t('profile.coverImage')}</Text>
                   </TouchableOpacity>
                   {activeUser?.coverImage ? (
@@ -1607,7 +1624,7 @@ export default function SettingsView({
                         updateUser({ coverImage: '' });
                       }}
                     >
-                      <Ionicons name="trash-outline" size={18} color="#FF5566" />
+                      <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                       <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                         {t('settings.restoreDefault')}
                       </Text>
@@ -1679,7 +1696,7 @@ export default function SettingsView({
       <View style={styles.contentWrapper}>
         <View style={styles.subScreenHeader}>
           <TouchableOpacity style={styles.backButtonInline} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
+            <Ionicons name="arrow-back" size={s(24)} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.subScreenHeaderTitle}>{t('settings.system')}</Text>
         </View>
@@ -1865,7 +1882,7 @@ export default function SettingsView({
                           {opt.nativeName}
                         </Text>
                         {isSelected && (
-                          <Ionicons name="checkmark-circle" size={22} color="#00D4FF" />
+                          <Ionicons name="checkmark-circle" size={s(22)} color="#00D4FF" />
                         )}
                       </TouchableOpacity>
                     );
@@ -1928,13 +1945,13 @@ export default function SettingsView({
         <View style={[styles.bottomControlBar, {}]}>
           <PSIcon
             char={PSIcons.cross}
-            size={26}
+            size={s(26)}
             color={'#fff'}
           />
           <Text style={styles.bottomBarText}>{t('common.select')}</Text>
           <PSIcon
             char={PSIcons.circle}
-            size={26}
+            size={s(26)}
             color={'#fff'}
           />
           <Text style={styles.bottomBarText}>{t('common.back')}</Text>
@@ -1944,7 +1961,9 @@ export default function SettingsView({
   );
 }
 
-const styles = StyleSheet.create({
+type ScaleFn = (px: number) => number;
+
+const createStyles = (s: ScaleFn) => StyleSheet.create({
   fullScreenContainer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
@@ -1956,9 +1975,9 @@ const styles = StyleSheet.create({
   },
   bottomControlBar: {
     position: 'absolute',
-    padding: 2,
+    padding: s(2),
     //bottom: 60,
-    left: 15,
+    left: s(15),
     //right: 72,
     display: 'flex',
     flexDirection: 'row',
@@ -1968,55 +1987,55 @@ const styles = StyleSheet.create({
   },
   bottomBarText: {
     color: '#FFF',
-    fontSize: 20,
-    paddingHorizontal: 10,
+    fontSize: s(20),
+    paddingHorizontal: s(10),
     fontFamily: 'SSTMedium'
   },
   bottomControlBarContainer: {
     //width: 340,
-    minWidth: 270,
+    minWidth: s(270),
 
-    height: 37,
+    height: s(37),
     //maxWidth: 340,
     position: 'fixed',
-    right: 20,
-    bottom: 20,
-    paddingHorizontal: 22,
+    right: s(20),
+    bottom: s(20),
+    paddingHorizontal: s(22),
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    gap: 20,
+    gap: s(20),
     display: 'flex',
     justifyContent: 'center',
   },
   settingsBody: {
     flex: 1,
-    paddingTop: 56,
-    paddingHorizontal: 72,
-    paddingBottom: 60,
+    paddingTop: s(56),
+    paddingHorizontal: s(72),
+    paddingBottom: s(60),
   },
   contentWrapper: {
     flex: 1,
   },
   mainHeaderTitle: {
     color: '#FFF',
-    fontSize: 32,
+    fontSize: s(32),
     fontFamily: 'SSTLight',
-    marginBottom: 28,
+    marginBottom: s(28),
     letterSpacing: 0.4,
   },
   subScreenHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
-    gap: 16,
+    marginBottom: s(30),
+    gap: s(16),
   },
   backButtonInline: {
-    padding: 8,
-    borderRadius: 20,
+    padding: s(8),
+    borderRadius: s(20),
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   subScreenHeaderTitle: {
     color: '#FFF',
-    fontSize: 26,
+    fontSize: s(26),
     fontFamily: 'SSTLight',
   },
 
@@ -2027,20 +2046,20 @@ const styles = StyleSheet.create({
   },
   psMenuList: {
     width: '88%',
-    maxWidth: 1100,
+    maxWidth: s(1100),
     borderRightColor: 'rgba(255, 255, 255, 0.16)',
   },
   psMenuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingVertical: 26,
-    paddingHorizontal: 16,
+    paddingVertical: s(26),
+    paddingHorizontal: s(16),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.14)',
     borderWidth: 1.5,
     borderColor: 'transparent',
-    borderRadius: 0,
+    borderRadius: s(0),
   },
   psMenuRowFocused: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -2049,20 +2068,20 @@ const styles = StyleSheet.create({
   psMenuRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 18,
+    gap: s(18),
   },
   mainMenuItemIcon: {
-    width: 32,
+    width: s(32),
     textAlign: 'center',
   },
   mainMenuUserAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: s(32),
+    height: s(32),
+    borderRadius: s(16),
   },
   psMenuRowText: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: s(20),
     fontFamily: 'SSTLight',
     letterSpacing: 0.25,
   },
@@ -2073,45 +2092,45 @@ const styles = StyleSheet.create({
 
   // Scroll body for sub screens
   scrollBody: {
-    paddingBottom: 60,
+    paddingBottom: s(60),
   },
 
   // Section Cards & Controls
   cardSection: {
-    marginBottom: 30,
-    paddingBottom: 20,
+    marginBottom: s(30),
+    paddingBottom: s(20),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   sectionLabel: {
     color: '#9c9b96ff',
-    fontSize: 13,
+    fontSize: s(13),
     fontWeight: '700',
     fontFamily: 'SSTMedium',
     letterSpacing: 1.2,
-    marginBottom: 10,
+    marginBottom: s(10),
   },
   pathDesc: {
     color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
+    fontSize: s(14),
     fontFamily: 'SSTLight',
-    lineHeight: 20,
+    lineHeight: s(20),
   },
   actionBtnSecondary: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    gap: 10,
+    paddingVertical: s(12),
+    paddingHorizontal: s(20),
+    borderRadius: s(10),
+    gap: s(10),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     alignSelf: 'flex-start',
   },
   actionBtnSecondaryText: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTLight',
     //fontWeight: '600',
   },
@@ -2121,37 +2140,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 18,
+    paddingVertical: s(18),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   toggleRowTitle: {
     color: '#FFF',
-    fontSize: 17,
+    fontSize: s(17),
     fontFamily: 'SSTLight',
-    marginBottom: 4,
+    marginBottom: s(4),
   },
   toggleRowDesc: {
     color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
+    fontSize: s(13),
     fontFamily: 'SSTLight',
-    lineHeight: 18,
+    lineHeight: s(18),
   },
   psSwitch: {
-    width: 52,
-    height: 30,
-    borderRadius: 15,
+    width: s(52),
+    height: s(30),
+    borderRadius: s(15),
     backgroundColor: 'rgba(48, 49, 54, 1)',
-    padding: 3,
+    padding: s(3),
     justifyContent: 'center',
   },
   psSwitchActive: {
     backgroundColor: 'rgba(71, 73, 80, 1)',
   },
   psSwitchThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: s(24),
+    height: s(24),
+    borderRadius: s(12),
     borderWidth: 2,
     borderColor: 'rgba(94, 100, 105, 1)',
     backgroundColor: 'rgba(48, 49, 54, 1)',
@@ -2167,17 +2186,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: s(12),
   },
   syncItemLabel: {
     color: '#E0E0FF',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTLight',
   },
   platformBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: s(8),
+    paddingHorizontal: s(16),
+    borderRadius: s(8),
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -2187,7 +2206,7 @@ const styles = StyleSheet.create({
   },
   platformBtnText: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 13,
+    fontSize: s(13),
     fontFamily: 'SSTMedium',
     //fontWeight: '600',
   },
@@ -2199,74 +2218,74 @@ const styles = StyleSheet.create({
   // Support / Guide
   supportMessageContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 16,
-    padding: 28,
-    marginBottom: 30,
+    borderRadius: s(16),
+    padding: s(28),
+    marginBottom: s(30),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
   },
   supportTextMain: {
     color: '#FFF',
-    fontSize: 22,
+    fontSize: s(22),
     fontFamily: 'SSTLight',
     //fontWeight: '300',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: s(10),
   },
   supportTextSub: {
     color: 'rgba(255, 255, 255, 0.65)',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTLight',
     textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 600,
+    lineHeight: s(22),
+    maxWidth: s(600),
   },
   supportLinksRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 35,
+    gap: s(16),
+    marginBottom: s(35),
   },
   supportLinkBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 10,
+    paddingVertical: s(12),
+    paddingHorizontal: s(20),
+    borderRadius: s(12),
+    gap: s(10),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   supportLinkBtnText: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTMedium',
     //fontWeight: '600',
   },
   patronsSection: {
-    marginTop: 10,
+    marginTop: s(10),
   },
   patronsListGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 12,
+    gap: s(12),
+    marginTop: s(12),
   },
   patronCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    gap: 8,
+    paddingVertical: s(8),
+    paddingHorizontal: s(14),
+    borderRadius: s(10),
+    gap: s(8),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   patronName: {
     color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 14,
+    fontSize: s(14),
     fontFamily: 'SSTMedium',
     //fontWeight: '500',
   },
@@ -2274,11 +2293,11 @@ const styles = StyleSheet.create({
   // Profile View (Image 2)
   profileBannerContainer: {
     width: '100%',
-    height: 380,
-    borderRadius: 16,
+    height: s(380),
+    borderRadius: s(16),
     overflow: 'hidden',
     position: 'relative',
-    marginBottom: -45,
+    marginBottom: s(-45),
   },
   profileBannerImage: {
     width: '100%',
@@ -2294,11 +2313,11 @@ const styles = StyleSheet.create({
   },
   profileBackButton: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    top: s(16),
+    left: s(16),
+    width: s(38),
+    height: s(38),
+    borderRadius: s(19),
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2307,18 +2326,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginBottom: 25,
+    paddingHorizontal: s(24),
+    marginBottom: s(25),
   },
   profileAvatarWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 18,
+    gap: s(18),
   },
   profileAvatarCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: s(90),
+    height: s(90),
+    borderRadius: s(45),
     borderWidth: 3.5,
     backgroundColor: '#1E1E24',
     alignItems: 'center',
@@ -2329,36 +2348,36 @@ const styles = StyleSheet.create({
   profileAvatarImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 45,
+    borderRadius: s(45),
   },
   profileOnlineDot: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    bottom: s(2),
+    right: s(2),
+    width: s(18),
+    height: s(18),
+    borderRadius: s(9),
     backgroundColor: '#4CD964',
     borderWidth: 3,
     borderColor: '#0D0D12',
   },
   profileInfoDetails: {
-    marginBottom: 6,
+    marginBottom: s(6),
   },
   profileNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: s(8),
   },
   profileDisplayName: {
     color: '#FFF',
-    fontSize: 24,
+    fontSize: s(24),
     fontFamily: 'SSTBold',
   },
   profilePlusBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: s(20),
+    height: s(20),
+    borderRadius: s(10),
     backgroundColor: '#FFCC00',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2366,40 +2385,40 @@ const styles = StyleSheet.create({
   profileHandleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 2,
+    gap: s(8),
+    marginTop: s(2),
   },
   profileHandleText: {
     color: 'rgba(255, 255, 255, 0.65)',
-    fontSize: 14,
+    fontSize: s(14),
     fontFamily: 'SSTLight',
   },
   profileHandleSep: {
     color: 'rgba(255, 255, 255, 0.3)',
-    fontSize: 14,
+    fontSize: s(14),
     fontFamily: 'SSTLight',
   },
   profileHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
+    gap: s(12),
+    marginBottom: s(8),
   },
   profileActionButtonRound: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: s(8),
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 24,
+    paddingVertical: s(10),
+    paddingHorizontal: s(18),
+    borderRadius: s(24),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   profileActionButtonRoundSmall: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: s(44),
+    height: s(44),
+    borderRadius: s(22),
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2412,19 +2431,19 @@ const styles = StyleSheet.create({
   },
   profileActionButtonLabel: {
     color: '#FFF',
-    fontSize: 14,
+    fontSize: s(14),
     fontFamily: 'SSTMedium',
   },
   profileTabsBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-    marginBottom: 20,
-    paddingHorizontal: 8,
+    marginBottom: s(20),
+    paddingHorizontal: s(8),
   },
   profileTabItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 22,
+    paddingVertical: s(12),
+    paddingHorizontal: s(22),
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
@@ -2433,7 +2452,7 @@ const styles = StyleSheet.create({
   },
   profileTabText: {
     color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTLight',
   },
   profileTabTextActive: {
@@ -2441,175 +2460,175 @@ const styles = StyleSheet.create({
     fontFamily: 'SSTMedium',
   },
   profileTabScrollBody: {
-    paddingBottom: 40,
+    paddingBottom: s(40),
   },
   overviewContainer: {
-    gap: 20,
+    gap: s(20),
   },
   overviewStatsRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: s(16),
   },
   statCard: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 14,
-    padding: 18,
+    borderRadius: s(14),
+    padding: s(18),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
   },
   statNumber: {
     color: '#FFF',
-    fontSize: 22,
+    fontSize: s(22),
     fontFamily: 'SSTBold',
     //fontWeight: 'bold',
-    marginVertical: 4,
+    marginVertical: s(4),
   },
   statLabel: {
     color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTLight',
     //textTransform: 'uppercase',
   },
   aboutCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 14,
-    padding: 20,
+    borderRadius: s(14),
+    padding: s(20),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   aboutCardTitle: {
     color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 13,
+    fontSize: s(13),
     fontFamily: 'SSTBold',
     //fontWeight: '700',
     //textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: s(8),
   },
   aboutCardText: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTLight',
   },
   gamesGridList: {
-    gap: 12,
+    gap: s(12),
   },
   gameListItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: s(12),
+    padding: s(12),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   gameListThumb: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
+    width: s(60),
+    height: s(60),
+    borderRadius: s(8),
     alignItems: 'center',
     justifyContent: 'center',
   },
   gameListInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: s(16),
   },
   gameListTitle: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: s(16),
     fontFamily: 'SSTMedium',
-    marginBottom: 4,
+    marginBottom: s(4),
   },
   gameListSub: {
     color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 13,
+    fontSize: s(13),
     fontFamily: 'SSTLight',
   },
   friendsListContainer: {
-    gap: 12,
+    gap: s(12),
   },
   friendCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: s(12),
+    padding: s(14),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   friendAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: s(44),
+    height: s(44),
+    borderRadius: s(22),
   },
   friendName: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: s(16),
     fontFamily: 'SSTMedium',
   },
   friendStatus: {
     color: '#4CD964',
-    fontSize: 12,
+    fontSize: s(12),
     fontFamily: 'SSTLight',
-    marginTop: 2,
+    marginTop: s(2),
   },
   sharedContainer: {
-    minHeight: 180,
+    minHeight: s(180),
   },
   emptyShared: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 50,
+    paddingVertical: s(50),
   },
   emptySharedText: {
     color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTLight',
-    marginTop: 12,
+    marginTop: s(12),
   },
   mediaGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
+    gap: s(14),
   },
   mediaCard: {
-    width: 180,
-    borderRadius: 10,
+    width: s(180),
+    borderRadius: s(10),
     overflow: 'hidden',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   mediaThumb: {
     width: '100%',
-    height: 100,
+    height: s(100),
   },
   mediaTitle: {
     color: '#FFF',
-    fontSize: 13,
-    padding: 8,
+    fontSize: s(13),
+    padding: s(8),
     fontFamily: 'SSTLight',
   },
 
   // Edit Profile Screen
   editListItem: {
-    marginBottom: 24,
-    paddingBottom: 18,
+    marginBottom: s(24),
+    paddingBottom: s(18),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   editListLabel: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: s(16),
     fontFamily: 'SSTMedium',
     //fontWeight: '500',
-    marginBottom: 12,
+    marginBottom: s(12),
   },
   editInput: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     color: '#FFF',
-    padding: 14,
-    borderRadius: 10,
-    fontSize: 15,
+    padding: s(14),
+    borderRadius: s(10),
+    fontSize: s(15),
     fontFamily: 'SSTLight',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -2617,22 +2636,22 @@ const styles = StyleSheet.create({
   editInputWide: {
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     color: '#FFF',
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    borderRadius: 10,
-    fontSize: 16,
+    paddingVertical: s(16),
+    paddingHorizontal: s(18),
+    borderRadius: s(10),
+    fontSize: s(16),
     fontFamily: 'SSTLight',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     width: '100%',
   },
   editInputMultiline: {
-    height: 140,
+    height: s(140),
     textAlignVertical: 'top',
   },
   profileDetailBody: {
     width: '88%',
-    maxWidth: 1100,
+    maxWidth: s(1100),
   },
   profileDetailBlock: {
     width: '100%',
@@ -2640,15 +2659,15 @@ const styles = StyleSheet.create({
   profilePictureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: s(16),
   },
   coverActionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: s(12),
   },
   languagePillsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: s(10),
     flexWrap: 'wrap',
   },
   actionBtnStretch: {
@@ -2657,9 +2676,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarPickerThumb: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: s(64),
+    height: s(64),
+    borderRadius: s(32),
     backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2672,21 +2691,21 @@ const styles = StyleSheet.create({
   },
   avatarEditOverlay: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: s(0),
+    left: s(0),
+    right: s(0),
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
-    paddingVertical: 2,
+    paddingVertical: s(2),
   },
   colorPickerRow: {
     flexDirection: 'row',
-    gap: 14,
+    gap: s(14),
   },
   colorCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: s(38),
+    height: s(38),
+    borderRadius: s(19),
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.2)',
   },
@@ -2699,16 +2718,16 @@ const styles = StyleSheet.create({
   twoColumnContainer: {
     flex: 1,
     flexDirection: 'row',
-    gap: 50,
+    gap: s(50),
   },
   systemLeftColumn: {
-    width: 240,
+    width: s(240),
   },
   systemLeftItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 6,
+    paddingVertical: s(14),
+    paddingHorizontal: s(16),
+    borderRadius: s(8),
+    marginBottom: s(6),
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -2726,7 +2745,7 @@ const styles = StyleSheet.create({
   },
   systemLeftItemText: {
     color: 'rgba(255, 255, 255, 0.65)',
-    fontSize: 16,
+    fontSize: s(16),
     fontFamily: 'SSTLight',
   },
   systemLeftItemTextActive: {
@@ -2736,16 +2755,16 @@ const styles = StyleSheet.create({
   },
   systemRightColumn: {
     flex: 1,
-    paddingLeft: 20,
+    paddingLeft: s(20),
     borderLeftWidth: 1,
     borderLeftColor: 'rgba(255, 255, 255, 0.06)',
   },
   systemBannerContainer: {
     width: '100%',
-    height: 160,
-    borderRadius: 12,
+    height: s(160),
+    borderRadius: s(12),
     overflow: 'hidden',
-    marginBottom: 24,
+    marginBottom: s(24),
     position: 'relative',
   },
   systemBannerImage: {
@@ -2754,11 +2773,11 @@ const styles = StyleSheet.create({
   },
   systemBannerTitle: {
     position: 'absolute',
-    left: 20,
-    bottom: 16,
+    left: s(20),
+    bottom: s(16),
     color: '#FFFFFF',
     fontFamily: 'SSTBadge',
-    fontSize: 22,
+    fontSize: s(22),
     letterSpacing: 1,
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 0, height: 1 },
@@ -2766,35 +2785,35 @@ const styles = StyleSheet.create({
   },
   rightSectionTitle: {
     color: '#FFF',
-    fontSize: 20,
+    fontSize: s(20),
     fontFamily: 'SSTBold',
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: s(20),
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: s(14),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   infoRowLabel: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTLight',
   },
   infoRowValue: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: s(15),
     fontFamily: 'SSTMedium',
   },
   languageSelectRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: s(16),
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 10,
+    borderRadius: s(10),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
@@ -2804,7 +2823,7 @@ const styles = StyleSheet.create({
   },
   languageSelectText: {
     color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 16,
+    fontSize: s(16),
     fontFamily: 'SSTMedium',
   },
   languageSelectTextActive: {
@@ -2815,9 +2834,9 @@ const styles = StyleSheet.create({
   // PS Button Styles
   psButtonLarge: {
     backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingVertical: 5,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: s(5),
+    paddingHorizontal: s(24),
+    borderRadius: s(12),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2827,7 +2846,7 @@ const styles = StyleSheet.create({
   },
   psButtonLargeText: {
     color: '#ffffffff',
-    fontSize: 16,
+    fontSize: s(16),
     fontFamily: 'SSTBold',
   },
   psButtonLargeTextFocused: {
