@@ -20,6 +20,7 @@ import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import { PLATFORMS, PLATFORM_IDS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
+import BackgroundVideo from './BackgroundVideo';
 
 
 interface GameDetailViewProps {
@@ -1409,13 +1410,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         <Modal visible={isEditModalVisible} transparent animationType="fade">
           <View style={styles.editViewContainer}>
             {/* background video */}
-            <Video
+            <BackgroundVideo
               source={require('../assets/video/waves_ajustes.mp4')}
               style={StyleSheet.absoluteFillObject}
-              resizeMode={ResizeMode.COVER}
+              resizeMode="cover"
               shouldPlay
               isLooping
-              isMuted
+              muted
             />
             {/* subtle dark overlay */}
             <View style={styles.editOverlayDark} />
@@ -1677,13 +1678,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             {isAssetSelectorVisible && (
               <View style={styles.assetSelectorOverlay}>
                 {/* background video */}
-                <Video
+                <BackgroundVideo
                   source={require('../assets/video/waves_ajustes.mp4')}
                   style={StyleSheet.absoluteFillObject}
-                  resizeMode={ResizeMode.COVER}
+                  resizeMode="cover"
                   shouldPlay
                   isLooping
-                  isMuted
+                  muted
                 />
                 <View style={styles.editOverlayDark} />
 
