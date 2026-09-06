@@ -488,11 +488,13 @@ export default function ConsoleHome() {
   const carouselStyle = useAnimatedStyle(() => {
     const collapseAnim = Math.max(gamePanelFocusAnim.value, welcomeWidgetsFocusAnim.value);
     const heightCollapse = gamePanelFocusAnim.value;
-    const fullHeight = CARD_SIZE + 80;
+    const EXTRA_BUFFER = 24; // ajusta este valor hasta que la card ya no se corte
+    const fullHeight = CARD_SIZE + 80 + EXTRA_BUFFER;
     return {
       opacity: 1 - collapseAnim,
       transform: [{ translateY: interpolate(collapseAnim, [0, 1], [0, -20]) }],
       height: interpolate(heightCollapse, [0, 1], [fullHeight, 0]),
+      marginBottom: interpolate(heightCollapse, [0, 1], [-EXTRA_BUFFER, 0]),
       overflow: heightCollapse > 0.01 ? 'hidden' : 'visible',
     };
   });

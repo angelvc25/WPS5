@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Platform,
   Animated,
   Image as RNImage,
+  useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -74,6 +75,7 @@ interface ProfileDropdownMenuProps {
 }
 
 const GLOW_DURATION = 180;
+const BASE_MENU_WIDTH = 320;
 
 export default function ProfileDropdownMenu({
   focusedIndex,
@@ -83,14 +85,23 @@ export default function ProfileDropdownMenu({
 }: ProfileDropdownMenuProps) {
   const { t } = useTranslation();
 
+  // Mismo patrón de escalado que UserSelectScreen.tsx y GameContextMenu.tsx.
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const scale = useMemo(
+    () => Math.min(windowWidth / 1920, windowHeight / 1080),
+    [windowWidth, windowHeight]
+  );
+  const s = (v: number) => Math.max(1, Math.round(v * scale));
+  const MENU_WIDTH = s(BASE_MENU_WIDTH);
+
   const options = [
     {
       labelKey: 'profile.onlineStatus' as TranslationKey,
       icon: 'person' as const,
       rightComponent: (
-        <View style={styles.statusContainer}>
-          <View style={[styles.statusDot, { backgroundColor: isOnline ? '#4CD964' : '#8E8E93' }]} />
-          <Text style={styles.statusText}>{isOnline ? t('common.online') : t('common.invisible')}</Text>
+        <View style={[styles.statusContainer, { gap: s(6) }]}>
+          <View style={[styles.statusDot, { width: s(8), height: s(8), borderRadius: s(4), backgroundColor: isOnline ? '#4CD964' : '#8E8E93' }]} />
+          <Text style={[styles.statusText, { fontSize: s(13) }]}>{isOnline ? t('common.online') : t('common.invisible')}</Text>
         </View>
       ),
     },
@@ -139,7 +150,7 @@ export default function ProfileDropdownMenu({
   }, [focusedIndex]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { width: MENU_WIDTH, borderRadius: s(12), padding: s(6) }]}>
       {Platform.OS === 'web' && (
         <div
           style={{
@@ -164,16 +175,16 @@ export default function ProfileDropdownMenu({
       {/* <ShimmerOverlay /> */}
 
       {/* USER HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.usernameText} numberOfLines={1}>
+      <View style={[styles.header, { paddingHorizontal: s(14), paddingVertical: s(12) }]}>
+        <Text style={[styles.usernameText, { fontSize: s(14) }]} numberOfLines={1}>
           {activeUser?.name || 'Invitado'}
         </Text>
       </View>
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, { left: s(45), right: s(16) }]} />
 
       {/* OPTIONS LIST */}
-      <View style={styles.optionsList}>
+      <View style={[styles.optionsList, { paddingVertical: s(4) }]}>
         {options.map((opt, idx) => {
           const isFocused = idx === focusedIndex;
 
@@ -184,12 +195,13 @@ export default function ProfileDropdownMenu({
               onPress={() => onPressItem(idx)}
               style={[
                 styles.item,
+                { paddingVertical: s(10), paddingHorizontal: s(12), height: s(48), marginVertical: s(1) },
                 isFocused && styles.itemFocused,
               ]}
             >
               {/* Animated glow focus — fades between items */}
               <Animated.View
-                style={[styles.focusGlow, { opacity: glowAnims[idx] }]}
+                style={[styles.focusGlow, { opacity: glowAnims[idx], borderRadius: s(3) }]}
                 pointerEvents="none"
               />
               {isFocused && <ShimmerOverlay />}
@@ -199,24 +211,25 @@ export default function ProfileDropdownMenu({
                   <RNImage
                     source={opt.image}
                     style={{
-                      width: 22,
-                      height: 22,
-                      marginRight: 12,
+                      width: s(22),
+                      height: s(22),
+                      marginRight: s(12),
                     }}
                     resizeMode="contain"
                   />
                 ) : (
                   <Ionicons
                     name={opt.icon!}
-                    size={22}
+                    size={s(22)}
                     color={isFocused ? '#e8ffff' : '#cacaca'}
-                    style={{ marginRight: 12 }}
+                    style={{ marginRight: s(12) }}
                   />
                 )}
 
                 <Text
                   style={[
                     styles.label,
+                    { fontSize: s(15) },
                     isFocused && styles.labelFocused,
                   ]}
                 >
@@ -233,7 +246,7 @@ export default function ProfileDropdownMenu({
 
               {/* Divider */}
               {idx !== options.length - 1 && (
-                <View style={styles.divider} />
+                <View style={[styles.divider, { left: s(45), right: s(16) }]} />
               )}
             </TouchableOpacity>
           );
@@ -245,7 +258,7 @@ export default function ProfileDropdownMenu({
 
 const styles = StyleSheet.create({
   container: {
-    width: 320,
+    width: BASE_MENU_WIDTH,
     backgroundColor: 'rgba(23, 23, 30, 1)',
     borderRadius: 12,
     //borderWidth: 1,

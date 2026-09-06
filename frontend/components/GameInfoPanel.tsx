@@ -110,7 +110,10 @@ export const GameInfoPanel = ({
   });
 
   // Scale factor: 1.0 at 1080p, shrinks proportionally for smaller screens
-  const scale = Math.min(Math.max(windowHeight / 1080, 0.6), 1);
+  const scale = Math.min(
+    Math.max(Math.max(windowWidth / 1920, windowHeight / 1080), 0.6),
+    1.25 // permite crecer un poco en pantallas grandes en vez de topar en 1x
+  );
   const s = (v: number) => Math.round(v * scale);
 
   return (
@@ -834,7 +837,7 @@ export const GameInfoPanel = ({
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.newsCard, { width: s(500), height: s(250) }, isMediaFocused && styles.newsCardFocused]}
+                    style={[styles.newsCard, { width: s(500), height: s(281) }, isMediaFocused && styles.newsCardFocused]}
                     activeOpacity={0.8}
                     onPress={() => {
                       setGamePanelFocusIndex(100 + idx);

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { BlurView } from 'expo-blur';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { TranslationKey } from '@/i18n/translations';
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Platform,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 
 // ─── Shimmer que barre todo el menú ──────────────────────────────────────────
@@ -82,8 +83,9 @@ interface GameContextMenuProps {
   onTogglePin?: () => void;
 }
 
-const MENU_WIDTH = 320;
-const ITEM_HEIGHT = 50;
+const BASE_MENU_WIDTH = 320;
+const BASE_ITEM_HEIGHT = 50;
+const BASE_LEFT_OFFSET = 185; // offset de anclaje respecto a la tarjeta/ícono que abre el menú
 const GLOW_DURATION = 180;
 // Índice de foco que corresponde a la fila del switch "Fijar"
 const PIN_INDEX = 3;
@@ -95,6 +97,27 @@ export default function GameContextMenu({
   onTogglePin,
 }: GameContextMenuProps) {
   const { t } = useTranslation();
+
+  // Mismo patrón de escalado que UserSelectScreen.tsx: 1920x1080 como panel
+  // de referencia, min(anchoRatio, altoRatio) para no estirar en ultrawide.
+  //
+  // IMPORTANTE: este menú se ancla con `left: BASE_LEFT_OFFSET` respecto a
+  // la tarjeta/ícono que lo abre (ver dónde se invoca <GameContextMenu />).
+  // Si el elemento que lo posiciona (p.ej. la tarjeta activa del carrusel)
+  // usa este mismo factor de escala para su propio tamaño/posición, el
+  // anclaje seguirá alineado en cualquier resolución. Si el padre posiciona
+  // ese ancla con otra lógica, ajusta `left` en el punto de uso en vez de
+  // aquí, para no desincronizar los dos cálculos.
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const scale = useMemo(
+    () => Math.min(windowWidth / 1920, windowHeight / 1080),
+    [windowWidth, windowHeight]
+  );
+  const s = (v: number) => Math.max(1, Math.round(v * scale));
+
+  const MENU_WIDTH = s(BASE_MENU_WIDTH);
+  const ITEM_HEIGHT = s(BASE_ITEM_HEIGHT);
+  const LEFT_OFFSET = s(BASE_LEFT_OFFSET);
 
   const options = [
     { labelKey: 'context.manage' as TranslationKey },
@@ -130,8 +153,8 @@ export default function GameContextMenu({
   }, [focusedIndex]);
 
   return (
-    <View style={styles.absoluteWrapper}>
-      <View style={styles.container}>
+    <View style={[styles.absoluteWrapper, { left: LEFT_OFFSET, width: MENU_WIDTH }]}>
+      <View style={[styles.container, { width: MENU_WIDTH, padding: s(6), marginLeft: s(15), borderRadius: s(3) }]}>
 
         {Platform.OS === 'web' && (
           <div
@@ -165,12 +188,13 @@ export default function GameContextMenu({
               onPress={() => onPressItem(idx)}
               style={[
                 styles.item,
+                { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
                 isFocused && styles.itemFocused,
               ]}
             >
               {/* Animated glow focus — fades between items */}
               <Animated.View
-                style={[styles.focusGlow, { opacity: glowAnims[idx] }]}
+                style={[styles.focusGlow, { opacity: glowAnims[idx], borderRadius: s(3) }]}
                 pointerEvents="none"
               />
               {isFocused && <ShimmerOverlay />}
@@ -179,6 +203,7 @@ export default function GameContextMenu({
               <Text
                 style={[
                   styles.label,
+                  { fontSize: s(13) },
                   isFocused && styles.labelFocused,
                 ]}
               >
@@ -189,7 +214,7 @@ export default function GameContextMenu({
         })}
 
         {/* Separador antes del switch de fijar */}
-        <View style={styles.divider} />
+        <View style={[styles.divider, { marginVertical: s(4), marginHorizontal: s(4) }]} />
 
         {/* ─── FIJAR JUEGO (switch) ─────────────────────────────────────── */}
         <TouchableOpacity
@@ -198,11 +223,12 @@ export default function GameContextMenu({
           style={[
             styles.item,
             styles.pinItem,
+            { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
             focusedIndex === PIN_INDEX && styles.itemFocused,
           ]}
         >
           <Animated.View
-            style={[styles.focusGlow, { opacity: glowAnims[3] }]}
+            style={[styles.focusGlow, { opacity: glowAnims[3], borderRadius: s(3) }]}
             pointerEvents="none"
           />
           {focusedIndex === PIN_INDEX && <ShimmerOverlay />}
@@ -210,14 +236,15 @@ export default function GameContextMenu({
           <Text
             style={[
               styles.label,
+              { fontSize: s(13) },
               focusedIndex === PIN_INDEX && styles.labelFocused,
             ]}
           >
             {t('context.pinToHome')}
           </Text>
 
-          <View style={[styles.toggleTrack, isPinned && styles.toggleTrackActive]}>
-            <View style={[styles.toggleThumb, isPinned && styles.toggleThumbActive]} />
+          <View style={[styles.toggleTrack, { width: s(40), height: s(22), borderRadius: s(11), padding: s(2) }, isPinned && styles.toggleTrackActive]}>
+            <View style={[styles.toggleThumb, { width: s(18), height: s(18), borderRadius: s(9) }, isPinned && [styles.toggleThumbActive, { transform: [{ translateX: s(18) }] }]]} />
           </View>
         </TouchableOpacity>
       </View>
@@ -230,10 +257,10 @@ export default function GameContextMenu({
 const styles = StyleSheet.create({
   absoluteWrapper: {
     position: 'absolute',
-    left: 185,
+    left: BASE_LEFT_OFFSET,
     top: 0,
     zIndex: 9999,
-    width: MENU_WIDTH,
+    width: BASE_MENU_WIDTH,
   },
 
   container: {
@@ -254,7 +281,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 12,
 
-    width: MENU_WIDTH,
+    width: BASE_MENU_WIDTH,
   },
 
   item: {
@@ -272,7 +299,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
 
-    height: ITEM_HEIGHT,
+    height: BASE_ITEM_HEIGHT,
   },
 
   pinItem: {
