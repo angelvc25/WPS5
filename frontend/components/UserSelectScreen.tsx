@@ -104,65 +104,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   // contenido crece según el ALTO disponible (que sigue siendo 1080/1440/etc.)
   // sin estirarse de más por el ancho extra — el ancho extra simplemente deja
   // ver más fondo a los lados, igual que en un PS5 real.
-  const nativeDimensions = useWindowDimensions();
-
-  const [screenDimensions, setScreenDimensions] = useState({
-    width: nativeDimensions.width,
-    height: nativeDimensions.height,
-  });
-
-  const windowWidth = screenDimensions.width;
-  const windowHeight = screenDimensions.height;
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-
-    let timers: ReturnType<typeof setTimeout>[] = [];
-
-    const updateDimensions = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-
-      if (width <= 0 || height <= 0) return;
-
-      setScreenDimensions(prev => {
-        if (prev.width === width && prev.height === height) {
-          return prev;
-        }
-
-        return { width, height };
-      });
-    };
-
-    const refreshAfterFullscreen = () => {
-      timers.forEach(clearTimeout);
-      timers = [];
-
-      updateDimensions();
-
-      [50, 150, 300, 600, 1000].forEach(delay => {
-        timers.push(
-          setTimeout(updateDimensions, delay)
-        );
-      });
-    };
-
-    window.addEventListener('resize', refreshAfterFullscreen);
-    window.addEventListener('orientationchange', refreshAfterFullscreen);
-    document.addEventListener('fullscreenchange', refreshAfterFullscreen);
-
-    // Medición inicial
-    refreshAfterFullscreen();
-
-    return () => {
-      window.removeEventListener('resize', refreshAfterFullscreen);
-      window.removeEventListener('orientationchange', refreshAfterFullscreen);
-      document.removeEventListener('fullscreenchange', refreshAfterFullscreen);
-
-      timers.forEach(clearTimeout);
-    };
-  }, []);
-
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const scale = useMemo(
     () => Math.min(windowWidth / 1920, windowHeight / 1080),
     [windowWidth, windowHeight]
