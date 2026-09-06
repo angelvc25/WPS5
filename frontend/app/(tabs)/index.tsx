@@ -656,6 +656,57 @@ export default function ConsoleHome() {
     }
   }, [activeUser?.settings?.steamId]);
 
+  // Refresco silencioso de tiempos de juego de Steam en segundo plano
+  // Se ejecuta cuando hay juegos en caché para mantener los tiempos actualizados
+  // sin re-descargar imágenes ni metadata
+  useEffect(() => {
+    const steamId = activeUser?.settings?.steamId;
+    if (!steamId || steamGames.length === 0) return;
+
+    const GLOBAL_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
+
+    // Refresco en segundo plano sin bloquear la UI
+    const refreshTimeout = setTimeout(() => {
+      fetchSteamOwnedGames(GLOBAL_STEAM_API_KEY, steamId)
+        .then((freshList) => {
+          if (!freshList || freshList.length === 0) return;
+
+          // Construir mapa de appid → playtime
+          const playtimeMap = new Map<string, number>();
+          freshList.forEach((g: any) => {
+            playtimeMap.set(`steam_${g.appid}`, Number(g.playtime_forever || 0));
+          });
+
+          setSteamGames(prev => {
+            const updated = prev.map(game => {
+              const freshMinutes = playtimeMap.get(game.id);
+              // Solo actualizar si el tiempo cambió (evita re-renders innecesarios)
+              if (freshMinutes === undefined || freshMinutes === (game.playtime_forever ?? game.playtimeMinutes ?? 0)) {
+                return game;
+              }
+              return {
+                ...game,
+                playtime_forever: freshMinutes,
+                playtimeMinutes: freshMinutes,
+              };
+            });
+
+            // Actualizar caché con los tiempos frescos
+            try {
+              localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updated));
+            } catch (_) {}
+
+            return updated;
+          });
+        })
+        .catch((e) => {
+          console.warn('[Steam] No se pudo refrescar playtime:', e?.message);
+        });
+    }, 2500); // Esperar 2.5s para no competir con la carga inicial de la UI
+
+    return () => clearTimeout(refreshTimeout);
+  }, [activeUser?.settings?.steamId, steamGames.length]);
+
   useEffect(() => {
     if (libraryTab === 'collection' && steamGames.length === 0 && !loadingSteam) {
       const GLOBAL_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
