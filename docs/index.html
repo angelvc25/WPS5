@@ -2,114 +2,345 @@
 <html lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WConsole - Tu Consola Personal</title>
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WPS5 — Tu Consola Personal en PC</title>
+  <meta name="description" content="WPS5 es una interfaz premium para PC que unifica tu biblioteca de juegos, multimedia, Steam, Epic Games y más en una experiencia estilo consola de última generación.">
+  <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-    <nav>
-        <div class="logo">W<span>Console</span></div>
-        <div class="nav-links">
-            <a href="#features">Características</a>
-            <a href="#about">Acerca de</a>
-            <a href="https://github.com/CrizzVc/WConsole/releases/tag/v1.0.1" class="btn-primary">Descargar</a>
-        </div>
-    </nav>
 
-    <header>
-        <div class="hero-content">
-            <h1>La Experiencia de Consola en tu PC</h1>
-            <p>Una interfaz premium, fluida y totalmente personalizable para gestionar tu biblioteca de juegos y
-                multimedia.</p>
-            <div class="hero-btns">
-                <a href="https://github.com/CrizzVc/WConsole/releases/tag/v1.0.1" class="btn-primary">Empezar ahora</a>
-                <button class="btn-secondary">Ver Galería</button>
-            </div>
-        </div>
-        <div class="hero-visual">
-            <div class="mockup-screen">
-                <div class="mockup-header">
-                    <div class="mockup-user"></div>
-                    <div class="mockup-tabs">
-                        <span>Games</span>
-                        <span>Media</span>
-                        <span>eShop</span>
-                    </div>
-                </div>
-                <div class="mockup-carousel">
-                    <div class="mockup-card active"></div>
-                    <div class="mockup-card"></div>
-                    <div class="mockup-card"></div>
-                </div>
-            </div>
-        </div>
-    </header>
+  <!-- ── NAV ──────────────────────────────────────── -->
+  <nav id="navbar">
+    <a class="nav-logo" href="#">
+      <svg class="nav-svg" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg" aria-label="WPS5">
+        <g transform="translate(0,600) scale(0.05,-0.05)" fill="#ffffff" stroke="none">
+          <path d="M4480 10967 c-437 -45 -1089 -407 -1212 -675 -128 -279 -131 -475 -58 -3332 6 -236 20 -916 31 -1510 11 -594 29 -1168 39 -1275 51 -519 384 -1062 831 -1357 77 -50 189 -124 249 -164 786 -517 1471 -380 1702 342 34 106 54 142 75 134 21 -8 25 2 18 40 -12 62 0 65 25 5 15 -35 17 -27 8 35 -8 60 -6 72 10 50 16 -23 21 -4 22 76 0 66 8 102 20 94 34 -21 33 244 -11 2480 -66 3295 -53 3031 -154 3175 -62 87 154 149 284 81 59 -31 80 -64 146 -226 153 -379 155 -395 205 -2910 60 -2938 64 -3063 107 -3230 353 -1361 2132 -1924 2432 -770 122 468 26 669 -424 894 -357 178 -368 355 -25 434 193 44 276 79 367 155 31 26 63 43 72 38 8 -5 17 46 19 115 4 123 3 124 -67 162 -250 134 -313 266 -243 506 76 264 121 634 93 770 -23 110 -161 350 -214 370 -146 56 -133 378 30 748 116 263 125 338 91 788 -71 965 -341 1606 -937 2226 -246 256 -311 303 -1131 822 -407 257 -1087 591 -1530 752 -438 159 -586 185 -870 157z m476 -149 c997 -267 2427 -1064 2986 -1665 1397 -1503 940 -3620 -843 -3905 l-74 -12 -13 447 c-7 246 -22 897 -32 1447 -11 550 -25 1095 -31 1210 -43 757 -388 1211 -789 1038 -174 -75 -170 -60 -168 -768 3 -675 61 -3679 78 -4050 38 -821 10 -1329 -84 -1517 -398 -787 -1720 -431 -2230 602 -205 415 -193 272 -247 2985 -16 814 -38 1870 -49 2347 -21 902 -15 1032 57 1219 60 155 175 317 257 361 22 12 77 52 123 90 236 197 687 270 1059 171z"/>
+        </g>
+      </svg>
+      <span class="nav-brand">WPS5</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Características</a>
+      <a href="#showcase">Galería</a>
+      <a href="#about">Acerca de</a>
+      <a href="https://github.com/CrizzVc/WConsole/releases" class="btn-primary" id="nav-download-btn">Descargar</a>
+    </div>
+    <button class="nav-hamburger" id="hamburger-btn" aria-label="Menú">&#9776;</button>
+  </nav>
 
-    <section id="showcase" class="showcase">
-        <h2>Interfaz Premium</h2>
-        <div class="gallery-container">
-            <div class="gallery-glow"></div>
-            <div class="gallery-grid">
-                <div class="gallery-item">
-                    <img src="imgs/home.png" alt="Home Screen">
-                    <div class="item-overlay">Dashboard Principal</div>
-                </div>
-                <div class="gallery-item">
-                    <img src="imgs/biblioteca.png" alt="Library">
-                    <div class="item-overlay">Biblioteca de Juegos</div>
-                </div>
-                <div class="gallery-item">
-                    <img src="imgs/media.png" alt="Media">
-                    <div class="item-overlay">Centro Multimedia</div>
-                </div>
-                <div class="gallery-item">
-                    <img src="imgs/game_details.png" alt="Game Details">
-                    <div class="item-overlay">Detalles del Juego</div>
-                </div>
-                <div class="gallery-item">
-                    <img src="imgs/user_select.png" alt="User Selection">
-                    <div class="item-overlay">Selector de Perfiles</div>
-                </div>
-                <div class="gallery-item">
-                    <img src="imgs/favorites.png" alt="Favorites">
-                    <div class="item-overlay">Tus Favoritos</div>
-                </div>
-            </div>
-        </div>
-    </section>
+  <!-- ── HERO ─────────────────────────────────────── -->
+  <header id="hero">
+    <div class="hero-bg-glow"></div>
+    <div class="hero-content">
+      <div class="hero-badge">v1.1 · Windows</div>
+      <h1>La consola<br><span class="accent">que siempre quisiste</span><br>en tu PC.</h1>
+      <p>WPS5 unifica tu biblioteca de Steam, Epic Games y PC en una interfaz premium de última generación. Gestión de perfiles, multimedia integrado, noticias gaming y mucho más.</p>
+      <div class="hero-btns">
+        <a href="https://github.com/CrizzVc/WConsole/releases" class="btn-primary" id="hero-download-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar gratis
+        </a>
+        <a href="#showcase" class="btn-secondary" id="hero-gallery-btn">Ver galería</a>
+      </div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="mockup-wrapper">
+        <div class="mockup-screen">
 
-    <section id="features" class="features">
-        <h2>Diseñado para Gamers</h2>
-        <div class="feature-grid">
-            <div class="feature-card">
-                <div class="icon">🎮</div>
-                <h3>Interfaz Inmersiva</h3>
-                <p>Inspirada en las mejores consolas modernas. Navegación fluida optimizada para mando y teclado.</p>
+          <!-- Top bar: tabs left, icons + clock right (mirrors app header) -->
+          <div class="mockup-topbar">
+            <div class="mockup-tabs">
+              <span class="tab active">Juegos</span>
+              <span class="tab">Media</span>
             </div>
-            <div class="feature-card">
-                <div class="icon">🖼️</div>
-                <h3>Fondos Dinámicos</h3>
-                <p>Efectos de desenfoque y transiciones suaves que se adaptan a cada juego de tu biblioteca.</p>
+            <div class="mockup-icons">
+              <svg class="mockup-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg class="mockup-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <div class="mockup-avatar"></div>
+              <span class="mockup-clock">11:43 PM</span>
             </div>
-            <div class="feature-card">
-                <div class="icon">📊</div>
-                <h3>Metadatos de Alta Fidelidad</h3>
-                <p>Sincronización con IGDB y SteamGridDB para obtener portadas, logos y descripciones automáticas.</p>
-            </div>
-            <div class="feature-card">
-                <div class="icon">👤</div>
-                <h3>Gestión de Perfiles</h3>
-                <p>Selector de usuarios estilo PS5 para que cada jugador tenga su propia configuración y favoritos.</p>
-            </div>
-        </div>
-    </section>
+          </div>
 
-    <footer>
-        <p>&copy; 2026 WConsole Project. Diseñado con pasión.</p>
-    </footer>
+          <!-- Library carousel with one focused card, like the real grid -->
+          <div class="mockup-carousel">
+            <div class="mockup-card"></div>
+            <div class="mockup-card featured">
+              <div class="card-glow"></div>
+            </div>
+            <div class="mockup-card"></div>
+            <div class="mockup-card"></div>
+            <div class="mockup-card small"></div>
+          </div>
+          <div class="mockup-card-label">
+            <span class="platform-badge">STEAM</span>
+            Saints Row The Third Remastered
+          </div>
+
+          <!-- Cover title area, like the game background panel -->
+          <div class="mockup-cover">
+            <div class="mockup-cover-title">SAINTS ROW<span>THE THIRD REMASTERED</span></div>
+          </div>
+
+          <!-- Download progress, mirrors the downloads card -->
+          <div class="mockup-progress">
+            <span class="progress-label">Descargando</span>
+            <div class="progress-track"><div class="progress-fill"></div></div>
+            <span class="progress-pct">57%</span>
+            <span class="progress-time">5h 45min</span>
+          </div>
+
+          <!-- Bottom info row: trophies + friends, like the real widgets -->
+          <div class="mockup-bottom-row">
+            <div class="widget">🏆 1 · 3 · 16 · 17</div>
+            <div class="widget">👥 Amigos jugando</div>
+          </div>
+        </div>
+        <div class="mockup-reflection"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── STATS BAR ─────────────────────────────────── -->
+  <section class="stats-bar" aria-label="Estadísticas">
+    <div class="stat">
+      <span class="stat-num">Steam</span>
+      <span class="stat-label">Integración OpenID</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <span class="stat-num">Epic</span>
+      <span class="stat-label">Games integrado</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <span class="stat-num">IGDB</span>
+      <span class="stat-label">Metadatos de juegos</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <span class="stat-num">Multi</span>
+      <span class="stat-label">Perfiles de usuario</span>
+    </div>
+  </section>
+
+  <!-- ── FEATURES ──────────────────────────────────── -->
+  <section id="features" class="features">
+    <div class="section-label">CARACTERÍSTICAS</div>
+    <h2>Todo lo que necesitas.<br><span class="accent">En un solo lugar.</span></h2>
+    <div class="feature-grid">
+
+      <div class="feature-card" id="feat-library">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="7" height="18" rx="1"/><rect x="9.5" y="3" width="5" height="18" rx="1"/><rect x="16" y="3" width="6" height="18" rx="1"/></svg>
+        </div>
+        <h3>Biblioteca Unificada</h3>
+        <p>Detecta automáticamente tus juegos instalados de Steam, Epic Games y ejecutables locales. Todo en un solo carrusel.</p>
+      </div>
+
+      <div class="feature-card" id="feat-steam">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>
+        </div>
+        <h3>Conexión Steam</h3>
+        <p>Inicia sesión con tu cuenta Steam via OpenID. Accede a tu lista de deseos, ofertas activas, logros y tiempo de juego.</p>
+      </div>
+
+      <div class="feature-card" id="feat-metadata">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <h3>Metadatos Automáticos</h3>
+        <p>Integración con IGDB y SteamGridDB para portadas HD, heroes, logos, descripciones y screenshots en alta calidad.</p>
+      </div>
+
+      <div class="feature-card" id="feat-media">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </div>
+        <h3>Centro Multimedia</h3>
+        <p>Reproductor de video fullscreen integrado con control de sesiones de Windows Media. Compatible con YouTube y Spotify.</p>
+      </div>
+
+      <div class="feature-card" id="feat-profiles">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h3>Perfiles de Usuario</h3>
+        <p>Selector de perfiles estilo consola para que cada jugador tenga su configuración, favoritos y progreso individual.</p>
+      </div>
+
+      <div class="feature-card" id="feat-news">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 0-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+        </div>
+        <h3>Noticias Gaming</h3>
+        <p>Feed de noticias de juegos en tiempo real integrado en el dashboard. Mantente al día sin salir de la app.</p>
+      </div>
+
+      <div class="feature-card" id="feat-backgrounds">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </div>
+        <h3>Fondos Dinámicos</h3>
+        <p>Personaliza cada juego con su propio fondo. Efectos de desenfoque cinematográfico y transiciones suaves entre títulos.</p>
+      </div>
+
+      <div class="feature-card" id="feat-store">
+        <div class="feat-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        </div>
+        <h3>Tienda Integrada</h3>
+        <p>Explorar las ofertas destacadas de Steam y el catálogo de juegos populares sin salir de WPS5.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── SHOWCASE / GALLERY ────────────────────────── -->
+  <section id="showcase" class="showcase">
+    <div class="section-label">GALERÍA</div>
+    <h2>Interfaz <span class="accent">Premium</span></h2>
+    <div class="gallery-container">
+      <div class="gallery-glow"></div>
+      <div class="gallery-grid">
+        <div class="gallery-item gi-large" id="gallery-home">
+          <img src="imgs/home.png" alt="Dashboard principal de WPS5" loading="lazy">
+          <div class="item-overlay">
+            <span class="overlay-tag">Dashboard</span>
+            Dashboard Principal
+          </div>
+        </div>
+        <div class="gallery-item" id="gallery-library">
+          <img src="imgs/biblioteca.png" alt="Biblioteca de juegos" loading="lazy">
+          <div class="item-overlay">
+            <span class="overlay-tag">Biblioteca</span>
+            Biblioteca de Juegos
+          </div>
+        </div>
+        <div class="gallery-item" id="gallery-media">
+          <img src="imgs/media.png" alt="Centro multimedia" loading="lazy">
+          <div class="item-overlay">
+            <span class="overlay-tag">Media</span>
+            Centro Multimedia
+          </div>
+        </div>
+        <div class="gallery-item" id="gallery-game-detail">
+          <img src="imgs/game_details.png" alt="Detalles del juego" loading="lazy">
+          <div class="item-overlay">
+            <span class="overlay-tag">Detalles</span>
+            Detalles del Juego
+          </div>
+        </div>
+        <div class="gallery-item" id="gallery-user">
+          <img src="imgs/user_select.png" alt="Selector de perfiles" loading="lazy">
+          <div class="item-overlay">
+            <span class="overlay-tag">Perfiles</span>
+            Selector de Perfiles
+          </div>
+        </div>
+        <div class="gallery-item" id="gallery-favorites">
+          <img src="imgs/favorites.png" alt="Favoritos" loading="lazy">
+          <div class="item-overlay">
+            <span class="overlay-tag">Favoritos</span>
+            Tus Favoritos
+          </div>
+        </div>
+        <div class="gallery-item gi-wide" id="gallery-handheld">
+          <img src="imgs/home_pc handheld.png" alt="Modo PC y portátil" loading="lazy">
+          <div class="item-overlay">
+            <span class="overlay-tag">Adaptable</span>
+            Modo PC &amp; Handheld
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ABOUT / CTA ───────────────────────────────── -->
+  <section id="about" class="about">
+    <div class="about-glow"></div>
+    <div class="about-logo">
+      <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g transform="translate(0,600) scale(0.05,-0.05)" fill="#ffffff" stroke="none">
+          <path d="M4480 10967 c-437 -45 -1089 -407 -1212 -675 -128 -279 -131 -475 -58 -3332 6 -236 20 -916 31 -1510 11 -594 29 -1168 39 -1275 51 -519 384 -1062 831 -1357 77 -50 189 -124 249 -164 786 -517 1471 -380 1702 342 34 106 54 142 75 134 21 -8 25 2 18 40 -12 62 0 65 25 5 15 -35 17 -27 8 35 -8 60 -6 72 10 50 16 -23 21 -4 22 76 0 66 8 102 20 94 34 -21 33 244 -11 2480 -66 3295 -53 3031 -154 3175 -62 87 154 149 284 81 59 -31 80 -64 146 -226 153 -379 155 -395 205 -2910 60 -2938 64 -3063 107 -3230 353 -1361 2132 -1924 2432 -770 122 468 26 669 -424 894 -357 178 -368 355 -25 434 193 44 276 79 367 155 31 26 63 43 72 38 8 -5 17 46 19 115 4 123 3 124 -67 162 -250 134 -313 266 -243 506 76 264 121 634 93 770 -23 110 -161 350 -214 370 -146 56 -133 378 30 748 116 263 125 338 91 788 -71 965 -341 1606 -937 2226 -246 256 -311 303 -1131 822 -407 257 -1087 591 -1530 752 -438 159 -586 185 -870 157z m476 -149 c997 -267 2427 -1064 2986 -1665 1397 -1503 940 -3620 -843 -3905 l-74 -12 -13 447 c-7 246 -22 897 -32 1447 -11 550 -25 1095 -31 1210 -43 757 -388 1211 -789 1038 -174 -75 -170 -60 -168 -768 3 -675 61 -3679 78 -4050 38 -821 10 -1329 -84 -1517 -398 -787 -1720 -431 -2230 602 -205 415 -193 272 -247 2985 -16 814 -38 1870 -49 2347 -21 902 -15 1032 57 1219 60 155 175 317 257 361 22 12 77 52 123 90 236 197 687 270 1059 171z"/>
+        </g>
+      </svg>
+    </div>
+    <div class="about-content">
+      <div class="section-label">ACERCA DE</div>
+      <h2>Hecho con pasión<br>para <span class="accent">gamers de PC.</span></h2>
+      <p>WPS5 nació de la idea de llevar la experiencia de una consola moderna al escritorio de Windows. Una interfaz que respeta tu tiempo, cuida el diseño y centraliza todo lo que necesitas para disfrutar tus juegos.</p>
+      <ul class="about-list">
+        <li>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Gratuito y de código abierto
+        </li>
+        <li>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Construido con Electron + React Native Web
+        </li>
+        <li>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Sin telemetría ni recopilación de datos
+        </li>
+        <li>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Actualizado activamente en 2026
+        </li>
+      </ul>
+      <a href="https://github.com/CrizzVc/WConsole/releases" class="btn-primary btn-large" id="about-download-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar WPS5
+      </a>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ────────────────────────────────────── -->
+  <footer>
+    <div class="footer-logo">
+      <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg" aria-label="WPS5">
+        <g transform="translate(0,600) scale(0.05,-0.05)" fill="rgba(255,255,255,0.3)" stroke="none">
+          <path d="M4480 10967 c-437 -45 -1089 -407 -1212 -675 -128 -279 -131 -475 -58 -3332 6 -236 20 -916 31 -1510 11 -594 29 -1168 39 -1275 51 -519 384 -1062 831 -1357 77 -50 189 -124 249 -164 786 -517 1471 -380 1702 342 34 106 54 142 75 134 21 -8 25 2 18 40 -12 62 0 65 25 5 15 -35 17 -27 8 35 -8 60 -6 72 10 50 16 -23 21 -4 22 76 0 66 8 102 20 94 34 -21 33 244 -11 2480 -66 3295 -53 3031 -154 3175 -62 87 154 149 284 81 59 -31 80 -64 146 -226 153 -379 155 -395 205 -2910 60 -2938 64 -3063 107 -3230 353 -1361 2132 -1924 2432 -770 122 468 26 669 -424 894 -357 178 -368 355 -25 434 193 44 276 79 367 155 31 26 63 43 72 38 8 -5 17 46 19 115 4 123 3 124 -67 162 -250 134 -313 266 -243 506 76 264 121 634 93 770 -23 110 -161 350 -214 370 -146 56 -133 378 30 748 116 263 125 338 91 788 -71 965 -341 1606 -937 2226 -246 256 -311 303 -1131 822 -407 257 -1087 591 -1530 752 -438 159 -586 185 -870 157z"/>
+        </g>
+      </svg>
+      <span>WPS5</span>
+    </div>
+    <p>© 2026 WPS5 Project · Diseñado con pasión para la comunidad gamer.</p>
+    <div class="footer-links">
+      <a href="https://github.com/CrizzVc/WConsole" target="_blank" rel="noopener">GitHub</a>
+      <span>·</span>
+      <a href="https://github.com/CrizzVc/WConsole/releases" target="_blank" rel="noopener">Releases</a>
+      <span>·</span>
+      <a href="https://github.com/CrizzVc/WConsole/issues" target="_blank" rel="noopener">Reportar un bug</a>
+    </div>
+  </footer>
+
+  <script>
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.classList.toggle('scrolled', window.scrollY > 60);
+    });
+
+    const hamburger = document.getElementById('hamburger-btn');
+    const navLinks = document.querySelector('.nav-links');
+    hamburger.addEventListener('click', () => navLinks.classList.toggle('open'));
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          observer.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.feature-card, .gallery-item, .stat, .about-content, .about-logo').forEach(el => {
+      el.classList.add('fade-up');
+      observer.observe(el);
+    });
+  </script>
+
 </body>
-
 </html>
