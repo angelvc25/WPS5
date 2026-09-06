@@ -1148,8 +1148,8 @@ export default function SettingsView({
                       >
                         {isConnected ? (
                           <>
-                            <Ionicons name="unlink-outline" size={18} color="#FF5566" />
-                            <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>{t('settings.unlink')}</Text>
+                            <Ionicons name="unlink-outline" size={18} color="#ffffffff" />
+                            <Text style={[styles.actionBtnSecondaryText, { color: '#ffffffff' }]}>{t('settings.unlink')}</Text>
                           </>
                         ) : (
                           <>
