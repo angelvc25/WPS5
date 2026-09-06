@@ -1720,6 +1720,16 @@ export default function SettingsView({
           <View style={styles.systemRightColumn}>
             {systemLeftIndex === 0 && (
               <ScrollView showsVerticalScrollIndicator={false}>
+                {/* ── Banner WPS5 ── */}
+                <View style={styles.systemBannerContainer}>
+                  <Image
+                    source={require('@/assets/banner/BannerWps5.png')}
+                    style={styles.systemBannerImage}
+                    contentFit="cover"
+                  />
+                  <Text style={styles.systemBannerTitle}>WPS5</Text>
+                </View>
+
                 <Text style={styles.rightSectionTitle}>{t('settings.systemSoftware')}</Text>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoRowLabel}>WPS5 Console OS</Text>
@@ -2729,6 +2739,30 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     borderLeftWidth: 1,
     borderLeftColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  systemBannerContainer: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 24,
+    position: 'relative',
+  },
+  systemBannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  systemBannerTitle: {
+    position: 'absolute',
+    left: 20,
+    bottom: 16,
+    color: '#FFFFFF',
+    fontFamily: 'SSTBadge',
+    fontSize: 22,
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   rightSectionTitle: {
     color: '#FFF',
