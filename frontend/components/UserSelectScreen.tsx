@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import RadarFocusWrapper from './RadarFocusWrapper';
 import {
   View,
@@ -6,8 +6,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -78,62 +78,13 @@ const DEFAULT_USERS: UserProfile[] = [
   },
 ];
 
-// ─── Radar canvas drawing ────────────────────────────────────────────────────
-function startRadarAnimation(canvasId: string): () => void {
-  const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
-  if (!canvas) return () => { };
-  const ctx = canvas.getContext('2d')!;
-  const SIZE = 164, cx = 82, cy = 82, R = 77, LINE = 2.5;
-  const CYCLE = 12; // seconds
-  let start: number | null = null;
-  let rafId: number;
-
-  const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
-
-  const draw = (ts: number) => {
-    if (!start) start = ts;
-    const elapsed = ((ts - start) / 1000) % CYCLE;
-    ctx.clearRect(0, 0, SIZE, SIZE);
-
-    let blend = 0, rotation = 0;
-    if (elapsed < 2) { blend = 0; rotation = 0; }
-    else if (elapsed < 4) { blend = easeInOut((elapsed - 2) / 2); rotation = 0; }
-    else if (elapsed < 8) { blend = 1; rotation = easeInOut((elapsed - 4) / 4) * Math.PI * 2; }
-    else if (elapsed < 10) { blend = easeInOut(1 - (elapsed - 8) / 2); rotation = Math.PI * 2; }
-    else { blend = 0; rotation = 0; }
-
-    for (let i = 0; i < 360; i++) {
-      const angleRot = (i / 360) * Math.PI * 2 + rotation;
-      const cosVal = Math.cos(angleRot);
-      const sweepA = (cosVal + 1) / 2; // 0..1
-
-      const solidAlpha = 0.55;
-      const brightAlpha = 0.65;
-      const fadeAlpha = 0.02;
-
-      let alpha: number;
-      if (blend === 0) {
-        alpha = solidAlpha;
-      } else {
-        const target = fadeAlpha + sweepA * (brightAlpha - fadeAlpha);
-        alpha = solidAlpha + blend * (target - solidAlpha);
-      }
-
-      const a0 = (i / 360) * Math.PI * 2 - Math.PI / 2;
-      const a1 = ((i + 1.8) / 360) * Math.PI * 2 - Math.PI / 2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, a0, a1);
-      ctx.strokeStyle = `rgba(255,255,255,${Math.max(0, alpha).toFixed(3)})`;
-      ctx.lineWidth = LINE;
-      ctx.stroke();
-    }
-
-    rafId = requestAnimationFrame(draw);
-  };
-
-  rafId = requestAnimationFrame(draw);
-  return () => cancelAnimationFrame(rafId);
-}
+// NOTA: se eliminó un `startRadarAnimation` local que dibujaba sobre el mismo
+// canvas `radar-${user.id}` que ya anima `RadarFocusWrapper` internamente.
+// Eran dos loops de requestAnimationFrame redibujando el mismo <canvas> a la
+// vez — trabajo duplicado sin efecto visual adicional. RadarFocusWrapper ya
+// escala su propio canvas según el prop `size`, así que basta con pasarle
+// el tamaño correcto (ver `s(205)` más abajo) para que el radar responda
+// igual que el resto de la tarjeta en pantallas anchas.
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function UserSelectScreen({ onUserSelected }: UserSelectScreenProps) {
@@ -146,8 +97,18 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
   const animatedIndex = useRef(new Animated.Value(0)).current;
 
-  // Store cleanup functions for radar animations
-  const radarCleanups = useRef<Record<string, () => void>>({});
+  // ── Escalado responsive (mismo patrón que WelcomeWidgets) ────────────────
+  // scale = 1 en un panel de referencia 1920x1080. Al tomar el mínimo entre
+  // el ratio de ancho y el de alto, en pantallas ultrawide (21:9, 32:9) el
+  // contenido crece según el ALTO disponible (que sigue siendo 1080/1440/etc.)
+  // sin estirarse de más por el ancho extra — el ancho extra simplemente deja
+  // ver más fondo a los lados, igual que en un PS5 real.
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const scale = useMemo(
+    () => Math.min(windowWidth / 1920, windowHeight / 1080),
+    [windowWidth, windowHeight]
+  );
+  const s = (v: number) => Math.max(1, Math.round(v * scale));
 
   // ── Gamepad polling throttle state ───────────────────────────────────────
   // These MUST be refs (not locals inside the effect below) because that
@@ -172,22 +133,6 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     document.head.appendChild(style);
     return () => { document.head.removeChild(style); };
   }, []);
-
-  // ── Start/stop radar per focused user ───────────────────────────────────
-  useEffect(() => {
-    // Clean up previous
-    Object.values(radarCleanups.current).forEach(fn => fn());
-    radarCleanups.current = {};
-
-    if (hoveredId && hoveredId !== 'add' && hoveredId !== 'power') {
-      // Small delay so the canvas is in the DOM
-      const t = setTimeout(() => {
-        const cleanup = startRadarAnimation(`radar-${hoveredId}`);
-        radarCleanups.current[hoveredId] = cleanup;
-      }, 30);
-      return () => clearTimeout(t);
-    }
-  }, [hoveredId]);
 
   // ── Load users ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -410,18 +355,30 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     }).start();
   }, [safeIndex]);
 
+  // Antes este valor estaba fijo en 204px, pero cardWrapper (194) + gap (50)
+  // suman 244 — el desfase hacía que el carrusel no quedara perfectamente
+  // centrado. Ahora se deriva del mismo tamaño escalado que usan los estilos,
+  // así el desplazamiento siempre coincide con el layout real en cualquier
+  // resolución/aspect ratio.
+  const CARD_WRAPPER_WIDTH = s(194);
+  const CARD_GAP = s(50);
+  const ITEM_SPACING = CARD_WRAPPER_WIDTH + CARD_GAP;
+
   const translateX = animatedIndex.interpolate({
     inputRange: [-10, 100],
-    outputRange: [(middleIndex - -10) * 204, (middleIndex - 100) * 204]
+    outputRange: [(middleIndex - -10) * ITEM_SPACING, (middleIndex - 100) * ITEM_SPACING]
   });
 
   return (
     <View style={styles.container}>
-      {/* BACKGROUND */}
+      {/* BACKGROUND — COVER en vez de STRETCH: STRETCH deforma la imagen al
+          rellenar un contenedor 21:9/32:9 que no comparte el aspect ratio
+          original del video; COVER recorta manteniendo proporciones, igual
+          que BackgroundVideo.tsx hace en el resto de la app. */}
       <Video
         source={require('@/assets/video/particles.mp4')}
         style={StyleSheet.absoluteFillObject}
-        resizeMode={ResizeMode.STRETCH}
+        resizeMode={ResizeMode.COVER}
         shouldPlay
         isLooping
         isMuted
@@ -429,18 +386,18 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       <View style={styles.overlay} />
 
       {/* CLOCK */}
-      <View style={styles.topRight}>
-        <Text style={styles.timeText}>{time}</Text>
+      <View style={[styles.topRight, { top: s(40), right: s(60) }]}>
+        <Text style={[styles.timeText, { fontSize: s(22) }]}>{time}</Text>
       </View>
 
       {/* TITLE */}
-      <View style={styles.titleArea}>
-        <Text style={styles.title}>{t('userSelect.title')}</Text>
-        <Text style={styles.subtitle}>{t('userSelect.subtitle')}</Text>
+      <View style={[styles.titleArea, { marginBottom: s(80), marginTop: s(-40) }]}>
+        <Text style={[styles.title, { fontSize: s(48), marginBottom: s(10) }]}>{t('userSelect.title')}</Text>
+        <Text style={[styles.subtitle, { fontSize: s(23) }]}>{t('userSelect.subtitle')}</Text>
       </View>
 
       {/* USER CARDS */}
-      <Animated.View style={[styles.cardsRow, { transform: [{ translateX }] }]}>
+      <Animated.View style={[styles.cardsRow, { gap: CARD_GAP, transform: [{ translateX }] }]}>
 
         {/* ADD USER */}
         <Animated.View style={{
@@ -452,15 +409,19 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
         }}>
           <TouchableOpacity
             activeOpacity={0.8}
-            style={styles.cardWrapper}
+            style={[styles.cardWrapper, { width: CARD_WRAPPER_WIDTH, height: s(280) }]}
             onPress={() => { }}
           >
-            <View style={[styles.card, hoveredId === 'add' && styles.cardFocused]}>
-              <View style={styles.addIconCircle}>
-                <Ionicons name="add" size={40} color="#FFF" />
+            <View style={[
+              styles.card,
+              { width: s(160), height: s(160), borderRadius: s(80) },
+              hoveredId === 'add' && [styles.cardFocused, { width: s(180), height: s(180), borderRadius: s(90) }],
+            ]}>
+              <View style={[styles.addIconCircle, { width: s(60), height: s(60), borderRadius: s(30) }]}>
+                <Ionicons name="add" size={s(40)} color="#FFF" />
               </View>
             </View>
-            <Text style={styles.userName}>{t('userSelect.addUser')}</Text>
+            <Text style={[styles.userName, { fontSize: s(18), marginTop: s(15) }]}>{t('userSelect.addUser')}</Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -478,19 +439,23 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
             }}>
               <TouchableOpacity
                 activeOpacity={0.8}
-                style={styles.cardWrapper}
+                style={[styles.cardWrapper, { width: CARD_WRAPPER_WIDTH, height: s(280) }]}
                 onPress={() => handleSelect(user)}
               >
                 {/* ¡Toda la magia ocurre aquí dentro de manera limpia! */}
-                <RadarFocusWrapper id={user.id} isFocused={isFocused} size={205} innerSize={isFocused ? 180 : 160}>
-                  <View style={[styles.card, isFocused && styles.cardFocused]}>
+                <RadarFocusWrapper id={user.id} isFocused={isFocused} size={s(205)} innerSize={s(isFocused ? 180 : 160)}>
+                  <View style={[
+                    styles.card,
+                    { width: s(160), height: s(160), borderRadius: s(80) },
+                    isFocused && [styles.cardFocused, { width: s(180), height: s(180), borderRadius: s(90) }],
+                  ]}>
                     <Image
                       source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
                       style={styles.avatarImg}
                     />
                   </View>
                 </RadarFocusWrapper>
-                <Text style={[styles.userName, isFocused && styles.userNameFocused]}>
+                <Text style={[styles.userName, { fontSize: s(18), marginTop: s(15) }, isFocused && styles.userNameFocused]}>
                   {user.name}
                 </Text>
               </TouchableOpacity>
@@ -501,7 +466,11 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
       {/* POWER BUTTON */}
       <TouchableOpacity
-        style={[styles.powerButton, hoveredId === 'power' && styles.powerButtonFocused]}
+        style={[
+          styles.powerButton,
+          { bottom: s(50), width: s(60), height: s(60), borderRadius: s(30) },
+          hoveredId === 'power' && styles.powerButtonFocused,
+        ]}
         activeOpacity={0.7}
         onPress={() => {
           if (Platform.OS === 'web' && (window as any).electronAPI) {
@@ -509,13 +478,11 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
           }
         }}
       >
-        <Ionicons name="power" size={35} color={hoveredId === 'power' ? '#000000ff' : '#FFF'} />
+        <Ionicons name="power" size={s(35)} color={hoveredId === 'power' ? '#000000ff' : '#FFF'} />
       </TouchableOpacity>
     </View>
   );
 }
-
-const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
