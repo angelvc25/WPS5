@@ -207,6 +207,12 @@ export default function ConsoleHome() {
   // States for new UI features (WPS5 UI Expansion)
   const [isLibraryFocused, setIsLibraryFocused] = useState(false);
   const [libraryGridFocusIndex, setLibraryGridFocusIndex] = useState(0);
+  // Lista realmente visible dentro de LibraryGrid: ya ordenada y filtrada
+  // por pestaña/plataforma/fuente. Debe usarse (en vez de
+  // displayedLibraryGames) para resolver qué juego corresponde al índice
+  // de foco actual, porque LibraryGrid puede mostrar un subconjunto/orden
+  // distinto al de displayedLibraryGames cuando hay un filtro activo.
+  const [visibleLibraryGames, setVisibleLibraryGames] = useState<ConsoleItem[]>([]);
   const [libraryTab, setLibraryTab] = useState<'installed' | 'collection'>('installed');
   // true cuando el foco (teclado/mando) está sobre la fila de pestañas
   // Instalados | Tu Colección, en vez de sobre una tarjeta del grid.
@@ -595,6 +601,16 @@ export default function ConsoleHome() {
     item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && item.id !== '5' && !item.isFolder && !item.isGrid
   );
 
+  // Si el filtro/orden interno de LibraryGrid reduce la cantidad de
+  // juegos visibles, el índice de foco debe recortarse para no apuntar
+  // fuera de rango (y quedar "atascado" en un juego que ya no se ve).
+  useEffect(() => {
+    setLibraryGridFocusIndex((prev) => {
+      const maxIndex = Math.max(visibleLibraryGames.length - 1, 0);
+      return Math.min(prev, maxIndex);
+    });
+  }, [visibleLibraryGames.length]);
+
   const displayedLibraryGames = useMemo(() => {
     if (libraryTab === 'installed') {
       const byId = new Map<string, ConsoleItem>();
@@ -694,7 +710,7 @@ export default function ConsoleHome() {
             // Actualizar caché con los tiempos frescos
             try {
               localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updated));
-            } catch (_) {}
+            } catch (_) { }
 
             return updated;
           });
@@ -1782,7 +1798,7 @@ export default function ConsoleHome() {
             } else if (libraryTabsFocused) {
               if (libraryTab !== 'collection') { setLibraryTab('collection'); setLibraryGridFocusIndex(0); }
             } else {
-              setLibraryGridFocusIndex(prev => Math.min(prev + 1, displayedLibraryGames.length - 1));
+              setLibraryGridFocusIndex(prev => Math.min(prev + 1, visibleLibraryGames.length - 1));
             }
           }
           else if (focusArea === 'header_avatar') {
@@ -1918,7 +1934,7 @@ export default function ConsoleHome() {
               setLibraryTabsFocused(false);
               setLibraryGridFocusIndex(0);
             } else {
-              setLibraryGridFocusIndex(prev => Math.min(prev + 5, displayedLibraryGames.length - 1));
+              setLibraryGridFocusIndex(prev => Math.min(prev + 5, visibleLibraryGames.length - 1));
             }
           }
           else if (focusArea === 'header_avatar') {
@@ -2089,7 +2105,7 @@ export default function ConsoleHome() {
               return;
             }
             if (libraryTabsFocused) { return; } // usa ←/→ para cambiar de pestaña
-            const game = displayedLibraryGames[libraryGridFocusIndex];
+            const game = visibleLibraryGames[libraryGridFocusIndex];
             if (game) { setSelectedItem(game); setDetailVisible(true); }
             return;
           }
@@ -2214,7 +2230,7 @@ export default function ConsoleHome() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, isSearchVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, systemNavMaxCardIndex, libraryGridFocusIndex, libraryTabsFocused, libraryFilterFocused, libraryFilterFromTabs, isLibraryFilterPanelOpen, displayedLibraryGames, lastPlayedGame, activeUser, storeOffers, toolbarFocusIndex, deleteConfirmItem]);
+  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, isSearchVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, systemNavMaxCardIndex, libraryGridFocusIndex, libraryTabsFocused, libraryFilterFocused, libraryFilterFromTabs, isLibraryFilterPanelOpen, displayedLibraryGames, visibleLibraryGames, lastPlayedGame, activeUser, storeOffers, toolbarFocusIndex, deleteConfirmItem]);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
@@ -3114,6 +3130,7 @@ export default function ConsoleHome() {
             onItemPress={(index, game) => { setSelectedItem(game); setDetailVisible(true); }}
             onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}
             installedSteamAppIds={installedSteamAppIds}
+            onVisibleGamesChange={setVisibleLibraryGames}
           />
         )}
 

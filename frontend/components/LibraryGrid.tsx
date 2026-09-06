@@ -40,6 +40,12 @@ interface LibraryGridProps {
   // pueda pausar su propio manejo de teclado/mando mientras está abierto
   // (mismo patrón que onDetailVisibilityChange).
   onFilterPanelVisibilityChange?: (isVisible: boolean) => void;
+  // Notifica al padre la lista de juegos REALMENTE visible (ya ordenada y
+  // filtrada por pestaña/plataforma/fuente). El padre debe usar esta lista
+  // — y no la prop `games` original — para resolver índices de foco
+  // (teclado/mando), o el juego abierto no coincidirá con la tarjeta
+  // resaltada cuando haya un filtro activo.
+  onVisibleGamesChange?: (games: ConsoleItem[]) => void;
 }
 
 // Métodos expuestos para que el componente padre (dueño del estado de foco
@@ -271,6 +277,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   tabsFocused = false,
   filterButtonFocused = false,
   onFilterPanelVisibilityChange,
+  onVisibleGamesChange,
 }: LibraryGridProps, ref) {
   const { t } = useTranslation();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -442,35 +449,48 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   }));
 
   // 3. Ordenar los juegos basados en el estado actual
-  const sortedGames = [...games].sort((a, b) => {
-    if (sortDirection === 'none') return 0; // Mantiene el orden original que viene del backend/prop
+  const sortedGames = useMemo(() => {
+    return [...games].sort((a, b) => {
+      if (sortDirection === 'none') return 0; // Mantiene el orden original que viene del backend/prop
 
-    const titleA = (a.title || '').toLowerCase();
-    const titleB = (b.title || '').toLowerCase();
+      const titleA = (a.title || '').toLowerCase();
+      const titleB = (b.title || '').toLowerCase();
 
-    if (sortDirection === 'asc') {
-      return titleA.localeCompare(titleB); // A-Z
-    } else {
-      return titleB.localeCompare(titleA); // Z-A
-    }
-  });
+      if (sortDirection === 'asc') {
+        return titleA.localeCompare(titleB); // A-Z
+      } else {
+        return titleB.localeCompare(titleA); // Z-A
+      }
+    });
+  }, [games, sortDirection]);
 
   // 4. Filtrar los juegos basados en la pestaña activa, la plataforma y la fuente elegidas
-  const filteredGames = sortedGames.filter((game) => {
-    if (activeTab === 'installed' && !isGameInstalled(game)) return false;
+  const filteredGames = useMemo(() => {
+    return sortedGames.filter((game) => {
+      if (activeTab === 'installed' && !isGameInstalled(game)) return false;
 
-    if (selectedPlatforms.size > 0) {
-      const gamePlatform = game.platform || (isSteamGame(game) ? 'Steam' : 'PC');
-      if (!selectedPlatforms.has(gamePlatform)) return false;
-    }
+      if (selectedPlatforms.size > 0) {
+        const gamePlatform = game.platform || (isSteamGame(game) ? 'Steam' : 'PC');
+        if (!selectedPlatforms.has(gamePlatform)) return false;
+      }
 
-    if (selectedSources.size > 0) {
-      const source: 'steam' | 'local' = isSteamGame(game) ? 'steam' : 'local';
-      if (!selectedSources.has(source)) return false;
-    }
+      if (selectedSources.size > 0) {
+        const source: 'steam' | 'local' = isSteamGame(game) ? 'steam' : 'local';
+        if (!selectedSources.has(source)) return false;
+      }
 
-    return true;
-  });
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedGames, activeTab, selectedPlatforms, selectedSources, installedSteamAppIds]);
+
+  // Avisa al padre cada vez que la lista visible (filtrada+ordenada)
+  // cambia, para que su propio índice de foco (teclado/mando) resuelva
+  // el juego correcto en vez de indexar sobre la lista sin filtrar.
+  useEffect(() => {
+    onVisibleGamesChange?.(filteredGames);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredGames]);
 
   const handleItemPress = (index: number, game: ConsoleItem) => {
     setSelectedGame(game);

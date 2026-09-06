@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, TextInput, ScrollView, useWindowDimensions, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -132,13 +132,6 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       hType: typeof g.height
     })).slice(0, 5);
 
-    console.log('getActiveTabList Debug:', {
-      tab: assetSelectorTab,
-      filter: selectedDimensionFilter,
-      gridsCount: assetsData.grids?.length,
-      firstFiveGrids: debugGrids
-    });
-
     let list: any[] = [];
     switch (assetSelectorTab) {
       case 'capsule':
@@ -214,15 +207,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       return true;
     });
 
-    console.log('getActiveTabList Return:', {
-      tab: assetSelectorTab,
-      filter: selectedDimensionFilter,
-      returnCount: uniqueFiltered.length,
-      firstThreeReturned: uniqueFiltered.slice(0, 3).map(g => ({ id: g.id, w: g.width, h: g.height }))
-    });
-
     return uniqueFiltered;
   };
+
 
   const cycleTab = (direction: number) => {
     const tabIndices: ('capsule' | 'capsule_wide' | 'hero' | 'logo' | 'icon' | 'manage')[] = [
@@ -405,7 +392,6 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   }, [updateSliderFromClientX]);
 
   const handleAssetSelectorKeyDown = (e: any) => {
-    const currentList = getActiveTabList();
     const paginatedList = currentList.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
     const totalPages = Math.ceil(currentList.length / ITEMS_PER_PAGE);
     const numCols = Math.round(sliderValue);
@@ -1000,6 +986,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     return () => cancelAnimationFrame(rafId);
   }, [isAssetSelectorVisible]);
 
+  const currentList = useMemo(() => getActiveTabList(), [getActiveTabList]);
+
   if (!item) return null;
 
   const handleSelectPath = async () => {
@@ -1132,7 +1120,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
   };
 
-  const currentList = getActiveTabList();
+
   const totalPages = Math.ceil(currentList.length / ITEMS_PER_PAGE);
   const paginatedList = currentList.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
 
@@ -1142,17 +1130,29 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         <View style={styles.detailContainer}>
 
           {/* FULLSCREEN BACKGROUND */}
+          {/* recyclingKey le indica a expo-image que, al cambiar de juego, esto
+              es una imagen "nueva" (no debe reciclar la vista nativa de la
+              anterior); transition hace un crossfade real entre la imagen
+              previa y la nueva en vez de un corte/parpadeo negro. cachePolicy
+              evita que un juego ya visto vuelva a mostrar el tirón al volver
+              a entrar. */}
           {(editData.backgroundImage || item.backgroundImage) ? (
             <Image
+              recyclingKey={item.id}
               source={resolveEditSource(editData.backgroundImage) ?? item.backgroundImage}
               style={styles.detailBg}
               contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={{ effect: 'cross-dissolve', duration: 350 }}
             />
           ) : (editData.image || item.image) ? (
             <Image
+              recyclingKey={item.id}
               source={resolveEditSource(editData.image) ?? item.image}
               style={styles.detailBg}
               contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={{ effect: 'cross-dissolve', duration: 350 }}
             />
           ) : null}
 
@@ -1169,9 +1169,12 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           <View style={styles.topHeader}>
             {(editData.image || item.image) && (
               <Image
+                recyclingKey={item.id}
                 source={resolveEditSource(editData.image) ?? item.image}
                 style={styles.topHeaderImage}
                 contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={{ effect: 'cross-dissolve', duration: 250 }}
               />
             )}
             <Text style={styles.topHeaderTitle} numberOfLines={1}>{editData.title || item.title}</Text>
