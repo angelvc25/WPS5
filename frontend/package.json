@@ -102,12 +102,12 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/images/logo/ps5.ico"
+      "icon": "assets/icons/wps5.ico"
     },
     "nsis": {
-      "installerIcon": "assets/images/logo/ps5.ico",
-      "uninstallerIcon": "assets/images/logo/ps5.ico",
-      "installerHeaderIcon": "assets/images/logo/ps5.ico"
+      "installerIcon": "assets/icons/wps5.ico",
+      "uninstallerIcon": "assets/icons/wps5.ico",
+      "installerHeaderIcon": "assets/icons/wps5.ico"
     }
   }
 }

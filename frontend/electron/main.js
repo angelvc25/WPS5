@@ -6,6 +6,7 @@ const { exec, spawn, fork } = require('child_process');
 const { pathToFileURL } = require('url');
 const serve = require('electron-serve').default || require('electron-serve');
 
+
 const distPath = app.isPackaged
   ? path.join(process.resourcesPath, 'dist')
   : path.join(__dirname, '../dist');
@@ -419,7 +420,7 @@ function createWindow() {
     width: 1000,
     height: 700,
     fullscreen: true,
-    icon: path.join(__dirname, '../assets/images/ps5.ico'),
+    icon: path.join(__dirname, '../assets/icons/logo.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: false, // Permitir carga de assets locales y externos sin restricciones de CORS/CSP en este entorno de consola
@@ -593,7 +594,7 @@ function openElectronWebFullscreen(url) {
     fullscreen: true,
     autoHideMenuBar: true,
     backgroundColor: '#000000',
-    icon: path.join(__dirname, '../assets/images/ps5.ico'),
+    icon: path.join(__dirname, '../assets/icons/logo.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -2276,17 +2277,79 @@ app.whenReady().then(() => {
             const claimedId = parsedUrl.query['openid.claimed_id'];
             if (claimedId) {
               const steamId = claimedId.split('/').pop();
+              // Leer logos como base64 / inline SVG para incrustarlos en el HTML del navegador del sistema
+              const wps5SvgPath = path.join(__dirname, '..', 'assets', 'icons', 'wps5FullWhite.svg');
+              const steamPngPath = path.join(__dirname, '..', 'assets', 'icons', 'steam.png');
+              const wps5SvgContent = fs.existsSync(wps5SvgPath)
+                ? fs.readFileSync(wps5SvgPath, 'utf8')
+                : '';
+              const steamPngB64 = fs.existsSync(steamPngPath)
+                ? `data:image/png;base64,${fs.readFileSync(steamPngPath).toString('base64')}`
+                : '';
+
               res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
               res.end(`
-                <html>
-                  <body style="background-color:#1b2838; color:white; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh;">
-                    <div style="text-align:center;">
-                      <h1>¡Sesión iniciada con éxito!</h1>
-                      <p>Ya puedes cerrar esta pestaña y volver a la aplicación.</p>
-                      <script>setTimeout(() => window.close(), 3000);</script>
-                    </div>
-                  </body>
-                </html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Steam conectado</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: #1E1E1E; color: #fff;
+  }
+  .container { text-align: center; max-width: 600px; padding: 40px; }
+
+  .layout { display: flex; align-items: center; justify-content: center; gap: 32px; margin-bottom: 32px; }
+  .wps5-logo { width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; }
+  .wps5-logo svg { width: 140px; height: 140px; }
+  .steam-logo img { width: 120px; height: 120px; object-fit: contain; }
+  .divider { font-size: 36px; font-weight: 700; color: #555; }
+
+  .title { font-size: 24px; font-weight: 400; color: #fff; margin-bottom: 16px; }
+
+  .subtitle { font-size: 14px; color: #aaa; line-height: 1.6; }
+  .subtitle a { color: #66c0f4; text-decoration: none; font-weight: 500; }
+  .subtitle a:hover { text-decoration: underline; }
+
+  .links { margin-top: 24px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; }
+  .links span { color: #555; }
+  .links a { color: #888; text-decoration: none; font-weight: 500; }
+  .links a:hover { color: #fff; }
+
+  .fade-in { opacity: 0; animation: fadeIn 0.5s ease forwards; }
+  .fade-in-d1 { animation-delay: 0.1s; }
+  .fade-in-d2 { animation-delay: 0.2s; }
+  .fade-in-d3 { animation-delay: 0.35s; }
+
+  @keyframes fadeIn { to { opacity: 1; } }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="layout fade-in">
+      <div class="wps5-logo">
+        ${wps5SvgContent}
+      </div>
+      <span class="divider">×</span>
+      <div class="steam-logo">
+        <img src="${steamPngB64}" alt="Steam">
+      </div>
+    </div>
+    <h1 class="title fade-in fade-in-d1">Te has conectado correctamente.</h1>
+    <p class="subtitle fade-in fade-in-d2">Puedes cerrar esta ventana o <a href="#" onclick="window.close()">cerrarla automaticamente</a>.</p>
+    <div class="links fade-in fade-in-d3">
+      <a href="https://store.steampowered.com" target="_blank">Steam Store</a>
+      <span>|</span>
+      <a href="https://steamcommunity.com" target="_blank">Community</a>
+    </div>
+  </div>
+</body>
+</html>
               `);
               server.close();
               resolve({ success: true, steamId });
