@@ -167,9 +167,9 @@ export const GameInfoPanel = ({
   }, [achievementAppId, activeUser?.settings?.steamId]);
 
   const trophyCounts = steamAchievements?.rarityCounts ?? { platinum: 0, gold: 0, silver: 0, bronze: 0 };
-  const featuredAchievements = steamAchievements ? [...steamAchievements.achievements]
-    .sort((a, b) => Number(b.achieved) - Number(a.achieved) || (a.globalPercentage ?? 100) - (b.globalPercentage ?? 100))
-    .slice(0, 2) : [];
+  const trophyProgress = steamAchievements?.total
+    ? Math.round((steamAchievements.unlocked / steamAchievements.total) * 100)
+    : 0;
 
   const mediaScrollRef = React.useRef<ScrollView>(null);
   const newsScrollRef = React.useRef<ScrollView>(null);
@@ -684,29 +684,15 @@ export const GameInfoPanel = ({
               <Text style={{ color: '#ddddddff', fontFamily: 'SSTLight', fontSize: s(17) }}>
                 {t('game.trophiesCount', { count: achievementsLoading ? '…' : `${steamAchievements?.unlocked ?? 0}/${steamAchievements?.total ?? 0}` })}
               </Text>
-            </View>
-
-            {featuredAchievements.length > 0 && (
-              <View style={{ marginTop: s(12), gap: s(7), zIndex: 2 }}>
-                {featuredAchievements.map((achievement) => (
-                  <View key={achievement.apiName} style={{ flexDirection: 'row', alignItems: 'center', gap: s(8) }}>
-                    <Image
-                      source={{ uri: achievement.achieved ? achievement.icon : achievement.lockedIcon }}
-                      style={{ width: s(30), height: s(30), borderRadius: s(4), opacity: achievement.achieved ? 0.95 : 0.45 }}
-                      contentFit="cover"
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text numberOfLines={1} style={{ color: '#FFF', fontSize: s(12), fontFamily: 'SSTBold' }}>{achievement.name}</Text>
-                      <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.62)', fontSize: s(10), fontFamily: 'SSTLight' }}>
-                        {[achievement.description, Number.isFinite(Number(achievement.globalPercentage)) ? `${Number(achievement.globalPercentage).toFixed(1)}% de jugadores` : '']
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10), marginTop: s(8) }}>
+                <View style={{ flex: 1, height: s(4), borderRadius: s(2), backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' }}>
+                  <View style={{ width: `${achievementsLoading ? 0 : trophyProgress}%`, height: '100%', backgroundColor: '#E7E9EE', borderRadius: s(2) }} />
+                </View>
+                <Text style={{ color: '#FFF', fontSize: s(16), fontFamily: 'SSTBold', minWidth: s(40), textAlign: 'right' }}>
+                  {achievementsLoading ? '…' : `${trophyProgress}%`}
+                </Text>
               </View>
-            )}
+            </View>
           </View>
 
           {/* Friends Playing Card */}
@@ -921,6 +907,65 @@ export const GameInfoPanel = ({
             {t('game.musicQuote')}
           </Text>
         </Animated.View>
+      )}
+
+      {/* Steam achievements: una fila independiente, desplazable, antes de capturas y trailers. */}
+      {canPlay && !isMediaSection && steamAchievements && steamAchievements.achievements.length > 0 && (
+        <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(24) }]}>
+          <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>
+            {t('game.trophies')}
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator
+            scrollEnabled
+            nestedScrollEnabled
+            directionalLockEnabled
+            persistentScrollbar
+            contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
+          >
+            {steamAchievements.achievements.map((achievement) => {
+              const globalPercentage = Number(achievement.globalPercentage);
+              const hasGlobalPercentage = Number.isFinite(globalPercentage);
+              return (
+                <View
+                  key={achievement.apiName}
+                  style={{
+                    width: s(250),
+                    height: s(180),
+                    borderRadius: s(12),
+                    overflow: 'hidden',
+                    padding: s(16),
+                    justifyContent: 'flex-end',
+                    backgroundColor: achievement.achieved ? 'rgba(29, 37, 52, 0.96)' : 'rgba(18, 20, 27, 0.96)',
+                    borderWidth: 1,
+                    borderColor: achievement.achieved ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.07)',
+                  }}
+                >
+                  <Image
+                    source={{ uri: achievement.achieved ? achievement.icon : achievement.lockedIcon }}
+                    style={{ position: 'absolute', top: s(16), right: s(16), width: s(68), height: s(68), borderRadius: s(8), opacity: achievement.achieved ? 1 : 0.34 }}
+                    contentFit="cover"
+                  />
+                  {!achievement.achieved && (
+                    <View style={{ position: 'absolute', top: s(35), right: s(35), zIndex: 1 }}>
+                      <Ionicons name="lock-closed" size={s(28)} color="rgba(255,255,255,0.88)" />
+                    </View>
+                  )}
+                  <Text style={{ color: achievement.achieved ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.45)', fontSize: s(11), fontFamily: 'SSTMedium', marginBottom: s(4) }}>
+                    {achievement.achieved ? 'Desbloqueado' : 'Bloqueado'}{hasGlobalPercentage ? ` · ${globalPercentage.toFixed(1)}%` : ''}
+                  </Text>
+                  <Text numberOfLines={1} style={{ color: '#FFF', fontSize: s(17), fontFamily: 'SSTBold', marginBottom: s(5) }}>
+                    {achievement.name}
+                  </Text>
+                  <Text numberOfLines={2} style={{ color: 'rgba(255,255,255,0.62)', fontSize: s(12), lineHeight: s(16), fontFamily: 'SSTLight' }}>
+                    {achievement.description || (achievement.achieved ? 'Logro conseguido' : 'Sigue jugando para desbloquear este logro.')}
+                  </Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
       )}
 
       {/* Screenshots and Trailers row */}
