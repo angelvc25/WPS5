@@ -25,13 +25,51 @@ export interface SteamPlayerAchievementsResponse {
   };
 }
 
+export interface SteamGameAchievement {
+  apiName: string;
+  name: string;
+  description: string;
+  icon: string;
+  lockedIcon: string;
+  achieved: boolean;
+  unlockTime: number;
+  globalPercentage: number | null;
+  rarity: 'platinum' | 'gold' | 'silver' | 'bronze';
+}
+
+export interface SteamGameAchievementsSummary {
+  total: number;
+  unlocked: number;
+  rarityCounts: Record<SteamGameAchievement['rarity'], number>;
+  achievements: SteamGameAchievement[];
+}
+
+interface SteamSchemaAchievement {
+  name: string;
+  displayName?: string;
+  description?: string;
+  icon?: string;
+  icongray?: string;
+}
+
+const getFetchUrl = (url: string) => {
+  const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+  const needsProxy = Platform.OS === 'web' && !isElectron;
+  return needsProxy ? `${CORS_PROXY}${encodeURIComponent(url)}` : url;
+};
+
+const rarityForPercentage = (percentage: number | null): SteamGameAchievement['rarity'] => {
+  if (percentage !== null && percentage <= 1) return 'platinum';
+  if (percentage !== null && percentage <= 5) return 'gold';
+  if (percentage !== null && percentage <= 15) return 'silver';
+  return 'bronze';
+};
+
 export const fetchSteamOwnedGames = async (apiKey: string, steamId: string): Promise<SteamOwnedGame[]> => {
   try {
     const url = `http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${apiKey}&steamid=${steamId}&format=json&include_appinfo=1&include_played_free_games=1`;
     // Electron doesn't need CORS proxy; only use it for pure browser web
-    const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
-    const needsProxy = Platform.OS === 'web' && !isElectron;
-    const fetchUrl = needsProxy ? `${CORS_PROXY}${encodeURIComponent(url)}` : url;
+    const fetchUrl = getFetchUrl(url);
     
     const response = await fetch(fetchUrl);
     if (!response.ok) {
@@ -52,7 +90,7 @@ export const fetchSteamOwnedGames = async (apiKey: string, steamId: string): Pro
 export const fetchSteamTrophiesCount = async (apiKey: string, steamId: string, appId: number): Promise<number> => {
   try {
     const url = `http://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${appId}&key=${apiKey}&steamid=${steamId}`;
-    const fetchUrl = Platform.OS === 'web' ? `${CORS_PROXY}${encodeURIComponent(url)}` : url;
+    const fetchUrl = getFetchUrl(url);
 
     const response = await fetch(fetchUrl);
     if (!response.ok) {
@@ -69,5 +107,71 @@ export const fetchSteamTrophiesCount = async (apiKey: string, steamId: string, a
   } catch (error) {
     console.error(`Error fetching Steam trophies for app ${appId}:`, error);
     return 0;
+  }
+};
+
+/** Obtiene progreso, metadatos e índice global de rareza de los logros Steam. */
+export const fetchSteamGameAchievements = async (
+  apiKey: string,
+  steamId: string,
+  appId: number
+): Promise<SteamGameAchievementsSummary | null> => {
+  try {
+    const playerUrl = `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${appId}&key=${apiKey}&steamid=${steamId}`;
+    const schemaUrl = `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?appid=${appId}&key=${apiKey}`;
+    const percentagesUrl = `https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid=${appId}`;
+
+    const [playerResponse, schemaResponse, percentagesResponse] = await Promise.all([
+      fetch(getFetchUrl(playerUrl)),
+      fetch(getFetchUrl(schemaUrl)),
+      // La rareza es un enriquecimiento opcional: no debe ocultar los logros
+      // si Steam no expone temporalmente este endpoint.
+      fetch(getFetchUrl(percentagesUrl)).catch(() => null),
+    ]);
+
+    if (!playerResponse.ok || !schemaResponse.ok) return null;
+
+    const playerData: SteamPlayerAchievementsResponse = await playerResponse.json();
+    const schemaData = await schemaResponse.json();
+    const percentagesData = percentagesResponse?.ok ? await percentagesResponse.json() : null;
+    const playerAchievements = playerData.playerstats?.achievements;
+    const schemaAchievements: SteamSchemaAchievement[] = schemaData?.game?.availableGameStats?.achievements ?? [];
+    if (!playerData.playerstats?.success || !playerAchievements || schemaAchievements.length === 0) return null;
+
+    const playerByApiName = new Map(playerAchievements.map(achievement => [achievement.apiname, achievement]));
+    const percentageByApiName = new Map<string, number>(
+      (percentagesData?.achievementpercentages?.achievements ?? [])
+        .map((achievement: { name: string; percent: number | string }) => [achievement.name, Number(achievement.percent)] as const)
+        .filter(([, percentage]) => Number.isFinite(percentage))
+    );
+    const rarityCounts: SteamGameAchievementsSummary['rarityCounts'] = { platinum: 0, gold: 0, silver: 0, bronze: 0 };
+    const achievements = schemaAchievements.map((schemaAchievement) => {
+      const playerAchievement = playerByApiName.get(schemaAchievement.name);
+      const globalPercentage = percentageByApiName.get(schemaAchievement.name) ?? null;
+      const rarity = rarityForPercentage(globalPercentage);
+      const achieved = playerAchievement?.achieved === 1;
+      if (achieved) rarityCounts[rarity] += 1;
+      return {
+        apiName: schemaAchievement.name,
+        name: schemaAchievement.displayName || schemaAchievement.name,
+        description: schemaAchievement.description || '',
+        icon: schemaAchievement.icon || '',
+        lockedIcon: schemaAchievement.icongray || schemaAchievement.icon || '',
+        achieved,
+        unlockTime: playerAchievement?.unlocktime ?? 0,
+        globalPercentage,
+        rarity,
+      };
+    });
+
+    return {
+      total: achievements.length,
+      unlocked: achievements.filter(achievement => achievement.achieved).length,
+      rarityCounts,
+      achievements,
+    };
+  } catch (error) {
+    console.error(`Error fetching Steam achievements for app ${appId}:`, error);
+    return null;
   }
 };

@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Linking } from 'react-native';
 import { Image } from 'expo-image';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MusicPlayerCard from './MusicPlayerCard';
 import { ConsoleItem } from '../app/(tabs)/index';
-import { getGameActionLabel } from '../services/steamLaunchService';
+import { getGameActionLabel, getSteamAppId } from '../services/steamLaunchService';
+import { fetchSteamGameAchievements, SteamGameAchievementsSummary } from '../services/steamUserService';
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { formatPlaytime } from '../services/playtimeService';
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -133,6 +134,42 @@ export const GameInfoPanel = ({
   const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
   const isSpotify = activeItem?.title?.toLowerCase()?.includes('spotify');
   const isMediaSection = activeItem?.type === 'media' || activeItem?.type === 'web' || isSpotify;
+  // Scale factor: 1.0 at 1080p, shrinks proportionally for smaller screens.
+  const scale = Math.min(
+    Math.max(Math.max(windowWidth / 1920, windowHeight / 1080), 0.6),
+    1.25
+  );
+  const s = (v: number) => Math.round(v * scale);
+  const [steamAchievements, setSteamAchievements] = React.useState<SteamGameAchievementsSummary | null>(null);
+  const [achievementsLoading, setAchievementsLoading] = React.useState(false);
+  const achievementGame = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
+  const achievementAppId = achievementGame ? getSteamAppId(achievementGame) : null;
+
+  React.useEffect(() => {
+    const steamId = activeUser?.settings?.steamId;
+    const apiKey = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
+    if (!steamId || !achievementAppId) {
+      setSteamAchievements(null);
+      setAchievementsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setAchievementsLoading(true);
+    setSteamAchievements(null);
+    fetchSteamGameAchievements(apiKey, steamId, Number(achievementAppId)).then((summary) => {
+      if (!cancelled) {
+        setSteamAchievements(summary);
+        setAchievementsLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [achievementAppId, activeUser?.settings?.steamId]);
+
+  const trophyCounts = steamAchievements?.rarityCounts ?? { platinum: 0, gold: 0, silver: 0, bronze: 0 };
+  const featuredAchievements = steamAchievements ? [...steamAchievements.achievements]
+    .sort((a, b) => Number(b.achieved) - Number(a.achieved) || (a.globalPercentage ?? 100) - (b.globalPercentage ?? 100))
+    .slice(0, 2) : [];
 
   const mediaScrollRef = React.useRef<ScrollView>(null);
   const newsScrollRef = React.useRef<ScrollView>(null);
@@ -149,10 +186,10 @@ export const GameInfoPanel = ({
       if (gamePanelFocusIndex >= 100) {
         const idx = gamePanelFocusIndex - 100;
         // Cada posición debe incluir el ancho escalado de la tarjeta y el gap.
-        mediaScrollRef.current?.scrollTo({ x: idx * (s(500) + s(16)), animated: true });
+        mediaScrollRef.current?.scrollTo({ x: idx * Math.round(516 * scale), animated: true });
       } else if (gamePanelFocusIndex >= 4) {
         const idx = gamePanelFocusIndex - 4;
-        newsScrollRef.current?.scrollTo({ x: idx * (s(320) + s(16)), animated: true });
+        newsScrollRef.current?.scrollTo({ x: idx * Math.round(336 * scale), animated: true });
       }
     }, 80);
 
@@ -161,7 +198,7 @@ export const GameInfoPanel = ({
         clearTimeout(scrollDebounceRef.current);
       }
     };
-  }, [gamePanelFocusIndex, focusArea]);
+  }, [gamePanelFocusIndex, focusArea, scale]);
 
   const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds, {
     play: t('action.play'),
@@ -169,13 +206,6 @@ export const GameInfoPanel = ({
     assignPath: t('action.assignPath'),
     download: t('action.download'),
   });
-
-  // Scale factor: 1.0 at 1080p, shrinks proportionally for smaller screens
-  const scale = Math.min(
-    Math.max(Math.max(windowWidth / 1920, windowHeight / 1080), 0.6),
-    1.25 // permite crecer un poco en pantallas grandes en vez de topar en 1x
-  );
-  const s = (v: number) => Math.round(v * scale);
 
   return (
     <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }]}>
@@ -592,7 +622,7 @@ export const GameInfoPanel = ({
                   }}
                 />
                 <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
-                  1
+                  {trophyCounts.platinum}
                 </Text>
               </View>
 
@@ -606,7 +636,7 @@ export const GameInfoPanel = ({
                   }}
                 />
                 <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
-                  3
+                  {trophyCounts.gold}
                 </Text>
               </View>
 
@@ -620,7 +650,7 @@ export const GameInfoPanel = ({
                   }}
                 />
                 <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
-                  16
+                  {trophyCounts.silver}
                 </Text>
               </View>
 
@@ -634,7 +664,7 @@ export const GameInfoPanel = ({
                   }}
                 />
                 <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
-                  17
+                  {trophyCounts.bronze}
                 </Text>
               </View>
             </View>
@@ -652,9 +682,31 @@ export const GameInfoPanel = ({
               </Text>
 
               <Text style={{ color: '#ddddddff', fontFamily: 'SSTLight', fontSize: s(17) }}>
-                {t('game.trophiesCount', { count: 37 })}
+                {t('game.trophiesCount', { count: achievementsLoading ? '…' : `${steamAchievements?.unlocked ?? 0}/${steamAchievements?.total ?? 0}` })}
               </Text>
             </View>
+
+            {featuredAchievements.length > 0 && (
+              <View style={{ marginTop: s(12), gap: s(7), zIndex: 2 }}>
+                {featuredAchievements.map((achievement) => (
+                  <View key={achievement.apiName} style={{ flexDirection: 'row', alignItems: 'center', gap: s(8) }}>
+                    <Image
+                      source={{ uri: achievement.achieved ? achievement.icon : achievement.lockedIcon }}
+                      style={{ width: s(30), height: s(30), borderRadius: s(4), opacity: achievement.achieved ? 0.95 : 0.45 }}
+                      contentFit="cover"
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text numberOfLines={1} style={{ color: '#FFF', fontSize: s(12), fontFamily: 'SSTBold' }}>{achievement.name}</Text>
+                      <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.62)', fontSize: s(10), fontFamily: 'SSTLight' }}>
+                        {[achievement.description, Number.isFinite(Number(achievement.globalPercentage)) ? `${Number(achievement.globalPercentage).toFixed(1)}% de jugadores` : '']
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
 
           {/* Friends Playing Card */}
