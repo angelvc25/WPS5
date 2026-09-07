@@ -10,6 +10,7 @@ import { fetchSteamGameAchievements, SteamGameAchievementsSummary } from '../ser
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { formatPlaytime } from '../services/playtimeService';
 import { useTranslation } from '@/contexts/LanguageContext';
+import SpinningBorderNoticias from './SpinningborderNoticias';
 
 // ─── Shimmer skeleton placeholder (usado mientras cargan capturas/noticias) ──
 // Evita que las filas de "Capturas y trailers" / "Últimas noticias" aparezcan
@@ -99,6 +100,7 @@ interface GameInfoPanelProps {
   topPanelStyle: any;
   installedSteamAppIds?: Set<string> | null;
   activeDownload?: SteamDownloadItem | null;
+  onAchievementCountChange?: (count: number) => void;
 }
 
 export const GameInfoPanel = ({
@@ -126,6 +128,7 @@ export const GameInfoPanel = ({
   topPanelStyle,
   installedSteamAppIds = null,
   activeDownload = null,
+  onAchievementCountChange,
 }: GameInfoPanelProps) => {
   const { t } = useTranslation();
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : t('lastPlayed.title')) : activeItem?.title;
@@ -173,6 +176,7 @@ export const GameInfoPanel = ({
 
   const mediaScrollRef = React.useRef<ScrollView>(null);
   const newsScrollRef = React.useRef<ScrollView>(null);
+  const achievementsScrollRef = React.useRef<ScrollView>(null);
   const scrollDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
@@ -183,7 +187,10 @@ export const GameInfoPanel = ({
     }
 
     scrollDebounceRef.current = setTimeout(() => {
-      if (gamePanelFocusIndex >= 100) {
+      if (gamePanelFocusIndex >= 200) {
+        const idx = gamePanelFocusIndex - 200;
+        achievementsScrollRef.current?.scrollTo({ x: idx * Math.round(266 * scale), animated: true });
+      } else if (gamePanelFocusIndex >= 100) {
         const idx = gamePanelFocusIndex - 100;
         // Cada posición debe incluir el ancho escalado de la tarjeta y el gap.
         mediaScrollRef.current?.scrollTo({ x: idx * Math.round(516 * scale), animated: true });
@@ -199,6 +206,10 @@ export const GameInfoPanel = ({
       }
     };
   }, [gamePanelFocusIndex, focusArea, scale]);
+
+  React.useEffect(() => {
+    onAchievementCountChange?.(canPlay && !isMediaSection ? steamAchievements?.achievements.length ?? 0 : 0);
+  }, [canPlay, isMediaSection, onAchievementCountChange, steamAchievements?.achievements.length]);
 
   const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds, {
     play: t('action.play'),
@@ -916,6 +927,7 @@ export const GameInfoPanel = ({
             {t('game.trophies')}
           </Text>
           <ScrollView
+            ref={achievementsScrollRef}
             horizontal
             showsHorizontalScrollIndicator
             scrollEnabled
@@ -924,12 +936,15 @@ export const GameInfoPanel = ({
             persistentScrollbar
             contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
           >
-            {steamAchievements.achievements.map((achievement) => {
+            {steamAchievements.achievements.map((achievement, idx) => {
               const globalPercentage = Number(achievement.globalPercentage);
               const hasGlobalPercentage = Number.isFinite(globalPercentage);
+              const isAchievementFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 200 + idx;
               return (
-                <View
+                <TouchableOpacity
                   key={achievement.apiName}
+                  onPress={() => setGamePanelFocusIndex(200 + idx)}
+                  activeOpacity={0.8}
                   style={{
                     width: s(250),
                     height: s(180),
@@ -938,10 +953,10 @@ export const GameInfoPanel = ({
                     padding: s(16),
                     justifyContent: 'flex-end',
                     backgroundColor: achievement.achieved ? 'rgba(29, 37, 52, 0.96)' : 'rgba(18, 20, 27, 0.96)',
-                    borderWidth: 1,
-                    borderColor: achievement.achieved ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.07)',
+                    position: 'relative',
                   }}
                 >
+                  {isAchievementFocused && <SpinningBorderNoticias size={s(250)} />}
                   <Image
                     source={{ uri: achievement.achieved ? achievement.icon : achievement.lockedIcon }}
                     style={{ position: 'absolute', top: s(16), right: s(16), width: s(68), height: s(68), borderRadius: s(8), opacity: achievement.achieved ? 1 : 0.34 }}
@@ -961,7 +976,7 @@ export const GameInfoPanel = ({
                   <Text numberOfLines={2} style={{ color: 'rgba(255,255,255,0.62)', fontSize: s(12), lineHeight: s(16), fontFamily: 'SSTLight' }}>
                     {achievement.description || (achievement.achieved ? 'Logro conseguido' : 'Sigue jugando para desbloquear este logro.')}
                   </Text>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </ScrollView>

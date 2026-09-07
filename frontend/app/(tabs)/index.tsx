@@ -146,6 +146,7 @@ export default function ConsoleHome() {
   const [steamMedia, setSteamMedia] = useState<SteamMediaItem[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
+  const [achievementCount, setAchievementCount] = useState(0);
   const selectedLightboxMedia = selectedMediaIndex !== null ? steamMedia[selectedMediaIndex] ?? null : null;
 
 
@@ -1914,6 +1915,8 @@ export default function ConsoleHome() {
                 setGamePanelFocusIndex(1);
               } else if (gamePanelFocusIndex === 2) {
                 setGamePanelFocusIndex(3);
+              } else if (gamePanelFocusIndex >= 200) {
+                setGamePanelFocusIndex(prev => Math.min(prev + 1, 200 + achievementCount - 1));
               } else if (gamePanelFocusIndex >= 100) {
                 setGamePanelFocusIndex(prev => Math.min(prev + 1, 100 + steamMedia.length - 1));
               } else if (gamePanelFocusIndex >= 4) {
@@ -1985,6 +1988,8 @@ export default function ConsoleHome() {
                 setGamePanelFocusIndex(0);
               } else if (gamePanelFocusIndex === 3) {
                 setGamePanelFocusIndex(2);
+              } else if (gamePanelFocusIndex >= 200) {
+                setGamePanelFocusIndex(prev => Math.max(prev - 1, 200));
               } else if (gamePanelFocusIndex >= 100) {
                 setGamePanelFocusIndex(prev => Math.max(prev - 1, 100));
               } else if (gamePanelFocusIndex >= 4) {
@@ -2066,7 +2071,15 @@ export default function ConsoleHome() {
                 const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
                 if (isMediaPanelItem) {
                   setGamePanelFocusIndex(4);
+                } else if (achievementCount > 0) {
+                  setGamePanelFocusIndex(200);
                 } else if (steamMedia.length > 0) {
+                  setGamePanelFocusIndex(100);
+                } else if (steamNews.length > 0) {
+                  setGamePanelFocusIndex(4);
+                }
+              } else if (gamePanelFocusIndex >= 200) {
+                if (steamMedia.length > 0) {
                   setGamePanelFocusIndex(100);
                 } else if (steamNews.length > 0) {
                   setGamePanelFocusIndex(4);
@@ -2128,8 +2141,10 @@ export default function ConsoleHome() {
                 setGamePanelFocusIndex(0);
               } else if (gamePanelFocusIndex === 3) {
                 setGamePanelFocusIndex(1);
-              } else if (gamePanelFocusIndex >= 100) {
+              } else if (gamePanelFocusIndex >= 200) {
                 setGamePanelFocusIndex(2);
+              } else if (gamePanelFocusIndex >= 100) {
+                setGamePanelFocusIndex(achievementCount > 0 ? 200 : 2);
               } else if (gamePanelFocusIndex >= 4) {
                 const panelItem = currentData[activeIndex];
                 const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
@@ -2220,6 +2235,8 @@ export default function ConsoleHome() {
                     alert('Aún no has jugado a ningún juego.');
                   }
                 }
+              } else if (gamePanelFocusIndex >= 200) {
+                // Los logros son una fila de navegación; Enter no abre una vista adicional.
               } else if (gamePanelFocusIndex >= 100) {
                 const mediaItem = steamMedia[gamePanelFocusIndex - 100];
                 if (mediaItem) {
@@ -2369,6 +2386,8 @@ export default function ConsoleHome() {
         mainScrollRef.current.scrollTo({ y: 0, animated: true });
       } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
         mainScrollRef.current.scrollTo({ y: 220, animated: true });
+      } else if (gamePanelFocusIndex >= 200) {
+        mainScrollRef.current.scrollTo({ y: 420, animated: true });
       } else if (gamePanelFocusIndex >= 100) {
         mainScrollRef.current.scrollTo({ y: 480, animated: true });
       } else if (gamePanelFocusIndex >= 4) {
@@ -3288,6 +3307,7 @@ export default function ConsoleHome() {
               windowHeight={windowHeight}
               gameInfoPanelStyle={gameInfoPanelStyle}
               activeDownload={activeDownload}
+              onAchievementCountChange={setAchievementCount}
               spacerStyle={spacerStyle}
               infoCardsStyle={infoCardsStyle}
               topPanelStyle={topPanelStyle}
