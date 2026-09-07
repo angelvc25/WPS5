@@ -1923,7 +1923,7 @@ export default function ConsoleHome() {
                 const panelItem = currentData[activeIndex];
                 const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
                 if (!(isMediaPanelItem && gamePanelFocusIndex === 4)) {
-                  setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + steamNews.length - 1));
+                  setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + Math.min(steamNews.length, 8) - 1));
                 }
               }
             }
@@ -2071,20 +2071,20 @@ export default function ConsoleHome() {
                 const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
                 if (isMediaPanelItem) {
                   setGamePanelFocusIndex(4);
-                } else if (achievementCount > 0) {
-                  setGamePanelFocusIndex(200);
                 } else if (steamMedia.length > 0) {
                   setGamePanelFocusIndex(100);
+                } else if (achievementCount > 0) {
+                  setGamePanelFocusIndex(200);
+                } else if (steamNews.length > 0) {
+                  setGamePanelFocusIndex(4);
+                }
+              } else if (gamePanelFocusIndex >= 100 && gamePanelFocusIndex < 200) {
+                if (achievementCount > 0) {
+                  setGamePanelFocusIndex(200);
                 } else if (steamNews.length > 0) {
                   setGamePanelFocusIndex(4);
                 }
               } else if (gamePanelFocusIndex >= 200) {
-                if (steamMedia.length > 0) {
-                  setGamePanelFocusIndex(100);
-                } else if (steamNews.length > 0) {
-                  setGamePanelFocusIndex(4);
-                }
-              } else if (gamePanelFocusIndex >= 100) {
                 if (steamNews.length > 0) {
                   setGamePanelFocusIndex(4);
                 }
@@ -2142,14 +2142,16 @@ export default function ConsoleHome() {
               } else if (gamePanelFocusIndex === 3) {
                 setGamePanelFocusIndex(1);
               } else if (gamePanelFocusIndex >= 200) {
-                setGamePanelFocusIndex(2);
+                setGamePanelFocusIndex(steamMedia.length > 0 ? 100 : 2);
               } else if (gamePanelFocusIndex >= 100) {
-                setGamePanelFocusIndex(achievementCount > 0 ? 200 : 2);
+                setGamePanelFocusIndex(2);
               } else if (gamePanelFocusIndex >= 4) {
                 const panelItem = currentData[activeIndex];
                 const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
                 if (isMediaPanelItem && gamePanelFocusIndex === 4) {
                   setGamePanelFocusIndex(2);
+                } else if (achievementCount > 0) {
+                  setGamePanelFocusIndex(200);
                 } else if (steamMedia.length > 0) {
                   setGamePanelFocusIndex(100);
                 } else {
@@ -2386,19 +2388,13 @@ export default function ConsoleHome() {
         mainScrollRef.current.scrollTo({ y: 0, animated: true });
       } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
         mainScrollRef.current.scrollTo({ y: 220, animated: true });
-      } else if (gamePanelFocusIndex >= 200) {
-        mainScrollRef.current.scrollTo({ y: 420, animated: true });
-      } else if (gamePanelFocusIndex >= 100) {
-        mainScrollRef.current.scrollTo({ y: 480, animated: true });
-      } else if (gamePanelFocusIndex >= 4) {
-        mainScrollRef.current.scrollTo({ y: 700, animated: true });
       }
     }
   }, [focusArea, gamePanelFocusIndex, libraryGridFocusIndex]);
 
   // Auto-scroll media horizontal scrollview when navigating through media cards
   useEffect(() => {
-    if (focusArea === 'game_panel' && gamePanelFocusIndex >= 100 && mediaScrollRef.current) {
+    if (focusArea === 'game_panel' && gamePanelFocusIndex >= 100 && gamePanelFocusIndex < 200 && mediaScrollRef.current) {
       const mediaIndex = gamePanelFocusIndex - 100;
       const cardWidth = 500 + 16;
       mediaScrollRef.current.scrollTo({ x: mediaIndex * cardWidth, animated: true });
@@ -2409,7 +2405,7 @@ export default function ConsoleHome() {
   useEffect(() => {
     if (focusArea === 'game_panel' && gamePanelFocusIndex >= 4 && gamePanelFocusIndex < 100 && newsScrollRef.current) {
       const newsIndex = gamePanelFocusIndex - 4;
-      const cardWidth = 500;
+      const cardWidth = 320;
       const gap = 16;
       const scrollX = newsIndex * (cardWidth + gap);
       newsScrollRef.current.scrollTo({ x: scrollX, animated: true });

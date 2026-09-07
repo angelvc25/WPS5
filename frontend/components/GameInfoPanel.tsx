@@ -178,6 +178,11 @@ export const GameInfoPanel = ({
   const newsScrollRef = React.useRef<ScrollView>(null);
   const achievementsScrollRef = React.useRef<ScrollView>(null);
   const scrollDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Referencias a los nodos DOM de cada tarjeta (solo web). Se usan para
+  // desplazar con precisión vía scrollIntoView, evitando depender de
+  // cálculos manuales de ancho/gap que pueden desincronizarse del layout real.
+  const mediaItemRefs = React.useRef<any[]>([]);
+  const newsItemRefs = React.useRef<any[]>([]);
 
   React.useEffect(() => {
     if (focusArea !== 'game_panel') return;
@@ -192,11 +197,21 @@ export const GameInfoPanel = ({
         achievementsScrollRef.current?.scrollTo({ x: idx * Math.round(266 * scale), animated: true });
       } else if (gamePanelFocusIndex >= 100) {
         const idx = gamePanelFocusIndex - 100;
-        // Cada posición debe incluir el ancho escalado de la tarjeta y el gap.
-        mediaScrollRef.current?.scrollTo({ x: idx * Math.round(516 * scale), animated: true });
+        const node: any = mediaItemRefs.current[idx];
+        if (Platform.OS === 'web' && node && typeof node.scrollIntoView === 'function') {
+          node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        } else {
+          // Fallback: cada posición debe incluir el ancho escalado de la tarjeta y el gap.
+          mediaScrollRef.current?.scrollTo({ x: idx * Math.round(516 * scale), animated: true });
+        }
       } else if (gamePanelFocusIndex >= 4) {
         const idx = gamePanelFocusIndex - 4;
-        newsScrollRef.current?.scrollTo({ x: idx * Math.round(336 * scale), animated: true });
+        const node: any = newsItemRefs.current[idx];
+        if (Platform.OS === 'web' && node && typeof node.scrollIntoView === 'function') {
+          node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        } else {
+          newsScrollRef.current?.scrollTo({ x: idx * Math.round(336 * scale), animated: true });
+        }
       }
     }, 80);
 
@@ -920,72 +935,9 @@ export const GameInfoPanel = ({
         </Animated.View>
       )}
 
-      {/* Steam achievements: una fila independiente, desplazable, antes de capturas y trailers. */}
-      {canPlay && !isMediaSection && steamAchievements && steamAchievements.achievements.length > 0 && (
-        <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(24) }]}>
-          <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>
-            {t('game.trophies')}
-          </Text>
-          <ScrollView
-            ref={achievementsScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator
-            scrollEnabled
-            nestedScrollEnabled
-            directionalLockEnabled
-            persistentScrollbar
-            contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
-          >
-            {steamAchievements.achievements.map((achievement, idx) => {
-              const globalPercentage = Number(achievement.globalPercentage);
-              const hasGlobalPercentage = Number.isFinite(globalPercentage);
-              const isAchievementFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 200 + idx;
-              return (
-                <TouchableOpacity
-                  key={achievement.apiName}
-                  onPress={() => setGamePanelFocusIndex(200 + idx)}
-                  activeOpacity={0.8}
-                  style={{
-                    width: s(250),
-                    height: s(180),
-                    borderRadius: s(12),
-                    overflow: 'hidden',
-                    padding: s(16),
-                    justifyContent: 'flex-end',
-                    backgroundColor: achievement.achieved ? 'rgba(29, 37, 52, 0.96)' : 'rgba(18, 20, 27, 0.96)',
-                    position: 'relative',
-                  }}
-                >
-                  {isAchievementFocused && <SpinningBorderNoticias size={s(250)} />}
-                  <Image
-                    source={{ uri: achievement.achieved ? achievement.icon : achievement.lockedIcon }}
-                    style={{ position: 'absolute', top: s(16), right: s(16), width: s(68), height: s(68), borderRadius: s(8), opacity: achievement.achieved ? 1 : 0.34 }}
-                    contentFit="cover"
-                  />
-                  {!achievement.achieved && (
-                    <View style={{ position: 'absolute', top: s(35), right: s(35), zIndex: 1 }}>
-                      <Ionicons name="lock-closed" size={s(28)} color="rgba(255,255,255,0.88)" />
-                    </View>
-                  )}
-                  <Text style={{ color: achievement.achieved ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.45)', fontSize: s(11), fontFamily: 'SSTMedium', marginBottom: s(4) }}>
-                    {achievement.achieved ? 'Desbloqueado' : 'Bloqueado'}{hasGlobalPercentage ? ` · ${globalPercentage.toFixed(1)}%` : ''}
-                  </Text>
-                  <Text numberOfLines={1} style={{ color: '#FFF', fontSize: s(17), fontFamily: 'SSTBold', marginBottom: s(5) }}>
-                    {achievement.name}
-                  </Text>
-                  <Text numberOfLines={2} style={{ color: 'rgba(255,255,255,0.62)', fontSize: s(12), lineHeight: s(16), fontFamily: 'SSTLight' }}>
-                    {achievement.description || (achievement.achieved ? 'Logro conseguido' : 'Sigue jugando para desbloquear este logro.')}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
-
       {/* Screenshots and Trailers row */}
       {canPlay && !isMediaSection && (
-        <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
+        <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(50) }]}>
           <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.capturesAndTrailers')}</Text>
 
           {mediaLoading ? (
@@ -1023,6 +975,7 @@ export const GameInfoPanel = ({
                 return (
                   <TouchableOpacity
                     key={item.id}
+                    ref={(el: any) => { mediaItemRefs.current[idx] = el; }}
                     style={[styles.newsCard, { width: s(500), height: s(281) }, isMediaFocused && styles.newsCardFocused]}
                     activeOpacity={0.8}
                     onPress={() => {
@@ -1184,6 +1137,69 @@ export const GameInfoPanel = ({
         </View>
       )}
 
+      {/* Steam achievements: una fila independiente, desplazable, antes de capturas y trailers. */}
+      {canPlay && !isMediaSection && steamAchievements && steamAchievements.achievements.length > 0 && (
+        <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(30) }]}>
+          <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>
+            {t('game.trophies')}
+          </Text>
+          <ScrollView
+            ref={achievementsScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator
+            scrollEnabled
+            nestedScrollEnabled
+            directionalLockEnabled
+            persistentScrollbar
+            contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
+          >
+            {steamAchievements.achievements.map((achievement, idx) => {
+              const globalPercentage = Number(achievement.globalPercentage);
+              const hasGlobalPercentage = Number.isFinite(globalPercentage);
+              const isAchievementFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 200 + idx;
+              return (
+                <TouchableOpacity
+                  key={achievement.apiName}
+                  onPress={() => setGamePanelFocusIndex(200 + idx)}
+                  activeOpacity={0.8}
+                  style={{
+                    width: s(250),
+                    height: s(180),
+                    borderRadius: s(12),
+                    overflow: 'hidden',
+                    padding: s(16),
+                    justifyContent: 'flex-end',
+                    backgroundColor: achievement.achieved ? 'rgba(29, 37, 52, 0.96)' : 'rgba(18, 20, 27, 0.96)',
+                    position: 'relative',
+                  }}
+                >
+                  {isAchievementFocused && <SpinningBorderNoticias size={s(250)} />}
+                  <Image
+                    source={{ uri: achievement.achieved ? achievement.icon : achievement.lockedIcon }}
+                    style={{ position: 'absolute', top: s(16), right: s(16), width: s(68), height: s(68), borderRadius: s(8), opacity: achievement.achieved ? 1 : 0.34 }}
+                    contentFit="cover"
+                  />
+                  {!achievement.achieved && (
+                    <View style={{ position: 'absolute', top: s(35), right: s(35), zIndex: 1 }}>
+                      <Ionicons name="lock-closed" size={s(28)} color="rgba(255,255,255,0.88)" />
+                    </View>
+                  )}
+                  <Text style={{ color: achievement.achieved ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.45)', fontSize: s(11), fontFamily: 'SSTMedium', marginBottom: s(4) }}>
+                    {achievement.achieved ? 'Desbloqueado' : 'Bloqueado'}{hasGlobalPercentage ? ` · ${globalPercentage.toFixed(1)}%` : ''}
+                  </Text>
+                  <Text numberOfLines={1} style={{ color: '#FFF', fontSize: s(17), fontFamily: 'SSTBold', marginBottom: s(5) }}>
+                    {achievement.name}
+                  </Text>
+                  <Text numberOfLines={2} style={{ color: 'rgba(255,255,255,0.62)', fontSize: s(12), lineHeight: s(16), fontFamily: 'SSTLight' }}>
+                    {achievement.description || (achievement.achieved ? 'Logro conseguido' : 'Sigue jugando para desbloquear este logro.')}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       {/* Steam News row */}
       {canPlay && !isMediaSection && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
@@ -1231,6 +1247,7 @@ export const GameInfoPanel = ({
                 return (
                   <TouchableOpacity
                     key={news.gid}
+                    ref={(el: any) => { newsItemRefs.current[idx] = el; }}
                     style={[styles.newsCard2, { width: s(320) }, isNewsFocused && styles.newsCardFocused]}
                     activeOpacity={0.8}
                     onPress={() => { if (news.url) Linking.openURL(news.url); }}
