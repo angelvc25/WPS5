@@ -6,7 +6,8 @@
 
 # Custom your Home
 
-<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/c49200b0-ee0d-40fe-bfab-e13d4e20fda2" />
+<img width="1918" height="826" alt="Captura de pantalla 2026-09-06 234427" src="https://github.com/user-attachments/assets/7c8b0e29-6dfa-4f0f-8ba4-cae08399e01e" />
+
 
 # Profile
 <img width="1918" height="1078" alt="image" src="https://github.com/user-attachments/assets/d04ed85a-2b9f-45d6-8a18-1f7c465d04e9" />
