@@ -1,7 +1,8 @@
 
-# WPS5 Home
+# WPS5
 
-<img width="1917" height="1079" alt="image" src="https://github.com/user-attachments/assets/c0711ef9-d5ae-4e50-bc9f-06c4f9268023" />
+<img width="7000" height="3020" alt="Agregar un título" src="https://github.com/user-attachments/assets/74ca4c43-3730-46b4-b5c4-dc37595fdafe" />
+
 
 # Custom your Home
 
