@@ -10,6 +10,66 @@ import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { formatPlaytime } from '../services/playtimeService';
 import { useTranslation } from '@/contexts/LanguageContext';
 
+// ─── Shimmer skeleton placeholder (usado mientras cargan capturas/noticias) ──
+// Evita que las filas de "Capturas y trailers" / "Últimas noticias" aparezcan
+// de golpe: muestra cards vacías con un barrido de brillo hasta que llegan
+// los datos reales, en vez de un simple ícono de "cargando".
+function ShimmerSkeletonCard({
+  width,
+  height,
+  borderRadius = 8,
+  style,
+}: {
+  width: number;
+  height: number;
+  borderRadius?: number;
+  style?: any;
+}) {
+  return (
+    <View
+      style={[
+        {
+          width,
+          height,
+          borderRadius,
+          overflow: 'hidden',
+          backgroundColor: 'rgba(255,255,255,0.06)',
+          position: 'relative',
+        },
+        style,
+      ]}
+    >
+      {Platform.OS === 'web' && (
+        <>
+          <style>
+            {`
+              @keyframes gip-skeleton-sweep {
+                0% { background-position: -150% 0; }
+                100% { background-position: 250% 0; }
+              }
+              .gip-skeleton-sweep {
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(
+                  90deg,
+                  rgba(255,255,255,0.02) 0%,
+                  rgba(255,255,255,0.02) 35%,
+                  rgba(255,255,255,0.15) 50%,
+                  rgba(255,255,255,0.02) 65%,
+                  rgba(255,255,255,0.02) 100%
+                );
+                background-size: 260% 100%;
+                animation: gip-skeleton-sweep 1.6s ease-in-out infinite;
+              }
+            `}
+          </style>
+          {/* @ts-ignore */}
+          <div className="gip-skeleton-sweep" />
+        </>
+      )}
+    </View>
+  );
+}
 
 interface GameInfoPanelProps {
   activeItem: ConsoleItem;
@@ -88,10 +148,11 @@ export const GameInfoPanel = ({
     scrollDebounceRef.current = setTimeout(() => {
       if (gamePanelFocusIndex >= 100) {
         const idx = gamePanelFocusIndex - 100;
-        mediaScrollRef.current?.scrollTo({ x: idx * 516, animated: true });
+        // Cada posición debe incluir el ancho escalado de la tarjeta y el gap.
+        mediaScrollRef.current?.scrollTo({ x: idx * (s(500) + s(16)), animated: true });
       } else if (gamePanelFocusIndex >= 4) {
         const idx = gamePanelFocusIndex - 4;
-        newsScrollRef.current?.scrollTo({ x: idx * 336, animated: true });
+        newsScrollRef.current?.scrollTo({ x: idx * (s(320) + s(16)), animated: true });
       }
     }, 80);
 
@@ -816,10 +877,19 @@ export const GameInfoPanel = ({
           <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.capturesAndTrailers')}</Text>
 
           {mediaLoading ? (
-            <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
-              <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-              <Text style={styles.newsEmptyText}>{t('game.loadingCaptures')}</Text>
-            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={true}
+              scrollEnabled={true}
+              nestedScrollEnabled
+              directionalLockEnabled
+              persistentScrollbar
+              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
+            >
+              {[0, 1, 2, 3].map((i) => (
+                <ShimmerSkeletonCard key={i} width={s(500)} height={s(281)} borderRadius={8} />
+              ))}
+            </ScrollView>
           ) : steamMedia.length === 0 ? (
             <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
@@ -829,7 +899,11 @@ export const GameInfoPanel = ({
             <ScrollView
               ref={mediaScrollRef}
               horizontal
-              showsHorizontalScrollIndicator={false}
+              showsHorizontalScrollIndicator={true}
+              scrollEnabled={true}
+              nestedScrollEnabled
+              directionalLockEnabled
+              persistentScrollbar
               contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
             >
               {steamMedia.map((item, idx) => {
@@ -1004,10 +1078,25 @@ export const GameInfoPanel = ({
           <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.latestNews')}</Text>
 
           {newsLoading ? (
-            <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
-              <MaterialCommunityIcons name="loading" size={16} color="rgba(255,255,255,0.3)" />
-              <Text style={styles.newsEmptyText}>{t('game.searchingContent')}</Text>
-            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={true}
+              scrollEnabled={true}
+              nestedScrollEnabled
+              directionalLockEnabled
+              persistentScrollbar
+              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
+            >
+              {[0, 1, 2, 3, 4].map((i) => (
+                <View key={i} style={[styles.newsCard2, { width: s(320) }]}>
+                  <ShimmerSkeletonCard width={s(320)} height={s(281)} borderRadius={0} />
+                  <View style={styles.newsCardContent}>
+                    <ShimmerSkeletonCard width={s(320) - 24} height={14} borderRadius={4} style={{ marginBottom: 8 }} />
+                    <ShimmerSkeletonCard width={Math.round((s(320) - 24) * 0.55)} height={11} borderRadius={4} />
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
           ) : steamNews.length === 0 ? (
             <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
@@ -1017,7 +1106,11 @@ export const GameInfoPanel = ({
             <ScrollView
               ref={newsScrollRef}
               horizontal
-              showsHorizontalScrollIndicator={false}
+              showsHorizontalScrollIndicator={true}
+              scrollEnabled={true}
+              nestedScrollEnabled
+              directionalLockEnabled
+              persistentScrollbar
               contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
             >
               {steamNews.slice(0, 8).map((news, idx) => {

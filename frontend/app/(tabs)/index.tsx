@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Modal, TextInput, useWindowDimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Video, ResizeMode } from 'expo-av';
+import { Audio, Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, useDerivedValue, useAnimatedRef, measure, withTiming, withDelay, withRepeat, interpolate, Easing, FadeInDown, FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -73,6 +73,8 @@ export interface ConsoleItem {
   backgroundImage?: any;
   backgroundVideo?: any;
   video?: any;
+  /** Audio opcional que se reproduce al mantener este juego enfocado en Inicio. */
+  focusAudio?: string;
   isFolder?: boolean;
   isGrid?: boolean;
   path?: string;
@@ -151,6 +153,9 @@ export default function ConsoleHome() {
   const mainScrollRef = useRef<any>(null);
   const newsScrollRef = useRef<ScrollView>(null);
   const mediaScrollRef = useRef<ScrollView>(null);
+  const focusAudioSoundRef = useRef<Audio.Sound | null>(null);
+  const focusAudioDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusAudioRequestRef = useRef(0);
   const widgetScrollRef = useRef<ScrollView>(null);
   const lastNavTime = useRef<number>(0);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -235,6 +240,7 @@ export default function ConsoleHome() {
   const [loadingSteam, setLoadingSteam] = useState(false);
   const [epicGames, setEpicGames] = useState<ConsoleItem[]>([]);
   const [loadingEpic, setLoadingEpic] = useState(false);
+  const [uiReady, setUiReady] = useState(false);
   const launchStartTimeRef = useRef<Record<string, number>>({});
   const sessionPlaytimeRef = useRef<Record<string, number>>({});
   const syncGamePlaytime = (gameId: string, totalMinutes: number) => {
@@ -358,6 +364,22 @@ export default function ConsoleHome() {
       return () => clearTimeout(timer);
     }
   }, [activeIndex, currentRenderedTab, activeUser?.settings?.autoPlayVideo]);
+
+  const raf2Ref = useRef<number | null>(null);
+  useEffect(() => {
+    // Doble rAF: deja que el primer commit se pinte y que Reanimated
+    // termine de registrar sus worklets/estilos antes de montar el contenido animado
+    const raf1 = requestAnimationFrame(() => {
+      raf2Ref.current = requestAnimationFrame(() => setUiReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2Ref.current !== null) {
+        cancelAnimationFrame(raf2Ref.current);
+        raf2Ref.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Fade out old content
@@ -597,6 +619,11 @@ export default function ConsoleHome() {
       image: null,
     } as any);
   }
+  const focusedCarouselItem = currentData[activeIndex];
+  // La tarjeta "Último jugado" hereda la música del juego que representa.
+  const focusedCarouselAudio = focusedCarouselItem?.isLastPlayed
+    ? lastPlayedGame?.focusAudio
+    : focusedCarouselItem?.focusAudio;
 
   // Filter out system utility cards from the saved games list
   const savedGames = nonSteamGames.filter(
@@ -1156,6 +1183,7 @@ export default function ConsoleHome() {
               : (app.id === 'spotify_default' ? require('@/assets/images/spotify_fondo.png') : require('@/assets/images/FondoDefault2.jpg'))
             ),
           video: app.video ? (app.video.startsWith('http') ? { uri: app.video } : { uri: `local-file:///${app.video.replace(/\\/g, '/')}` }) : null,
+          focusAudio: app.focusAudio,
           path: app.path,
           description: app.description || (app.id === 'spotify_default' ? t('home.musicDesc') : ''),
           rating: app.rating,
@@ -1322,6 +1350,57 @@ export default function ConsoleHome() {
       });
     }
   }, []);
+
+  // La música temática solo se activa en Inicio y después de mantener el foco
+  // sobre un juego. Así no se dispara durante una navegación rápida del carrusel.
+  useEffect(() => {
+    const requestId = ++focusAudioRequestRef.current;
+    const shouldPlayFocusAudio =
+      activeTab === 'Games' &&
+      focusArea === 'main_carousel' &&
+      !!focusedCarouselAudio;
+
+    const stopFocusAudio = async (resumeBackground: boolean) => {
+      if (focusAudioDelayRef.current) {
+        clearTimeout(focusAudioDelayRef.current);
+        focusAudioDelayRef.current = null;
+      }
+      const sound = focusAudioSoundRef.current;
+      focusAudioSoundRef.current = null;
+      if (sound) {
+        try { await sound.unloadAsync(); } catch (_) { }
+      }
+      if (resumeBackground) await soundService.playBackground();
+    };
+
+    void stopFocusAudio(!shouldPlayFocusAudio || !!focusAudioSoundRef.current);
+    if (!shouldPlayFocusAudio) return;
+
+    const audioPath = focusedCarouselAudio;
+    focusAudioDelayRef.current = setTimeout(async () => {
+      if (focusAudioRequestRef.current !== requestId) return;
+      try {
+        await soundService.pauseBackground();
+        const uri = audioPath.startsWith('http') || audioPath.startsWith('local-file://')
+          ? audioPath
+          : `local-file:///${audioPath.replace(/\\/g, '/')}`;
+        const { sound } = await Audio.Sound.createAsync(
+          { uri },
+          { shouldPlay: true, isLooping: true, volume: 0.8 }
+        );
+        if (focusAudioRequestRef.current !== requestId) {
+          await sound.unloadAsync();
+          return;
+        }
+        focusAudioSoundRef.current = sound;
+      } catch (error) {
+        console.warn('No se pudo reproducir el audio de foco:', error);
+        await soundService.playBackground();
+      }
+    }, 2500);
+
+    return () => { void stopFocusAudio(true); };
+  }, [activeIndex, activeTab, focusArea, focusedCarouselAudio]);
 
   const openContextMenu = () => {
     const item = currentData[activeIndex];
@@ -2617,30 +2696,43 @@ export default function ConsoleHome() {
     }
   }, [activeIndex, activeUser?.settings?.invertTransitionDirection]);
 
+  // Reemplaza el useEffect actual de background transition:
   useEffect(() => {
     if (!bgA && !bgB) {
       setBgA(currentBg);
       return;
     }
 
-    // Evita que un cambio rápido de tarjeta interrumpa la animación anterior
-    // a medio camino (lo que deja la máscara "congelada" y se ve mitad y mitad).
     cancelAnimation(fade);
 
-    if (activeLayer === 'A') {
-      fade.value = 0; // deja A completamente asentada antes de mover a B
-      if (currentBg !== bgA) {
-        setBgB(currentBg);
-        setActiveLayer('B');
-        fade.value = withTiming(1, { duration: 600, easing: Easing.inOut(Easing.quad) });
+    const startCrossfade = () => {
+      if (activeLayer === 'A') {
+        fade.value = 0;
+        if (currentBg !== bgA) {
+          setBgB(currentBg);
+          setActiveLayer('B');
+          fade.value = withTiming(1, { duration: 600, easing: Easing.inOut(Easing.quad) });
+        }
+      } else {
+        fade.value = 1;
+        if (currentBg !== bgB) {
+          setBgA(currentBg);
+          setActiveLayer('A');
+          fade.value = withTiming(0, { duration: 600, easing: Easing.inOut(Easing.quad) });
+        }
       }
+    };
+
+    // require() -> número; { uri } -> string remota o local-file://
+    const uri = typeof currentBg === 'object' && currentBg?.uri ? currentBg.uri : null;
+
+    if (uri) {
+      Image.prefetch(uri)
+        .catch(() => { /* si falla el prefetch, igual intentamos animar */ })
+        .finally(startCrossfade);
     } else {
-      fade.value = 1; // deja B completamente asentada antes de mover a A
-      if (currentBg !== bgB) {
-        setBgA(currentBg);
-        setActiveLayer('A');
-        fade.value = withTiming(0, { duration: 600, easing: Easing.inOut(Easing.quad) });
-      }
+      // Assets empaquetados con require() ya están disponibles síncronamente
+      startCrossfade();
     }
   }, [currentBg]);
 
@@ -2712,7 +2804,8 @@ export default function ConsoleHome() {
   useDerivedValue(() => {
     if (collapseAnim.value === 0) {
       const measurement = measure(activeCardRef);
-      if (measurement) {
+      // measure() devuelve valores negativos/0 cuando el tag aún no es válido
+      if (measurement && measurement.width > 0 && measurement.height > 0) {
         startX.value = measurement.pageX;
         startY.value = measurement.pageY;
         startW.value = measurement.width;
@@ -3137,7 +3230,7 @@ export default function ConsoleHome() {
         )}
 
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
-        {!isLibraryFocused && (
+        {!isLibraryFocused && uiReady && (
           activeItem?.id === '1' ? (
             <Animated.View style={[styles.welcomePanel, welcomePanelLayout, gameInfoPanelStyle]} entering={FadeInDown.duration(500).delay(150)}>
               <Animated.View style={widgetContainerStyle}>
@@ -3605,8 +3698,6 @@ const styles = StyleSheet.create({
   // === OVERLAY GRADIENTS ===
   gradientOverlay: {
     ...StyleSheet.absoluteFillObject,
-    // Simulates a left-to-right gradient: dark on left, fading to transparent
-    background: 'linear-gradient(to right, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.1) 100%)',
     backgroundImage: 'linear-gradient(to right, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.1) 100%)',
   } as any,
   gradientOverlayTop: {
@@ -3615,7 +3706,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 130,
-    background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)',
     backgroundImage: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)',
   } as any,
 

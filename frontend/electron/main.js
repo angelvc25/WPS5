@@ -420,6 +420,7 @@ function createWindow() {
     width: 1000,
     height: 700,
     fullscreen: true,
+    show: false,
     icon: path.join(__dirname, '../assets/icons/logo.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -428,6 +429,12 @@ function createWindow() {
   });
 
   attachExternalLinkHandlers(mainWindow);
+
+  // 👈 AÑADIR: mostrar la ventana solo cuando el renderer ya pintó su primer frame
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+
   mainWindow.webContents.on('did-finish-load', () => {
     broadcastMediaSessions();
   });
@@ -1644,6 +1651,18 @@ app.whenReady().then(() => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'mkv', 'avi'] }]
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0];
+    }
+    return null;
+  });
+
+  // IPC: Abrir diálogo para seleccionar audio de foco del juego.
+  ipcMain.handle('select-audio', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] }]
     });
     if (!result.canceled && result.filePaths.length > 0) {
       return result.filePaths[0];

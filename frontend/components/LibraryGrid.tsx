@@ -574,16 +574,17 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
               onPress={() => (isFilterPanelOpen ? closeFilterPanel() : openFilterPanel())}
               style={[
                 styles.filterButton,
-                hasActiveFilters && { backgroundColor: 'rgba(70, 103, 119, 0.1)' }, // Se ilumina si hay algún filtro activo
-                filterButtonFocused && styles.filterButtonFocused, // Foco de teclado/mando
+                hasActiveFilters && { backgroundColor: 'rgba(70, 103, 119, 0.1)' },
+                filterButtonFocused && styles.filterButtonFocused,
               ]}
-            > {filterButtonFocused ? (
-              <Image
-                source={require('@/assets/images/PS5_Filters_Dark.png')}
-                style={{ width: 48, height: 48 }}
-                contentFit="contain"
-              />)
-              : (
+            >
+              {filterButtonFocused ? (
+                <Image
+                  source={require('@/assets/images/PS5_Filters_Dark.png')}
+                  style={{ width: 48, height: 48 }}
+                  contentFit="contain"
+                />
+              ) : (
                 <Image
                   source={require('@/assets/images/PS5_Filters.png')}
                   style={{ width: 48, height: 48 }}

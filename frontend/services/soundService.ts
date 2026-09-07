@@ -123,6 +123,11 @@ class SoundService {
     }
   }
 
+  async pauseBackground() {
+    if (!this.backgroundSound) return;
+    try { await this.backgroundSound.pauseAsync(); } catch (_) { }
+  }
+
   async playExitMenu() {
     if (this.isMuted || !this.exitMenuSound) return;
     try { await this.exitMenuSound.replayAsync(); } catch (e) { }

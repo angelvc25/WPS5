@@ -695,6 +695,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         logo: item.logo?.uri?.startsWith('local-file://') ? item.logo.uri.replace(/^local-file:\/+/, '') : (item.logo?.uri?.startsWith('http') ? item.logo.uri : undefined),
         backgroundImage: item.backgroundImage?.uri?.startsWith('local-file://') ? item.backgroundImage.uri.replace(/^local-file:\/+/, '') : (item.backgroundImage?.uri?.startsWith('http') ? item.backgroundImage.uri : undefined),
         video: item.video?.uri?.startsWith('local-file://') ? item.video.uri.replace(/^local-file:\/+/, '') : (item.video?.uri?.startsWith('http') ? item.video.uri : undefined),
+        focusAudio: item.focusAudio,
         youtubeId: item.youtubeId,
         platform: item.platform,
         path: getSteamLaunchPath(item) || item.path || undefined,
@@ -784,7 +785,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 15) setEditModalFocusIndex(17);
             else if (editModalFocusIndex === 16) setEditModalFocusIndex(18);
             else if (editModalFocusIndex === 17) setEditModalFocusIndex(20); // to Cancel
-            else if (editModalFocusIndex === 18) setEditModalFocusIndex(21); // to Save
+            else if (editModalFocusIndex === 18) setEditModalFocusIndex(26);
+            else if (editModalFocusIndex === 26) setEditModalFocusIndex(21); // to Save
 
             // Actions
             else if (editModalFocusIndex >= 19 && editModalFocusIndex <= 21) { }
@@ -810,6 +812,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 16) setEditModalFocusIndex(0);
             else if (editModalFocusIndex === 17) setEditModalFocusIndex(15);
             else if (editModalFocusIndex === 18) setEditModalFocusIndex(16);
+            else if (editModalFocusIndex === 26) setEditModalFocusIndex(18);
 
             // Actions
             else if (editModalFocusIndex >= 19 && editModalFocusIndex <= 21) {
@@ -830,6 +833,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount - 1) setEditModalFocusIndex(prev => prev + 1);
             else if (editModalFocusIndex === 15) setEditModalFocusIndex(16);
             else if (editModalFocusIndex === 17) setEditModalFocusIndex(18);
+            else if (editModalFocusIndex === 18) setEditModalFocusIndex(26);
 
             // Actions
             else if (editModalFocusIndex >= 19 && editModalFocusIndex < 21) setEditModalFocusIndex(prev => prev + 1);
@@ -849,6 +853,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 15 || editModalFocusIndex === 17) setEditModalFocusIndex(25);
             else if (editModalFocusIndex === 16) setEditModalFocusIndex(15);
             else if (editModalFocusIndex === 18) setEditModalFocusIndex(17);
+            else if (editModalFocusIndex === 26) setEditModalFocusIndex(25);
 
             // Actions
             else if (editModalFocusIndex > 19 && editModalFocusIndex <= 21) setEditModalFocusIndex(prev => prev - 1);
@@ -873,6 +878,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 16) openAssetSelector('logo');
             else if (editModalFocusIndex === 17) openAssetSelector('hero');
             else if (editModalFocusIndex === 18) handleSelectVideo();
+            else if (editModalFocusIndex === 26) handleSelectFocusAudio();
             else if (editModalFocusIndex === 19) handleDeleteApp();
             else if (editModalFocusIndex === 20) setEditModalVisible(false);
             else if (editModalFocusIndex === 21) handleSaveEdit();
@@ -1024,6 +1030,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     if ((window as any).electronAPI) {
       const vid = await (window as any).electronAPI.selectVideo();
       if (vid) setEditData({ ...editData, video: vid });
+    }
+  };
+
+  const handleSelectFocusAudio = async () => {
+    if ((window as any).electronAPI) {
+      const audio = await (window as any).electronAPI.selectAudio();
+      if (audio) setEditData({ ...editData, focusAudio: audio });
     }
   };
 
@@ -1653,6 +1666,17 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               <Ionicons name="videocam-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.video')}</Text>
                               <Text style={styles.artFileBtnSub}>Trailer/Gameplay</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 26 && styles.editArtFileBtnFocused]}
+                              onPress={() => { setEditModalFocusIndex(26); handleSelectFocusAudio(); }}
+                            >
+                              <Ionicons name="musical-notes-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
+                              <Text style={styles.artFileBtnTitle}>Audio al enfocar</Text>
+                              <Text style={styles.artFileBtnSub} numberOfLines={1}>
+                                {editData.focusAudio ? 'Archivo seleccionado' : 'Música del juego en Inicio'}
+                              </Text>
                             </TouchableOpacity>
                           </View>
                         </ScrollView>
