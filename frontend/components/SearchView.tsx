@@ -84,7 +84,8 @@ const SUBSCRIPTIONS = [
   },
 ];
 
-function normalizeText(value: string) {
+function normalizeText(value: string | undefined | null) {
+  if (value == null) return '';
   return value
     .toLowerCase()
     .normalize('NFD')
