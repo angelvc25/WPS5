@@ -6,7 +6,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MusicPlayerCard from './MusicPlayerCard';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { getGameActionLabel, getSteamAppId } from '../services/steamLaunchService';
-import { fetchSteamGameAchievements, SteamGameAchievementsSummary } from '../services/steamUserService';
+import { fetchSteamGameAchievements, getCachedSteamGameAchievements, SteamGameAchievementsSummary } from '../services/steamUserService';
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { formatPlaytime } from '../services/playtimeService';
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -143,13 +143,18 @@ export const GameInfoPanel = ({
     1.25
   );
   const s = (v: number) => Math.round(v * scale);
-  const [steamAchievements, setSteamAchievements] = React.useState<SteamGameAchievementsSummary | null>(null);
-  const [achievementsLoading, setAchievementsLoading] = React.useState(false);
   const achievementGame = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
   const achievementAppId = achievementGame ? getSteamAppId(achievementGame) : null;
+  const steamId = activeUser?.settings?.steamId;
+
+  const [steamAchievements, setSteamAchievements] = React.useState<SteamGameAchievementsSummary | null>(() => {
+    return (steamId && achievementAppId)
+      ? (getCachedSteamGameAchievements(steamId, Number(achievementAppId)) ?? null)
+      : null;
+  });
+  const [achievementsLoading, setAchievementsLoading] = React.useState(false);
 
   React.useEffect(() => {
-    const steamId = activeUser?.settings?.steamId;
     const apiKey = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
     if (!steamId || !achievementAppId) {
       setSteamAchievements(null);
@@ -157,17 +162,35 @@ export const GameInfoPanel = ({
       return;
     }
 
-    let cancelled = false;
-    setAchievementsLoading(true);
+    // 1. Si ya está en memoria (caché), lo mostramos instantáneamente (0ms, sin lag)
+    const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId));
+    if (cached !== undefined) {
+      setSteamAchievements(cached);
+      setAchievementsLoading(false);
+      return;
+    }
+
+    // 2. Si no está en caché, no saturamos la red ni el hilo de JS mientras el usuario navega rápido:
+    // Debounce de 300ms. Si pasa al siguiente juego antes de 300ms, se cancela la petición.
     setSteamAchievements(null);
-    fetchSteamGameAchievements(apiKey, steamId, Number(achievementAppId)).then((summary) => {
-      if (!cancelled) {
-        setSteamAchievements(summary);
-        setAchievementsLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
-  }, [achievementAppId, activeUser?.settings?.steamId]);
+    setAchievementsLoading(false);
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setAchievementsLoading(true);
+      fetchSteamGameAchievements(apiKey, steamId, Number(achievementAppId)).then((summary) => {
+        if (!cancelled) {
+          setSteamAchievements(summary);
+          setAchievementsLoading(false);
+        }
+      });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [achievementAppId, steamId]);
 
   const trophyCounts = steamAchievements?.rarityCounts ?? { platinum: 0, gold: 0, silver: 0, bronze: 0 };
   const trophyProgress = steamAchievements?.total
@@ -211,8 +234,14 @@ export const GameInfoPanel = ({
   }, [gamePanelFocusIndex, focusArea, scale]);
 
   React.useEffect(() => {
-    onAchievementCountChange?.(canPlay && !isMediaSection ? steamAchievements?.achievements.length ?? 0 : 0);
-  }, [canPlay, isMediaSection, onAchievementCountChange, steamAchievements?.achievements.length]);
+    if (!canPlay || isMediaSection) {
+      onAchievementCountChange?.(0);
+      return;
+    }
+    if (steamAchievements) {
+      onAchievementCountChange?.(steamAchievements.achievements.length);
+    }
+  }, [canPlay, isMediaSection, onAchievementCountChange, steamAchievements]);
 
   const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds, {
     play: t('action.play'),
@@ -1610,4 +1639,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GameInfoPanel;
+export default React.memo(GameInfoPanel);
