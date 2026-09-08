@@ -158,6 +158,7 @@ export default function ConsoleHome() {
   const focusAudioSoundRef = useRef<AudioPlayer | null>(null);
   const focusAudioDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusAudioRequestRef = useRef(0);
+  const isLaunchingRef = useRef(false);
   const widgetScrollRef = useRef<ScrollView>(null);
   const lastNavTime = useRef<number>(0);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -210,6 +211,12 @@ export default function ConsoleHome() {
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchingItem, setLaunchingItem] = useState<ConsoleItem | null>(null);
   const [isRandomSelectorVisible, setRandomSelectorVisible] = useState(false);
+
+  // Mantiene una copia sincrónica de isLaunching accesible desde callbacks
+  // async (ej. setTimeout) sin depender de closures potencialmente obsoletas.
+  useEffect(() => {
+    isLaunchingRef.current = isLaunching;
+  }, [isLaunching]);
 
   // States for new UI features (WPS5 UI Expansion)
   const [isLibraryFocused, setIsLibraryFocused] = useState(false);
@@ -1364,12 +1371,19 @@ export default function ConsoleHome() {
 
   // La música temática solo se activa en Inicio y después de mantener el foco
   // sobre un juego. Así no se dispara durante una navegación rápida del carrusel.
+  // También se desactiva por completo mientras `isLaunching` es true (launcher
+  // suspendido con un juego en curso): de lo contrario, si el juego lanzado
+  // queda enfocado en el carrusel (ej. como "último jugado"), este efecto se
+  // dispara igual porque activeIndex/focusArea cambian al lanzar, y el
+  // setTimeout de 2.5s sigue corriendo aunque la ventana esté oculta —
+  // haciendo sonar el tema del juego mientras ya estás jugando.
   useEffect(() => {
     const requestId = ++focusAudioRequestRef.current;
     const shouldPlayFocusAudio =
       activeTab === 'Games' &&
       focusArea === 'main_carousel' &&
-      !!focusedCarouselAudio;
+      !!focusedCarouselAudio &&
+      !isLaunching;
 
     const stopFocusAudio = async (resumeBackground: boolean) => {
       if (focusAudioDelayRef.current) {
@@ -1381,7 +1395,7 @@ export default function ConsoleHome() {
       if (sound) {
         try { sound.remove(); } catch (_) { }
       }
-      if (resumeBackground) await soundService.playBackground();
+      if (resumeBackground && !isLaunching) await soundService.playBackground();
     };
 
     void stopFocusAudio(!shouldPlayFocusAudio || !!focusAudioSoundRef.current);
@@ -1390,6 +1404,7 @@ export default function ConsoleHome() {
     const audioPath = focusedCarouselAudio;
     focusAudioDelayRef.current = setTimeout(async () => {
       if (focusAudioRequestRef.current !== requestId) return;
+      if (isLaunchingRef.current) return; // el juego pudo lanzarse durante la espera de 2.5s
       try {
         await soundService.pauseBackground();
         const uri = audioPath.startsWith('http') || audioPath.startsWith('local-file://')
@@ -1406,12 +1421,12 @@ export default function ConsoleHome() {
         focusAudioSoundRef.current = sound;
       } catch (error) {
         console.warn('No se pudo reproducir el audio de foco:', error);
-        await soundService.playBackground();
+        if (!isLaunchingRef.current) await soundService.playBackground();
       }
     }, 2500);
 
     return () => { void stopFocusAudio(true); };
-  }, [activeIndex, activeTab, focusArea, focusedCarouselAudio]);
+  }, [activeIndex, activeTab, focusArea, focusedCarouselAudio, isLaunching]);
 
   const openContextMenu = () => {
     const item = currentData[activeIndex];

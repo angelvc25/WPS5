@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage, screen, Tray, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -32,6 +32,8 @@ let mediaSessionsUnsubscribe = null;
 let mediaSessionsPollTimer = null;
 let wps5WebMediaHint = null;
 let windowsMediaSessionsModule = null;
+let trayIcon = null;
+const activeGameWatchers = new Map(); // id -> intervalId (vigilancia de juegos lanzados por protocolo, ej. steam://)
 
 const WINDOWS_MEDIA_SESSIONS_PATH = path.join(__dirname, '..', 'node_modules', 'windows-media-sessions');
 
@@ -450,6 +452,165 @@ function createWindow() {
     // En producción, usa electron-serve para servir la carpeta dist de Expo
     loadURL(mainWindow);
   }
+}
+
+// ── Icono de bandeja del sistema mientras el launcher está suspendido ──
+// Al ocultar la ventana mientras un juego está en curso, mostramos un
+// icono en la bandeja (aparecerá en "aplicaciones ocultas" de Windows,
+// como cualquier icono de bandeja no anclado por el usuario) para que
+// quede claro que WPS5 sigue en ejecución en segundo plano.
+function restoreFromTray() {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
+  hideTrayIcon();
+}
+
+function showTrayIcon(tooltip) {
+  try {
+    if (trayIcon && !trayIcon.isDestroyed()) {
+      trayIcon.setToolTip(tooltip || 'WPS5');
+      return;
+    }
+    const iconPath = path.join(__dirname, '../assets/icons/logo.png');
+    let icon = nativeImage.createFromPath(iconPath);
+    if (!icon.isEmpty()) {
+      icon = icon.resize({ width: 16, height: 16 });
+    }
+    trayIcon = new Tray(icon);
+    trayIcon.setToolTip(tooltip || 'WPS5 - Jugando');
+    const menu = Menu.buildFromTemplate([
+      { label: 'Mostrar WPS5', click: () => restoreFromTray() },
+      { type: 'separator' },
+      { label: 'Salir', click: () => { app.quit(); } },
+    ]);
+    trayIcon.setContextMenu(menu);
+    trayIcon.on('click', () => restoreFromTray());
+    trayIcon.on('double-click', () => restoreFromTray());
+  } catch (err) {
+    console.error('[Tray] Error creando icono de bandeja:', err);
+  }
+}
+
+function hideTrayIcon() {
+  try {
+    if (trayIcon && !trayIcon.isDestroyed()) {
+      trayIcon.destroy();
+    }
+  } catch (_) { /* ignore */ }
+  trayIcon = null;
+}
+
+// ── Vigilancia de juegos lanzados por protocolo (steam://rungameid/...) ──
+// Steam gestiona el proceso real del juego, así que no tenemos un child
+// process propio que monitorear (como sí ocurre con .exe lanzados
+// directamente). Para saber cuándo el juego se cierra y poder restaurar
+// el launcher, resolvemos la carpeta de instalación desde el manifiesto
+// de Steam y sondeamos periódicamente si algún proceso sigue corriendo
+// desde esa carpeta.
+function findSteamGameInstallDir(appId) {
+  const steamPath = getSteamInstallPath();
+  if (!steamPath) return null;
+
+  const libraryFolders = getSteamLibraryFolders(steamPath);
+  for (const steamappsDir of libraryFolders) {
+    const manifestPath = path.join(steamappsDir, `appmanifest_${appId}.acf`);
+    if (!fs.existsSync(manifestPath)) continue;
+    try {
+      const content = fs.readFileSync(manifestPath, 'utf8');
+      const match = content.match(/"installdir"\s+"([^"]*)"/i);
+      if (match && match[1]) {
+        return path.join(steamappsDir, 'common', match[1]);
+      }
+    } catch (err) {
+      console.error('[Steam] Error leyendo manifest de', appId, err);
+    }
+  }
+  return null;
+}
+
+function isProcessRunningUnderDir(dirPath) {
+  return new Promise((resolve) => {
+    if (!dirPath || process.platform !== 'win32') return resolve(false);
+    const escaped = dirPath.replace(/'/g, "''");
+    const psCommand = `(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '${escaped}*' } | Select-Object -First 1 -ExpandProperty ProcessId)`;
+    exec(`powershell -NoProfile -Command "${psCommand}"`, { timeout: 8000 }, (error, stdout) => {
+      if (error) return resolve(false);
+      resolve(Boolean(stdout && stdout.trim().length > 0));
+    });
+  });
+}
+
+function stopSteamGameWatch(id) {
+  const timer = activeGameWatchers.get(id);
+  if (timer) {
+    clearInterval(timer);
+    activeGameWatchers.delete(id);
+  }
+}
+
+function startSteamGameWatch(id, appId, installDir) {
+  stopSteamGameWatch(id); // por si ya había un watcher previo para este id
+
+  const POLL_MS = 4000;
+  const MAX_WAIT_FOR_START_MS = 90 * 1000; // margen para que Steam abra el juego
+  const startedAt = Date.now();
+  let seenRunning = false;
+  let gameExited = false;
+
+  const finish = () => {
+    if (gameExited) return;
+    gameExited = true;
+    stopSteamGameWatch(id);
+    hideTrayIcon();
+
+    if (mainWindow) {
+      mainWindow.webContents.send('game-closed', id);
+      if (!mainWindow.isVisible()) {
+        setTimeout(() => {
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+            console.log('Launcher restaurado (juego de Steam finalizado)');
+          }
+        }, 300);
+      }
+    }
+  };
+
+  // Ocultar el launcher tras un breve delay, igual que con procesos nativos,
+  // y mostrar el icono de bandeja mientras dure la sesión.
+  setTimeout(() => {
+    if (!gameExited && mainWindow) {
+      mainWindow.hide();
+      showTrayIcon('WPS5 - Jugando');
+      console.log('Launcher suspendido (juego de Steam) — ventana oculta');
+    }
+  }, 1500);
+
+  const timer = setInterval(async () => {
+    try {
+      const running = await isProcessRunningUnderDir(installDir);
+      if (running) {
+        seenRunning = true;
+        return;
+      }
+      if (seenRunning) {
+        console.log('[Steam] Proceso del juego finalizado, restaurando launcher (appid ' + appId + ')');
+        finish();
+        return;
+      }
+      if (Date.now() - startedAt > MAX_WAIT_FOR_START_MS) {
+        console.warn('[Steam] No se detectó el proceso del juego tras', MAX_WAIT_FOR_START_MS / 1000, 's — restaurando launcher');
+        finish();
+      }
+    } catch (err) {
+      console.error('[Steam] Error verificando proceso en ejecución:', err);
+    }
+  }, POLL_MS);
+
+  activeGameWatchers.set(id, timer);
 }
 
 // Función para inyectar Base64 de imágenes locales
@@ -1478,15 +1639,179 @@ app.whenReady().then(() => {
     return '';
   }
 
-  // Helper: Resolver acceso directo .lnk a su ruta real (Windows)
+  // Helper: parsea manualmente el formato binario .lnk (MS-SHLLINK) sin
+  // depender de PowerShell/COM. Sirve de respaldo cuando WScript.Shell
+  // falla (política de ejecución, COM deshabilitado, lnk "raros" de
+  // algunos emuladores, etc.). Sólo cubre el caso más común: LinkInfo
+  // con ruta local (LocalBasePath) + StringData (Arguments/WorkingDir).
+  function readNullTerminatedString(buf, start, isUnicode) {
+    if (isUnicode) {
+      let end = start;
+      while (end + 1 < buf.length && !(buf[end] === 0 && buf[end + 1] === 0)) end += 2;
+      return buf.toString('utf16le', start, end);
+    }
+    let end = start;
+    while (end < buf.length && buf[end] !== 0) end += 1;
+    return buf.toString('latin1', start, end);
+  }
+
+  function parseLnkFileNative(lnkPath) {
+    try {
+      const buf = fs.readFileSync(lnkPath);
+      if (buf.length < 76) return null;
+
+      // CLSID del ShellLink (offset 4, 16 bytes) — valida que sea un .lnk real
+      const guid = buf.toString('hex', 4, 20);
+      if (guid !== '0114020000000000c000000000000046') return null;
+
+      const linkFlags = buf.readUInt32LE(20);
+      const HAS_LINK_TARGET_ID_LIST = 0x1;
+      const HAS_LINK_INFO = 0x2;
+      const HAS_NAME = 0x4;
+      const HAS_RELATIVE_PATH = 0x8;
+      const HAS_WORKING_DIR = 0x10;
+      const HAS_ARGUMENTS = 0x20;
+      const IS_UNICODE = 0x80;
+
+      let offset = 76; // fin del header fijo
+
+      if (linkFlags & HAS_LINK_TARGET_ID_LIST) {
+        const idListSize = buf.readUInt16LE(offset);
+        offset += 2 + idListSize;
+      }
+
+      let targetPath = null;
+
+      if (linkFlags & HAS_LINK_INFO) {
+        const linkInfoStart = offset;
+        const linkInfoSize = buf.readUInt32LE(linkInfoStart);
+        const linkInfoHeaderSize = buf.readUInt32LE(linkInfoStart + 4);
+        const linkInfoFlags = buf.readUInt32LE(linkInfoStart + 8);
+        const VOLUME_ID_AND_LOCAL_BASE_PATH = 0x1;
+
+        if (linkInfoFlags & VOLUME_ID_AND_LOCAL_BASE_PATH) {
+          if (linkInfoHeaderSize >= 0x24) {
+            const localBasePathOffsetUnicode = buf.readUInt32LE(linkInfoStart + 28);
+            if (localBasePathOffsetUnicode) {
+              targetPath = readNullTerminatedString(buf, linkInfoStart + localBasePathOffsetUnicode, true);
+            }
+          }
+          if (!targetPath) {
+            const localBasePathOffset = buf.readUInt32LE(linkInfoStart + 16);
+            if (localBasePathOffset) {
+              targetPath = readNullTerminatedString(buf, linkInfoStart + localBasePathOffset, false);
+            }
+          }
+        }
+
+        offset = linkInfoStart + linkInfoSize;
+      }
+
+      const isUnicodeStrings = (linkFlags & IS_UNICODE) !== 0;
+      const readStringData = () => {
+        const charCount = buf.readUInt16LE(offset);
+        offset += 2;
+        const byteLen = charCount * (isUnicodeStrings ? 2 : 1);
+        const str = isUnicodeStrings
+          ? buf.toString('utf16le', offset, offset + byteLen)
+          : buf.toString('latin1', offset, offset + byteLen);
+        offset += byteLen;
+        return str;
+      };
+
+      let workingDir = null;
+      let args = '';
+
+      if (linkFlags & HAS_NAME) readStringData();
+      if (linkFlags & HAS_RELATIVE_PATH) readStringData();
+      if (linkFlags & HAS_WORKING_DIR) workingDir = readStringData();
+      if (linkFlags & HAS_ARGUMENTS) args = readStringData();
+
+      if (!targetPath) return null;
+      return { targetPath, workingDir: workingDir || null, args: args || '' };
+    } catch (err) {
+      console.error('[LNK] Error parseando .lnk de forma nativa:', err.message);
+      return null;
+    }
+  }
+
+  // Divide una cadena de argumentos estilo línea de comandos en un array,
+  // respetando fragmentos entre comillas dobles (ej: rutas con espacios).
+  function parseCommandLineArgs(str) {
+    if (!str) return [];
+    const args = [];
+    const regex = /"([^"]*)"|(\S+)/g;
+    let m;
+    while ((m = regex.exec(str)) !== null) {
+      args.push(m[1] !== undefined ? m[1] : m[2]);
+    }
+    return args;
+  }
+
+  // Helper: Resolver acceso directo .lnk a su ruta real, argumentos y
+  // directorio de trabajo (Windows).
+  //
+  // Orden de resolución:
+  //   1) shell.readShortcutLink() de Electron — llamada nativa in-process
+  //      (usa el propio IShellLink de Win32 vía Chromium). Es la más
+  //      fiable porque NO pasa la ruta por cmd.exe, así que no sufre los
+  //      problemas de codificación de página de códigos que rompen rutas
+  //      con caracteres especiales (ej. "：" que usa ES-DE al sanitizar
+  //      nombres con ":" para Windows).
+  //   2) PowerShell/COM (WScript.Shell) — respaldo si (1) falla.
+  //   3) Parser binario nativo del .lnk — último respaldo si ninguno de
+  //      los anteriores funciona.
   function resolveLnkTarget(lnkPath) {
     return new Promise((resolve) => {
+      if (process.platform === 'win32' && typeof shell.readShortcutLink === 'function') {
+        try {
+          const info = shell.readShortcutLink(lnkPath);
+          if (info && info.target) {
+            resolve({
+              targetPath: info.target,
+              args: info.args || '',
+              workingDir: info.cwd || null,
+            });
+            return;
+          }
+          console.warn('[LNK] shell.readShortcutLink no devolvió target para:', lnkPath);
+        } catch (err) {
+          console.warn('[LNK] shell.readShortcutLink falló:', err.message);
+        }
+      }
+
       const escapedPath = lnkPath.replace(/'/g, "''");
-      exec(`powershell -NoProfile -Command "(New-Object -ComObject WScript.Shell).CreateShortcut('${escapedPath}').TargetPath"`, (error, stdout) => {
-        if (error || !stdout.trim()) {
-          resolve(null);
+      const psScript =
+        `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${escapedPath}'); ` +
+        `[PSCustomObject]@{ TargetPath = $s.TargetPath; Arguments = $s.Arguments; WorkingDirectory = $s.WorkingDirectory } | ConvertTo-Json -Compress`;
+
+      exec(`powershell -NoProfile -Command "${psScript.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+        if (!error && stdout && stdout.trim()) {
+          try {
+            const parsed = JSON.parse(stdout.trim());
+            if (parsed.TargetPath) {
+              resolve({
+                targetPath: parsed.TargetPath,
+                args: parsed.Arguments || '',
+                workingDir: parsed.WorkingDirectory || null,
+              });
+              return;
+            }
+            console.warn('[LNK] PowerShell no devolvió TargetPath para:', lnkPath);
+          } catch (parseErr) {
+            console.warn('[LNK] No se pudo parsear la salida de PowerShell:', parseErr.message, stdout);
+          }
+        } else if (error) {
+          console.warn('[LNK] PowerShell falló al resolver el .lnk:', error.message, stderr || '');
+        }
+
+        // Fallback: parseo binario nativo, sin depender de COM/PowerShell
+        const native = parseLnkFileNative(lnkPath);
+        if (native) {
+          console.log('[LNK] Resuelto mediante parser nativo:', native.targetPath);
+          resolve(native);
         } else {
-          resolve(stdout.trim());
+          resolve(null);
         }
       });
     });
@@ -1523,7 +1848,29 @@ app.whenReady().then(() => {
 
     const lowerPath = executablePath.toLowerCase();
 
-    // URLs y protocolos (http://, steam://, epic://, etc.)
+    // Caso especial: steam://rungameid/<appid>. Steam gestiona el proceso
+    // del juego, así que no hay un child process nuestro que monitorear.
+    // Resolvemos la carpeta de instalación desde el manifiesto y vigilamos
+    // esa carpeta para saber cuándo el juego se cierra realmente y así
+    // poder suspender/restaurar el launcher (antes esto se abría con
+    // shell.openExternal y se devolvía "suspended: false" de inmediato,
+    // por lo que el launcher nunca se ocultaba ni bloqueaba los controles).
+    const steamRunMatch = executablePath.match(/^steam:\/\/rungameid\/(\d+)$/i);
+    if (steamRunMatch) {
+      const appId = steamRunMatch[1];
+      shell.openExternal(executablePath).catch(console.error);
+
+      const installDir = findSteamGameInstallDir(appId);
+      if (!installDir) {
+        console.warn('[Steam] No se pudo resolver la carpeta de instalación del appid', appId, '- el launcher no se suspenderá');
+        return { success: true, suspended: false };
+      }
+
+      startSteamGameWatch(id, appId, installDir);
+      return { success: true, suspended: true };
+    }
+
+    // URLs y protocolos (http://, epic://, etc.)
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(executablePath)) {
       if (shouldLaunchWebFullscreen(executablePath, appRecord)) {
         setWps5WebMediaHint(appRecord, executablePath);
@@ -1540,16 +1887,23 @@ app.whenReady().then(() => {
       return { success: true, suspended: false };
     }
 
-    // Resolver .lnk a la ruta real del ejecutable
+    // Resolver .lnk a la ruta real del ejecutable (+ argumentos y cwd)
     let targetExe = executablePath;
+    let launchArgs = [];
+    let launchWorkingDir = null;
     if (lowerPath.endsWith('.lnk')) {
       const resolved = await resolveLnkTarget(executablePath);
-      if (resolved) {
-        targetExe = resolved;
-        console.log('.lnk resuelto a:', targetExe);
+      if (resolved && resolved.targetPath) {
+        targetExe = resolved.targetPath;
+        launchArgs = parseCommandLineArgs(resolved.args);
+        if (resolved.workingDir && fs.existsSync(resolved.workingDir)) {
+          launchWorkingDir = resolved.workingDir;
+        }
+        console.log('.lnk resuelto a:', targetExe, launchArgs.length ? `(args: ${resolved.args})` : '');
       } else {
-        // No se pudo resolver, abrir sin suspender
-        console.log('No se pudo resolver el .lnk, abriendo sin suspensión');
+        // No se pudo resolver ni con PowerShell ni con el parser nativo,
+        // abrir sin suspender (mejor esto que no abrir nada)
+        console.log('No se pudo resolver el .lnk (PowerShell ni parser nativo), abriendo sin suspensión');
         shell.openPath(executablePath).catch(console.error);
         return { success: true, suspended: false };
       }
@@ -1563,6 +1917,7 @@ app.whenReady().then(() => {
       if (gameExited) return; // Evitar doble ejecución
       gameExited = true;
       if (hideTimer) clearTimeout(hideTimer);
+      hideTrayIcon();
 
       if (mainWindow) {
         mainWindow.webContents.send('game-closed', id);
@@ -1583,17 +1938,18 @@ app.whenReady().then(() => {
     hideTimer = setTimeout(() => {
       if (!gameExited && mainWindow) {
         mainWindow.hide();
+        showTrayIcon('WPS5 - Jugando');
         console.log('Launcher suspendido — ventana oculta');
       }
     }, 1500);
 
     // Lanzar el juego y monitorear el proceso
     try {
-      const gameCwd = path.dirname(targetExe);
-      console.log('Lanzando:', targetExe);
+      const gameCwd = launchWorkingDir || path.dirname(targetExe);
+      console.log('Lanzando:', targetExe, launchArgs);
       console.log('Directorio de trabajo:', gameCwd);
 
-      const child = spawn(targetExe, [], {
+      const child = spawn(targetExe, launchArgs, {
         cwd: gameCwd,
         env: envForExternalApp(),
         detached: true,
@@ -2426,6 +2782,10 @@ app.on('window-all-closed', function () {
 app.on('before-quit', () => {
   stopStoreBackend();
   stopMediaSessionsBridge();
+  hideTrayIcon();
+  for (const id of Array.from(activeGameWatchers.keys())) {
+    stopSteamGameWatch(id);
+  }
   if (downloadParseInterval) {
     clearInterval(downloadParseInterval);
     downloadParseInterval = null;
