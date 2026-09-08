@@ -459,48 +459,48 @@ function createWindow() {
 // icono en la bandeja (aparecerá en "aplicaciones ocultas" de Windows,
 // como cualquier icono de bandeja no anclado por el usuario) para que
 // quede claro que WPS5 sigue en ejecución en segundo plano.
-// function restoreFromTray() {
-//   if (mainWindow) {
-//     mainWindow.show();
-//     mainWindow.focus();
-//   }
-//   hideTrayIcon();
-// }
+function restoreFromTray() {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
+  hideTrayIcon();
+}
 
-// function showTrayIcon(tooltip) {
-//   try {
-//     if (trayIcon && !trayIcon.isDestroyed()) {
-//       trayIcon.setToolTip(tooltip || 'WPS5');
-//       return;
-//     }
-//     const iconPath = path.join(__dirname, '../assets/icons/logo.png');
-//     let icon = nativeImage.createFromPath(iconPath);
-//     if (!icon.isEmpty()) {
-//       icon = icon.resize({ width: 16, height: 16 });
-//     }
-//     trayIcon = new Tray(icon);
-//     trayIcon.setToolTip(tooltip || 'WPS5 - Jugando');
-//     const menu = Menu.buildFromTemplate([
-//       { label: 'Mostrar WPS5', click: () => restoreFromTray() },
-//       { type: 'separator' },
-//       { label: 'Salir', click: () => { app.quit(); } },
-//     ]);
-//     trayIcon.setContextMenu(menu);
-//     trayIcon.on('click', () => restoreFromTray());
-//     trayIcon.on('double-click', () => restoreFromTray());
-//   } catch (err) {
-//     console.error('[Tray] Error creando icono de bandeja:', err);
-//   }
-// }
+function showTrayIcon(tooltip) {
+  try {
+    if (trayIcon && !trayIcon.isDestroyed()) {
+      trayIcon.setToolTip(tooltip || 'WPS5');
+      return;
+    }
+    const iconPath = path.join(__dirname, '../assets/icons/logo.png');
+    let icon = nativeImage.createFromPath(iconPath);
+    if (!icon.isEmpty()) {
+      icon = icon.resize({ width: 16, height: 16 });
+    }
+    trayIcon = new Tray(icon);
+    trayIcon.setToolTip(tooltip || 'WPS5 - Jugando');
+    const menu = Menu.buildFromTemplate([
+      { label: 'Mostrar WPS5', click: () => restoreFromTray() },
+      { type: 'separator' },
+      { label: 'Salir', click: () => { app.quit(); } },
+    ]);
+    trayIcon.setContextMenu(menu);
+    trayIcon.on('click', () => restoreFromTray());
+    trayIcon.on('double-click', () => restoreFromTray());
+  } catch (err) {
+    console.error('[Tray] Error creando icono de bandeja:', err);
+  }
+}
 
-// function hideTrayIcon() {
-//   try {
-//     if (trayIcon && !trayIcon.isDestroyed()) {
-//       trayIcon.destroy();
-//     }
-//   } catch (_) { /* ignore */ }
-//   trayIcon = null;
-// }
+function hideTrayIcon() {
+  try {
+    if (trayIcon && !trayIcon.isDestroyed()) {
+      trayIcon.destroy();
+    }
+  } catch (_) { /* ignore */ }
+  trayIcon = null;
+}
 
 // ── Vigilancia de juegos lanzados por protocolo (steam://rungameid/...) ──
 // Steam gestiona el proceso real del juego, así que no tenemos un child
@@ -563,7 +563,7 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam') {
     if (gameExited) return;
     gameExited = true;
     stopSteamGameWatch(id);
-    // hideTrayIcon();
+    hideTrayIcon();
 
     if (mainWindow) {
       mainWindow.webContents.send('game-closed', id);
@@ -584,7 +584,7 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam') {
   setTimeout(() => {
     if (!gameExited && mainWindow) {
       mainWindow.hide();
-      // showTrayIcon('WPS5 - Jugando');
+      showTrayIcon('WPS5 - Jugando');
       console.log(`Launcher suspendido (juego de ${sourceLabel}) — ventana oculta`);
     }
   }, 1500);
@@ -1970,7 +1970,7 @@ app.whenReady().then(() => {
       if (gameExited) return; // Evitar doble ejecución
       gameExited = true;
       if (hideTimer) clearTimeout(hideTimer);
-      // hideTrayIcon();
+      hideTrayIcon();
 
       if (mainWindow) {
         mainWindow.webContents.send('game-closed', id);
@@ -1991,7 +1991,7 @@ app.whenReady().then(() => {
     hideTimer = setTimeout(() => {
       if (!gameExited && mainWindow) {
         mainWindow.hide();
-        // showTrayIcon('WPS5 - Jugando');
+        showTrayIcon('WPS5 - Jugando');
         console.log('Launcher suspendido — ventana oculta');
       }
     }, 1500);
@@ -2835,7 +2835,7 @@ app.on('window-all-closed', function () {
 app.on('before-quit', () => {
   stopStoreBackend();
   stopMediaSessionsBridge();
-  // hideTrayIcon();
+  hideTrayIcon();
   for (const id of Array.from(activeGameWatchers.keys())) {
     stopSteamGameWatch(id);
   }
