@@ -2391,6 +2391,16 @@ export default function ConsoleHome() {
         mainScrollRef.current.scrollTo({ y: 0, animated: true });
       } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
         mainScrollRef.current.scrollTo({ y: 220, animated: true });
+      } else if (gamePanelFocusIndex >= 100 && gamePanelFocusIndex < 200) {
+        mainScrollRef.current.scrollTo({ y: 220, animated: true });
+      } else if (gamePanelFocusIndex >= 200) {
+        mainScrollRef.current.scrollTo({ y: 220, animated: true });
+      } else if (gamePanelFocusIndex >= 100) {
+        mainScrollRef.current.scrollTo({ y: 480, animated: true });
+      } else if (gamePanelFocusIndex >= 4) {
+        // Noticias es la última fila: la llevamos completa al viewport al
+        // entrar con la navegación vertical.
+        mainScrollRef.current.scrollTo({ y: 700, animated: true });
       }
     }
   }, [focusArea, gamePanelFocusIndex, libraryGridFocusIndex]);
