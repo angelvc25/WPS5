@@ -476,7 +476,10 @@ export default function ConsoleHome() {
   const spacerStyle = useAnimatedStyle(() => {
     const isWelcome = (currentRenderedTab === 'Games' ? games : media)[activeIndex]?.id === '1';
     const trophyHeight = 320;
-    const deepHeight = interpolate(deepSectionFocusAnim.value, [0, 1], [trophyHeight, 80]);
+    // Al navegar por capturas, trofeos o noticias conservamos la misma
+    // separación vertical que usa GameDetailView, sin añadir espacio cuando
+    // la ficha principal del juego está visible.
+    const deepHeight = interpolate(deepSectionFocusAnim.value, [0, 1], [trophyHeight, 270]);
     const targetMinHeight = interpolate(
       lowerSectionFocusAnim.value,
       [0, 1],
