@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, runOnJS } from 'react-native-reanimated';
 import ControlCenterCards from './ControlCenterCards';
 import FriendsExpandedCard from './FriendsExpandedCard';
 import NotificationsExpandedCard from './NotificationsExpandedCard';
@@ -79,6 +79,9 @@ export default function FloatingSystemNav({
   const { t } = useTranslation();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(50);
+  // Mantiene el menú montado mientras termina la salida, sin leer un
+  // SharedValue durante el render de React.
+  const [isRendered, setIsRendered] = useState(isFocused);
 
   const notificationsBtnRef = useRef<any>(null);
   const [notificationsAnchor, setNotificationsAnchor] = useState({ top: 0, left: 0 });
@@ -213,10 +216,13 @@ export default function FloatingSystemNav({
 
   useEffect(() => {
     if (isFocused) {
+      setIsRendered(true);
       opacity.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.ease) });
       translateY.value = withTiming(0, { duration: 250, easing: Easing.out(Easing.ease) });
     } else {
-      opacity.value = withTiming(0, { duration: 200, easing: Easing.in(Easing.ease) });
+      opacity.value = withTiming(0, { duration: 200, easing: Easing.in(Easing.ease) }, (finished) => {
+        if (finished) runOnJS(setIsRendered)(false);
+      });
       translateY.value = withTiming(50, { duration: 200, easing: Easing.in(Easing.ease) });
     }
   }, [isFocused]);
@@ -232,7 +238,7 @@ export default function FloatingSystemNav({
     pointerEvents: isFocused ? 'auto' : 'none',
   }));
 
-  if (!isFocused && opacity.value === 0) return null;
+  if (!isRendered) return null;
 
   return (
     <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]} pointerEvents={isFocused ? 'auto' : 'none'}>

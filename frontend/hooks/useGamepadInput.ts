@@ -32,7 +32,15 @@ export function useGamepadInput({
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof navigator === 'undefined') return;
 
-    let animationFrameId: number;
+    let animationFrameId: number | undefined;
+    const schedulePoll = () => {
+      if (!document.hidden && animationFrameId === undefined) {
+        animationFrameId = requestAnimationFrame(() => {
+          animationFrameId = undefined;
+          poll();
+        });
+      }
+    };
     const poll = () => {
       const gamepad = navigator.getGamepads?.()[0];
 
@@ -42,7 +50,7 @@ export function useGamepadInput({
           isFirstPollRef.current = true;
           callbacksRef.current.onGamepadChange({ connected: false, name: '', battery: 0 });
         }
-        animationFrameId = requestAnimationFrame(poll);
+        schedulePoll();
         return;
       }
 
@@ -95,10 +103,26 @@ export function useGamepadInput({
         callbacksRef.current.onConnected();
       }
 
-      animationFrameId = requestAnimationFrame(poll);
+      schedulePoll();
     };
 
-    animationFrameId = requestAnimationFrame(poll);
-    return () => cancelAnimationFrame(animationFrameId);
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (animationFrameId !== undefined) cancelAnimationFrame(animationFrameId);
+        animationFrameId = undefined;
+      } else {
+        // Al volver a la ventana, se toma el estado actual del mando antes
+        // de procesar pulsaciones para evitar acciones acumuladas.
+        isFirstPollRef.current = true;
+        schedulePoll();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    schedulePoll();
+    return () => {
+      if (animationFrameId !== undefined) cancelAnimationFrame(animationFrameId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 }

@@ -53,9 +53,10 @@ function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: strin
   return (
     <Animated.View
       layout={LinearTransition.duration(200)}
-      style={[styles.toastItemContainer, animatedStyle]}
+      style={styles.toastItemContainer}
       pointerEvents="none"
     >
+      <Animated.View style={animatedStyle}>
       <View style={styles.toast}>
         <div
           style={{
@@ -85,6 +86,7 @@ function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: strin
         ) : null}
         <Text style={styles.label}>{toast.message}</Text>
       </View>
+      </Animated.View>
     </Animated.View>
   );
 }
