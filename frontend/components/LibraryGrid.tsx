@@ -534,6 +534,11 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
 
   const currentRow = isFocused ? Math.floor(focusedIndex / COLUMNS) : 0;
   const hasScrolled = isFocused && currentRow > 1;
+  const totalRows = Math.ceil(filteredGames.length / COLUMNS);
+  const visibleRowCount = Math.ceil((windowHeight - 220) / rowHeight);
+  const VIRTUALIZATION_BUFFER_ROWS = 2;
+  const startRow = Math.max(0, currentRow - VIRTUALIZATION_BUFFER_ROWS);
+  const endRow = Math.min(totalRows - 1, currentRow + visibleRowCount + VIRTUALIZATION_BUFFER_ROWS);
 
   // ─── Teclado (web) ────────────────────────────────────────────────
   // Con el panel abierto: flechas arriba/abajo mueven la selección,
@@ -781,25 +786,13 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
               </View>
             ) : (
               <Animated.View style={animatedGridStyle}>
-                <View style={styles.grid}>
+                <View style={[styles.grid, { paddingTop: startRow * rowHeight }]}>
                   {(() => {
-                    const totalRows = Math.ceil(filteredGames.length / COLUMNS);
-                    const visibleRowCount = Math.ceil((windowHeight - 220) / rowHeight);
-                    const BUFFER = 2;
-                    const startRow = Math.max(0, currentRow - BUFFER);
-                    const endRow = Math.min(totalRows - 1, currentRow + visibleRowCount + BUFFER);
+                    const firstVisibleIndex = startRow * COLUMNS;
+                    const lastVisibleIndex = (endRow + 1) * COLUMNS;
 
-                    return filteredGames.map((game, index) => {
-                      const itemRow = Math.floor(index / COLUMNS);
-
-                      if (itemRow < startRow || itemRow > endRow) {
-                        return (
-                          <View
-                            key={game.id ?? index}
-                            style={styles.gameCardPlaceholder}
-                          />
-                        );
-                      }
+                    return filteredGames.slice(firstVisibleIndex, lastVisibleIndex).map((game, relativeIndex) => {
+                      const index = firstVisibleIndex + relativeIndex;
 
                       const isItemFocused = gridActive && focusedIndex === index;
                       const isInstalled = isGameInstalled(game);
@@ -1127,12 +1120,6 @@ const styles = StyleSheet.create({
         gap: 16,
       },
     }),
-  },
-  gameCardPlaceholder: {
-    // Invisible placeholder that maintains grid layout for off-screen items
-    aspectRatio: 1,
-    borderRadius: 16,
-    opacity: 0,
   },
   gameCardAnimationWrapper: {
     width: '100%',

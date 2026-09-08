@@ -57,6 +57,7 @@ import { PLATFORMS, PLATFORM_IDS } from '@/constants/platforms';
 import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta si difiere
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { getSteamAppId } from '@/services/steamLaunchService';
+import { useGamepadInput } from '@/hooks/useGamepadInput';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -1526,102 +1527,23 @@ export default function ConsoleHome() {
     }
   };
 
-  // Gamepad state refs
-  const prevButtonsRef = useRef(new Array(16).fill(false));
-  const prevAxesRef = useRef([0, 0, 0, 0]);
-  const lastGpId = useRef<string | null>(null);
-  const isFirstPollRef = useRef(true);
   const mountTimeRef = useRef(Date.now());
 
   useEffect(() => {
     mountTimeRef.current = Date.now();
   }, []);
 
-  // Gamepad Support
-  useEffect(() => {
-    let rafId: number;
-    const poll = () => {
-      const gamepads = navigator.getGamepads();
-      const gp = gamepads[0];
-      if (gp) {
-        if (isFirstPollRef.current) {
-          isFirstPollRef.current = false;
-          gp.buttons.forEach((b, idx) => {
-            prevButtonsRef.current[idx] = !!b?.pressed;
-          });
-          prevAxesRef.current = [
-            gp.axes[0] || 0,
-            gp.axes[1] || 0,
-            gp.axes[2] || 0,
-            gp.axes[3] || 0,
-          ];
-          rafId = requestAnimationFrame(poll);
-          return;
-        }
-
-        const buttons = gp.buttons;
-        const dispatch = (key: string) => {
-          setInputMode('gamepad');
-          const event = new KeyboardEvent('keydown', {
-            key, bubbles: true, cancelable: true,
-            keyCode: key === 'Enter' ? 13 : (key === 'ArrowRight' ? 39 : (key === 'ArrowLeft' ? 37 : (key === 'ArrowUp' ? 38 : (key === 'ArrowDown' ? 40 : 0))))
-          });
-          (event as any).fromGamepad = true;
-          window.dispatchEvent(event);
-        };
-        const checkDpad = (idx: number, key: string) => {
-          const pressed = !!buttons[idx]?.pressed;
-          if (pressed && !prevButtonsRef.current[idx]) dispatch(key);
-          prevButtonsRef.current[idx] = pressed;
-        };
-        checkDpad(12, 'ArrowUp'); checkDpad(13, 'ArrowDown');
-        checkDpad(14, 'ArrowLeft'); checkDpad(15, 'ArrowRight');
-        const checkAxis = (axisIdx: number, posKey: string, negKey: string) => {
-          const val = gp.axes[axisIdx];
-          const prevVal = prevAxesRef.current[axisIdx] || 0;
-          const threshold = 0.5;
-          if (val > threshold && prevVal <= threshold) dispatch(posKey);
-          else if (val < -threshold && prevVal >= -threshold) dispatch(negKey);
-          prevAxesRef.current[axisIdx] = val;
-        };
-        checkAxis(1, 'ArrowDown', 'ArrowUp');
-        checkAxis(0, 'ArrowRight', 'ArrowLeft');
-        if (lastGpId.current !== gp.id) {
-          lastGpId.current = gp.id;
-          setGamepadInfo({ connected: true, name: gp.id, battery: 0.75 });
-
-          toastService.show(t('toast.controllerConnected'), {
-            duration: 2500,
-            icon: require('@/assets/images/controller.png'),
-            source: 'system',
-          });
-        }
-        const checkButton = (idx: number, key: string) => {
-          const pressed = !!buttons[idx]?.pressed;
-          if (pressed && !prevButtonsRef.current[idx]) dispatch(key);
-          prevButtonsRef.current[idx] = pressed;
-        };
-        checkButton(0, 'Enter');
-        checkButton(1, 'Escape');
-        checkButton(2, 'x');
-        checkButton(3, 't'); // Triángulo -> Buscar
-        checkButton(4, 'q');
-        checkButton(5, 'e');
-        checkButton(6, 'z'); // L2 -> Z
-        checkButton(7, 'c'); // R2 -> C
-        checkButton(9, 's'); // Share/Create -> Menú contextual
-        checkButton(8, 'Home');
-      } else {
-        if (lastGpId.current !== null) {
-          lastGpId.current = null;
-          setGamepadInfo({ connected: false, name: '', battery: 0 });
-        }
-      }
-      rafId = requestAnimationFrame(poll);
-    };
-    if (Platform.OS === 'web') rafId = requestAnimationFrame(poll);
-    return () => cancelAnimationFrame(rafId);
-  }, []);
+  useGamepadInput({
+    onInputModeChange: setInputMode,
+    onGamepadChange: setGamepadInfo,
+    onConnected: () => {
+      toastService.show(t('toast.controllerConnected'), {
+        duration: 2500,
+        icon: require('@/assets/images/controller.png'),
+        source: 'system',
+      });
+    },
+  });
 
   useEffect(() => {
     if (selectedItem) {
@@ -1666,10 +1588,9 @@ export default function ConsoleHome() {
     }
   }, [addModalFocusIndex, isAddModalVisible, newApp.type]);
 
-  // Keyboard Navigation
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      const handleKeyDown = (e: any) => {
+  // Keyboard navigation always reads the current render state. The listener
+  // itself is attached once below, avoiding add/remove work on each change.
+  const handleKeyDown = (e: any) => {
         if (Date.now() - mountTimeRef.current < 400) return;
         if (!e.fromGamepad) setInputMode('keyboard');
         if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
@@ -2335,11 +2256,17 @@ export default function ConsoleHome() {
         if (e.key === 'b' || e.key === 'B' || e.key === 'Escape') {
           soundService.playBack();
         }
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [activeTab, currentData, activeIndex, focusArea, focusIndex, gamePanelFocusIndex, isAddModalVisible, isUserModalVisible, isFavoritesVisible, selectedItem, modalSelectedIndex, addModalFocusIndex, settingsFocusArea, settingsFocusIndex, settingsTab, isHomeBgModalVisible, isSearchVisible, homeBackground, newApp, steamNews, steamMedia, selectedMediaIndex, isProfileMenuOpen, profileMenuFocusIndex, isOnline, isLaunching, isContextMenuOpen, isDetailVisible, isLibraryDetailVisible, isSettingsVisible, isRandomSelectorVisible, systemNavLevel, systemNavCardIndex, isSystemNavCardExpanded, systemNavMaxCardIndex, libraryGridFocusIndex, libraryTabsFocused, libraryFilterFocused, libraryFilterFromTabs, isLibraryFilterPanelOpen, displayedLibraryGames, visibleLibraryGames, lastPlayedGame, activeUser, storeOffers, toolbarFocusIndex, deleteConfirmItem]);
+  };
+  const keyboardHandlerRef = useRef(handleKeyDown);
+  keyboardHandlerRef.current = handleKeyDown;
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const onKeyDown = (event: KeyboardEvent) => keyboardHandlerRef.current(event);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // Fetch Steam news when the active item changes (debounced)
   useEffect(() => {
