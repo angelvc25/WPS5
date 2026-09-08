@@ -491,8 +491,10 @@ export const GameInfoPanel = ({
         <Animated.View
           key={`cards-${activeIndex}`}
           entering={FadeInDown.duration(400).delay(120)}
-          style={[styles.infoCardsRow, infoCardsStyle, { marginTop: s(20) }]}
         >
+          <Animated.View
+            style={[styles.infoCardsRow, infoCardsStyle, { marginTop: s(20) }]}
+          >
           {/* Trophies Card */}
           <View
             style={[
@@ -927,6 +929,7 @@ export const GameInfoPanel = ({
               isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 4}
             />
           )}
+          </Animated.View>
         </Animated.View>
       )}
 
