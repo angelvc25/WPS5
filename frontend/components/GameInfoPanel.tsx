@@ -178,11 +178,6 @@ export const GameInfoPanel = ({
   const newsScrollRef = React.useRef<ScrollView>(null);
   const achievementsScrollRef = React.useRef<ScrollView>(null);
   const scrollDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Referencias a los nodos DOM de cada tarjeta (solo web). Se usan para
-  // desplazar con precisión vía scrollIntoView, evitando depender de
-  // cálculos manuales de ancho/gap que pueden desincronizarse del layout real.
-  const mediaItemRefs = React.useRef<any[]>([]);
-  const newsItemRefs = React.useRef<any[]>([]);
 
   React.useEffect(() => {
     if (focusArea !== 'game_panel') return;
@@ -197,21 +192,12 @@ export const GameInfoPanel = ({
         achievementsScrollRef.current?.scrollTo({ x: idx * Math.round(266 * scale), animated: true });
       } else if (gamePanelFocusIndex >= 100) {
         const idx = gamePanelFocusIndex - 100;
-        const node: any = mediaItemRefs.current[idx];
-        if (Platform.OS === 'web' && node && typeof node.scrollIntoView === 'function') {
-          node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        } else {
-          // Fallback: cada posición debe incluir el ancho escalado de la tarjeta y el gap.
-          mediaScrollRef.current?.scrollTo({ x: idx * Math.round(516 * scale), animated: true });
-        }
+        // Solo mueve el ScrollView horizontal; scrollIntoView también desplaza
+        // contenedores padre y puede sacar toda la pantalla del viewport.
+        mediaScrollRef.current?.scrollTo({ x: idx * Math.round(516 * scale), animated: true });
       } else if (gamePanelFocusIndex >= 4) {
         const idx = gamePanelFocusIndex - 4;
-        const node: any = newsItemRefs.current[idx];
-        if (Platform.OS === 'web' && node && typeof node.scrollIntoView === 'function') {
-          node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        } else {
-          newsScrollRef.current?.scrollTo({ x: idx * Math.round(336 * scale), animated: true });
-        }
+        newsScrollRef.current?.scrollTo({ x: idx * Math.round(336 * scale), animated: true });
       }
     }, 80);
 
@@ -975,7 +961,6 @@ export const GameInfoPanel = ({
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    ref={(el: any) => { mediaItemRefs.current[idx] = el; }}
                     style={[styles.newsCard, { width: s(500), height: s(281) }, isMediaFocused && styles.newsCardFocused]}
                     activeOpacity={0.8}
                     onPress={() => {
@@ -1247,7 +1232,6 @@ export const GameInfoPanel = ({
                 return (
                   <TouchableOpacity
                     key={news.gid}
-                    ref={(el: any) => { newsItemRefs.current[idx] = el; }}
                     style={[styles.newsCard2, { width: s(320) }, isNewsFocused && styles.newsCardFocused]}
                     activeOpacity={0.8}
                     onPress={() => { if (news.url) Linking.openURL(news.url); }}
