@@ -841,7 +841,6 @@ function openElectronWebFullscreen(url) {
   webMediaWindow.loadURL(url);
   webMediaWindow.on('closed', () => {
     webMediaWindow = null;
-    restoreMainWindow();
   });
 }
 
@@ -2045,11 +2044,15 @@ app.whenReady().then(() => {
 
       if (mainWindow) {
         mainWindow.webContents.send('game-closed', id);
-        // Siempre restaurar el foco y togglear alwaysOnTop para forzar a
-        // Chromium a reanudar el sondeo del Gamepad API (soluciona el
-        // problema de controles "congelados" al volver de juegos/.lnk/EXE media)
-        restoreMainWindow();
-        console.log('Launcher restaurado después de cerrar programa');
+        if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
+          // La ventana estaba minimizada/oculta, restaurarla con un breve delay
+          setTimeout(() => {
+            if (mainWindow) {
+              restoreMainWindow();
+              console.log('Launcher restaurado');
+            }
+          }, 300);
+        }
       }
     };
 
