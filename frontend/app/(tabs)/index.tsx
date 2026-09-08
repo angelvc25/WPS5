@@ -363,6 +363,7 @@ export default function ConsoleHome() {
   const infoCardsAnim = useSharedValue(1); // 1=visible, 0=hidden
   const deepSectionFocusAnim = useSharedValue(0); // 1=capturas/noticias, 0=trofeos o arriba
 
+
   useEffect(() => {
     setShowTrailer(false);
     const autoPlay = activeUser?.settings?.autoPlayVideo !== false;
@@ -2790,21 +2791,42 @@ export default function ConsoleHome() {
     return Math.max(gamePanelFocusAnim.value, welcomeWidgetsFocusAnim.value);
   });
 
+  const activeCardReady = useSharedValue(false);
+
+  useEffect(() => {
+    activeCardReady.value = false;
+  }, [activeIndex, carouselKey]);
+
   const startX = useSharedValue(140);
   const startY = useSharedValue(187);
   const startW = useSharedValue(180);
   const startH = useSharedValue(180);
+  const cardMounted = useSharedValue(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      cardMounted.value = true;
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [activeIndex, currentRenderedTab]);
 
   useDerivedValue(() => {
-    if (collapseAnim.value === 0) {
-      const measurement = measure(activeCardRef);
-      // measure() devuelve valores negativos/0 cuando el tag aún no es válido
-      if (measurement && measurement.width > 0 && measurement.height > 0) {
-        startX.value = measurement.pageX;
-        startY.value = measurement.pageY;
-        startW.value = measurement.width;
-        startH.value = measurement.height;
-      }
+    if (collapseAnim.value !== 0 || !activeCardReady.value) {
+      return;
+    }
+
+    const measurement = measure(activeCardRef);
+
+    if (
+      measurement &&
+      measurement.width > 0 &&
+      measurement.height > 0
+    ) {
+      startX.value = measurement.pageX;
+      startY.value = measurement.pageY;
+      startW.value = measurement.width;
+      startH.value = measurement.height;
     }
   });
 
@@ -3187,6 +3209,7 @@ export default function ConsoleHome() {
             focusArea={focusArea}
             isContextMenuOpen={isContextMenuOpen}
             activeCardRef={activeCardRef}
+            activeCardReady={activeCardReady}
             scrollRef={scrollRef}
             handleAppPress={handleAppPress}
             openContextMenu={openContextMenu}

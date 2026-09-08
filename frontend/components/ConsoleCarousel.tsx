@@ -21,6 +21,7 @@ interface ConsoleCarouselProps {
   focusArea: string;
   isContextMenuOpen: boolean;
   activeCardRef: React.RefObject<View | null>;
+  activeCardReady: SharedValue<boolean>;
   scrollRef: React.RefObject<ScrollView | null>;
   handleAppPress: (index: number, item: ConsoleItem) => void;
   openContextMenu: () => void;
@@ -43,6 +44,7 @@ export const ConsoleCarousel = ({
   focusArea,
   isContextMenuOpen,
   activeCardRef,
+  activeCardReady,
   scrollRef,
   handleAppPress,
   openContextMenu,
@@ -237,7 +239,17 @@ export const ConsoleCarousel = ({
           <View
             ref={isActive ? (activeCardRef as any) : null}
             key={item.id}
-            style={{ position: 'relative', overflow: 'visible', zIndex: isActive ? 10 : 1, opacity: customOpacity }}
+            onLayout={() => {
+              if (isActive) {
+                activeCardReady.value = true;
+              }
+            }}
+            style={{
+              position: 'relative',
+              overflow: 'visible',
+              zIndex: isActive ? 10 : 1,
+              opacity: customOpacity,
+            }}
           >
             {cardContent}
             {isActive && (

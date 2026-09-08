@@ -60,8 +60,10 @@ export const AnimatedCardWrapper = React.memo(({
   }));
 
   return (
-    <Animated.View style={[animStyle, style]}>
-      {children}
+    <Animated.View style={style}>
+      <Animated.View style={animStyle}>
+        {children}
+      </Animated.View>
     </Animated.View>
   );
 });
