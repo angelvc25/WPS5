@@ -299,6 +299,11 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   const [isSourceSectionOpen, setIsSourceSectionOpen] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(new Set());
   const [selectedSources, setSelectedSources] = useState<Set<'steam' | 'local'>>(new Set());
+  // Evita notificar al padre repetidamente cuando el filtrado produce la
+  // misma lista. Sin este guard, un padre que reconstruye `games` durante
+  // su render puede entrar en un ciclo: efecto -> setState del padre ->
+  // nuevo render -> efecto.
+  const lastNotifiedVisibleGamesRef = useRef<ConsoleItem[] | null>(null);
 
   const sortLabel = sortDirection === 'none' ? t('edit.more') : sortDirection === 'asc' ? 'A-Z' : 'Z-A';
 
@@ -488,9 +493,16 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   // cambia, para que su propio índice de foco (teclado/mando) resuelva
   // el juego correcto en vez de indexar sobre la lista sin filtrar.
   useEffect(() => {
+    const previousGames = lastNotifiedVisibleGamesRef.current;
+    const hasSameVisibleGames =
+      previousGames?.length === filteredGames.length &&
+      previousGames.every((game, index) => game === filteredGames[index]);
+
+    if (hasSameVisibleGames) return;
+
+    lastNotifiedVisibleGamesRef.current = filteredGames;
     onVisibleGamesChange?.(filteredGames);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredGames]);
+  }, [filteredGames, onVisibleGamesChange]);
 
   const handleItemPress = (index: number, game: ConsoleItem) => {
     setSelectedGame(game);

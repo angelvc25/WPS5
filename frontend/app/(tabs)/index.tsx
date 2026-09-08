@@ -582,7 +582,10 @@ export default function ConsoleHome() {
   }, []);
 
   const GAMES_LIMIT = 10;
-  const nonSteamGames = games.filter(item => !item.id.toString().startsWith('steam_'));
+  const nonSteamGames = useMemo(
+    () => games.filter(item => !item.id.toString().startsWith('steam_')),
+    [games]
+  );
 
   const BASE_CARD_IDS = ['1', 'last_played', '5'];
   const baseCards = nonSteamGames.filter(g => BASE_CARD_IDS.includes(g.id));
@@ -630,8 +633,11 @@ export default function ConsoleHome() {
     : focusedCarouselItem?.focusAudio;
 
   // Filter out system utility cards from the saved games list
-  const savedGames = nonSteamGames.filter(
-    item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && item.id !== '5' && !item.isFolder && !item.isGrid
+  const savedGames = useMemo(
+    () => nonSteamGames.filter(
+      item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && item.id !== '5' && !item.isFolder && !item.isGrid
+    ),
+    [nonSteamGames]
   );
 
   // Si el filtro/orden interno de LibraryGrid reduce la cantidad de
