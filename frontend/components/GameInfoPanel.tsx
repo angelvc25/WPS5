@@ -178,9 +178,6 @@ export const GameInfoPanel = ({
   const newsScrollRef = React.useRef<ScrollView>(null);
   const achievementsScrollRef = React.useRef<ScrollView>(null);
   const scrollDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Referencias a los nodos DOM de cada tarjeta (solo web). Se usan para
-  // desplazar con precisión vía scrollIntoView, evitando depender de
-  // cálculos manuales de ancho/gap que pueden desincronizarse del layout real.
   const mediaItemRefs = React.useRef<any[]>([]);
   const newsItemRefs = React.useRef<any[]>([]);
 
@@ -197,21 +194,12 @@ export const GameInfoPanel = ({
         achievementsScrollRef.current?.scrollTo({ x: idx * Math.round(266 * scale), animated: true });
       } else if (gamePanelFocusIndex >= 100) {
         const idx = gamePanelFocusIndex - 100;
-        const node: any = mediaItemRefs.current[idx];
-        if (Platform.OS === 'web' && node && typeof node.scrollIntoView === 'function') {
-          node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        } else {
-          // Fallback: cada posición debe incluir el ancho escalado de la tarjeta y el gap.
-          mediaScrollRef.current?.scrollTo({ x: idx * Math.round(516 * scale), animated: true });
-        }
+        // Solo mueve el ScrollView horizontal; scrollIntoView también desplaza
+        // contenedores padre y puede sacar toda la pantalla del viewport.
+        mediaScrollRef.current?.scrollTo({ x: idx * Math.round(516 * scale), animated: true });
       } else if (gamePanelFocusIndex >= 4) {
         const idx = gamePanelFocusIndex - 4;
-        const node: any = newsItemRefs.current[idx];
-        if (Platform.OS === 'web' && node && typeof node.scrollIntoView === 'function') {
-          node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        } else {
-          newsScrollRef.current?.scrollTo({ x: idx * Math.round(336 * scale), animated: true });
-        }
+        newsScrollRef.current?.scrollTo({ x: idx * Math.round(336 * scale), animated: true });
       }
     }, 80);
 
@@ -940,21 +928,7 @@ export const GameInfoPanel = ({
         <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(50) }]}>
           <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.capturesAndTrailers')}</Text>
 
-          {mediaLoading ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={true}
-              scrollEnabled={true}
-              nestedScrollEnabled
-              directionalLockEnabled
-              persistentScrollbar
-              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
-            >
-              {[0, 1, 2, 3].map((i) => (
-                <ShimmerSkeletonCard key={i} width={s(500)} height={s(281)} borderRadius={8} />
-              ))}
-            </ScrollView>
-          ) : steamMedia.length === 0 ? (
+          {steamMedia.length === 0 ? (
             <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
               <Text style={styles.newsEmptyText}>{t('game.noCaptures')}</Text>
@@ -963,8 +937,8 @@ export const GameInfoPanel = ({
             <ScrollView
               ref={mediaScrollRef}
               horizontal
-              showsHorizontalScrollIndicator={true}
-              scrollEnabled={true}
+              showsHorizontalScrollIndicator
+              scrollEnabled
               nestedScrollEnabled
               directionalLockEnabled
               persistentScrollbar
@@ -975,7 +949,6 @@ export const GameInfoPanel = ({
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    ref={(el: any) => { mediaItemRefs.current[idx] = el; }}
                     style={[styles.newsCard, { width: s(500), height: s(281) }, isMediaFocused && styles.newsCardFocused]}
                     activeOpacity={0.8}
                     onPress={() => {
@@ -1205,27 +1178,7 @@ export const GameInfoPanel = ({
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
           <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.latestNews')}</Text>
 
-          {newsLoading ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={true}
-              scrollEnabled={true}
-              nestedScrollEnabled
-              directionalLockEnabled
-              persistentScrollbar
-              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
-            >
-              {[0, 1, 2, 3, 4].map((i) => (
-                <View key={i} style={[styles.newsCard2, { width: s(320) }]}>
-                  <ShimmerSkeletonCard width={s(320)} height={s(281)} borderRadius={0} />
-                  <View style={styles.newsCardContent}>
-                    <ShimmerSkeletonCard width={s(320) - 24} height={14} borderRadius={4} style={{ marginBottom: 8 }} />
-                    <ShimmerSkeletonCard width={Math.round((s(320) - 24) * 0.55)} height={11} borderRadius={4} />
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          ) : steamNews.length === 0 ? (
+          {steamNews.length === 0 ? (
             <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
               <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
               <Text style={styles.newsEmptyText}>{t('game.noNews')}</Text>
@@ -1234,8 +1187,8 @@ export const GameInfoPanel = ({
             <ScrollView
               ref={newsScrollRef}
               horizontal
-              showsHorizontalScrollIndicator={true}
-              scrollEnabled={true}
+              showsHorizontalScrollIndicator
+              scrollEnabled
               nestedScrollEnabled
               directionalLockEnabled
               persistentScrollbar
@@ -1247,7 +1200,6 @@ export const GameInfoPanel = ({
                 return (
                   <TouchableOpacity
                     key={news.gid}
-                    ref={(el: any) => { newsItemRefs.current[idx] = el; }}
                     style={[styles.newsCard2, { width: s(320) }, isNewsFocused && styles.newsCardFocused]}
                     activeOpacity={0.8}
                     onPress={() => { if (news.url) Linking.openURL(news.url); }}
