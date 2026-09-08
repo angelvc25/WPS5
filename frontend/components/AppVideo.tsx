@@ -16,6 +16,7 @@ interface AppVideoProps {
   isLooping?: boolean;
   isMuted?: boolean;
   useNativeControls?: boolean;
+  onError?: (error: any) => void;
 }
 
 /** Compatibility surface for the former expo-av Video component. */
@@ -27,6 +28,7 @@ export function Video({
   isLooping = false,
   isMuted = false,
   useNativeControls = false,
+  onError,
 }: AppVideoProps) {
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = isLooping;
@@ -40,6 +42,18 @@ export function Video({
     if (shouldPlay) player.play();
     else player.pause();
   }, [isLooping, isMuted, player, shouldPlay]);
+
+  useEffect(() => {
+    if (!onError) return;
+    const subscription = player.addListener('statusChange', (payload) => {
+      if (payload.status === 'error') {
+        onError(payload.error);
+      }
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [player, onError]);
 
   return <VideoView player={player} style={style} contentFit={resizeMode} nativeControls={useNativeControls} />;
 }

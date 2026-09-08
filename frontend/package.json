@@ -25,7 +25,6 @@
     "electron-serve": "^3.0.1",
     "expo": "~54.0.37",
     "expo-audio": "~1.1.1",
-    "expo-av": "~16.0.8",
     "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.14",
     "expo-document-picker": "~14.0.8",

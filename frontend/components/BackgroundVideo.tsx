@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { Image as RNImage, Platform, StyleSheet } from 'react-native';
-import { Image } from 'expo-image';
 import { Video, ResizeMode } from './AppVideo';
 
 interface BackgroundVideoProps {
@@ -70,7 +69,7 @@ export default function BackgroundVideo({
       shouldPlay={shouldPlay}
       isLooping={isLooping}
       isMuted={muted}
-      onError={(error) => {
+      onError={(error: any) => {
         console.warn('Background video failed to load, reloading it.', error);
         setReloadKey((current) => current + 1);
       }}
