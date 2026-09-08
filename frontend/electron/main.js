@@ -477,7 +477,38 @@ function restoreMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
   if (!mainWindow.isVisible()) mainWindow.show();
+  mainWindow.show();
   mainWindow.focus();
+
+  // ── Forzar el robo de foco real en Windows ──
+  // Windows tiene un "foreground lock" que impide que un proceso en
+  // segundo plano (nuestra ventana minimizada) le robe el foco a otro
+  // proceso (el juego que se acaba de cerrar, o el shell) con solo llamar
+  // a focus()/restore(). Sin foco real del SO, la ventana se ve pero el
+  // Gamepad API de Chromium deja de entregar lecturas actualizadas de
+  // botones/ejes (solo actualiza el documento que tiene foco real), por lo
+  // que el mando queda "congelado" tras volver de un juego. Alternar
+  // alwaysOnTop es el workaround estándar en Electron/Win32 para forzar al
+  // compositor a cederle el foco a esta ventana incluso con el lock activo.
+  if (process.platform === 'win32') {
+    mainWindow.setAlwaysOnTop(true);
+    mainWindow.setAlwaysOnTop(false);
+    mainWindow.focus();
+  }
+
+  // Reintento adicional con un pequeño delay: justo después de que el
+  // juego termina de cerrar su proceso, el foco del SO puede tardar unos
+  // milisegundos en liberarse por completo.
+  setTimeout(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (!mainWindow.isFocused()) {
+      if (process.platform === 'win32') {
+        mainWindow.setAlwaysOnTop(true);
+        mainWindow.setAlwaysOnTop(false);
+      }
+      mainWindow.focus();
+    }
+  }, 250);
 }
 
 // ── Icono de bandeja del sistema mientras el launcher está suspendido ──
