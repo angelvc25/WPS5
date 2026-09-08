@@ -18,6 +18,22 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'local-file', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
 ]);
 
+// ── Single-instance lock ──
+// Evita instancias duplicadas del launcher. Esto es especialmente importante
+// con front-ends tipo "Xbox Game Bar replacement" (ej. Omniconsola): al
+// minimizar la ventana para lanzar un juego, algunas de estas herramientas
+// pueden creer que el launcher se cerró (porque deja de detectar una ventana
+// "visible" del proceso) e intentar relanzarlo. Sin este lock, Electron
+// permitiría que naciera un segundo proceso completo con su propia ventana,
+// resultando en el launcher duplicado que se ve al volver del juego.
+// Con el lock, ese segundo intento de arranque simplemente muere y en su
+// lugar se restaura/enfoca la ventana original ya existente.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
 const dbPath = path.join(app.getPath('userData'), 'database.json');
 const IGDB_CLIENT_ID = 'cedukeor213t2yrqswcerzpldefp43'; // REEMPLAZAR
 const IGDB_CLIENT_SECRET = 'q9hm9iq6ahlaccv3osl19a7y71qd3t'; // REEMPLAZAR
@@ -454,16 +470,23 @@ function createWindow() {
   }
 }
 
+// Restaura y enfoca la ventana principal, sin importar si estaba minimizada
+// u oculta. Se usa tanto al recibir un intento de segunda instancia como al
+// hacer clic en el icono de bandeja.
+function restoreMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  if (!mainWindow.isVisible()) mainWindow.show();
+  mainWindow.focus();
+}
+
 // ── Icono de bandeja del sistema mientras el launcher está suspendido ──
 // Al ocultar la ventana mientras un juego está en curso, mostramos un
 // icono en la bandeja (aparecerá en "aplicaciones ocultas" de Windows,
 // como cualquier icono de bandeja no anclado por el usuario) para que
 // quede claro que WPS5 sigue en ejecución en segundo plano.
 function restoreFromTray() {
-  if (mainWindow) {
-    mainWindow.show();
-    mainWindow.focus();
-  }
+  restoreMainWindow();
   hideTrayIcon();
 }
 
@@ -567,11 +590,10 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam') {
 
     if (mainWindow) {
       mainWindow.webContents.send('game-closed', id);
-      if (!mainWindow.isVisible()) {
+      if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
         setTimeout(() => {
           if (mainWindow) {
-            mainWindow.show();
-            mainWindow.focus();
+            restoreMainWindow();
             console.log(`Launcher restaurado (juego de ${sourceLabel} finalizado)`);
           }
         }, 300);
@@ -579,13 +601,19 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam') {
     }
   };
 
-  // Ocultar el launcher tras un breve delay, igual que con procesos nativos,
+  // Minimizar el launcher tras un breve delay, igual que con procesos nativos,
   // y mostrar el icono de bandeja mientras dure la sesión.
+  // IMPORTANTE: usamos minimize() en vez de hide(). Con hide(), Windows
+  // reporta la ventana como no-visible (IsWindowVisible = false), lo cual
+  // hace que herramientas tipo "reemplazo de Xbox Game Bar" (ej.
+  // Omniconsola) puedan creer que el launcher se cerró y traten de
+  // relanzarlo, generando una instancia duplicada. Una ventana minimizada
+  // sigue contando como visible/activa para ese tipo de detección.
   setTimeout(() => {
     if (!gameExited && mainWindow) {
-      mainWindow.hide();
+      mainWindow.minimize();
       showTrayIcon('WPS5 - Jugando');
-      console.log(`Launcher suspendido (juego de ${sourceLabel}) — ventana oculta`);
+      console.log(`Launcher suspendido (juego de ${sourceLabel}) — ventana minimizada`);
     }
   }, 1500);
 
@@ -1476,6 +1504,17 @@ function getSteamDownloadProgress() {
 
 let downloadParseInterval = null;
 
+// Cuando el sistema (o una herramienta externa como Omniconsola) intenta
+// abrir una segunda instancia del launcher, Electron dispara este evento en
+// la instancia YA existente en vez de dejar que la nueva instancia arranque
+// su propia ventana. En vez de ignorarlo, restauramos/enfocamos la ventana
+// actual — así, si el launcher estaba minimizado por tener un juego abierto,
+// simplemente se muestra de nuevo en lugar de quedar duplicado.
+app.on('second-instance', () => {
+  restoreMainWindow();
+  hideTrayIcon();
+});
+
 app.whenReady().then(() => {
   initDB();
   startStoreBackend();
@@ -1974,12 +2013,11 @@ app.whenReady().then(() => {
 
       if (mainWindow) {
         mainWindow.webContents.send('game-closed', id);
-        if (!mainWindow.isVisible()) {
-          // La ventana estaba oculta, restaurarla con un breve delay
+        if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
+          // La ventana estaba minimizada/oculta, restaurarla con un breve delay
           setTimeout(() => {
             if (mainWindow) {
-              mainWindow.show();
-              mainWindow.focus();
+              restoreMainWindow();
               console.log('Launcher restaurado');
             }
           }, 300);
@@ -1987,12 +2025,17 @@ app.whenReady().then(() => {
       }
     };
 
-    // Ocultar el launcher después de 1.5s para que se vea la animación de lanzamiento
+    // Minimizar el launcher después de 1.5s para que se vea la animación de lanzamiento.
+    // Usamos minimize() en vez de hide() por la misma razón explicada en
+    // startSteamGameWatch(): hide() marca la ventana como no-visible ante
+    // Windows, lo cual puede hacer que herramientas externas (ej.
+    // Omniconsola) crean que el proceso terminó y relancen una segunda
+    // instancia del launcher al salir del juego.
     hideTimer = setTimeout(() => {
       if (!gameExited && mainWindow) {
-        mainWindow.hide();
+        mainWindow.minimize();
         showTrayIcon('WPS5 - Jugando');
-        console.log('Launcher suspendido — ventana oculta');
+        console.log('Launcher suspendido — ventana minimizada');
       }
     }, 1500);
 
