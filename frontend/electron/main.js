@@ -550,11 +550,11 @@ function stopSteamGameWatch(id) {
   }
 }
 
-function startSteamGameWatch(id, appId, installDir) {
+function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam') {
   stopSteamGameWatch(id); // por si ya había un watcher previo para este id
 
   const POLL_MS = 4000;
-  const MAX_WAIT_FOR_START_MS = 90 * 1000; // margen para que Steam abra el juego
+  const MAX_WAIT_FOR_START_MS = 90 * 1000; // margen para que Steam/Epic abra el juego
   const startedAt = Date.now();
   let seenRunning = false;
   let gameExited = false;
@@ -572,7 +572,7 @@ function startSteamGameWatch(id, appId, installDir) {
           if (mainWindow) {
             mainWindow.show();
             mainWindow.focus();
-            console.log('Launcher restaurado (juego de Steam finalizado)');
+            console.log(`Launcher restaurado (juego de ${sourceLabel} finalizado)`);
           }
         }, 300);
       }
@@ -585,7 +585,7 @@ function startSteamGameWatch(id, appId, installDir) {
     if (!gameExited && mainWindow) {
       mainWindow.hide();
       showTrayIcon('WPS5 - Jugando');
-      console.log('Launcher suspendido (juego de Steam) — ventana oculta');
+      console.log(`Launcher suspendido (juego de ${sourceLabel}) — ventana oculta`);
     }
   }, 1500);
 
@@ -597,16 +597,16 @@ function startSteamGameWatch(id, appId, installDir) {
         return;
       }
       if (seenRunning) {
-        console.log('[Steam] Proceso del juego finalizado, restaurando launcher (appid ' + appId + ')');
+        console.log(`[${sourceLabel}] Proceso del juego finalizado, restaurando launcher (` + appId + ')');
         finish();
         return;
       }
       if (Date.now() - startedAt > MAX_WAIT_FOR_START_MS) {
-        console.warn('[Steam] No se detectó el proceso del juego tras', MAX_WAIT_FOR_START_MS / 1000, 's — restaurando launcher');
+        console.warn(`[${sourceLabel}] No se detectó el proceso del juego tras`, MAX_WAIT_FOR_START_MS / 1000, 's — restaurando launcher');
         finish();
       }
     } catch (err) {
-      console.error('[Steam] Error verificando proceso en ejecución:', err);
+      console.error(`[${sourceLabel}] Error verificando proceso en ejecución:`, err);
     }
   }, POLL_MS);
 
@@ -1028,6 +1028,39 @@ function getEpicInstalledGames() {
 
   console.log('[Epic] Juegos instalados encontrados:', games.length);
   return games;
+}
+
+// ── Vigilancia de juegos de Epic lanzados por protocolo ──
+// Igual que con steam://rungameid/..., el Epic Games Launcher es quien
+// gestiona el proceso real del juego, así que resolvemos la carpeta de
+// instalación desde su manifiesto (Data/Manifests/*.item) para poder
+// vigilarla y saber cuándo el juego se cierra.
+function findEpicGameInstallDir(appName) {
+  const manifestsPath = getEpicManifestsPath();
+  if (!fs.existsSync(manifestsPath)) return null;
+
+  try {
+    const files = fs.readdirSync(manifestsPath).filter(f => f.endsWith('.item'));
+    for (const file of files) {
+      try {
+        const filePath = path.join(manifestsPath, file);
+        const manifest = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (
+          manifest.AppName === appName &&
+          manifest.InstallLocation &&
+          fs.existsSync(manifest.InstallLocation)
+        ) {
+          return manifest.InstallLocation;
+        }
+      } catch (e) {
+        console.error('[Epic] Error leyendo manifest:', file, e.message);
+      }
+    }
+  } catch (e) {
+    console.error('[Epic] Error leyendo carpeta de manifests:', e.message);
+  }
+
+  return null;
 }
 
 function getSteamInstallPath() {
@@ -1870,7 +1903,27 @@ app.whenReady().then(() => {
       return { success: true, suspended: true };
     }
 
-    // URLs y protocolos (http://, epic://, etc.)
+    // Caso especial: com.epicgames.launcher://apps/<AppName>?action=launch...
+    // Igual que con Steam, el Epic Games Launcher gestiona el proceso real
+    // del juego, así que resolvemos la carpeta de instalación desde su
+    // manifiesto y la vigilamos para poder suspender/restaurar el launcher
+    // exactamente igual que con los juegos de Steam.
+    const epicRunMatch = executablePath.match(/^com\.epicgames\.launcher:\/\/apps\/([^?]+)\?action=launch/i);
+    if (epicRunMatch) {
+      const epicAppName = decodeURIComponent(epicRunMatch[1]);
+      shell.openExternal(executablePath).catch(console.error);
+
+      const installDir = findEpicGameInstallDir(epicAppName);
+      if (!installDir) {
+        console.warn('[Epic] No se pudo resolver la carpeta de instalación de', epicAppName, '- el launcher no se suspenderá');
+        return { success: true, suspended: false };
+      }
+
+      startSteamGameWatch(id, epicAppName, installDir, 'Epic');
+      return { success: true, suspended: true };
+    }
+
+    // URLs y protocolos (http://, etc.)
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(executablePath)) {
       if (shouldLaunchWebFullscreen(executablePath, appRecord)) {
         setWps5WebMediaHint(appRecord, executablePath);

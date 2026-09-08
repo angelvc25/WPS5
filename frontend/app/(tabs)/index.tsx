@@ -2437,7 +2437,7 @@ export default function ConsoleHome() {
       setDetailVisible(true);
       return;
     }
-    if (launchPath.startsWith('http') || launchPath.startsWith('com.epicgames.launcher://')) {
+    if (launchPath.startsWith('http')) {
       if (Platform.OS === 'web' && (window as any).electronAPI) {
         (window as any).electronAPI.launchApp(targetItem.id, launchPath).then(() => loadApps());
       } else {
