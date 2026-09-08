@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, TextInput, S
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from './AppVideo';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, FadeIn, FadeInDown } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import YoutubePlayer from './YoutubePlayer';

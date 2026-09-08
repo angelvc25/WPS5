@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Image as RNImage, Platform, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from './AppVideo';
 
 interface BackgroundVideoProps {
   source: any;

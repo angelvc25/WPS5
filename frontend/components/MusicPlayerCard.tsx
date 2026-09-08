@@ -25,7 +25,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { Audio, AVPlaybackStatus } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer, type AudioStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -203,7 +203,7 @@ async function importAudioFile(existingCount: number): Promise<RuntimeTrack | nu
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardProps) {
   const { t } = useTranslation();
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<AudioPlayer | null>(null);
   const { nowPlaying } = useSystemMedia();
   const systemActive = Boolean(nowPlaying);
   const systemTarget = getMediaControlTarget(nowPlaying);
@@ -295,7 +295,7 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
 
   useEffect(() => {
     if (!systemActive || !soundRef.current) return;
-    soundRef.current.pauseAsync().catch(() => { });
+    soundRef.current.pause();
     setIsPlaying(false);
   }, [systemActive, nowPlaying?.id]);
 
@@ -307,12 +307,12 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
       setAllTracks([...staticRT, ...userTracks]);
     })();
 
-    Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
     }).catch(() => { });
 
-    return () => { soundRef.current?.unloadAsync().catch(() => { }); };
+    return () => { soundRef.current?.remove(); };
   }, []);
 
   // ── Cargar audio cuando cambia el track ───────────────────────────────────
@@ -324,24 +324,18 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
       setIsLoading(true);
       setPositionMs(0);
       setDurationMs(0);
-      await soundRef.current?.unloadAsync().catch(() => { });
+      soundRef.current?.remove();
       soundRef.current = null;
 
       try {
-        const source = typeof track.source === 'string'
-          ? { uri: track.source }
-          : track.source;
-
-        const { sound } = await Audio.Sound.createAsync(
-          source,
-          { shouldPlay: isPlaying },
-          onStatusUpdate,
-        );
+        const sound = createAudioPlayer(track.source, { updateInterval: 250 });
+        const subscription = sound.addListener('playbackStatusUpdate', onStatusUpdate);
         if (!cancelled) {
           soundRef.current = sound;
-          if (isPlaying) sound.playAsync().catch(() => { });
+          if (isPlaying) sound.play();
         } else {
-          sound.unloadAsync().catch(() => { });
+          subscription.remove();
+          sound.remove();
         }
       } catch (e) {
         console.warn('Error cargando track:', e);
@@ -355,11 +349,11 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackIndex, allTracks, systemActive]);
 
-  const onStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+  const onStatusUpdate = useCallback((status: AudioStatus) => {
     if (!status.isLoaded) return;
-    setPositionMs(status.positionMillis ?? 0);
-    setDurationMs(status.durationMillis ?? 0);
-    setIsPlaying(status.isPlaying);
+    setPositionMs((status.currentTime ?? 0) * 1000);
+    setDurationMs((status.duration ?? 0) * 1000);
+    setIsPlaying(status.playing);
     if (status.didJustFinish) {
       setTrackIndex(i => (i + 1) % allTracks.length);
     }
@@ -374,9 +368,9 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
     if (!soundRef.current) return;
     try {
       if (isPlaying) {
-        await soundRef.current.pauseAsync();
+        soundRef.current.pause();
       } else {
-        await soundRef.current.playAsync();
+        soundRef.current.play();
       }
     } catch (e) {
       console.warn('Cannot play/pause: sound not loaded', e);
@@ -398,7 +392,7 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
     }
     if (positionMs > 3000) {
       try {
-        await soundRef.current?.setPositionAsync(0);
+        await soundRef.current?.seekTo(0);
       } catch (e) {
         console.warn('Cannot set position: sound not loaded', e);
       }

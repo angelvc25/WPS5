@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Modal, TextInput, useWindowDimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Audio, Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/AppVideo';
 import { Image } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, useDerivedValue, useAnimatedRef, measure, withTiming, withDelay, withRepeat, interpolate, Easing, FadeInDown, FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -58,6 +58,7 @@ import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { getSteamAppId } from '@/services/steamLaunchService';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -154,7 +155,7 @@ export default function ConsoleHome() {
   const mainScrollRef = useRef<any>(null);
   const newsScrollRef = useRef<ScrollView>(null);
   const mediaScrollRef = useRef<ScrollView>(null);
-  const focusAudioSoundRef = useRef<Audio.Sound | null>(null);
+  const focusAudioSoundRef = useRef<AudioPlayer | null>(null);
   const focusAudioDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusAudioRequestRef = useRef(0);
   const widgetScrollRef = useRef<ScrollView>(null);
@@ -1378,7 +1379,7 @@ export default function ConsoleHome() {
       const sound = focusAudioSoundRef.current;
       focusAudioSoundRef.current = null;
       if (sound) {
-        try { await sound.unloadAsync(); } catch (_) { }
+        try { sound.remove(); } catch (_) { }
       }
       if (resumeBackground) await soundService.playBackground();
     };
@@ -1394,12 +1395,12 @@ export default function ConsoleHome() {
         const uri = audioPath.startsWith('http') || audioPath.startsWith('local-file://')
           ? audioPath
           : `local-file:///${audioPath.replace(/\\/g, '/')}`;
-        const { sound } = await Audio.Sound.createAsync(
-          { uri },
-          { shouldPlay: true, isLooping: true, volume: 0.8 }
-        );
+        const sound = createAudioPlayer(uri);
+        sound.loop = true;
+        sound.volume = 0.8;
+        sound.play();
         if (focusAudioRequestRef.current !== requestId) {
-          await sound.unloadAsync();
+          sound.remove();
           return;
         }
         focusAudioSoundRef.current = sound;

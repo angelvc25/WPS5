@@ -1,15 +1,15 @@
-import { Audio } from 'expo-av';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 
 class SoundService {
-  private navigationSound: Audio.Sound | null = null;
-  private activationSound: Audio.Sound | null = null;
-  private backgroundSound: Audio.Sound | null = null;
-  private backSound: Audio.Sound | null = null;
-  private tabSound: Audio.Sound | null = null;
-  private startHomeSound: Audio.Sound | null = null;
-  private contextMenuSound: Audio.Sound | null = null;
-  private exitMenuSound: Audio.Sound | null = null;
-  private notificationSound: Audio.Sound | null = null;
+  private navigationSound: AudioPlayer | null = null;
+  private activationSound: AudioPlayer | null = null;
+  private backgroundSound: AudioPlayer | null = null;
+  private backSound: AudioPlayer | null = null;
+  private tabSound: AudioPlayer | null = null;
+  private startHomeSound: AudioPlayer | null = null;
+  private contextMenuSound: AudioPlayer | null = null;
+  private exitMenuSound: AudioPlayer | null = null;
+  private notificationSound: AudioPlayer | null = null;
   private isMuted: boolean = false;
   private isInitialized: boolean = false; // Candado para evitar duplicados
 
@@ -18,54 +18,35 @@ class SoundService {
     if (this.isInitialized) return;
 
     try {
-      const { sound: bgSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/background.mp3'),
-        {
-          isLooping: true,
-          volume: 0.70,
-          shouldPlay: !this.isMuted, // No reproduce de golpe si ya se configuró muteado
-        }
-      );
+      const bgSound = createAudioPlayer(require('@/assets/sounds/background.mp3'));
+      bgSound.loop = true;
+      bgSound.volume = 0.70;
+      bgSound.muted = this.isMuted;
+      if (!this.isMuted) bgSound.play();
       this.backgroundSound = bgSound;
 
-      const { sound: navSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/navigation.mp3')
-      );
+      const navSound = createAudioPlayer(require('@/assets/sounds/navigation.mp3'));
       this.navigationSound = navSound;
 
-      const { sound: actSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/activation.mp3')
-      );
+      const actSound = createAudioPlayer(require('@/assets/sounds/activation.mp3'));
       this.activationSound = actSound;
 
-      const { sound: startHomeSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/openHome.mp3')
-      );
+      const startHomeSound = createAudioPlayer(require('@/assets/sounds/openHome.mp3'));
       this.startHomeSound = startHomeSound;
 
-      const { sound: tabSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/pestaña.mp3')
-      );
+      const tabSound = createAudioPlayer(require('@/assets/sounds/pestaña.mp3'));
       this.tabSound = tabSound;
 
-      const { sound: backSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/back.mp3')
-      );
+      const backSound = createAudioPlayer(require('@/assets/sounds/back.mp3'));
       this.backSound = backSound;
 
-      const { sound: contextMenuSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/openControlCenter.mp3')
-      );
+      const contextMenuSound = createAudioPlayer(require('@/assets/sounds/openControlCenter.mp3'));
       this.contextMenuSound = contextMenuSound;
 
-      const { sound: exitMenuSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/salir.mp3')
-      );
+      const exitMenuSound = createAudioPlayer(require('@/assets/sounds/salir.mp3'));
       this.exitMenuSound = exitMenuSound;
 
-      const { sound: notificationSound } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/notification.mp3')
-      );
+      const notificationSound = createAudioPlayer(require('@/assets/sounds/notification.mp3'));
       this.notificationSound = notificationSound;
 
       this.isInitialized = true;
@@ -76,13 +57,13 @@ class SoundService {
 
   async playNavigation() {
     if (this.isMuted || !this.navigationSound) return;
-    try { await this.navigationSound.replayAsync(); } catch (e) { }
+    try { await this.replay(this.navigationSound); } catch (e) { }
   }
 
   async playBackground() {
     if (this.isMuted || !this.backgroundSound) return;
     try {
-      await this.backgroundSound.playAsync();
+      this.backgroundSound.play();
     } catch (error) {
       // Ignorar error si ya está reproduciendo
     }
@@ -90,34 +71,35 @@ class SoundService {
 
   async playActivation() {
     if (this.isMuted || !this.activationSound) return;
-    try { await this.activationSound.replayAsync(); } catch (e) { }
+    try { await this.replay(this.activationSound); } catch (e) { }
   }
 
   async playContextMenu() {
     if (this.isMuted || !this.contextMenuSound) return;
-    try { await this.contextMenuSound.replayAsync(); } catch (e) { }
+    try { await this.replay(this.contextMenuSound); } catch (e) { }
   }
 
   async playStartHome() {
     if (this.isMuted || !this.startHomeSound) return;
-    try { await this.startHomeSound.replayAsync(); } catch (e) { }
+    try { await this.replay(this.startHomeSound); } catch (e) { }
   }
 
   async playTab() {
     if (this.isMuted || !this.tabSound) return;
-    try { await this.tabSound.replayAsync(); } catch (e) { }
+    try { await this.replay(this.tabSound); } catch (e) { }
   }
 
   async playBack() {
     if (this.isMuted || !this.backSound) return;
-    try { await this.backSound.replayAsync(); } catch (e) { }
+    try { await this.replay(this.backSound); } catch (e) { }
   }
 
   async stopBackground() {
     if (!this.backgroundSound) return;
     try {
       // Usamos un estricto stop de la instancia actual
-      await this.backgroundSound.stopAsync();
+      this.backgroundSound.pause();
+      await this.backgroundSound.seekTo(0);
     } catch (error) {
       console.error('Error stopping background:', error);
     }
@@ -125,17 +107,17 @@ class SoundService {
 
   async pauseBackground() {
     if (!this.backgroundSound) return;
-    try { await this.backgroundSound.pauseAsync(); } catch (_) { }
+    try { this.backgroundSound.pause(); } catch (_) { }
   }
 
   async playExitMenu() {
     if (this.isMuted || !this.exitMenuSound) return;
-    try { await this.exitMenuSound.replayAsync(); } catch (e) { }
+    try { await this.replay(this.exitMenuSound); } catch (e) { }
   }
 
   async playNotification() {
     if (this.isMuted || !this.notificationSound) return;
-    try { await this.notificationSound.replayAsync(); } catch (e) { }
+    try { await this.replay(this.notificationSound); } catch (e) { }
   }
 
   // Ahora es una función asíncrona que cambia el estado real del audio en reproducción
@@ -145,7 +127,7 @@ class SoundService {
     if (this.backgroundSound) {
       try {
         // Mutea directamente la pista de fondo que está corriendo en tiempo real
-        await this.backgroundSound.setIsMutedAsync(muted);
+        this.backgroundSound.muted = muted;
       } catch (error) {
         console.error('Error setting background mute status:', error);
       }
@@ -155,18 +137,15 @@ class SoundService {
   // Opcional: método para liberar memoria si el componente global se desmonta
   async unloadAll() {
     try {
-      if (this.backgroundSound) await this.backgroundSound.unloadAsync();
-      if (this.navigationSound) await this.navigationSound.unloadAsync();
-      if (this.activationSound) await this.activationSound.unloadAsync();
-      if (this.startHomeSound) await this.startHomeSound.unloadAsync();
-      if (this.tabSound) await this.tabSound.unloadAsync();
-      if (this.backSound) await this.backSound.unloadAsync();
-      if (this.contextMenuSound) await this.contextMenuSound.unloadAsync();
-      if (this.exitMenuSound) await this.exitMenuSound.unloadAsync();
-      if (this.notificationSound) await this.notificationSound.unloadAsync();
+      [this.backgroundSound, this.navigationSound, this.activationSound, this.startHomeSound, this.tabSound, this.backSound, this.contextMenuSound, this.exitMenuSound, this.notificationSound].forEach(sound => sound?.remove());
 
       this.isInitialized = false;
     } catch (e) { }
+  }
+
+  private async replay(sound: AudioPlayer) {
+    await sound.seekTo(0);
+    sound.play();
   }
 }
 

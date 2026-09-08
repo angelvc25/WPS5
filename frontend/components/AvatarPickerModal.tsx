@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/AppVideo';
 import Animated, {
   FadeIn,
   FadeOut,

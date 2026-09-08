@@ -24,7 +24,7 @@ import Animated, {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { fetchSteamGridData } from '../services/steamGridService';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from './AppVideo';
 import SpinningBorder from './Spinningborder';
 import SpinningBorderNoticias from './SpinningborderNoticias';
 import SpinningborderDiscover from './SpinningborderDiscover';

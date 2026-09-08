@@ -15,7 +15,6 @@ import {
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { LANGUAGE_OPTIONS, Language } from '@/i18n/translations';
 import { UserProfile } from './UserSelectScreen';

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/AppVideo';
 import ControlPrompt from './ControlPrompt';
 import { soundService } from '../services/soundService';
 import { toastService } from '@/services/toastService';
