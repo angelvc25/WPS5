@@ -540,31 +540,16 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   const startRow = Math.max(0, currentRow - VIRTUALIZATION_BUFFER_ROWS);
   const endRow = Math.min(totalRows - 1, currentRow + visibleRowCount + VIRTUALIZATION_BUFFER_ROWS);
 
-  // ─── Teclado (web) ────────────────────────────────────────────────
-  // Con el panel abierto: flechas arriba/abajo mueven la selección,
-  // Enter/Espacio la activa, Escape cierra el panel. Con el panel
-  // cerrado y el botón de filtro enfocado (prop `filterButtonFocused`,
-  // controlada por el padre igual que `tabsFocused`/`gridActive`):
-  // Enter/Espacio lo abre.
+
+  // Teclado (web) - panel-navigation handled by parent via imperative ref
+  // El padre (index.tsx) maneja la navegacion dentro del panel cuando
+  // esta abierto (via metodos imperativos del ref). Aqui solo capturamos
+  // Enter/Espacio sobre el boton de filtro para abrir el panel.
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isFilterPanelOpen) {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          movePanelFocus('down');
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          movePanelFocus('up');
-        } else if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          activateCurrentPanelRow();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          closeFilterPanel();
-        }
-      } else if (filterButtonFocused && (e.key === 'Enter' || e.key === ' ')) {
+      if (!isFilterPanelOpen && filterButtonFocused && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault();
         openFilterPanel();
       }
@@ -572,13 +557,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFilterPanelOpen, filterButtonFocused, panelRows, panelFocusIndex]);
-
-  // Nota: la navegación por mando (D-Pad, Cross/A, Circle/B, L1/R1) llega
-  // aquí como eventos de teclado sintéticos ya despachados por el
-  // componente padre (ver poll de Gamepad API en index.tsx), así que el
-  // listener de teclado de arriba cubre ambos casos sin necesitar un
-  // segundo polling de la Gamepad API en este componente.
+  }, [isFilterPanelOpen, filterButtonFocused]);
 
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>

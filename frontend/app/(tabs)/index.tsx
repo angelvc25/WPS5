@@ -1591,671 +1591,689 @@ export default function ConsoleHome() {
   // Keyboard navigation always reads the current render state. The listener
   // itself is attached once below, avoiding add/remove work on each change.
   const handleKeyDown = (e: any) => {
-        if (Date.now() - mountTimeRef.current < 400) return;
-        if (!e.fromGamepad) setInputMode('keyboard');
-        if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
-        if (isLaunching) return;
-        if (isDetailVisible || isLibraryDetailVisible) return;
-        if (deleteConfirmItem) return;
-        if (isLibraryFilterPanelOpen) return; // el panel de filtros gestiona su propia navegación
-        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
-        if (isSearchVisible) return;
+    if (Date.now() - mountTimeRef.current < 400) return;
+    if (!e.fromGamepad) setInputMode('keyboard');
+    if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
+    if (isLaunching) return;
+    if (isDetailVisible || isLibraryDetailVisible) return;
+    if (deleteConfirmItem) return;
+    if (isLibraryFilterPanelOpen) {
+      // El panel de filtros está abierto: delegamos la navegación al ref
+      // de LibraryGrid usando los métodos imperativos, igual que el mando.
+      // Así tanto teclado como mando siguen el mismo camino estable.
+      if (e.key === 'ArrowDown') {
+        libraryGridRef.current?.movePanelSelection('down');
+        soundService.playNavigation();
+      } else if (e.key === 'ArrowUp') {
+        libraryGridRef.current?.movePanelSelection('up');
+        soundService.playNavigation();
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        libraryGridRef.current?.activatePanelSelection();
+        soundService.playActivation();
+      } else if (e.key === 'Escape') {
+        libraryGridRef.current?.closeFilterPanel();
+        soundService.playBack();
+      }
+      return;
+    }
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+    if (isSearchVisible) return;
 
-        // Throttle rapid arrow key inputs (key repeats/fast tapping)
-        if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-          const now = Date.now();
-          if (now - lastNavTime.current < 130) {
-            return;
-          }
-          lastNavTime.current = now;
+    // Throttle rapid arrow key inputs (key repeats/fast tapping)
+    if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      const now = Date.now();
+      if (now - lastNavTime.current < 130) {
+        return;
+      }
+      lastNavTime.current = now;
+    }
+
+    // Profile Dropdown Menu Keyboard Navigation
+    if (isProfileMenuOpen) {
+      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+        setIsProfileMenuOpen(false);
+        soundService.playBack();
+      } else if (e.key === 'ArrowDown') {
+        setProfileMenuFocusIndex(prev => Math.min(prev + 1, 4));
+        soundService.playNavigation();
+      } else if (e.key === 'ArrowUp') {
+        setProfileMenuFocusIndex(prev => Math.max(prev - 1, 0));
+        soundService.playNavigation();
+      } else if (e.key === 'Enter') {
+        handleProfileMenuAction(profileMenuFocusIndex);
+        soundService.playActivation();
+      }
+      return;
+    }
+
+    // Toggle Control Center via Home key
+    if (e.key === 'Home') {
+      soundService.playContextMenu();
+      if (focusArea === 'header_user') {
+        setFocusArea('main_carousel');
+        setSystemNavCardExpanded(false);
+      } else {
+        setFocusArea('header_user');
+        setModalSelectedIndex(0);
+        setSystemNavCardIndex(0);
+        setSystemNavLevel(1);
+        setSystemNavCardExpanded(false);
+      }
+      soundService.playNavigation();
+      return;
+    }
+
+    // Triángulo -> Buscar, desde cualquier parte del home
+    if (e.key === 't' || e.key === 'T') {
+      if (
+        !isContextMenuOpen &&
+        !isProfileMenuOpen &&
+        !isAddModalVisible &&
+        !isSettingsVisible &&
+        !isUserModalVisible &&
+        !isFavoritesVisible &&
+        !isRandomSelectorVisible &&
+        focusArea !== 'header_user'
+      ) {
+        soundService.playContextMenu();
+        setFocusArea('header_avatar');
+        setFocusIndex(0);
+        setSearchVisible(true);
+      }
+      return;
+    }
+
+    if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+      soundService.playExitMenu();
+      if (!isContextMenuOpen && !(focusArea === 'header_user')) {
+        setFocusArea('main_carousel');
+      }
+    }
+
+    if (e.key === 'o' || e.key === 'O') {
+      if (!isLaunching) {
+        const willBeVisible = !isAddModalVisible;
+        setAddModalVisible(willBeVisible);
+        if (willBeVisible) { setUserModalVisible(false); setSettingsVisible(false); setFavoritesVisible(false); setHomeBgModalVisible(false); }
+      }
+      return;
+    }
+
+    // 1. Context Menu Keyboard Navigation
+    if (isContextMenuOpen) {
+      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+        setIsContextMenuOpen(false);
+        soundService.playBack();
+      } else if (e.key === 'ArrowDown') {
+        setContextMenuFocusIndex(prev => Math.min(prev + 1, 3)); // ahora hasta el switch
+        soundService.playNavigation();
+      } else if (e.key === 'ArrowUp') {
+        setContextMenuFocusIndex(prev => Math.max(prev - 1, 0));
+        soundService.playNavigation();
+      } else if (e.key === 'Enter') {
+        if (contextMenuFocusIndex === 3) {
+          handleTogglePin(); // no cierra el menú, solo alterna
+        } else {
+          handleContextMenuAction(contextMenuFocusIndex);
         }
+        soundService.playActivation();
+      }
+      return;
+    }
 
-        // Profile Dropdown Menu Keyboard Navigation
-        if (isProfileMenuOpen) {
-          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-            setIsProfileMenuOpen(false);
-            soundService.playBack();
-          } else if (e.key === 'ArrowDown') {
-            setProfileMenuFocusIndex(prev => Math.min(prev + 1, 4));
-            soundService.playNavigation();
-          } else if (e.key === 'ArrowUp') {
-            setProfileMenuFocusIndex(prev => Math.max(prev - 1, 0));
-            soundService.playNavigation();
-          } else if (e.key === 'Enter') {
-            handleProfileMenuAction(profileMenuFocusIndex);
-            soundService.playActivation();
-          }
-          return;
-        }
-
-        // Toggle Control Center via Home key
-        if (e.key === 'Home') {
-          soundService.playContextMenu();
-          if (focusArea === 'header_user') {
-            setFocusArea('main_carousel');
-            setSystemNavCardExpanded(false);
-          } else {
-            setFocusArea('header_user');
-            setModalSelectedIndex(0);
-            setSystemNavCardIndex(0);
-            setSystemNavLevel(1);
-            setSystemNavCardExpanded(false);
-          }
-          soundService.playNavigation();
-          return;
-        }
-
-        // Triángulo -> Buscar, desde cualquier parte del home
-        if (e.key === 't' || e.key === 'T') {
-          if (
-            !isContextMenuOpen &&
-            !isProfileMenuOpen &&
-            !isAddModalVisible &&
-            !isSettingsVisible &&
-            !isUserModalVisible &&
-            !isFavoritesVisible &&
-            !isRandomSelectorVisible &&
-            focusArea !== 'header_user'
-          ) {
-            soundService.playContextMenu();
-            setFocusArea('header_avatar');
-            setFocusIndex(0);
-            setSearchVisible(true);
-          }
-          return;
-        }
-
+    // 2. Floating System Navigation Keyboard Navigation
+    if (focusArea === 'header_user') {
+      if (isFriendsCardOpen) {
         if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-          soundService.playExitMenu();
-          if (!isContextMenuOpen && !(focusArea === 'header_user')) {
-            setFocusArea('main_carousel');
-          }
+          setIsFriendsCardOpen(false);
+          soundService.playBack?.();
         }
+        return;
+      }
+      if (isNotificationsCardOpen) {
+        if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+          setIsNotificationsCardOpen(false);
+          soundService.playBack?.();
+        }
+        return;
+      }
+      if (isSystemNavCardExpanded) {
+        if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+          setSystemNavCardExpanded(false);
+          soundService.playBack();
+        }
+        return;
+      }
 
-        if (e.key === 'o' || e.key === 'O') {
-          if (!isLaunching) {
-            const willBeVisible = !isAddModalVisible;
-            setAddModalVisible(willBeVisible);
-            if (willBeVisible) { setUserModalVisible(false); setSettingsVisible(false); setFavoritesVisible(false); setHomeBgModalVisible(false); }
-          }
-          return;
-        }
-
-        // 1. Context Menu Keyboard Navigation
-        if (isContextMenuOpen) {
-          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-            setIsContextMenuOpen(false);
-            soundService.playBack();
-          } else if (e.key === 'ArrowDown') {
-            setContextMenuFocusIndex(prev => Math.min(prev + 1, 3)); // ahora hasta el switch
-            soundService.playNavigation();
-          } else if (e.key === 'ArrowUp') {
-            setContextMenuFocusIndex(prev => Math.max(prev - 1, 0));
-            soundService.playNavigation();
-          } else if (e.key === 'Enter') {
-            if (contextMenuFocusIndex === 3) {
-              handleTogglePin(); // no cierra el menú, solo alterna
-            } else {
-              handleContextMenuAction(contextMenuFocusIndex);
-            }
-            soundService.playActivation();
-          }
-          return;
-        }
-
-        // 2. Floating System Navigation Keyboard Navigation
-        if (focusArea === 'header_user') {
-          if (isFriendsCardOpen) {
-            if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-              setIsFriendsCardOpen(false);
-              soundService.playBack?.();
-            }
-            return;
-          }
-          if (isNotificationsCardOpen) {
-            if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-              setIsNotificationsCardOpen(false);
-              soundService.playBack?.();
-            }
-            return;
-          }
-          if (isSystemNavCardExpanded) {
-            if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-              setSystemNavCardExpanded(false);
-              soundService.playBack();
-            }
-            return;
-          }
-
-          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-            setFocusArea('main_carousel');
-          } else if (e.key === 'ArrowUp') {
-            if (systemNavLevel === 0) {
-              setSystemNavLevel(1);
-              soundService.playNavigation();
-            }
-          } else if (e.key === 'ArrowDown') {
-            if (systemNavLevel === 1) {
-              setSystemNavLevel(0);
-              soundService.playNavigation();
-            }
-          } else if (e.key === 'ArrowRight') {
-            if (systemNavLevel === 0) {
-              setModalSelectedIndex(prev => Math.min(prev + 1, 10));
-            } else {
-              setSystemNavCardIndex(prev => Math.min(prev + 1, systemNavMaxCardIndex));
-            }
-            soundService.playNavigation();
-          } else if (e.key === 'ArrowLeft') {
-            if (systemNavLevel === 0) {
-              setModalSelectedIndex(prev => Math.max(prev - 1, 0));
-            } else {
-              setSystemNavCardIndex(prev => Math.max(prev - 1, 0));
-            }
-            soundService.playNavigation();
-          } else if (e.key === 'Enter') {
-            if (systemNavLevel === 0) {
-              handleSystemNavAction(modalSelectedIndex);
-            } else {
-              setSystemNavCardExpanded(true);
-              soundService.playActivation?.();
-            }
-          }
-          return;
-        }
-
-        // 3. Option Action Keys (Open Context Menu)
-        if (e.key === 'x' || e.key === 'X' || e.key === 'm' || e.key === 'M' || e.key === 's' || e.key === 'S') {
-          soundService.playContextMenu();
-          if (focusArea === 'main_carousel') {
-            const item = currentData[activeIndex];
-            if (item && item.id !== 'more_library') {
-              openContextMenu();
-            }
-          }
-          return;
-        }
-
-        if (isSettingsVisible) {
-          return;
-        }
-        if (selectedMediaIndex !== null) {
-          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-            setSelectedMediaIndex(null);
-          } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-            setSelectedMediaIndex(prev => prev !== null && prev < steamMedia.length - 1 ? prev + 1 : prev);
-          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-            setSelectedMediaIndex(prev => prev !== null && prev > 0 ? prev - 1 : prev);
-          }
-          return;
-        }
-        if (isAddModalVisible) {
-          if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setAddModalVisible(false);
-          return;
-        }
-        if (isHomeBgModalVisible) return;
-        if (isSearchVisible) return;
-        if (isRandomSelectorVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setRandomSelectorVisible(false); return; }
-        if (isFavoritesVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setFavoritesVisible(false); return; }
-
-        // --- SPATIAL NAVIGATION ---
-        if (e.key === 'ArrowRight') {
+      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+        setFocusArea('main_carousel');
+      } else if (e.key === 'ArrowUp') {
+        if (systemNavLevel === 0) {
+          setSystemNavLevel(1);
           soundService.playNavigation();
-          if (focusArea === 'library_grid') {
-            if (libraryFilterFocused) {
-              // Del botón de filtro hacia la derecha: vuelve al grid, o a las
-              // pestañas si fue ahí donde se dejó el foco antes de entrar al filtro.
-              setLibraryFilterFocused(false);
-              if (libraryFilterFromTabs) setLibraryTabsFocused(true);
-            } else if (libraryTabsFocused) {
-              if (libraryTab !== 'collection') { setLibraryTab('collection'); setLibraryGridFocusIndex(0); }
-            } else {
-              setLibraryGridFocusIndex(prev => Math.min(prev + 1, visibleLibraryGames.length - 1));
-            }
-          }
-          else if (focusArea === 'header_avatar') {
-            if (focusIndex < 2) setFocusIndex(prev => prev + 1);
-          }
-          else if (focusArea === 'main_carousel') { const nextIdx = Math.min(activeIndex + 1, currentData.length - 1); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
-          else if (focusArea === 'header_tabs') {
-            if (focusIndex < TABS.length - 1) {
-              const nextIdx = focusIndex + 1;
-              setFocusIndex(nextIdx);
-            } else {
-              // Último tab → pasar a los iconos de la derecha (buscar)
-              setFocusArea('header_avatar');
-              setFocusIndex(0);
-            }
-          }
-          else if (focusArea === 'game_panel') {
-            if (activeItem?.id === '5') {
-              const storeDeals = storeOffers.filter(o => o.type === 'offer');
-              const storeUpcoming = storeOffers.filter(o => o.type === 'release');
-              if (gamePanelFocusIndex < 10) {
-                // Deals row
-                const nextIdx = Math.min(gamePanelFocusIndex + 1, storeDeals.length - 1);
-                setGamePanelFocusIndex(nextIdx);
-              } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
-                // Upcoming row
-                const nextIdx = Math.min(gamePanelFocusIndex + 1, 10 + storeUpcoming.length - 1);
-                setGamePanelFocusIndex(nextIdx);
-              }
-            } else {
-              if (gamePanelFocusIndex === 0) {
-                setGamePanelFocusIndex(1);
-              } else if (gamePanelFocusIndex === 2) {
-                setGamePanelFocusIndex(3);
-              } else if (gamePanelFocusIndex >= 200) {
-                setGamePanelFocusIndex(prev => Math.min(prev + 1, 200 + achievementCount - 1));
-              } else if (gamePanelFocusIndex >= 100) {
-                setGamePanelFocusIndex(prev => Math.min(prev + 1, 100 + steamMedia.length - 1));
-              } else if (gamePanelFocusIndex >= 4) {
-                const panelItem = currentData[activeIndex];
-                const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
-                if (!(isMediaPanelItem && gamePanelFocusIndex === 4)) {
-                  setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + Math.min(steamNews.length, 8) - 1));
-                }
-              }
-            }
-          }
-          else if (focusArea === 'welcome_widgets') {
-            if (focusIndex < 4) setFocusIndex(prev => prev + 1);
-            else if (focusIndex >= 5 && focusIndex < 9) setFocusIndex(prev => prev + 1);
-          }
-          else if (focusArea === 'welcome_toolbar') {
-            if (toolbarFocusIndex < 3) setToolbarFocusIndex(prev => prev + 1);
-          }
-          return;
         }
-        if (e.key === 'ArrowLeft') {
+      } else if (e.key === 'ArrowDown') {
+        if (systemNavLevel === 1) {
+          setSystemNavLevel(0);
           soundService.playNavigation();
-          if (focusArea === 'library_grid') {
-            if (libraryFilterFocused) {
-              // Ya está en el extremo izquierdo, no hay nada más allá.
-            } else if (libraryTabsFocused) {
-              if (libraryTab !== 'installed') {
-                setLibraryTab('installed');
-                setLibraryGridFocusIndex(0);
-              } else {
-                // Ya en "Installed" (la pestaña más a la izquierda): pasar al botón de filtro.
-                setLibraryTabsFocused(false);
-                setLibraryFilterFromTabs(true);
-                setLibraryFilterFocused(true);
-              }
-            } else if (libraryGridFocusIndex % 5 === 0) {
-              setLibraryFilterFromTabs(false);
-              setLibraryFilterFocused(true);
-            } else {
-              setLibraryGridFocusIndex(prev => Math.max(prev - 1, 0));
-            }
-          }
-          else if (focusArea === 'main_carousel') { const nextIdx = Math.max(activeIndex - 1, 0); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
-          else if (focusArea === 'header_tabs') {
-            const nextIdx = Math.max(focusIndex - 1, 0);
-            setFocusIndex(nextIdx);
-          }
-          else if (focusArea === 'header_avatar') {
-            if (focusIndex > 0) {
-              setFocusIndex(prev => prev - 1);
-            } else {
-              setFocusArea('header_tabs');
-              setFocusIndex(Math.max(TABS.findIndex(tab => tab.id === activeTab), 0));
-            }
-          }
-          else if (focusArea === 'game_panel') {
-            if (activeItem?.id === '5') {
-              if (gamePanelFocusIndex < 10) {
-                // Deals row
-                const nextIdx = Math.max(gamePanelFocusIndex - 1, 0);
-                setGamePanelFocusIndex(nextIdx);
-              } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
-                // Upcoming row
-                const nextIdx = Math.max(gamePanelFocusIndex - 1, 10);
-                setGamePanelFocusIndex(nextIdx);
-              }
-            } else {
-              if (gamePanelFocusIndex === 1) {
-                setGamePanelFocusIndex(0);
-              } else if (gamePanelFocusIndex === 3) {
-                setGamePanelFocusIndex(2);
-              } else if (gamePanelFocusIndex >= 200) {
-                setGamePanelFocusIndex(prev => Math.max(prev - 1, 200));
-              } else if (gamePanelFocusIndex >= 100) {
-                setGamePanelFocusIndex(prev => Math.max(prev - 1, 100));
-              } else if (gamePanelFocusIndex >= 4) {
-                const panelItem = currentData[activeIndex];
-                const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
-                if (!(isMediaPanelItem && gamePanelFocusIndex === 4)) {
-                  setGamePanelFocusIndex(prev => Math.max(prev - 1, 4));
-                }
-              }
-            }
-          }
-          else if (focusArea === 'welcome_widgets') {
-            if (focusIndex > 0 && focusIndex <= 4) setFocusIndex(prev => prev - 1);
-            else if (focusIndex > 5 && focusIndex <= 9) setFocusIndex(prev => prev - 1);
-          }
-          else if (focusArea === 'welcome_toolbar') {
-            if (toolbarFocusIndex > 0) setToolbarFocusIndex(prev => prev - 1);
-          }
-          return;
         }
-        if (e.key === 'ArrowDown') {
-          soundService.playNavigation();
-          if (focusArea === 'library_grid') {
-            if (libraryFilterFocused) {
-              setLibraryFilterFocused(false);
-              setLibraryGridFocusIndex(0);
-            } else if (libraryTabsFocused) {
-              setLibraryTabsFocused(false);
-              setLibraryGridFocusIndex(0);
-            } else {
-              setLibraryGridFocusIndex(prev => Math.min(prev + 5, visibleLibraryGames.length - 1));
+      } else if (e.key === 'ArrowRight') {
+        if (systemNavLevel === 0) {
+          setModalSelectedIndex(prev => Math.min(prev + 1, 10));
+        } else {
+          setSystemNavCardIndex(prev => Math.min(prev + 1, systemNavMaxCardIndex));
+        }
+        soundService.playNavigation();
+      } else if (e.key === 'ArrowLeft') {
+        if (systemNavLevel === 0) {
+          setModalSelectedIndex(prev => Math.max(prev - 1, 0));
+        } else {
+          setSystemNavCardIndex(prev => Math.max(prev - 1, 0));
+        }
+        soundService.playNavigation();
+      } else if (e.key === 'Enter') {
+        if (systemNavLevel === 0) {
+          handleSystemNavAction(modalSelectedIndex);
+        } else {
+          setSystemNavCardExpanded(true);
+          soundService.playActivation?.();
+        }
+      }
+      return;
+    }
+
+    // 3. Option Action Keys (Open Context Menu)
+    if (e.key === 'x' || e.key === 'X' || e.key === 'm' || e.key === 'M' || e.key === 's' || e.key === 'S') {
+      soundService.playContextMenu();
+      if (focusArea === 'main_carousel') {
+        const item = currentData[activeIndex];
+        if (item && item.id !== 'more_library') {
+          openContextMenu();
+        }
+      }
+      return;
+    }
+
+    if (isSettingsVisible) {
+      return;
+    }
+    if (selectedMediaIndex !== null) {
+      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+        setSelectedMediaIndex(null);
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        setSelectedMediaIndex(prev => prev !== null && prev < steamMedia.length - 1 ? prev + 1 : prev);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        setSelectedMediaIndex(prev => prev !== null && prev > 0 ? prev - 1 : prev);
+      }
+      return;
+    }
+    if (isAddModalVisible) {
+      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setAddModalVisible(false);
+      return;
+    }
+    if (isHomeBgModalVisible) return;
+    if (isSearchVisible) return;
+    if (isRandomSelectorVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setRandomSelectorVisible(false); return; }
+    if (isFavoritesVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setFavoritesVisible(false); return; }
+
+    // --- SPATIAL NAVIGATION ---
+    if (e.key === 'ArrowRight') {
+      soundService.playNavigation();
+      if (focusArea === 'library_grid') {
+        if (libraryFilterFocused) {
+          // Del botón de filtro hacia la derecha: vuelve al grid, o a las
+          // pestañas si fue ahí donde se dejó el foco antes de entrar al filtro.
+          setLibraryFilterFocused(false);
+          if (libraryFilterFromTabs) setLibraryTabsFocused(true);
+        } else if (libraryTabsFocused) {
+          if (libraryTab !== 'collection') { setLibraryTab('collection'); setLibraryGridFocusIndex(0); }
+        } else {
+          setLibraryGridFocusIndex(prev => Math.min(prev + 1, visibleLibraryGames.length - 1));
+        }
+      }
+      else if (focusArea === 'header_avatar') {
+        if (focusIndex < 2) setFocusIndex(prev => prev + 1);
+      }
+      else if (focusArea === 'main_carousel') { const nextIdx = Math.min(activeIndex + 1, currentData.length - 1); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
+      else if (focusArea === 'header_tabs') {
+        if (focusIndex < TABS.length - 1) {
+          const nextIdx = focusIndex + 1;
+          setFocusIndex(nextIdx);
+        } else {
+          // Último tab → pasar a los iconos de la derecha (buscar)
+          setFocusArea('header_avatar');
+          setFocusIndex(0);
+        }
+      }
+      else if (focusArea === 'game_panel') {
+        if (activeItem?.id === '5') {
+          const storeDeals = storeOffers.filter(o => o.type === 'offer');
+          const storeUpcoming = storeOffers.filter(o => o.type === 'release');
+          if (gamePanelFocusIndex < 10) {
+            // Deals row
+            const nextIdx = Math.min(gamePanelFocusIndex + 1, storeDeals.length - 1);
+            setGamePanelFocusIndex(nextIdx);
+          } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+            // Upcoming row
+            const nextIdx = Math.min(gamePanelFocusIndex + 1, 10 + storeUpcoming.length - 1);
+            setGamePanelFocusIndex(nextIdx);
+          }
+        } else {
+          if (gamePanelFocusIndex === 0) {
+            setGamePanelFocusIndex(1);
+          } else if (gamePanelFocusIndex === 2) {
+            setGamePanelFocusIndex(3);
+          } else if (gamePanelFocusIndex >= 200) {
+            setGamePanelFocusIndex(prev => Math.min(prev + 1, 200 + achievementCount - 1));
+          } else if (gamePanelFocusIndex >= 100) {
+            setGamePanelFocusIndex(prev => Math.min(prev + 1, 100 + steamMedia.length - 1));
+          } else if (gamePanelFocusIndex >= 4) {
+            const panelItem = currentData[activeIndex];
+            const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
+            if (!(isMediaPanelItem && gamePanelFocusIndex === 4)) {
+              setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + Math.min(steamNews.length, 8) - 1));
             }
           }
-          else if (focusArea === 'header_avatar') {
-            // Bajar desde los iconos globales siempre regresa a Games (inicio)
-            setActiveTab('Games');
-            setActiveIndex(0);
-            setFocusArea('main_carousel');
-            setFocusIndex(0);
+        }
+      }
+      else if (focusArea === 'welcome_widgets') {
+        if (focusIndex < 4) setFocusIndex(prev => prev + 1);
+        else if (focusIndex >= 5 && focusIndex < 9) setFocusIndex(prev => prev + 1);
+      }
+      else if (focusArea === 'welcome_toolbar') {
+        if (toolbarFocusIndex < 3) setToolbarFocusIndex(prev => prev + 1);
+      }
+      return;
+    }
+    if (e.key === 'ArrowLeft') {
+      soundService.playNavigation();
+      if (focusArea === 'library_grid') {
+        if (libraryFilterFocused) {
+          // Ya está en el extremo izquierdo, no hay nada más allá.
+        } else if (libraryTabsFocused) {
+          if (libraryTab !== 'installed') {
+            setLibraryTab('installed');
+            setLibraryGridFocusIndex(0);
+          } else {
+            // Ya en "Installed" (la pestaña más a la izquierda): pasar al botón de filtro.
+            setLibraryTabsFocused(false);
+            setLibraryFilterFromTabs(true);
+            setLibraryFilterFocused(true);
           }
-          else if (focusArea === 'header_tabs') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
-          else if (focusArea === 'main_carousel') {
-            if (activeItem?.id === 'more_library') {
-              setFocusArea('library_grid');
-              setLibraryTabsFocused(true);
-              setLibraryFilterFocused(false);
-              setLibraryGridFocusIndex(0);
-            } else if (activeItem?.id === '1') {
-              setFocusArea('welcome_widgets');
-              setFocusIndex(0);
-            } else if (canPlay) {
-              setFocusArea('game_panel');
+        } else if (libraryGridFocusIndex % 5 === 0) {
+          setLibraryFilterFromTabs(false);
+          setLibraryFilterFocused(true);
+        } else {
+          setLibraryGridFocusIndex(prev => Math.max(prev - 1, 0));
+        }
+      }
+      else if (focusArea === 'main_carousel') { const nextIdx = Math.max(activeIndex - 1, 0); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
+      else if (focusArea === 'header_tabs') {
+        const nextIdx = Math.max(focusIndex - 1, 0);
+        setFocusIndex(nextIdx);
+      }
+      else if (focusArea === 'header_avatar') {
+        if (focusIndex > 0) {
+          setFocusIndex(prev => prev - 1);
+        } else {
+          setFocusArea('header_tabs');
+          setFocusIndex(Math.max(TABS.findIndex(tab => tab.id === activeTab), 0));
+        }
+      }
+      else if (focusArea === 'game_panel') {
+        if (activeItem?.id === '5') {
+          if (gamePanelFocusIndex < 10) {
+            // Deals row
+            const nextIdx = Math.max(gamePanelFocusIndex - 1, 0);
+            setGamePanelFocusIndex(nextIdx);
+          } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+            // Upcoming row
+            const nextIdx = Math.max(gamePanelFocusIndex - 1, 10);
+            setGamePanelFocusIndex(nextIdx);
+          }
+        } else {
+          if (gamePanelFocusIndex === 1) {
+            setGamePanelFocusIndex(0);
+          } else if (gamePanelFocusIndex === 3) {
+            setGamePanelFocusIndex(2);
+          } else if (gamePanelFocusIndex >= 200) {
+            setGamePanelFocusIndex(prev => Math.max(prev - 1, 200));
+          } else if (gamePanelFocusIndex >= 100) {
+            setGamePanelFocusIndex(prev => Math.max(prev - 1, 100));
+          } else if (gamePanelFocusIndex >= 4) {
+            const panelItem = currentData[activeIndex];
+            const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
+            if (!(isMediaPanelItem && gamePanelFocusIndex === 4)) {
+              setGamePanelFocusIndex(prev => Math.max(prev - 1, 4));
+            }
+          }
+        }
+      }
+      else if (focusArea === 'welcome_widgets') {
+        if (focusIndex > 0 && focusIndex <= 4) setFocusIndex(prev => prev - 1);
+        else if (focusIndex > 5 && focusIndex <= 9) setFocusIndex(prev => prev - 1);
+      }
+      else if (focusArea === 'welcome_toolbar') {
+        if (toolbarFocusIndex > 0) setToolbarFocusIndex(prev => prev - 1);
+      }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      soundService.playNavigation();
+      if (focusArea === 'library_grid') {
+        if (libraryFilterFocused) {
+          setLibraryFilterFocused(false);
+          setLibraryGridFocusIndex(0);
+        } else if (libraryTabsFocused) {
+          setLibraryTabsFocused(false);
+          setLibraryGridFocusIndex(0);
+        } else {
+          setLibraryGridFocusIndex(prev => Math.min(prev + 5, visibleLibraryGames.length - 1));
+        }
+      }
+      else if (focusArea === 'header_avatar') {
+        // Bajar desde los iconos globales siempre regresa a Games (inicio)
+        setActiveTab('Games');
+        setActiveIndex(0);
+        setFocusArea('main_carousel');
+        setFocusIndex(0);
+      }
+      else if (focusArea === 'header_tabs') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
+      else if (focusArea === 'main_carousel') {
+        if (activeItem?.id === 'more_library') {
+          setFocusArea('library_grid');
+          setLibraryTabsFocused(true);
+          setLibraryFilterFocused(false);
+          setLibraryGridFocusIndex(0);
+        } else if (activeItem?.id === '1') {
+          setFocusArea('welcome_widgets');
+          setFocusIndex(0);
+        } else if (canPlay) {
+          setFocusArea('game_panel');
+          setGamePanelFocusIndex(0);
+        }
+      }
+      else if (focusArea === 'game_panel') {
+        if (activeItem?.id === '5') {
+          const storeDeals = storeOffers.filter(o => o.type === 'offer');
+          const storeUpcoming = storeOffers.filter(o => o.type === 'release');
+          if (gamePanelFocusIndex < 10) {
+            // Moving down from Deals row
+            if (storeUpcoming.length > 0) {
+              const targetCol = Math.min(gamePanelFocusIndex, storeUpcoming.length - 1);
+              setGamePanelFocusIndex(10 + targetCol);
+            } else {
+              setGamePanelFocusIndex(20);
+            }
+          } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+            // Moving down from Upcoming row to footer
+            setGamePanelFocusIndex(20);
+          }
+        } else {
+          if (gamePanelFocusIndex === 0) {
+            setGamePanelFocusIndex(2);
+          } else if (gamePanelFocusIndex === 1) {
+            setGamePanelFocusIndex(3);
+          } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
+            const panelItem = currentData[activeIndex];
+            const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
+            if (isMediaPanelItem) {
+              setGamePanelFocusIndex(4);
+            } else if (steamMedia.length > 0) {
+              setGamePanelFocusIndex(100);
+            } else if (achievementCount > 0) {
+              setGamePanelFocusIndex(200);
+            } else if (steamNews.length > 0) {
+              setGamePanelFocusIndex(4);
+            }
+          } else if (gamePanelFocusIndex >= 100 && gamePanelFocusIndex < 200) {
+            if (achievementCount > 0) {
+              setGamePanelFocusIndex(200);
+            } else if (steamNews.length > 0) {
+              setGamePanelFocusIndex(4);
+            }
+          } else if (gamePanelFocusIndex >= 200) {
+            if (steamNews.length > 0) {
+              setGamePanelFocusIndex(4);
+            }
+          }
+        }
+      }
+      else if (focusArea === 'welcome_widgets') {
+        if (focusIndex < 5) setFocusIndex(prev => prev + 5);
+      }
+      else if (focusArea === 'welcome_toolbar') {
+        setFocusArea('welcome_widgets');
+        setFocusIndex(0);
+      }
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      soundService.playNavigation();
+      if (focusArea === 'library_grid') {
+        if (libraryFilterFocused) {
+          setFocusArea('main_carousel');
+          setLibraryFilterFocused(false);
+        } else if (libraryTabsFocused) {
+          setFocusArea('main_carousel');
+          setLibraryTabsFocused(false);
+        } else if (libraryGridFocusIndex < 5) {
+          setLibraryTabsFocused(true);
+        } else {
+          setLibraryGridFocusIndex(prev => Math.max(prev - 5, 0));
+        }
+      }
+      else if (focusArea === 'game_panel') {
+        if (activeItem?.id === '5') {
+          const storeDeals = storeOffers.filter(o => o.type === 'offer');
+          const storeUpcoming = storeOffers.filter(o => o.type === 'release');
+          if (gamePanelFocusIndex === 20) {
+            if (storeUpcoming.length > 0) {
+              setGamePanelFocusIndex(10);
+            } else {
               setGamePanelFocusIndex(0);
             }
-          }
-          else if (focusArea === 'game_panel') {
-            if (activeItem?.id === '5') {
-              const storeDeals = storeOffers.filter(o => o.type === 'offer');
-              const storeUpcoming = storeOffers.filter(o => o.type === 'release');
-              if (gamePanelFocusIndex < 10) {
-                // Moving down from Deals row
-                if (storeUpcoming.length > 0) {
-                  const targetCol = Math.min(gamePanelFocusIndex, storeUpcoming.length - 1);
-                  setGamePanelFocusIndex(10 + targetCol);
-                } else {
-                  setGamePanelFocusIndex(20);
-                }
-              } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
-                // Moving down from Upcoming row to footer
-                setGamePanelFocusIndex(20);
-              }
-            } else {
-              if (gamePanelFocusIndex === 0) {
-                setGamePanelFocusIndex(2);
-              } else if (gamePanelFocusIndex === 1) {
-                setGamePanelFocusIndex(3);
-              } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
-                const panelItem = currentData[activeIndex];
-                const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
-                if (isMediaPanelItem) {
-                  setGamePanelFocusIndex(4);
-                } else if (steamMedia.length > 0) {
-                  setGamePanelFocusIndex(100);
-                } else if (achievementCount > 0) {
-                  setGamePanelFocusIndex(200);
-                } else if (steamNews.length > 0) {
-                  setGamePanelFocusIndex(4);
-                }
-              } else if (gamePanelFocusIndex >= 100 && gamePanelFocusIndex < 200) {
-                if (achievementCount > 0) {
-                  setGamePanelFocusIndex(200);
-                } else if (steamNews.length > 0) {
-                  setGamePanelFocusIndex(4);
-                }
-              } else if (gamePanelFocusIndex >= 200) {
-                if (steamNews.length > 0) {
-                  setGamePanelFocusIndex(4);
-                }
-              }
-            }
-          }
-          else if (focusArea === 'welcome_widgets') {
-            if (focusIndex < 5) setFocusIndex(prev => prev + 5);
-          }
-          else if (focusArea === 'welcome_toolbar') {
-            setFocusArea('welcome_widgets');
-            setFocusIndex(0);
-          }
-          return;
-        }
-        if (e.key === 'ArrowUp') {
-          soundService.playNavigation();
-          if (focusArea === 'library_grid') {
-            if (libraryFilterFocused) {
-              setFocusArea('main_carousel');
-              setLibraryFilterFocused(false);
-            } else if (libraryTabsFocused) {
-              setFocusArea('main_carousel');
-              setLibraryTabsFocused(false);
-            } else if (libraryGridFocusIndex < 5) {
-              setLibraryTabsFocused(true);
-            } else {
-              setLibraryGridFocusIndex(prev => Math.max(prev - 5, 0));
-            }
-          }
-          else if (focusArea === 'game_panel') {
-            if (activeItem?.id === '5') {
-              const storeDeals = storeOffers.filter(o => o.type === 'offer');
-              const storeUpcoming = storeOffers.filter(o => o.type === 'release');
-              if (gamePanelFocusIndex === 20) {
-                if (storeUpcoming.length > 0) {
-                  setGamePanelFocusIndex(10);
-                } else {
-                  setGamePanelFocusIndex(0);
-                }
-              } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
-                const col = gamePanelFocusIndex - 10;
-                const targetCol = Math.min(col, storeDeals.length - 1);
-                setGamePanelFocusIndex(targetCol);
-              } else if (gamePanelFocusIndex < 10) {
-                setFocusArea('main_carousel');
-                setFocusIndex(activeIndex);
-              }
-            } else {
-              if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
-                setFocusArea('main_carousel');
-                setFocusIndex(activeIndex);
-              } else if (gamePanelFocusIndex === 2) {
-                setGamePanelFocusIndex(0);
-              } else if (gamePanelFocusIndex === 3) {
-                setGamePanelFocusIndex(1);
-              } else if (gamePanelFocusIndex >= 200) {
-                setGamePanelFocusIndex(steamMedia.length > 0 ? 100 : 2);
-              } else if (gamePanelFocusIndex >= 100) {
-                setGamePanelFocusIndex(2);
-              } else if (gamePanelFocusIndex >= 4) {
-                const panelItem = currentData[activeIndex];
-                const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
-                if (isMediaPanelItem && gamePanelFocusIndex === 4) {
-                  setGamePanelFocusIndex(2);
-                } else if (achievementCount > 0) {
-                  setGamePanelFocusIndex(200);
-                } else if (steamMedia.length > 0) {
-                  setGamePanelFocusIndex(100);
-                } else {
-                  const newsIndex = gamePanelFocusIndex - 4;
-                  setGamePanelFocusIndex(newsIndex % 2 === 0 ? 2 : 3);
-                }
-              }
-            }
-          }
-          else if (focusArea === 'main_carousel') { setFocusArea('header_tabs'); setFocusIndex(TABS.findIndex(tab => tab.id === activeTab)); }
-          else if (focusArea === 'header_tabs') { setFocusArea('header_avatar'); setFocusIndex(0); }
-          else if (focusArea === 'welcome_widgets') {
-            if (focusIndex >= 5) {
-              setFocusIndex(prev => prev - 5);
-            } else {
-              setFocusArea('welcome_toolbar');
-              setToolbarFocusIndex(2);
-            }
-          }
-          else if (focusArea === 'welcome_toolbar') {
+          } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+            const col = gamePanelFocusIndex - 10;
+            const targetCol = Math.min(col, storeDeals.length - 1);
+            setGamePanelFocusIndex(targetCol);
+          } else if (gamePanelFocusIndex < 10) {
             setFocusArea('main_carousel');
             setFocusIndex(activeIndex);
           }
-          return;
-        }
-        if (e.key === 'Enter') {
-          soundService.playActivation();
-          if (focusArea === 'header_tabs') {
-            setActiveTab(TABS[focusIndex].id);
-            setActiveIndex(0);
+        } else {
+          if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
             setFocusArea('main_carousel');
-            return;
-          }
-          if (focusArea === 'header_avatar') {
-            if (focusIndex === 0) {
-              setSearchVisible(true);
-            } else if (focusIndex === 1) {
-              setUserModalVisible(false);
-              setSettingsVisible(true);
-            } else if (focusIndex === 2) {
-              setIsProfileMenuOpen(true);
-              setProfileMenuFocusIndex(0);
-            }
-            return;
-          }
-          if (focusArea === 'library_grid') {
-            if (libraryFilterFocused) {
-              libraryGridRef.current?.activateFilterButton();
-              return;
-            }
-            if (libraryTabsFocused) { return; } // usa ←/→ para cambiar de pestaña
-            const game = visibleLibraryGames[libraryGridFocusIndex];
-            if (game) { setSelectedItem(game); setDetailVisible(true); }
-            return;
-          }
-          if (focusArea === 'game_panel') {
-            if (activeItem?.id === '5') {
-              const storeDeals = storeOffers.filter(o => o.type === 'offer');
-              const storeUpcoming = storeOffers.filter(o => o.type === 'release');
-              if (gamePanelFocusIndex < 10) {
-                const deal = storeDeals[gamePanelFocusIndex];
-                if (deal && deal.url) {
-                  Linking.openURL(deal.url);
-                }
-              } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
-                const item = storeUpcoming[gamePanelFocusIndex - 10];
-                if (item && item.url) {
-                  Linking.openURL(item.url);
-                }
-              } else if (gamePanelFocusIndex === 20) {
-                Linking.openURL('https://store.playstation.com');
-              }
+            setFocusIndex(activeIndex);
+          } else if (gamePanelFocusIndex === 2) {
+            setGamePanelFocusIndex(0);
+          } else if (gamePanelFocusIndex === 3) {
+            setGamePanelFocusIndex(1);
+          } else if (gamePanelFocusIndex >= 200) {
+            setGamePanelFocusIndex(steamMedia.length > 0 ? 100 : 2);
+          } else if (gamePanelFocusIndex >= 100) {
+            setGamePanelFocusIndex(2);
+          } else if (gamePanelFocusIndex >= 4) {
+            const panelItem = currentData[activeIndex];
+            const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
+            if (isMediaPanelItem && gamePanelFocusIndex === 4) {
+              setGamePanelFocusIndex(2);
+            } else if (achievementCount > 0) {
+              setGamePanelFocusIndex(200);
+            } else if (steamMedia.length > 0) {
+              setGamePanelFocusIndex(100);
             } else {
-              if (gamePanelFocusIndex === 0) {
-                if (activeItem) { handleLaunchApp(activeItem); }
-              } else if (gamePanelFocusIndex === 1) {
-                if (activeItem) {
-                  const target = activeItem.isLastPlayed ? lastPlayedGame : activeItem;
-                  if (target) {
-                    setSelectedItem(target);
-                    setDetailVisible(true);
-                  } else {
-                    alert('Aún no has jugado a ningún juego.');
-                  }
-                }
-              } else if (gamePanelFocusIndex >= 200) {
-                // Los logros son una fila de navegación; Enter no abre una vista adicional.
-              } else if (gamePanelFocusIndex >= 100) {
-                const mediaItem = steamMedia[gamePanelFocusIndex - 100];
-                if (mediaItem) {
-                  setSelectedMediaIndex(gamePanelFocusIndex - 100);
-                }
-              } else if (gamePanelFocusIndex === 4) {
-                const panelItem = currentData[activeIndex];
-                const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
-                if (!isMediaPanelItem) {
-                  const newsItem = steamNews[gamePanelFocusIndex - 4];
-                  if (newsItem && newsItem.url) {
-                    Linking.openURL(newsItem.url);
-                  }
-                }
-              } else if (gamePanelFocusIndex > 4) {
-                const newsItem = steamNews[gamePanelFocusIndex - 4];
-                if (newsItem && newsItem.url) {
-                  Linking.openURL(newsItem.url);
-                }
-              }
-            }
-            return;
-          }
-          if (focusArea === 'welcome_toolbar') {
-            if (toolbarFocusIndex === 2) setHomeBgModalVisible(true);
-            else if (toolbarFocusIndex === 3) setSettingsVisible(true);
-            return;
-          }
-          if (focusArea === 'welcome_widgets') {
-            if (focusIndex === 2) {
-              Linking.openURL('https://store.playstation.com');
-            } else if (focusIndex === 4) {
-              setAddModalVisible(true);
-            } else if (focusIndex === 5 && lastPlayedGame) {
-              handleLaunchApp(lastPlayedGame);
-            } else if (focusIndex === 6) {
-              // Dispara la misma acción que el clic del widget (lanzar el mismo
-              // juego que el amigo destacado está jugando, o abrir su perfil).
-              welcomeWidgetsRef.current?.triggerFriendAction();
-            } else if (focusIndex === 8) {
-              setRandomSelectorVisible(true);
-            } else if (focusIndex === 9) {
-              setHomeBgModalVisible(true);
-            }
-            return;
-          }
-          if (focusArea === 'main_carousel') {
-            const item = currentData[activeIndex];
-            if (item) {
-              if (item.id === 'more_library') return;
-              if (item.isFolder || item.isGrid) { setFavoritesVisible(true); return; }
-              if (activeTab === 'Games' && activeIndex === 0) { setHomeBgModalVisible(true); return; }
-              if (item.isLastPlayed) {
-                if (lastPlayedGame) { handleLaunchApp(lastPlayedGame); }
-                else alert('Aún no has jugado a ningún juego.');
-              } else { handleLaunchApp(item); }
+              const newsIndex = gamePanelFocusIndex - 4;
+              setGamePanelFocusIndex(newsIndex % 2 === 0 ? 2 : 3);
             }
           }
+        }
+      }
+      else if (focusArea === 'main_carousel') { setFocusArea('header_tabs'); setFocusIndex(TABS.findIndex(tab => tab.id === activeTab)); }
+      else if (focusArea === 'header_tabs') { setFocusArea('header_avatar'); setFocusIndex(0); }
+      else if (focusArea === 'welcome_widgets') {
+        if (focusIndex >= 5) {
+          setFocusIndex(prev => prev - 5);
+        } else {
+          setFocusArea('welcome_toolbar');
+          setToolbarFocusIndex(2);
+        }
+      }
+      else if (focusArea === 'welcome_toolbar') {
+        setFocusArea('main_carousel');
+        setFocusIndex(activeIndex);
+      }
+      return;
+    }
+    if (e.key === 'Enter') {
+      soundService.playActivation();
+      if (focusArea === 'header_tabs') {
+        setActiveTab(TABS[focusIndex].id);
+        setActiveIndex(0);
+        setFocusArea('main_carousel');
+        return;
+      }
+      if (focusArea === 'header_avatar') {
+        if (focusIndex === 0) {
+          setSearchVisible(true);
+        } else if (focusIndex === 1) {
+          setUserModalVisible(false);
+          setSettingsVisible(true);
+        } else if (focusIndex === 2) {
+          setIsProfileMenuOpen(true);
+          setProfileMenuFocusIndex(0);
+        }
+        return;
+      }
+      if (focusArea === 'library_grid') {
+        if (libraryFilterFocused) {
+          libraryGridRef.current?.activateFilterButton();
           return;
         }
-        if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
-          if (focusArea === 'library_grid') {
-            // Dentro de la biblioteca, L1/R1 alterna Installed ⇄ Your Collection
-            // en vez de cambiar la pestaña global Games/Media.
-            soundService.playTab();
-            setLibraryTab(prev => (prev === 'installed' ? 'collection' : 'installed'));
-            setLibraryGridFocusIndex(0);
-            setLibraryTabsFocused(false);
-            setLibraryFilterFocused(false);
-            return;
-          }
-          soundService.playTab();
-          const direction = (e.key === 'q' || e.key === 'Q') ? -1 : 1;
-          setActiveTab(prev => {
-            const idx = TABS.findIndex(t => t.id === prev);
-            const nextIdx = idx + direction;
-            if (nextIdx >= 0 && nextIdx < TABS.length) {
-              setActiveIndex(0);
-              if (focusArea === 'header_tabs') setFocusIndex(nextIdx);
-              return TABS[nextIdx].id;
+        if (libraryTabsFocused) { return; } // usa ←/→ para cambiar de pestaña
+        const game = visibleLibraryGames[libraryGridFocusIndex];
+        if (game) { setSelectedItem(game); setDetailVisible(true); }
+        return;
+      }
+      if (focusArea === 'game_panel') {
+        if (activeItem?.id === '5') {
+          const storeDeals = storeOffers.filter(o => o.type === 'offer');
+          const storeUpcoming = storeOffers.filter(o => o.type === 'release');
+          if (gamePanelFocusIndex < 10) {
+            const deal = storeDeals[gamePanelFocusIndex];
+            if (deal && deal.url) {
+              Linking.openURL(deal.url);
             }
-            return prev;
-          });
+          } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+            const item = storeUpcoming[gamePanelFocusIndex - 10];
+            if (item && item.url) {
+              Linking.openURL(item.url);
+            }
+          } else if (gamePanelFocusIndex === 20) {
+            Linking.openURL('https://store.playstation.com');
+          }
+        } else {
+          if (gamePanelFocusIndex === 0) {
+            if (activeItem) { handleLaunchApp(activeItem); }
+          } else if (gamePanelFocusIndex === 1) {
+            if (activeItem) {
+              const target = activeItem.isLastPlayed ? lastPlayedGame : activeItem;
+              if (target) {
+                setSelectedItem(target);
+                setDetailVisible(true);
+              } else {
+                alert('Aún no has jugado a ningún juego.');
+              }
+            }
+          } else if (gamePanelFocusIndex >= 200) {
+            // Los logros son una fila de navegación; Enter no abre una vista adicional.
+          } else if (gamePanelFocusIndex >= 100) {
+            const mediaItem = steamMedia[gamePanelFocusIndex - 100];
+            if (mediaItem) {
+              setSelectedMediaIndex(gamePanelFocusIndex - 100);
+            }
+          } else if (gamePanelFocusIndex === 4) {
+            const panelItem = currentData[activeIndex];
+            const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
+            if (!isMediaPanelItem) {
+              const newsItem = steamNews[gamePanelFocusIndex - 4];
+              if (newsItem && newsItem.url) {
+                Linking.openURL(newsItem.url);
+              }
+            }
+          } else if (gamePanelFocusIndex > 4) {
+            const newsItem = steamNews[gamePanelFocusIndex - 4];
+            if (newsItem && newsItem.url) {
+              Linking.openURL(newsItem.url);
+            }
+          }
         }
-        if (e.key === 'b' || e.key === 'B' || e.key === 'Escape') {
-          soundService.playBack();
+        return;
+      }
+      if (focusArea === 'welcome_toolbar') {
+        if (toolbarFocusIndex === 2) setHomeBgModalVisible(true);
+        else if (toolbarFocusIndex === 3) setSettingsVisible(true);
+        return;
+      }
+      if (focusArea === 'welcome_widgets') {
+        if (focusIndex === 2) {
+          Linking.openURL('https://store.playstation.com');
+        } else if (focusIndex === 4) {
+          setAddModalVisible(true);
+        } else if (focusIndex === 5 && lastPlayedGame) {
+          handleLaunchApp(lastPlayedGame);
+        } else if (focusIndex === 6) {
+          // Dispara la misma acción que el clic del widget (lanzar el mismo
+          // juego que el amigo destacado está jugando, o abrir su perfil).
+          welcomeWidgetsRef.current?.triggerFriendAction();
+        } else if (focusIndex === 8) {
+          setRandomSelectorVisible(true);
+        } else if (focusIndex === 9) {
+          setHomeBgModalVisible(true);
         }
+        return;
+      }
+      if (focusArea === 'main_carousel') {
+        const item = currentData[activeIndex];
+        if (item) {
+          if (item.id === 'more_library') return;
+          if (item.isFolder || item.isGrid) { setFavoritesVisible(true); return; }
+          if (activeTab === 'Games' && activeIndex === 0) { setHomeBgModalVisible(true); return; }
+          if (item.isLastPlayed) {
+            if (lastPlayedGame) { handleLaunchApp(lastPlayedGame); }
+            else alert('Aún no has jugado a ningún juego.');
+          } else { handleLaunchApp(item); }
+        }
+      }
+      return;
+    }
+    if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
+      if (focusArea === 'library_grid') {
+        // Dentro de la biblioteca, L1/R1 alterna Installed ⇄ Your Collection
+        // en vez de cambiar la pestaña global Games/Media.
+        soundService.playTab();
+        setLibraryTab(prev => (prev === 'installed' ? 'collection' : 'installed'));
+        setLibraryGridFocusIndex(0);
+        setLibraryTabsFocused(false);
+        setLibraryFilterFocused(false);
+        return;
+      }
+      soundService.playTab();
+      const direction = (e.key === 'q' || e.key === 'Q') ? -1 : 1;
+      setActiveTab(prev => {
+        const idx = TABS.findIndex(t => t.id === prev);
+        const nextIdx = idx + direction;
+        if (nextIdx >= 0 && nextIdx < TABS.length) {
+          setActiveIndex(0);
+          if (focusArea === 'header_tabs') setFocusIndex(nextIdx);
+          return TABS[nextIdx].id;
+        }
+        return prev;
+      });
+    }
+    if (e.key === 'b' || e.key === 'B' || e.key === 'Escape') {
+      soundService.playBack();
+    }
   };
   const keyboardHandlerRef = useRef(handleKeyDown);
   keyboardHandlerRef.current = handleKeyDown;
