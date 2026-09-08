@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Image as RNImage, Platform, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
 
@@ -15,7 +15,7 @@ interface BackgroundVideoProps {
 function resolveVideoSource(source: any) {
   if (!source) return undefined;
   if (typeof source === 'number') {
-    return Image.resolveAssetSource(source)?.uri;
+    return RNImage.resolveAssetSource(source)?.uri;
   }
   if (typeof source === 'string') return source;
   if (typeof source === 'object' && 'uri' in source && typeof source.uri === 'string') {

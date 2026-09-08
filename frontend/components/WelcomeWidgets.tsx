@@ -293,6 +293,10 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
         fontSize: s(14),
         marginTop: 1,
       },
+      textStack: {
+        flex: 1,
+        justifyContent: 'center',
+      },
       widgetBadge: {
         color: 'rgba(224, 224, 224, 1)',
         fontFamily: 'SSTMedium',

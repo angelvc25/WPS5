@@ -63,7 +63,6 @@ const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
   { id: 'Media', labelKey: 'tabs.media' },
 ];
-var Wview: string = 'block';
 
 export interface ConsoleItem {
   id: string;

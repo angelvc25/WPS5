@@ -304,7 +304,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       }
     };
 
-    let wheelTimeout: NodeJS.Timeout | null = null;
+    let wheelTimeout: ReturnType<typeof setTimeout> | null = null;
     const handleWheel = (e: WheelEvent) => {
       if (wheelTimeout) return;
 

@@ -142,7 +142,7 @@ export const fetchSteamGameAchievements = async (
     const percentageByApiName = new Map<string, number>(
       (percentagesData?.achievementpercentages?.achievements ?? [])
         .map((achievement: { name: string; percent: number | string }) => [achievement.name, Number(achievement.percent)] as const)
-        .filter(([, percentage]) => Number.isFinite(percentage))
+        .filter(([, percentage]: readonly [string, number]) => Number.isFinite(percentage))
     );
     const rarityCounts: SteamGameAchievementsSummary['rarityCounts'] = { platinum: 0, gold: 0, silver: 0, bronze: 0 };
     const achievements = schemaAchievements.map((schemaAchievement) => {

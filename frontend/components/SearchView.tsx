@@ -597,7 +597,7 @@ const SearchView: React.FC<SearchViewProps> = ({
       borderWidth: 2,
       borderColor: 'transparent',
     },
-    //searchBarFocused: { borderColor: 'rgba(255,255,255,0.35)' },
+    searchBarFocused: { borderColor: 'rgba(255,255,255,0.35)' },
     searchSpinnerWrap: {
       width: s(28),
       height: s(28),
@@ -795,7 +795,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                         </View>
                       )}
                       <Text style={ui.subTitle}>{sub.title}</Text>
-                      <Text style={[ui.subTitle, { fontSize: s(13), opacity: 0.6, marginTop: -s(2) }]}>{t(sub.subtitleKey)}</Text>
+                      <Text style={[ui.subTitle, { fontSize: s(13), opacity: 0.6, marginTop: -s(2) }]}>{t(sub.subtitleKey as 'search.subscription')}</Text>
                     </TouchableOpacity>
                   );
                 })}

@@ -66,4 +66,6 @@ export const AnimatedCardWrapper = React.memo(({
   );
 });
 
+AnimatedCardWrapper.displayName = 'AnimatedCardWrapper';
+
 export default AnimatedCardWrapper;

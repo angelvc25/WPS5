@@ -1890,7 +1890,7 @@ const NEWS_ITEMS = [
   },
 ];
 
-const getDiscoverCategories = (t: (key: string) => string) => [
+const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
   {
     id: 'easy',
     title: t('cc.easyToUse'),

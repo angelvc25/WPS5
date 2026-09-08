@@ -56,15 +56,6 @@ export const ConsoleCarousel = ({
   collapseAnim,
   downloadsByAppId,
 }: ConsoleCarouselProps) => {
-  if (currentData.length === 0) {
-    return (
-      <View style={styles.mediaEmptyContainer}>
-        <Ionicons name="film-outline" size={80} color="rgba(255,255,255,0.15)" />
-        <Text style={styles.mediaEmptyText}>No hay aplicaciones de multimedia</Text>
-      </View>
-    );
-  }
-
   const { t, language } = useTranslation();
 
   const activeImageStyle = useAnimatedStyle(() => {
@@ -78,6 +69,15 @@ export const ConsoleCarousel = ({
       opacity: 1,
     };
   });
+
+  if (currentData.length === 0) {
+    return (
+      <View style={styles.mediaEmptyContainer}>
+        <Ionicons name="film-outline" size={80} color="rgba(255,255,255,0.15)" />
+        <Text style={styles.mediaEmptyText}>No hay aplicaciones de multimedia</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
