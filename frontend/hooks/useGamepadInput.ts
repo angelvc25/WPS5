@@ -26,7 +26,8 @@ export function useGamepadInput({
   callbacksRef.current = { onInputModeChange, onGamepadChange, onConnected };
   const previousButtonsRef = useRef<boolean[]>(new Array(16).fill(false));
   const previousAxesRef = useRef([0, 0, 0, 0]);
-  const lastGamepadIdRef = useRef<string | null>(null);
+  const lastGamepadIdRef = useRef<string | null>(null)
+  //const preferredGamepadIdRef = useRef<string | null>(null);;
   const isFirstPollRef = useRef(true);
 
   useEffect(() => {
@@ -44,6 +45,14 @@ export function useGamepadInput({
     const poll = () => {
       const gamepad = navigator.getGamepads?.()[0];
 
+      // // DualSense no siempre ocupa el índice 0: Steam y los emuladores pueden
+      // // reservar esa posición para un dispositivo virtual o desconectado.
+      // const connectedGamepads = Array.from(navigator.getGamepads?.() ?? [])
+      //   .filter((candidate): candidate is Gamepad => Boolean(candidate?.connected));
+      // const gamepad =
+      //   connectedGamepads.find((candidate) => candidate.id === preferredGamepadIdRef.current) ??
+      //   connectedGamepads[0];
+
       if (!gamepad) {
         if (lastGamepadIdRef.current !== null) {
           lastGamepadIdRef.current = null;
@@ -53,6 +62,13 @@ export function useGamepadInput({
         schedulePoll();
         return;
       }
+
+      // // Steam puede añadir un mando virtual antes del DualSense. Una vez que
+      // // el launcher ha identificado el mando físico, se conserva esa elección
+      // // mientras siga disponible.
+      // if (preferredGamepadIdRef.current === null) {
+      //   preferredGamepadIdRef.current = gamepad.id;
+      // }
 
       if (isFirstPollRef.current) {
         isFirstPollRef.current = false;
