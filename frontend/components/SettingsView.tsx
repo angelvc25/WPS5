@@ -1,29 +1,27 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  Platform,
-  Linking,
-  Dimensions,
-  Alert,
-  useWindowDimensions,
-} from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import { PSIcons } from '@/constants/psIcons';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { LANGUAGE_OPTIONS, Language } from '@/i18n/translations';
-import { UserProfile } from './UserSelectScreen';
 import { soundService } from '@/services/soundService';
-import ControlPrompt from './ControlPrompt';
-import PSIcon from './PSIcon';
-import { PSIcons } from '@/constants/psIcons';
-import BackgroundVideo from './BackgroundVideo';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Dimensions,
+    Linking,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+    useWindowDimensions
+} from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { toastService } from '../services/toastService';
+import BackgroundVideo from './BackgroundVideo';
+import PSIcon from './PSIcon';
+import { UserProfile } from './UserSelectScreen';
 
 function compareVersions(a: string, b: string): number {
   const aParts = a.split('.').map(Number);
@@ -88,6 +86,7 @@ interface SettingsViewProps {
   onOpenBgModal: () => void;
   onSelectWallpaperFolder: () => void;
   onSelectCaptureFolder: () => void;
+  onSelectRpcs3Folder: () => void;
   onOpenAvatarModal?: () => void;
   onSelectAvatarFolder?: () => void;
   initialScreen?: SettingsScreenType;
@@ -107,6 +106,7 @@ export default function SettingsView({
   onOpenBgModal,
   onSelectWallpaperFolder,
   onSelectCaptureFolder,
+  onSelectRpcs3Folder,
   onOpenAvatarModal,
   onSelectAvatarFolder,
   initialScreen = 'main',
@@ -279,7 +279,8 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 1) {
       const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
       const hasCapturePath = !!activeUser?.settings?.capturePath;
-      const count = 2 + (hasWallpaperPath ? 1 : 0) + 1 + (hasCapturePath ? 1 : 0);
+      const hasRpcs3Path = !!(activeUser?.settings as any)?.rpcs3Path;
+      const count = 2 + (hasWallpaperPath ? 1 : 0) + 1 + (hasCapturePath ? 1 : 0) + 1 + (hasRpcs3Path ? 1 : 0);
       return Math.max(0, count - 1);
     }
     if (accessibilityLeftIndex === 2) {
@@ -315,6 +316,7 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 1) {
       const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
       const hasCapturePath = !!activeUser?.settings?.capturePath;
+      const hasRpcs3Path = !!(activeUser?.settings as any)?.rpcs3Path;
       let idx = 0;
 
       if (subFocusIndex === idx) {
@@ -347,6 +349,20 @@ export default function SettingsView({
       if (hasCapturePath) {
         if (subFocusIndex === idx) {
           updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any });
+          return;
+        }
+        idx++;
+      }
+
+      if (subFocusIndex === idx) {
+        onSelectRpcs3Folder();
+        return;
+      }
+      idx++;
+
+      if (hasRpcs3Path) {
+        if (subFocusIndex === idx) {
+          updateUser({ settings: { ...activeUser?.settings, rpcs3Path: '' } as any });
           return;
         }
         idx++;
@@ -929,12 +945,15 @@ export default function SettingsView({
             {accessibilityLeftIndex === 1 && (() => {
               const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
               const hasCapturePath = !!activeUser?.settings?.capturePath;
+              const hasRpcs3Path = !!(activeUser?.settings as any)?.rpcs3Path;
               let wpIdx = 0;
               const chooseWallpaperIdx = wpIdx++;
               const selectWallpaperFolderIdx = wpIdx++;
               const restoreWallpaperIdx = hasWallpaperPath ? wpIdx++ : -1;
               const selectCaptureFolderIdx = wpIdx++;
               const restoreCaptureIdx = hasCapturePath ? wpIdx++ : -1;
+              const selectRpcs3FolderIdx = wpIdx++;
+              const restoreRpcs3Idx = hasRpcs3Path ? wpIdx++ : -1;
               const isRightFocused = accessibilityFocusArea === 'right';
 
               return (
@@ -1029,6 +1048,48 @@ export default function SettingsView({
                           onPress={() =>
                             updateUser({
                               settings: { ...activeUser?.settings, capturePath: '' } as any,
+                            })
+                          }
+                        >
+                          <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
+                          <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
+                            {t('settings.restoreDefault')}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+
+                  {/* RPCS3 Folder */}
+                  <View style={styles.cardSection}>
+                    <Text style={styles.sectionLabel}>RPCS3</Text>
+                    <Text style={styles.pathDesc}>
+                      Carpeta raíz de RPCS3 (donde está rpcs3.exe). Necesaria para leer trofeos de juegos de PS3.
+                    </Text>
+                    <Text style={[styles.pathDesc, { marginTop: 4, opacity: 0.6 }]}>
+                      {(activeUser?.settings as any)?.rpcs3Path || 'No configurada'}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                      <TouchableOpacity
+                        style={[
+                          styles.actionBtnSecondary,
+                          isRightFocused && subFocusIndex === selectRpcs3FolderIdx && styles.rightItemFocused,
+                        ]}
+                        onPress={onSelectRpcs3Folder}
+                      >
+                        <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
+                        <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
+                      </TouchableOpacity>
+                      {hasRpcs3Path ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.actionBtnSecondary,
+                            { backgroundColor: '#3D1E24', borderColor: '#772233' },
+                            isRightFocused && subFocusIndex === restoreRpcs3Idx && styles.rightItemFocused,
+                          ]}
+                          onPress={() =>
+                            updateUser({
+                              settings: { ...activeUser?.settings, rpcs3Path: '' } as any,
                             })
                           }
                         >

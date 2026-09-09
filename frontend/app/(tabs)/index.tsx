@@ -1,63 +1,56 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Modal, TextInput, useWindowDimensions } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { Video, ResizeMode } from '@/components/AppVideo';
-import { Image } from 'expo-image';
-import Animated, { useSharedValue, useAnimatedStyle, useDerivedValue, useAnimatedRef, measure, withTiming, withDelay, withRepeat, interpolate, Easing, FadeInDown, FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import YoutubePlayer from '@/components/YoutubePlayer';
+import { ResizeMode, Video } from '@/components/AppVideo';
 import FavoritesView from '@/components/FavoritesView';
-import ControlPrompt from '@/components/ControlPrompt';
+import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import RandomSelectorView from '@/components/RandomSelectorView';
-import { cancelAnimation } from 'react-native-reanimated'; // agrégalo a tus imports de reanimated
+import SpinningBorderTabs from '@/components/SpinningBorderTabs';
+import YoutubePlayer from '@/components/YoutubePlayer';
 import { useUser } from '@/contexts/UserContext';
-import { Linking } from 'react-native';
-import { fetchGamingNews, NewsArticle } from '@/services/newsService';
-import { soundService } from '@/services/soundService';
-import { toastService } from '@/services/toastService';
-import { fetchWishlistDeals, WishlistDeal } from '@/services/steamWishlistService';
-import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '@/services/steamNewsService';
-import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
-import { fetchSteamOwnedGames } from '@/services/steamUserService';
-import { fetchSteamInstalledAppIds } from '@/services/steamInstallService';
-import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
 import { fetchEpicInstalledGames } from '@/services/epicInstallService';
 import { buildEpicRunUrl } from '@/services/epicLaunchService';
-import { Feather } from '@expo/vector-icons';
-import RadarFocusWrapper from '@/components/RadarFocusWrapper';
-import MusicPlayerCard from '@/components/MusicPlayerCard';
-import SpinningBorderTabs from '@/components/SpinningBorderTabs';
-import { fetchSteamInstalledGamesDetailed } from '@/services/steamInstallService';
+import { fetchGamingNews } from '@/services/newsService';
+import { soundService } from '@/services/soundService';
+import { fetchSteamInstalledAppIds, fetchSteamInstalledGamesDetailed } from '@/services/steamInstallService';
+import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
+import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
+import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
+import { fetchSteamOwnedGames } from '@/services/steamUserService';
+import { fetchWishlistDeals, WishlistDeal } from '@/services/steamWishlistService';
+import { toastService } from '@/services/toastService';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import Animated, { cancelAnimation, Easing, FadeIn, FadeInDown, FadeOut, interpolate, measure, runOnJS, useAnimatedRef, useAnimatedStyle, useDerivedValue, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 // WPS5 UI Expansion Components
-import LibraryGrid, { LibraryGridHandle } from '@/components/LibraryGrid';
+import DeleteConfirmView from '@/components/DeleteConfirmView';
 import FloatingSystemNav from '@/components/FloatingSystemNav';
-import OverlayTab from '@/components/OverlayTab';
 import GameContextMenu from '@/components/GameContextMenu';
 import GameDetailView from '@/components/GameDetailView';
-import DeleteConfirmView from '@/components/DeleteConfirmView';
+import LibraryGrid, { LibraryGridHandle } from '@/components/LibraryGrid';
 import ProfileDropdownMenu from '@/components/ProfileDropdownMenu';
 
 // Modular components
-import ConsoleCarousel from '@/components/ConsoleCarousel';
-import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
-import GameInfoPanel from '@/components/GameInfoPanel';
-import StoreFrontPanel from '@/components/StoreFrontPanel';
-import BackgroundPickerModal from '@/components/BackgroundPickerModal';
-import AvatarPickerModal from '@/components/AvatarPickerModal';
 import AddAppModal from '@/components/AddAppModal';
+import AvatarPickerModal from '@/components/AvatarPickerModal';
+import BackgroundPickerModal from '@/components/BackgroundPickerModal';
+import ConsoleCarousel from '@/components/ConsoleCarousel';
+import GameInfoPanel from '@/components/GameInfoPanel';
 import SearchView from '@/components/SearchView';
 import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
-import { fetchStoreOffers, StoreOffer, LOCAL_FALLBACK_OFFERS } from '@/services/storeService';
-import { fetchSteamGridData } from '@/services/steamGridService';
+import StoreFrontPanel from '@/components/StoreFrontPanel';
 import { UserProfile } from '@/components/UserSelectScreen';
+import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
+import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
-import { LANGUAGE_OPTIONS, isLanguage, Language } from '@/i18n/translations';
-import { PLATFORMS, PLATFORM_IDS } from '@/constants/platforms';
-import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta si difiere
-import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
-import { getSteamAppId } from '@/services/steamLaunchService';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
+import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
+import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta si difiere
+import { Language } from '@/i18n/translations';
+import { fetchSteamGridData } from '@/services/steamGridService';
+import { getSteamAppId } from '@/services/steamLaunchService';
+import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
@@ -2597,6 +2590,15 @@ export default function ConsoleHome() {
     }
   };
 
+  const handleSelectRpcs3Folder = async () => {
+    if (Platform.OS === 'web' && (window as any).electronAPI?.selectCaptureFolder) {
+      const folderPath = await (window as any).electronAPI.selectCaptureFolder();
+      if (folderPath) {
+        updateUser({ settings: { ...activeUser?.settings, rpcs3Path: folderPath } as any });
+      }
+    }
+  };
+
   const handleSelectCaptureFolder = async () => {
     if (Platform.OS === 'web' && (window as any).electronAPI && typeof (window as any).electronAPI.selectCaptureFolder === 'function') {
       const folderPath = await (window as any).electronAPI.selectCaptureFolder();
@@ -3561,6 +3563,7 @@ export default function ConsoleHome() {
         onOpenBgModal={() => setHomeBgModalVisible(true)}
         onSelectWallpaperFolder={handleSelectWallpaperFolder}
         onSelectCaptureFolder={handleSelectCaptureFolder}
+        onSelectRpcs3Folder={handleSelectRpcs3Folder}
         onOpenAvatarModal={() => setAvatarModalVisible(true)}
         onSelectAvatarFolder={handleSelectAvatarFolder}
         initialScreen={settingsInitialScreen}

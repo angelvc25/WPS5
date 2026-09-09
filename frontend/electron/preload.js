@@ -49,6 +49,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('media-sessions-changed', listener);
     return () => ipcRenderer.removeListener('media-sessions-changed', listener);
   },
+  // ── Logros de juegos externos (emuladores Steam + GreenLuma) ──────────────
+  // Devuelve un NormalizedSummary (mismo shape que SteamGameAchievementsSummary)
+  // o null si no se encuentran datos en disco/registro.
+  getExternalAchievements: (appId, steamApiKey, lang) =>
+    ipcRenderer.invoke('get-external-achievements', appId, steamApiKey, lang),
+  // ── Trofeos RPCS3 vía NPcommID directo ────────────────────────────────────
+  // rpcs3Dir: carpeta raíz de RPCS3 (contiene rpcs3.exe + dev_hdd0/)
+  // npCommId: NPcommID del juego ("NPWR00001-A", etc.)
+  getRpcs3Trophies: (rpcs3Dir, npCommId) =>
+    ipcRenderer.invoke('get-rpcs3-trophies', rpcs3Dir, npCommId),
+  // ── Trofeos RPCS3 resolviendo desde un .lnk ───────────────────────────────
+  // lnkPath:  ruta al .lnk del juego PS3
+  // rpcs3Dir: carpeta raíz de RPCS3 configurada en Settings
+  resolveRpcs3LnkTrophies: (lnkPath, rpcs3Dir) =>
+    ipcRenderer.invoke('resolve-rpcs3-lnk-trophies', lnkPath, rpcs3Dir),
 });
 
 

@@ -1,15 +1,23 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Linking } from 'react-native';
-import { Image } from 'expo-image';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useTranslation } from '@/contexts/LanguageContext';
+import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import MusicPlayerCard from './MusicPlayerCard';
+import { Image } from 'expo-image';
+import React from 'react';
+import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
+import { useAchievementWatcher } from '../hooks/useAchievementWatcher';
+import {
+  fetchAwGameAchievements,
+  fetchRpcs3Trophies,
+  fetchRpcs3TrophiesFromLnk,
+  getCachedAwAchievements,
+  getRpcs3AppId
+} from '../services/achievementWatcherService';
+import { formatPlaytime } from '../services/playtimeService';
 import { getGameActionLabel, getSteamAppId } from '../services/steamLaunchService';
 import { fetchSteamGameAchievements, getCachedSteamGameAchievements, SteamGameAchievementsSummary } from '../services/steamUserService';
-import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
-import { formatPlaytime } from '../services/playtimeService';
-import { useTranslation } from '@/contexts/LanguageContext';
+import MusicPlayerCard from './MusicPlayerCard';
 import SpinningBorderNoticias from './SpinningborderNoticias';
 
 // ─── Shimmer skeleton placeholder (usado mientras cargan capturas/noticias) ──
@@ -145,52 +153,200 @@ export const GameInfoPanel = ({
   const s = (v: number) => Math.round(v * scale);
   const achievementGame = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
   const achievementAppId = achievementGame ? getSteamAppId(achievementGame) : null;
+  const rpcs3AppId = achievementGame ? getRpcs3AppId(achievementGame) : null;
   const steamId = activeUser?.settings?.steamId;
 
+  // ── AchievementWatcher: detectar si el servidor local está corriendo ──────
+  const { isAvailable: awAvailable } = useAchievementWatcher();
+
+  // ── Indicador de fuente de logros para mostrar badge en la UI ─────────────
+  // 'steam'  → logros de Steam API (cuenta legítima)
+  // 'aw'     → logros leídos por AchievementWatcher (juego emulado/externo)
+  // 'rpcs3'  → trofeos de RPCS3
+  // null     → sin logros
+  const [achievementsSource, setAchievementsSource] = React.useState<'steam' | 'aw' | 'rpcs3' | null>(null);
+
+  // Inicialización sincrónica desde caché ─────────────────────────────────────
   const [steamAchievements, setSteamAchievements] = React.useState<SteamGameAchievementsSummary | null>(() => {
-    return (steamId && achievementAppId)
-      ? (getCachedSteamGameAchievements(steamId, Number(achievementAppId)) ?? null)
-      : null;
+    // Caché Steam legítimo
+    if (steamId && achievementAppId) {
+      const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId));
+      if (cached !== undefined) return cached;
+    }
+    // Caché AchievementWatcher (juego externo con appId Steam)
+    if (achievementAppId && !steamId) {
+      const awKey = achievementAppId;
+      const awCached = getCachedAwAchievements(awKey, 'local');
+      if (awCached !== undefined) return awCached;
+    }
+    return null;
   });
   const [achievementsLoading, setAchievementsLoading] = React.useState(false);
 
   React.useEffect(() => {
     const apiKey = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
-    if (!steamId || !achievementAppId) {
-      setSteamAchievements(null);
-      setAchievementsLoading(false);
-      return;
-    }
 
-    // 1. Si ya está en memoria (caché), lo mostramos instantáneamente (0ms, sin lag)
-    const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId));
-    if (cached !== undefined) {
-      setSteamAchievements(cached);
-      setAchievementsLoading(false);
-      return;
-    }
+    // ── RPCS3: leer trofeos via proceso Electron ─────────────────────────────
+    if (rpcs3AppId) {
+      const rpcs3Dir = (activeUser?.settings as any)?.rpcs3Path ?? null;
 
-    // 2. Si no está en caché, no saturamos la red ni el hilo de JS mientras el usuario navega rápido:
-    // Debounce de 300ms. Si pasa al siguiente juego antes de 300ms, se cancela la petición.
-    setSteamAchievements(null);
-    setAchievementsLoading(false);
-
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      setAchievementsLoading(true);
-      fetchSteamGameAchievements(apiKey, steamId, Number(achievementAppId)).then((summary) => {
-        if (!cancelled) {
-          setSteamAchievements(summary);
-          setAchievementsLoading(false);
-        }
+      console.log('[RPCS3]', {
+        title: achievementGame?.title,
+        platform: achievementGame?.platform,
+        path: achievementGame?.path,
+        rpcs3AppId,
+        rpcs3Dir,
+        isLnk: typeof achievementGame?.path === 'string' && achievementGame.path.toLowerCase().endsWith('.lnk'),
       });
-    }, 300);
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [achievementAppId, steamId]);
+      if (!rpcs3Dir) {
+        // Sin rpcs3Path configurado, no hay nada que hacer silenciosamente.
+        setSteamAchievements(null);
+        setAchievementsSource(null);
+        setAchievementsLoading(false);
+        return;
+      }
+
+      const gamePath: string | null = achievementGame?.path ?? null;
+      const isLnk = typeof gamePath === 'string' && gamePath.toLowerCase().endsWith('.lnk');
+
+      let cancelled = false;
+      setSteamAchievements(null);
+      setAchievementsSource(null);
+      setAchievementsLoading(false);
+
+      const timer = setTimeout(() => {
+        setAchievementsLoading(true);
+
+        // Dos variantes: .lnk (juego añadido como acceso directo desde ES-DE / escritorio)
+        // o path directo a una carpeta dentro de RPCS3.
+        const trophyPromise = isLnk
+          ? fetchRpcs3TrophiesFromLnk(gamePath!, rpcs3Dir)
+          : fetchRpcs3Trophies(rpcs3Dir, rpcs3AppId);
+
+        trophyPromise.then((summary) => {
+          if (cancelled) return;
+          setSteamAchievements(summary);
+          setAchievementsSource(summary ? 'rpcs3' : null);
+        }).catch(() => {
+          if (!cancelled) {
+            setSteamAchievements(null);
+            setAchievementsSource(null);
+          }
+        }).finally(() => {
+          if (!cancelled) setAchievementsLoading(false);
+        });
+      }, 300);
+
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+        setAchievementsLoading(false);
+      };
+    }
+
+    // ── Juego con Steam AppID ─────────────────────────────────────────────────
+    if (!achievementAppId) {
+      setSteamAchievements(null);
+      setAchievementsSource(null);
+      setAchievementsLoading(false);
+      return;
+    }
+
+    // ── Ruta Steam legítimo (cuenta configurada) ──────────────────────────────
+    if (steamId) {
+      // 1. Caché instantánea
+      const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId));
+      if (cached !== undefined) {
+        setSteamAchievements(cached);
+        setAchievementsSource(cached ? 'steam' : null);
+        setAchievementsLoading(false);
+        return;
+      }
+
+      // 2. Fetch con debounce de 300 ms
+      setSteamAchievements(null);
+      setAchievementsSource(null);
+      setAchievementsLoading(false);
+
+      let cancelled = false;
+      const timer = setTimeout(() => {
+        setAchievementsLoading(true);
+        fetchSteamGameAchievements(apiKey, steamId, Number(achievementAppId)).then((summary) => {
+          if (cancelled) return;
+
+          if (summary) {
+            // Steam legítimo devolvió datos
+            setSteamAchievements(summary);
+            setAchievementsSource('steam');
+            setAchievementsLoading(false);
+          } else if (awAvailable) {
+            // Steam no devolvió nada (perfil privado, juego sin estadísticas...)
+            // Intentar AchievementWatcher como fallback
+            fetchAwGameAchievements(Number(achievementAppId), steamId).then((awSummary) => {
+              if (!cancelled) {
+                setSteamAchievements(awSummary);
+                setAchievementsSource(awSummary ? 'aw' : null);
+                setAchievementsLoading(false);
+              }
+            });
+          } else {
+            setSteamAchievements(null);
+            setAchievementsSource(null);
+            setAchievementsLoading(false);
+          }
+        });
+      }, 300);
+
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
+    }
+
+    // ── Ruta AchievementWatcher puro (sin cuenta Steam configurada) ───────────
+    // Se activa cuando hay un appId Steam en el juego pero no hay steamId de
+    // usuario: típicamente juegos con emulador (Codex, Goldberg, etc.) añadidos
+    // manualmente a la librería.
+    if (awAvailable) {
+      // 1. Caché instantánea
+      const awCached = getCachedAwAchievements(achievementAppId, 'local');
+      if (awCached !== undefined) {
+        setSteamAchievements(awCached);
+        setAchievementsSource(awCached ? 'aw' : null);
+        setAchievementsLoading(false);
+        return;
+      }
+
+      // 2. Fetch con debounce de 300 ms
+      setSteamAchievements(null);
+      setAchievementsSource(null);
+      setAchievementsLoading(false);
+
+      let cancelled = false;
+      const timer = setTimeout(() => {
+        setAchievementsLoading(true);
+        fetchAwGameAchievements(Number(achievementAppId), 'local').then((summary) => {
+          if (!cancelled) {
+            setSteamAchievements(summary);
+            setAchievementsSource(summary ? 'aw' : null);
+            setAchievementsLoading(false);
+          }
+        });
+      }, 300);
+
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
+    }
+
+    // Sin Steam ni AW disponible
+    setSteamAchievements(null);
+    setAchievementsSource(null);
+    setAchievementsLoading(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [achievementAppId, rpcs3AppId, steamId, awAvailable, (activeUser?.settings as any)?.rpcs3Path]);
 
   const trophyCounts = steamAchievements?.rarityCounts ?? { platinum: 0, gold: 0, silver: 0, bronze: 0 };
   const trophyProgress = steamAchievements?.total
@@ -241,7 +397,7 @@ export const GameInfoPanel = ({
     if (steamAchievements) {
       onAchievementCountChange?.(steamAchievements.achievements.length);
     }
-  }, [canPlay, isMediaSection, onAchievementCountChange, steamAchievements]);
+  }, [canPlay, isMediaSection, onAchievementCountChange, steamAchievements, achievementsSource]);
 
   const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds, {
     play: t('action.play'),
@@ -1142,12 +1298,29 @@ export const GameInfoPanel = ({
         </View>
       )}
 
-      {/* Steam achievements: una fila independiente, desplazable, antes de capturas y trailers. */}
+      {/* Achievements row: Steam legítimo, AchievementWatcher (emulado) o RPCS3 */}
       {canPlay && !isMediaSection && steamAchievements && steamAchievements.achievements.length > 0 && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(30) }]}>
-          <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>
-            {t('game.trophies')}
-          </Text>
+          {/* Título + badge de fuente */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10), marginBottom: s(16), paddingLeft: s(50) }}>
+            <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium' }}>
+              {t('game.trophies')}
+            </Text>
+            {achievementsSource === 'aw' && (
+              <View style={{ backgroundColor: 'rgba(255,200,80,0.18)', borderRadius: s(6), paddingHorizontal: s(8), paddingVertical: s(2) }}>
+                <Text style={{ color: 'rgba(255,200,80,0.9)', fontSize: s(11), fontFamily: 'SSTMedium' }}>
+                  AchievementWatcher
+                </Text>
+              </View>
+            )}
+            {achievementsSource === 'rpcs3' && (
+              <View style={{ backgroundColor: 'rgba(0,160,255,0.18)', borderRadius: s(6), paddingHorizontal: s(8), paddingVertical: s(2) }}>
+                <Text style={{ color: 'rgba(100,200,255,0.9)', fontSize: s(11), fontFamily: 'SSTMedium' }}>
+                  RPCS3
+                </Text>
+              </View>
+            )}
+          </View>
           <ScrollView
             ref={achievementsScrollRef}
             horizontal

@@ -2893,6 +2893,46 @@ app.whenReady().then(() => {
     });
   });
 
+  // ── IPC: Logros de juegos externos (emuladores Steam: Codex, Goldberg, etc.) ──
+  // Registrado aquí para tener acceso al scope de `app` (getPath, isPackaged).
+  const achievementReader = require('./achievementReader.js');
+
+  ipcMain.handle('get-external-achievements', async (_event, appId, steamApiKey, lang) => {
+    try {
+      const result = await achievementReader.scanExternalAchievements(appId, steamApiKey, lang || 'english');
+      return { success: true, data: result };
+    } catch (err) {
+      console.error('[IPC:get-external-achievements]', err);
+      return { success: false, data: null, error: err.message };
+    }
+  });
+
+  // ── IPC: Trofeos de RPCS3 vía .lnk ──────────────────────────────────────────
+  // lnkPath:  ruta al .lnk del juego PS3 (el que el usuario añadió al launcher)
+  // rpcs3Dir: carpeta raíz de RPCS3 configurada en Settings
+  ipcMain.handle('resolve-rpcs3-lnk-trophies', async (_event, lnkPath, rpcs3Dir) => {
+    try {
+      const result = await achievementReader.resolveRpcs3GameFromLnk(lnkPath, rpcs3Dir);
+      return { success: true, data: result };
+    } catch (err) {
+      console.error('[IPC:resolve-rpcs3-lnk-trophies]', err);
+      return { success: false, data: null, error: err.message };
+    }
+  });
+
+  // ── IPC: Trofeos de RPCS3 ──────────────────────────────────────────────────
+  // rpcs3Dir: carpeta raíz de RPCS3 (contiene rpcs3.exe + dev_hdd0/)
+  // npCommId: NPcommID del juego ("NPWR00001-A", etc.)
+  ipcMain.handle('get-rpcs3-trophies', async (_event, rpcs3Dir, npCommId) => {
+    try {
+      const result = await achievementReader.scanRpcs3Trophies(rpcs3Dir, npCommId);
+      return { success: true, data: result };
+    } catch (err) {
+      console.error('[IPC:get-rpcs3-trophies]', err);
+      return { success: false, data: null, error: err.message };
+    }
+  });
+
   createWindow();
 
 
