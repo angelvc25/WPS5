@@ -481,8 +481,9 @@ export const GameInfoPanel = ({
                   {/* Etiqueta pequeña superior */}
                   <View style={{
                     alignSelf: 'flex-start',
-                    backgroundColor: 'rgba(255,255,255,0.12)',
-                    borderRadius: s(4),
+                    borderColor:'rgba(255, 255, 255, 0.81)',
+                    borderWidth: s(1),
+                    borderRadius: s(2),
                     paddingHorizontal: s(10),
                     paddingVertical: s(3),
                     marginBottom: s(4),
@@ -499,11 +500,11 @@ export const GameInfoPanel = ({
                   {/* Título principal */}
                   <Text style={{
                     color: '#FFFFFF',
-                    fontSize: s(36),
+                    fontSize: s(40),
                     fontFamily: 'SSTLight',
                     fontWeight: '300',
                     letterSpacing: -0.5,
-                    lineHeight: s(42),
+                    lineHeight: s(62),
                     textShadowColor: 'rgba(0,0,0,0.7)',
                     textShadowOffset: { width: 0, height: 2 },
                     textShadowRadius: 8,
@@ -513,10 +514,11 @@ export const GameInfoPanel = ({
                   </Text>
                   {/* Subtítulo con nombre del juego */}
                   <Text style={{
-                    color: 'rgba(255,255,255,0.6)',
+                    color: 'rgba(255, 255, 255, 0.78)',
                     fontSize: s(16),
                     fontFamily: 'SSTLight',
-                    marginTop: s(2),
+                    marginTop: s(12),
+                    marginBottom: s(32),
                     letterSpacing: 0.2,
                   }} numberOfLines={1}>
                     {lastPlayedGame.title}
