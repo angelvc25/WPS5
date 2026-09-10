@@ -43,6 +43,7 @@
     "expo-video": "~3.0.16",
     "expo-web-browser": "~15.0.10",
     "fast-glob": "^3.3.3",
+    "node-hid": "^3.4.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",

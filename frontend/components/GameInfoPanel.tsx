@@ -473,8 +473,63 @@ export const GameInfoPanel = ({
     <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }]}>
       <Animated.View style={spacerStyle}>
         <Animated.View style={topPanelStyle}>
-          {/* Logo or title */}
-          {displayLogo ? (
+          {/* Logo or title — para isLastPlayed mostramos el encabezado estilo PS5 */}
+          {activeItem?.isLastPlayed ? (
+            <Animated.View key={`continue-${activeIndex}`} entering={FadeInDown.duration(400)}>
+              {lastPlayedGame ? (
+                <View style={{ flexDirection: 'column', gap: s(8) }}>
+                  {/* Etiqueta pequeña superior */}
+                  <View style={{
+                    alignSelf: 'flex-start',
+                    backgroundColor: 'rgba(255,255,255,0.12)',
+                    borderRadius: s(4),
+                    paddingHorizontal: s(10),
+                    paddingVertical: s(3),
+                    marginBottom: s(4),
+                  }}>
+                    <Text style={{
+                      color: 'rgba(255,255,255,0.75)',
+                      fontSize: s(12),
+                      fontFamily: 'SSTMedium',
+                      letterSpacing: 0.5,
+                    }}>
+                      {lastPlayedGame.platform ?? lastPlayedGame.time ?? ''}
+                    </Text>
+                  </View>
+                  {/* Título principal */}
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontSize: s(36),
+                    fontFamily: 'SSTLight',
+                    fontWeight: '300',
+                    letterSpacing: -0.5,
+                    lineHeight: s(42),
+                    textShadowColor: 'rgba(0,0,0,0.7)',
+                    textShadowOffset: { width: 0, height: 2 },
+                    textShadowRadius: 8,
+                    maxWidth: s(600),
+                  }} numberOfLines={2}>
+                    {t('lastPlayed.continueHeading')}
+                  </Text>
+                  {/* Subtítulo con nombre del juego */}
+                  <Text style={{
+                    color: 'rgba(255,255,255,0.6)',
+                    fontSize: s(16),
+                    fontFamily: 'SSTLight',
+                    marginTop: s(2),
+                    letterSpacing: 0.2,
+                  }} numberOfLines={1}>
+                    {lastPlayedGame.title}
+                  </Text>
+                </View>
+              ) : (
+                /* Sin juego jugado aún — título genérico */
+                <Text style={[styles.gameTitle, { fontSize: s(32) }]} numberOfLines={2}>
+                  {t('lastPlayed.continueHeading')}
+                </Text>
+              )}
+            </Animated.View>
+          ) : displayLogo ? (
             <Animated.View key={`logo-${activeIndex}`} entering={FadeInDown.duration(400)}>
               <Image source={displayLogo} style={[styles.gameLogo, { width: s(400), height: s(220) }]} contentFit="contain" />
             </Animated.View>
@@ -488,7 +543,11 @@ export const GameInfoPanel = ({
 
           {/* Action Buttons */}
           {canPlay && (
-            <Animated.View key={`buttons-${activeIndex}`} entering={FadeInDown.duration(400).delay(60)} style={styles.actionButtons}>
+            <Animated.View
+              key={`buttons-${activeIndex}`}
+              entering={FadeInDown.duration(400).delay(60)}
+              style={[styles.actionButtons, activeItem?.isLastPlayed && { marginTop: s(22) }]}
+            >
               {/* PLAY + ... */}
               <View style={styles.mainActions}>
                 {activeDownload ? (
