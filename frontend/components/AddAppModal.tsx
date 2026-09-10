@@ -1,22 +1,22 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  Platform,
-  ActivityIndicator,
-  Modal,
-  useWindowDimensions,
-} from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { toastService } from '@/services/toastService';
-import { fetchSteamGridData } from '@/services/steamGridService';
-import { soundService } from '@/services/soundService';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { soundService } from '@/services/soundService';
+import { fetchSteamGridData } from '@/services/steamGridService';
+import { toastService } from '@/services/toastService';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+} from 'react-native';
 
 export interface InstalledProgram {
   name: string;
@@ -35,11 +35,12 @@ interface AddAppModalProps {
 
 const PLATFORMS = [
   { id: 'PC', icon: 'microsoft-windows' },
-  { id: 'PS1', icon: 'playstation' },
-  { id: 'PS2', icon: 'playstation' },
-  { id: 'PS3', icon: 'playstation' },
-  { id: 'PS4', icon: 'playstation' },
-  { id: 'PS5', icon: 'playstation' },
+  { id: 'PS1', icon: 'sony-playstation' },
+  { id: 'PS2', icon: 'sony-playstation' },
+  { id: 'PS3', icon: 'sony-playstation' },
+  { id: 'PS4', icon: 'sony-playstation' },
+  { id: 'PS5', icon: 'sony-playstation' },
+  { id: 'Retro', icon: 'gamepad-variant' },
 ];
 
 export const AddAppModal: React.FC<AddAppModalProps> = ({
@@ -55,6 +56,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedType, setSelectedType] = useState<'game' | 'media' | 'web'>('game');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('PC');
+  const [retroSystem, setRetroSystem] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
 
@@ -67,6 +69,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
     setSearchQuery('');
     setSelectedType('game');
     setSelectedPlatform('PC');
+    setRetroSystem('');
     setFocusedIndex(0);
 
     if (Platform.OS === 'web' && (window as any).electronAPI?.getInstalledPrograms) {
@@ -252,6 +255,9 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
           path: prog.path,
           type: selectedType,
           platform: selectedType === 'game' ? selectedPlatform : '',
+          ...(selectedType === 'game' && selectedPlatform === 'Retro' && retroSystem.trim()
+            ? { retroSystem: retroSystem.trim() }
+            : {}),
           image: prog.icon || '',
           playtimeMinutes: 0,
           playtime_forever: 0,
@@ -598,6 +604,25 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
         color: '#FFFFFF',
         fontWeight: '600',
       },
+      retroSystemWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderRadius: s(6),
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.14)',
+        paddingHorizontal: s(10),
+        height: s(34),
+        minWidth: s(160),
+        gap: s(6),
+      },
+      retroSystemInput: {
+        flex: 1,
+        color: '#FFFFFF',
+        fontSize: s(13),
+        fontFamily: 'SSTRg',
+        outlineStyle: 'none' as any,
+      },
       actionBtnsRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -816,34 +841,53 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
               </View>
 
               {selectedType === 'game' && (
-                <View style={styles.platformSelectorRow}>
-                  {PLATFORMS.map((plat) => (
-                    <TouchableOpacity
-                      key={plat.id}
-                      style={[
-                        styles.platformBtn,
-                        selectedPlatform === plat.id && styles.platformBtnActive,
-                      ]}
-                      onPress={() => setSelectedPlatform(plat.id)}
-                    >
-                      <MaterialCommunityIcons
-                        name={plat.icon as any}
-                        size={14}
-                        color={
-                          selectedPlatform === plat.id ? '#FFF' : 'rgba(255, 255, 255, 0.4)'
-                        }
-                      />
-                      <Text
+                <>
+                  <View style={styles.platformSelectorRow}>
+                    {PLATFORMS.map((plat) => (
+                      <TouchableOpacity
+                        key={plat.id}
                         style={[
-                          styles.platformBtnText,
-                          selectedPlatform === plat.id && styles.platformBtnTextActive,
+                          styles.platformBtn,
+                          selectedPlatform === plat.id && styles.platformBtnActive,
                         ]}
+                        onPress={() => setSelectedPlatform(plat.id)}
                       >
-                        {plat.id}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                        <MaterialCommunityIcons
+                          name={plat.icon as any}
+                          size={14}
+                          color={
+                            selectedPlatform === plat.id ? '#FFF' : 'rgba(255, 255, 255, 0.4)'
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.platformBtnText,
+                            selectedPlatform === plat.id && styles.platformBtnTextActive,
+                          ]}
+                        >
+                          {plat.id}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  {selectedPlatform === 'Retro' && (
+                    <View style={styles.retroSystemWrap}>
+                      <MaterialCommunityIcons
+                        name="gamepad-variant-outline"
+                        size={15}
+                        color="rgba(255,255,255,0.45)"
+                      />
+                      <TextInput
+                        style={styles.retroSystemInput}
+                        placeholder={t('addModal.retroSystemPlaceholder')}
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={retroSystem}
+                        onChangeText={setRetroSystem}
+                        maxLength={40}
+                      />
+                    </View>
+                  )}
+                </>
               )}
             </View>
 

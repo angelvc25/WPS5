@@ -1,16 +1,15 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useTranslation } from '@/contexts/LanguageContext';
+import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
+import { getSteamAppId, isSteamGame } from '@/services/steamLaunchService';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { ConsoleItem } from '../app/(tabs)/index';
 import AnimatedCardWrapper from './AnimatedCardWrapper';
 import SpinningBorder from './SpinningBorderConic';
-import { ConsoleItem } from '../app/(tabs)/index';
-import { isSteamGame, getSteamAppId } from '@/services/steamLaunchService';
-import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
-import { useTranslation } from '@/contexts/LanguageContext';
-import { LANGUAGE_OPTIONS, Language } from '@/i18n/translations';
 
 
 interface ConsoleCarouselProps {
@@ -274,6 +273,10 @@ export const ConsoleCarousel = ({
                     const steamGame = isSteamGame(platformSource as any);
                     const platformId =
                       platformSource.platform || (steamGame ? 'Steam' : 'PC');
+                    const isRetro = platformId === 'Retro';
+                    const badgeLabel = isRetro
+                      ? ((platformSource as any).retroSystem?.trim() || 'Retro')
+                      : platformId;
 
                     const isEpicGame = platformId === 'Epic';
 
@@ -294,7 +297,7 @@ export const ConsoleCarousel = ({
                         ) : (
                           <View style={styles.platformBadge}>
                             <Text style={styles.platformBadgeText}>
-                              {platformId}
+                              {badgeLabel}
                             </Text>
                           </View>
                         )}

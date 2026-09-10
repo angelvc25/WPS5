@@ -82,6 +82,8 @@ export interface ConsoleItem {
   youtubeId?: string;
   type?: 'game' | 'media' | 'web';
   platform?: string;
+  /** Sistema retro específico cuando platform === 'Retro'. Ej: "SNES", "Sega Genesis", "Arcade - MAME" */
+  retroSystem?: string;
   isPinned?: boolean;
 }
 

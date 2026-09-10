@@ -1,16 +1,15 @@
-import React, { useState, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { View, Text, StyleSheet, Platform, TouchableOpacity, useWindowDimensions, Image as RNImage, Modal } from 'react-native';
-import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
+import { PLATFORM_ICONS, PLATFORM_IDS } from '@/constants/platforms';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { Modal, Platform, Image as RNImage, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
-import { useEffect } from 'react';
 import GameDetailView from './GameDetailView';
 import RadarFocusWrapper from './RadarFocusWrapper';
-import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
-import { useTranslation } from '@/contexts/LanguageContext';
-import { PLATFORMS, PLATFORM_IDS, PLATFORM_ICONS } from '@/constants/platforms';
 
 interface LibraryGridProps {
   games: ConsoleItem[];
@@ -834,6 +833,10 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                                         const steamGame = isSteamGame(game);
                                         const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
                                         const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
+                                        const isRetro = platformId === 'Retro';
+                                        const badgeLabel = isRetro
+                                          ? ((game as any).retroSystem?.trim() || 'Retro')
+                                          : platformId;
 
                                         const isEpicGame = platformId === 'Epic';
                                         const isSteam = steamGame || platformId === 'Steam';
@@ -863,7 +866,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                                                   justifyContent: 'center',
                                                 }}
                                               >
-                                                {' '}{platformId}
+                                                {' '}{badgeLabel}
                                               </Text>
                                             )}
                                           </View>

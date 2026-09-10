@@ -15,6 +15,7 @@ export const PLATFORMS: PlatformInfo[] = [
   { id: 'Steam', icon: 'steam' },
   { id: 'EA', icon: 'alpha-e-box' },
   { id: 'Epic', icon: 'alpha-e-circle' },
+  { id: 'Retro', icon: 'gamepad-variant' },
 ];
 
 export const PLATFORM_IDS: string[] = PLATFORMS.map((p) => p.id);
