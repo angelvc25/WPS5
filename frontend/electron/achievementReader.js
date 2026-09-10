@@ -759,14 +759,81 @@ function extractGameIdFromParamSfo(paramSfoPath) {
 }
 
 /**
- * Dado un Game ID de PS3 (ej. "BCES00510"), busca en dev_hdd0/home/<user>/trophy/
- * qué NPcommID de trofeos corresponde leyendo el campo npcommid del TROPCONF.SFM.
- *
- * @param {string} rpcs3Dir  - Carpeta raíz de RPCS3
- * @param {string} gameId    - Game ID (ej. "BCES00510")
- * @returns {Promise<{npCommId: string, trophyDir: string}|null>}
+ * Normaliza un NP_COMMUNICATION_ID que puede venir sin el prefijo "NPWR".
+ * Ejemplos reales de PARAM.SFO:
+ *   "NPWR00802_00"  → "NPWR00802_00"  (ya correcto)
+ *   "01886_00"      → "NPWR01886_00"  (le falta el prefijo)
+ *   "00745_00"      → "NPWR00745_00"
  */
-async function findNpCommIdByGameId(rpcs3Dir, gameId) {
+function normalizeNpCommId(raw) {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (!s) return null;
+  // Si ya tiene el prefijo NPWR correcto
+  if (/^NPWR\d{5}_\d{2}$/.test(s)) return s;
+  // Si tiene solo los dígitos+sufijo: "01886_00" → "NPWR01886_00"
+  if (/^\d{5}_\d{2}$/.test(s)) return `NPWR${s}`;
+  // Si tiene NPWR pero formato alternativo, devolver tal cual
+  if (s.startsWith('NPWR')) return s;
+  return null;
+}
+
+/**
+ * Lee y parsea el PARAM.SFO de un juego RPCS3 extrayendo los campos relevantes.
+ * Formato correcto del índice: key_offset(2), data_fmt(2), data_len(4), data_max_len(4), data_offset(4)
+ * Devuelve un objeto con las claves encontradas o {} si falla.
+ */
+function readParamSfoFields(sfoPath) {
+  const result = {};
+  try {
+    const buf = fs.readFileSync(sfoPath);
+    if (buf.length < 20) return result;
+    if (buf.readUInt32LE(0) !== 0x46535000) return result; // magic "\0PSF"
+
+    const keyTableOffset  = buf.readUInt32LE(8);
+    const dataTableOffset = buf.readUInt32LE(12);
+    const numEntries      = buf.readUInt32LE(16);
+
+    for (let i = 0; i < numEntries; i++) {
+      const base      = 20 + i * 16;
+      if (base + 16 > buf.length) break;
+      const keyOff    = buf.readUInt16LE(base);       // offset en key table
+      const dataFmt   = buf.readUInt16LE(base + 2);   // formato
+      const dataLen   = buf.readUInt32LE(base + 4);   // longitud real
+      // base+8 = data_max_len (4 bytes, ignorado)
+      const dataOff   = buf.readUInt32LE(base + 12);  // offset en data table
+
+      // Leer clave (null-terminated ASCII)
+      const ks = keyTableOffset + keyOff;
+      let ke = ks;
+      while (ke < buf.length && buf[ke] !== 0) ke++;
+      const key = buf.toString('ascii', ks, ke);
+
+      // Leer valor según formato
+      const vs = dataTableOffset + dataOff;
+      if (dataFmt === 0x0204) {
+        // UTF-8 string
+        result[key] = buf.toString('utf8', vs, vs + dataLen).replace(/\0/g, '').trim();
+      } else if (dataFmt === 0x0404) {
+        // uint32
+        result[key] = dataLen >= 4 ? buf.readUInt32LE(vs) : 0;
+      }
+      // otros formatos (0x0004 = raw, ignorados)
+    }
+  } catch { /* ignore */ }
+  return result;
+}
+
+/**
+ * Dado un Game ID de PS3 (ej. "BLUS30792"), busca en dev_hdd0/home/<user>/trophy/
+ * qué carpeta de trofeos corresponde, manejando todos los patrones reales de
+ * NP_COMMUNICATION_ID en PARAM.SFO:
+ *
+ *   a) Completo:    "NPWR00802_00"
+ *   b) Sin prefijo: "01886_00"  (añadir "NPWR" y comparar)
+ *   c) Vacío:       buscar por nombre del juego en el TROPCONF
+ */
+async function findNpCommIdByGameId(rpcs3Dir, gameId, gameNameHint = '') {
   const xmlLib = getXml2js();
   if (!xmlLib) return null;
 
@@ -778,91 +845,91 @@ async function findNpCommIdByGameId(rpcs3Dir, gameId) {
     users = fs.readdirSync(homeDir).filter((u) => /^\d+$/.test(u));
   } catch { return null; }
 
+  // ── Leer NP_COMMUNICATION_ID del PARAM.SFO del juego (si existe) ──────────
+  const gameParamSfoPath = path.join(rpcs3Dir, 'dev_hdd0', 'game', gameId, 'PARAM.SFO');
+  const gameFields   = fs.existsSync(gameParamSfoPath) ? readParamSfoFields(gameParamSfoPath) : {};
+  // Normalizar: "01886_00" → "NPWR01886_00"
+  const gameNpCommId = normalizeNpCommId(gameFields['NP_COMMUNICATION_ID'] || '');
+  // Título del juego desde PARAM.SFO o desde el nombre del GameID pasado como hint
+  const gameTitleHint = (gameFields['TITLE'] || gameNameHint || '').trim().toUpperCase();
+
   for (const user of users) {
     const trophyBase = path.join(homeDir, user, 'trophy');
     if (!fs.existsSync(trophyBase)) continue;
 
     let trophyDirs;
-    try {
-      trophyDirs = fs.readdirSync(trophyBase);
-    } catch { continue; }
+    try { trophyDirs = fs.readdirSync(trophyBase); } catch { continue; }
 
     for (const tDir of trophyDirs) {
       const confPath = path.join(trophyBase, tDir, 'TROPCONF.SFM');
       if (!fs.existsSync(confPath)) continue;
 
       try {
-        const xml = fs.readFileSync(confPath, 'utf-8');
+        const xml  = fs.readFileSync(confPath, 'utf-8');
         const parsed = await promisify(xmlLib.parseString)(xml, {
-          explicitArray: false,
-          explicitRoot:  false,
-          ignoreAttrs:   false,
-          emptyTag:      null,
+          explicitArray: false, explicitRoot: false,
+          ignoreAttrs:   false, emptyTag:     null,
         });
 
-        // El campo <npcommid> en TROPCONF.SFM almacena el NPcommID,
-        // y también hay un campo que relaciona con el GameID del disco.
-        // Estrategia 1: el nombre de la carpeta del trofeo empieza con el GameID
-        //   BCES00510 → trophy/NPWR01234_00 (el TROPCONF tiene <npcommid>NPWR01234_00)
-        // Estrategia 2: el campo <title-name> o el gameID en TROPCONF
-        const npCommId = parsed?.npcommid || parsed?.['npcommid'] || tDir;
+        // El npcommid del TROPCONF es la verdad — siempre tiene el formato NPWR#####_##
+        const trophyNpCommId = parsed?.npcommid || tDir;
 
-        // Comprobar si este trofeo pertenece al juego buscado.
-        // El campo <title-id> o <param-id> del TROPCONF a veces contiene el GameID.
-        // Como fallback, verificamos si el GameID existe en dev_hdd0/game/
-        // y comparamos con los metadatos del PARAM.SFO del juego.
-        const gameParamSfo = path.join(rpcs3Dir, 'dev_hdd0', 'game', gameId, 'PARAM.SFO');
-        if (fs.existsSync(gameParamSfo)) {
-          // El PARAM.SFO del juego tiene TITLE_ID = GameID y a veces NP_COMMUNICATION_ID
-          const buf = fs.readFileSync(gameParamSfo);
-          const magic = buf.length >= 4 ? buf.readUInt32LE(0) : 0;
-
-          if (magic === 0x46535000) {
-            const keyTableOffset  = buf.readUInt32LE(8);
-            const dataTableOffset = buf.readUInt32LE(12);
-            const numEntries      = buf.readUInt32LE(16);
-            const fields = {};
-
-            for (let i = 0; i < numEntries; i++) {
-              const entryBase = 20 + i * 16;
-              if (entryBase + 16 > buf.length) break;
-              const keyOff  = buf.readUInt16LE(entryBase);
-              const dataOff = buf.readUInt32LE(entryBase + 8);
-              const dataLen = buf.readUInt32LE(entryBase + 12);
-              const ks = keyTableOffset + keyOff;
-              let ke = ks;
-              while (ke < buf.length && buf[ke] !== 0) ke++;
-              const key = buf.toString('ascii', ks, ke);
-              const vs = dataTableOffset + dataOff;
-              fields[key] = buf.toString('ascii', vs, vs + dataLen).replace(/\0/g, '').trim();
-            }
-
-            // NP_COMMUNICATION_ID en el PARAM.SFO del juego coincide con el
-            // npcommid del TROPCONF (sin el sufijo "_00").
-            const npComm = fields['NP_COMMUNICATION_ID'] || '';
-            const npCommIdBase = npCommId.replace(/_\d+$/, '');
-
-            if (npComm && (npComm === npCommIdBase || npComm === npCommId)) {
-              return { npCommId, trophyDir: path.join(trophyBase, tDir) };
-            }
-
-            // Si el PARAM.SFO del juego no tiene NP_COMMUNICATION_ID,
-            // usamos el TITLE_ID del TROPCONF como señal.
-            if (!npComm) {
-              // Intento: verificar si el TROPCONF menciona el gameId directamente
-              const confStr = xml.toUpperCase();
-              if (confStr.includes(gameId.toUpperCase())) {
-                return { npCommId, trophyDir: path.join(trophyBase, tDir) };
-              }
-            }
+        // ── Estrategia 1: comparar NP_COMMUNICATION_ID normalizado del PARAM.SFO ──
+        if (gameNpCommId) {
+          const trophyBase2 = trophyNpCommId.replace(/_\d+$/, ''); // sin sufijo "_00"
+          const gameBase    = gameNpCommId.replace(/_\d+$/, '');
+          if (trophyNpCommId === gameNpCommId ||
+              trophyBase2    === gameNpCommId ||
+              trophyNpCommId === gameBase     ||
+              trophyBase2    === gameBase) {
+            return { npCommId: trophyNpCommId, trophyDir: path.join(trophyBase, tDir) };
           }
+          continue; // Si tenemos NP_COMM del juego, no necesitamos otras estrategias para este tDir
         }
 
-        // Fallback: si no encontramos PARAM.SFO del juego, buscar por el
-        // contenido del TROPCONF que mencione el GameID.
-        const confStr = xml.toUpperCase();
-        if (confStr.includes(gameId.toUpperCase())) {
-          return { npCommId, trophyDir: path.join(trophyBase, tDir) };
+        // ── Estrategia 2 (fallback): comparar título del juego con title-name del TROPCONF ──
+        // Para juegos cuyo PARAM.SFO no tiene NP_COMMUNICATION_ID o no existe.
+        if (!gameNpCommId) {
+          const trophyTitle = (parsed?.['title-name'] || '').trim().toUpperCase();
+
+          if (gameTitleHint && trophyTitle) {
+            const normalize = (s) => s.replace(/[^A-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+            const hint   = normalize(gameTitleHint);
+            const trophy = normalize(trophyTitle);
+
+            // Palabras significativas (ignorar palabras cortas genéricas y stopwords)
+            const stopWords = new Set(['DE','THE','OF','EL','LA','LOS','LAS','EN','A','Y','AND','HD','2','3','4','I','II','III','IV','V']);
+            const hintWords   = hint.split(' ').filter(w => w.length > 2 && !stopWords.has(w));
+            const trophyWords = trophy.split(' ').filter(w => w.length > 2 && !stopWords.has(w));
+
+            // Coincidencia exacta o por substring
+            const exactMatch = trophy === hint || trophy.includes(hint) || hint.includes(trophy);
+
+            // Coincidencia por palabras clave: al menos 2 palabras significativas en común
+            const commonWords = hintWords.filter(w => trophyWords.includes(w));
+            const keywordMatch = commonWords.length >= Math.min(2, Math.min(hintWords.length, trophyWords.length));
+
+            // Coincidencia fuzzy strip
+            const fuzzyMatch = trophy.replace(/\s/g,'') === hint.replace(/\s/g,'');
+
+            if (exactMatch || keywordMatch || fuzzyMatch) {
+              return { npCommId: trophyNpCommId, trophyDir: path.join(trophyBase, tDir) };
+            }
+          }
+
+          // Sub-fallback: el contenido del TROPCONF menciona el GameID
+          const confUpper = xml.toUpperCase();
+          if (confUpper.includes(gameId.toUpperCase())) {
+            return { npCommId: trophyNpCommId, trophyDir: path.join(trophyBase, tDir) };
+          }
+          continue;
+        }
+
+        // ── Estrategia 3 (fallback sin PARAM.SFO): buscar GameID en contenido TROPCONF ──
+        // Cuando el juego no tiene PARAM.SFO en dev_hdd0/game/.
+        const confUpper = xml.toUpperCase();
+        if (confUpper.includes(gameId.toUpperCase())) {
+          return { npCommId: trophyNpCommId, trophyDir: path.join(trophyBase, tDir) };
         }
 
       } catch { continue; }
@@ -919,8 +986,14 @@ async function resolveRpcs3GameFromLnk(lnkPath, rpcs3Dir) {
 
   console.log(`[AchievementReader] GameID extraído: ${gameId} de ${path.basename(lnkPath)}`);
 
+  // Extraer el nombre del juego del .lnk como hint para el match por título
+  // Eliminar el GameID entre corchetes si existe: "God of War III [BCES00510]" → "God of War III"
+  const lnkBaseName = path.basename(lnkPath, '.lnk')
+    .replace(/\s*\[[A-Z]{4}\d{5}\]\s*/i, '')
+    .trim();
+
   // Buscar el NPcommID de trofeos en dev_hdd0
-  const found = await findNpCommIdByGameId(rpcs3Dir, gameId);
+  const found = await findNpCommIdByGameId(rpcs3Dir, gameId, lnkBaseName);
   if (!found) {
     console.warn(`[AchievementReader] No se encontró NPcommID para GameID=${gameId} en ${rpcs3Dir}`);
     return null;
