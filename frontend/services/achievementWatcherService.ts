@@ -43,6 +43,15 @@ export function isRpcs3Available(): boolean {
   return typeof api?.getRpcs3Trophies === 'function';
 }
 
+/**
+ * Detecta si hay logros disponibles para un juego PC mediante scan del exe.
+ * Solo disponible en Electron.
+ */
+export function isPcAchievementsAvailable(): boolean {
+  const api = getElectronAPI();
+  return typeof api?.getPcGameAchievements === 'function';
+}
+
 // ─── Caché en memoria ─────────────────────────────────────────────────────────
 
 interface CacheEntry {
@@ -197,6 +206,65 @@ export async function fetchRpcs3Trophies(
       return summary;
     } catch (err) {
       console.warn('[AchievementWatcherService] fetchRpcs3Trophies error:', err);
+      awCache.set(cacheKey, { summary: null, timestamp: Date.now() });
+      return null;
+    } finally {
+      awInFlight.delete(cacheKey);
+    }
+  })();
+
+  awInFlight.set(cacheKey, promise);
+  return promise;
+}
+
+// ─── Logros de juegos PC manuales ────────────────────────────────────────────
+
+/**
+ * Detecta el Steam AppID del juego desde su exe y obtiene sus logros.
+ * Funciona con Codex (steam_emu.ini), Goldberg (steam_appid.txt), CreamAPI, etc.
+ *
+ * @param exePath     - Ruta absoluta al ejecutable del juego
+ * @param steamApiKey - API key de Steam
+ * @param lang        - Idioma del schema (default: 'english')
+ */
+export async function fetchPcGameAchievements(
+  exePath: string,
+  steamApiKey?: string,
+  lang = 'english',
+): Promise<SteamGameAchievementsSummary | null> {
+  const cacheKey = `pc_${exePath}`;
+
+  const cached = awCache.get(cacheKey);
+  if (cached) {
+    if (Date.now() - cached.timestamp <= CACHE_TTL_MS) return cached.summary;
+    awCache.delete(cacheKey);
+  }
+
+  const inFlight = awInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const api = getElectronAPI();
+  if (!api?.getPcGameAchievements) {
+    awCache.set(cacheKey, { summary: null, timestamp: Date.now() });
+    return null;
+  }
+
+  const resolvedKey = steamApiKey
+    ?? (process.env as any).EXPO_PUBLIC_STEAM_API_KEY
+    ?? 'B1F361EA3C07B455DC8B0D06ED179B00';
+
+  const promise = (async (): Promise<SteamGameAchievementsSummary | null> => {
+    try {
+      const response = await api.getPcGameAchievements(exePath, resolvedKey, lang);
+      if (!response?.success || !response.data) {
+        awCache.set(cacheKey, { summary: null, timestamp: Date.now() });
+        return null;
+      }
+      const summary = response.data as SteamGameAchievementsSummary;
+      awCache.set(cacheKey, { summary, timestamp: Date.now() });
+      return summary;
+    } catch (err) {
+      console.warn('[AchievementWatcherService] fetchPcGameAchievements error:', err);
       awCache.set(cacheKey, { summary: null, timestamp: Date.now() });
       return null;
     } finally {

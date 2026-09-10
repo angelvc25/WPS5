@@ -49,6 +49,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('media-sessions-changed', listener);
     return () => ipcRenderer.removeListener('media-sessions-changed', listener);
   },
+  // ── Logros de juegos PC manuales (detecta AppID automáticamente desde el exe) ─
+  getPcGameAchievements: (exePath, steamApiKey, lang) =>
+    ipcRenderer.invoke('get-pc-game-achievements', exePath, steamApiKey, lang),
   // ── Logros de juegos externos (emuladores Steam + GreenLuma) ──────────────
   // Devuelve un NormalizedSummary (mismo shape que SteamGameAchievementsSummary)
   // o null si no se encuentran datos en disco/registro.

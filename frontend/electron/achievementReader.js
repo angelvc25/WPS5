@@ -930,4 +930,114 @@ async function resolveRpcs3GameFromLnk(lnkPath, rpcs3Dir) {
   return scanRpcs3Trophies(rpcs3Dir, found.npCommId);
 }
 
-module.exports = { scanExternalAchievements, scanRpcs3Trophies, resolveRpcs3GameFromLnk };
+// ─────────────────────────────────────────────────────────────────────────────
+// Detección de Steam AppID para juegos PC manuales
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Dado el path del ejecutable de un juego PC, intenta detectar su Steam AppID
+ * buscando en el directorio del juego y en las rutas predefinidas de emuladores.
+ *
+ * Estrategia por prioridad:
+ *  1. steam_appid.txt  (en la carpeta del juego o steam_settings/)
+ *  2. steam_emu.ini    AppId= (Codex)
+ *  3. CreamAPI.ini     appid= (CreamAPI)
+ *  4. cream_api.ini    appid=
+ *  5. Buscar en carpetas de emuladores qué appId tiene su directorio cerca del exe
+ *
+ * @param {string} exePath - Ruta absoluta al ejecutable del juego
+ * @returns {Promise<number|null>} Steam AppID o null si no se encontró
+ */
+async function detectSteamAppIdFromExe(exePath) {
+  if (!exePath || !fs.existsSync(exePath)) return null;
+
+  const gameDir = path.dirname(exePath);
+
+  // ── 1. Buscar en archivos del directorio del juego y subcarpetas cercanas ──
+  const searchDirs = [
+    gameDir,
+    path.join(gameDir, 'steam_settings'),
+    path.join(gameDir, 'saves'),
+    path.join(gameDir, 'bin'),
+    path.join(gameDir, 'Binaries'),
+    path.join(gameDir, 'Binaries', 'Win64'),
+    path.join(gameDir, 'Binaries', 'Win32'),
+    // Subir solo UN nivel (por juegos cuyo .exe está en una subcarpeta directa)
+    path.dirname(gameDir),
+    path.join(path.dirname(gameDir), 'steam_settings'),
+  ];
+
+  const appIdFiles = [
+    { name: 'steam_appid.txt', parse: (c) => parseInt(c.trim(), 10) },
+    { name: 'steam_emu.ini',   parse: (c) => { const m = c.match(/AppId\s*=\s*(\d+)/i); return m ? parseInt(m[1], 10) : null; } },
+    { name: 'steam_api.ini',   parse: (c) => { const m = c.match(/AppID\s*=\s*(\d+)/i);  return m ? parseInt(m[1], 10) : null; } },
+    { name: 'CreamAPI.ini',    parse: (c) => { const m = c.match(/appid\s*=\s*(\d+)/i);  return m ? parseInt(m[1], 10) : null; } },
+    { name: 'cream_api.ini',   parse: (c) => { const m = c.match(/appid\s*=\s*(\d+)/i);  return m ? parseInt(m[1], 10) : null; } },
+    { name: 'ALI213.ini',      parse: (c) => { const m = c.match(/AppId\s*=\s*(\d+)/i);  return m ? parseInt(m[1], 10) : null; } },
+    { name: 'hoodlum.ini',     parse: (c) => { const m = c.match(/AppId\s*=\s*(\d+)/i);  return m ? parseInt(m[1], 10) : null; } },
+  ];
+
+  for (const dir of searchDirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const { name, parse } of appIdFiles) {
+      const filePath = path.join(dir, name);
+      if (!fs.existsSync(filePath)) continue;
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const appId = parse(content);
+        if (appId && Number.isFinite(appId) && appId > 0) return appId;
+      } catch { /* ignore */ }
+    }
+  }
+
+  // ── 2. Buscar en carpetas de emuladores por proximidad de ruta ─────────────
+  // Si el juego tiene archivos .cdx, buscar en Codex por el appId cuya carpeta
+  // esté en el mismo directorio que el exe
+  const gameDirNorm = gameDir.toLowerCase().replace(/\\/g, '/');
+
+  for (const { base } of getEmulatorSearchPaths()) {
+    if (!fs.existsSync(base)) continue;
+    try {
+      const subdirs = fs.readdirSync(base);
+      for (const sub of subdirs) {
+        if (!/^\d+$/.test(sub)) continue; // solo carpetas numéricas (appIds)
+        const achDir = path.join(base, sub);
+        // Comprobar si la carpeta de logros tiene archivos (hay datos reales)
+        try {
+          const files = fs.readdirSync(achDir);
+          if (files.length === 0) continue;
+        } catch { continue; }
+
+        // Heurística: el directorio del juego contiene el appId como componente del path
+        // (ej. el juego está en C:\Games y la carpeta Codex es %PUBLIC%\Documents\Steam\CODEX\<appId>)
+        // No podemos hacer la correlación inversa de forma fiable sin más metadatos.
+        // Por ahora solo lo intentamos si hay un steam_api*.dll/.cdx en el gameDir
+        // cuyo hash o nombre nos dé una pista — pero eso es demasiado complejo.
+        // Esta estrategia queda como placeholder para futuros refinamientos.
+      }
+    } catch { /* ignore */ }
+  }
+
+  return null;
+}
+
+/**
+ * Punto de entrada IPC para detectar el Steam AppID de un juego PC manual
+ * y obtener sus logros en una sola llamada.
+ *
+ * @param {string} exePath    - Ruta al ejecutable del juego
+ * @param {string} steamApiKey - API key de Steam para obtener el schema
+ * @param {string} [lang]     - Idioma
+ * @returns {Promise<NormalizedSummary|null>}
+ */
+async function scanPcGameAchievements(exePath, steamApiKey, lang = 'english') {
+  const appId = await detectSteamAppIdFromExe(exePath);
+  if (!appId) {
+    console.warn('[AchievementReader] No se detectó AppID para:', exePath);
+    return null;
+  }
+  console.log(`[AchievementReader] AppID detectado: ${appId} para ${path.basename(path.dirname(exePath))}`);
+  return scanExternalAchievements(appId, steamApiKey, lang);
+}
+
+module.exports = { scanExternalAchievements, scanRpcs3Trophies, resolveRpcs3GameFromLnk, scanPcGameAchievements, detectSteamAppIdFromExe };

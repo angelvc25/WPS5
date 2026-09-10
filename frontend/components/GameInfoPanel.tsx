@@ -9,10 +9,11 @@ import { ConsoleItem } from '../app/(tabs)/index';
 import { useAchievementWatcher } from '../hooks/useAchievementWatcher';
 import {
   fetchAwGameAchievements,
+  fetchPcGameAchievements, // juegos PC manuales — detecta AppID desde el exe
   fetchRpcs3Trophies,
   fetchRpcs3TrophiesFromLnk,
   getCachedAwAchievements,
-  getRpcs3AppId
+  getRpcs3AppId,
 } from '../services/achievementWatcherService';
 import { formatPlaytime } from '../services/playtimeService';
 import { getGameActionLabel, getSteamAppId } from '../services/steamLaunchService';
@@ -246,15 +247,27 @@ export const GameInfoPanel = ({
     }
 
     // ── Juego con Steam AppID ─────────────────────────────────────────────────
+    // Para juegos PC manuales, achievementAppId es null — se continúa abajo.
     if (!achievementAppId) {
-      setSteamAchievements(null);
-      setAchievementsSource(null);
-      setAchievementsLoading(false);
-      return;
+      // Antes de salir, verificar si es un juego PC que puede tener logros por exe
+      const isPcEarly = achievementGame?.platform?.toUpperCase() === 'PC'
+                     || achievementGame?.platform?.toUpperCase() === 'WINDOWS';
+      const pathEarly = achievementGame?.path ?? null;
+      const isExeEarly = typeof pathEarly === 'string'
+                      && (pathEarly.endsWith('.exe') || pathEarly.endsWith('.bat'));
+      const hasApiEarly = typeof (window as any)?.electronAPI?.getPcGameAchievements === 'function';
+
+      if (!(isPcEarly && isExeEarly && hasApiEarly)) {
+        setSteamAchievements(null);
+        setAchievementsSource(null);
+        setAchievementsLoading(false);
+        return;
+      }
+      // Si es un juego PC con API disponible, continuar hasta la rama PC más abajo
     }
 
     // ── Ruta Steam legítimo (cuenta configurada) ──────────────────────────────
-    if (steamId) {
+    if (steamId && achievementAppId) {
       // 1. Caché instantánea
       const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId));
       if (cached !== undefined) {
@@ -308,7 +321,7 @@ export const GameInfoPanel = ({
     // Se activa cuando hay un appId Steam en el juego pero no hay steamId de
     // usuario: típicamente juegos con emulador (Codex, Goldberg, etc.) añadidos
     // manualmente a la librería.
-    if (awAvailable) {
+    if (awAvailable && achievementAppId) {
       // 1. Caché instantánea
       const awCached = getCachedAwAchievements(achievementAppId, 'local');
       if (awCached !== undefined) {
@@ -341,12 +354,62 @@ export const GameInfoPanel = ({
       };
     }
 
+    // ── Juego PC manual (platform="PC") sin Steam AppID en el id ─────────────
+    // Detecta el AppID leyendo steam_emu.ini / steam_appid.txt / CreamAPI.ini
+    // en el directorio del ejecutable del juego.
+    const isPcGame = achievementGame?.platform?.toUpperCase() === 'PC'
+                  || achievementGame?.platform?.toUpperCase() === 'WINDOWS';
+    const gamePath = achievementGame?.path ?? null;
+    const hasExePath = typeof gamePath === 'string'
+                    && (gamePath.endsWith('.exe') || gamePath.endsWith('.bat'));
+    // Detectar disponibilidad directamente, independiente de awAvailable
+    const hasPcAchApi = typeof (window as any)?.electronAPI?.getPcGameAchievements === 'function';
+
+    console.log('[PC-ACH]', {
+      title: achievementGame?.title,
+      platform: achievementGame?.platform,
+      isPcGame,
+      hasExePath,
+      hasPcAchApi,
+      awAvailable,
+      gamePath,
+    });
+
+    if (isPcGame && hasExePath && hasPcAchApi) {
+      setSteamAchievements(null);
+      setAchievementsSource(null);
+      setAchievementsLoading(false);
+
+      const apiKey = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
+      let cancelled = false;
+      const timer = setTimeout(() => {
+        setAchievementsLoading(true);
+        fetchPcGameAchievements(gamePath!, apiKey).then((summary) => {
+          if (!cancelled) {
+            console.log('[PC-ACH] result:', summary?.total, 'source:', (summary as any)?.source);
+            setSteamAchievements(summary);
+            setAchievementsSource(summary ? 'aw' : null);
+            setAchievementsLoading(false);
+          }
+        });
+      }, 300);
+
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
+    }
+
     // Sin Steam ni AW disponible
     setSteamAchievements(null);
     setAchievementsSource(null);
     setAchievementsLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [achievementAppId, rpcs3AppId, steamId, awAvailable, (activeUser?.settings as any)?.rpcs3Path]);
+  }, [achievementAppId, rpcs3AppId, steamId, awAvailable,
+      (activeUser?.settings as any)?.rpcs3Path,
+      achievementGame?.path,      // juegos PC: el path del exe identifica el juego
+      achievementGame?.platform,  // cambio de plataforma re-ejecuta el fetch
+     ]);
 
   const trophyCounts = steamAchievements?.rarityCounts ?? { platinum: 0, gold: 0, silver: 0, bronze: 0 };
   const trophyProgress = steamAchievements?.total

@@ -1723,13 +1723,23 @@ app.whenReady().then(() => {
   // crashar (0xC0000005) a muchos juegos al cargar DLLs o Crashpad.
   function envForExternalApp() {
     const env = { ...process.env };
+    // Variables de Electron/Chromium/Node que hacen crashar juegos o
+    // activan detección de depuración en algunos emuladores (Codex, Goldberg).
     const strip = [
       'ELECTRON_RUN_AS_NODE',
       'ELECTRON_NO_ASAR',
       'ELECTRON_NO_ATTACH_CONSOLE',
+      'ELECTRON_ENABLE_LOGGING',
+      'ELECTRON_LOG_ASAR_READS',
       'CHROME_CRASHPAD_PIPE_NAME',
+      'CHROME_CRASHPAD_HANDLER_INITIAL_CLIENT_DATA',
       'NODE_OPTIONS',
       'NODE_SKIP_PLATFORM_CHECK',
+      'NODE_ENV',
+      // Variables internas de Chromium que pueden activar detección de sandbox/debug
+      'GOOGLE_API_KEY',
+      'GOOGLE_DEFAULT_CLIENT_ID',
+      'GOOGLE_DEFAULT_CLIENT_SECRET',
     ];
     for (const key of strip) delete env[key];
     return env;
@@ -1739,6 +1749,8 @@ app.whenReady().then(() => {
     if (code === 3221225477) return ' — acceso inválido a memoria (0xC0000005)';
     if (code === 3221225781) return ' — DLL no encontrada (0xC0000135)';
     if (code === 3221226505) return ' — stack buffer overrun (0xC0000409)';
+    if (code === -4092)      return ' — emulador/juego rechazó el arranque (puede ser detección de entorno o falta de prerequisites)';
+    if (code === -1073741515) return ' — DLL no encontrada (0xC0000135)';
     return '';
   }
 
@@ -2903,6 +2915,17 @@ app.whenReady().then(() => {
       return { success: true, data: result };
     } catch (err) {
       console.error('[IPC:get-external-achievements]', err);
+      return { success: false, data: null, error: err.message };
+    }
+  });
+
+  // ── IPC: Logros de juegos PC manuales (detecta AppID desde el exe) ──────────
+  ipcMain.handle('get-pc-game-achievements', async (_event, exePath, steamApiKey, lang) => {
+    try {
+      const result = await achievementReader.scanPcGameAchievements(exePath, steamApiKey, lang || 'english');
+      return { success: true, data: result };
+    } catch (err) {
+      console.error('[IPC:get-pc-game-achievements]', err);
       return { success: false, data: null, error: err.message };
     }
   });
