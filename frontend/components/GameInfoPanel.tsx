@@ -191,14 +191,14 @@ export const GameInfoPanel = ({
     if (rpcs3AppId) {
       const rpcs3Dir = (activeUser?.settings as any)?.rpcs3Path ?? null;
 
-      console.log('[RPCS3]', {
-        title: achievementGame?.title,
-        platform: achievementGame?.platform,
-        path: achievementGame?.path,
-        rpcs3AppId,
-        rpcs3Dir,
-        isLnk: typeof achievementGame?.path === 'string' && achievementGame.path.toLowerCase().endsWith('.lnk'),
-      });
+      // console.log('[RPCS3]', {
+      //   title: achievementGame?.title,
+      //   platform: achievementGame?.platform,
+      //   path: achievementGame?.path,
+      //   rpcs3AppId,
+      //   rpcs3Dir,
+      //   isLnk: typeof achievementGame?.path === 'string' && achievementGame.path.toLowerCase().endsWith('.lnk'),
+      // });
 
       if (!rpcs3Dir) {
         // Sin rpcs3Path configurado, no hay nada que hacer silenciosamente.
@@ -251,10 +251,10 @@ export const GameInfoPanel = ({
     if (!achievementAppId) {
       // Antes de salir, verificar si es un juego PC que puede tener logros por exe
       const isPcEarly = achievementGame?.platform?.toUpperCase() === 'PC'
-                     || achievementGame?.platform?.toUpperCase() === 'WINDOWS';
+        || achievementGame?.platform?.toUpperCase() === 'WINDOWS';
       const pathEarly = achievementGame?.path ?? null;
       const isExeEarly = typeof pathEarly === 'string'
-                      && (pathEarly.endsWith('.exe') || pathEarly.endsWith('.bat'));
+        && (pathEarly.endsWith('.exe') || pathEarly.endsWith('.bat'));
       const hasApiEarly = typeof (window as any)?.electronAPI?.getPcGameAchievements === 'function';
 
       if (!(isPcEarly && isExeEarly && hasApiEarly)) {
@@ -358,22 +358,22 @@ export const GameInfoPanel = ({
     // Detecta el AppID leyendo steam_emu.ini / steam_appid.txt / CreamAPI.ini
     // en el directorio del ejecutable del juego.
     const isPcGame = achievementGame?.platform?.toUpperCase() === 'PC'
-                  || achievementGame?.platform?.toUpperCase() === 'WINDOWS';
+      || achievementGame?.platform?.toUpperCase() === 'WINDOWS';
     const gamePath = achievementGame?.path ?? null;
     const hasExePath = typeof gamePath === 'string'
-                    && (gamePath.endsWith('.exe') || gamePath.endsWith('.bat'));
+      && (gamePath.endsWith('.exe') || gamePath.endsWith('.bat'));
     // Detectar disponibilidad directamente, independiente de awAvailable
     const hasPcAchApi = typeof (window as any)?.electronAPI?.getPcGameAchievements === 'function';
 
-    console.log('[PC-ACH]', {
-      title: achievementGame?.title,
-      platform: achievementGame?.platform,
-      isPcGame,
-      hasExePath,
-      hasPcAchApi,
-      awAvailable,
-      gamePath,
-    });
+    // console.log('[PC-ACH]', {
+    //   title: achievementGame?.title,
+    //   platform: achievementGame?.platform,
+    //   isPcGame,
+    //   hasExePath,
+    //   hasPcAchApi,
+    //   awAvailable,
+    //   gamePath,
+    // });
 
     if (isPcGame && hasExePath && hasPcAchApi) {
       setSteamAchievements(null);
@@ -386,7 +386,7 @@ export const GameInfoPanel = ({
         setAchievementsLoading(true);
         fetchPcGameAchievements(gamePath!, apiKey).then((summary) => {
           if (!cancelled) {
-            console.log('[PC-ACH] result:', summary?.total, 'source:', (summary as any)?.source);
+            // console.log('[PC-ACH] result:', summary?.total, 'source:', (summary as any)?.source);
             setSteamAchievements(summary);
             setAchievementsSource(summary ? 'aw' : null);
             setAchievementsLoading(false);
@@ -404,12 +404,12 @@ export const GameInfoPanel = ({
     setSteamAchievements(null);
     setAchievementsSource(null);
     setAchievementsLoading(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [achievementAppId, rpcs3AppId, steamId, awAvailable,
-      (activeUser?.settings as any)?.rpcs3Path,
-      achievementGame?.path,      // juegos PC: el path del exe identifica el juego
-      achievementGame?.platform,  // cambio de plataforma re-ejecuta el fetch
-     ]);
+    (activeUser?.settings as any)?.rpcs3Path,
+    achievementGame?.path,      // juegos PC: el path del exe identifica el juego
+    achievementGame?.platform,  // cambio de plataforma re-ejecuta el fetch
+  ]);
 
   const trophyCounts = steamAchievements?.rarityCounts ?? { platinum: 0, gold: 0, silver: 0, bronze: 0 };
   const trophyProgress = steamAchievements?.total
@@ -481,7 +481,7 @@ export const GameInfoPanel = ({
                   {/* Etiqueta pequeña superior */}
                   <View style={{
                     alignSelf: 'flex-start',
-                    borderColor:'rgba(255, 255, 255, 0.81)',
+                    borderColor: 'rgba(255, 255, 255, 0.81)',
                     borderWidth: s(1),
                     borderRadius: s(2),
                     paddingHorizontal: s(10),
@@ -775,267 +775,22 @@ export const GameInfoPanel = ({
           <Animated.View
             style={[styles.infoCardsRow, infoCardsStyle, { marginTop: s(20) }]}
           >
-          {/* Trophies Card */}
-          <View
-            style={[
-              styles.infoCard,
-              { padding: s(16), minWidth: s(350), borderRadius: s(16) },
-              focusArea === 'game_panel' &&
-              gamePanelFocusIndex === 2 &&
-              styles.infoCardFocused,
-            ]}
-          >
-            {Platform.OS === 'web' &&
-              focusArea === 'game_panel' &&
-              gamePanelFocusIndex === 2 && (
-                <>
-                  <style>
-                    {`
-                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
-                        @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
-                        }
-                        
-                        .wc-spinning-container2 {
-                          position: absolute;
-                          top: 0px;
-                          left: 0px;
-                          right: 0px;
-                          bottom: 0px;
-                          border-radius: 15px;
-                          z-index: 9999;
-                          overflow: visible !important;
-
-                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
-                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
-                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
-                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
-
-                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
-                                El segundo gradiente se queda solo en el contenido (padding-box) */
-                          -webkit-mask-clip: border-box, padding-box;
-                          mask-clip: border-box, padding-box;
-
-                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
-                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
-                          -webkit-mask-composite: destination-out;
-                          mask-composite: exclude;
-
-                          /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 3px solid transparent; 
-                        }
-
-                        .wc-spinning-inner {
-                          position: absolute;
-                          top: 50%;
-                          left: 50%;
-                          width: 300%;
-                          height: 600%;
-                          animation: wc-spin-border 9.8s linear infinite;
-                          
-                          background: conic-gradient(
-                            from 0deg,
-                            rgba(255, 255, 255, 0.15) 0%,
-                            rgba(255, 255, 255, 0.79) 28%,
-                            rgba(180, 210, 255, 0.86) 33%,
-                            rgba(220, 235, 255, 0.95) 48%,
-                            rgba(255, 255, 255, 1.0) 50%,
-                            rgba(223, 248, 182, 0.95) 52%,
-                            rgba(180, 210, 255, 0.88) 57%,
-                            rgba(255, 255, 255, 0.75) 62%,
-                            rgba(255, 255, 255, 0.15) 100%
-                          );
-                          border-radius: 50%;
-                        }
-
-                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
-  @keyframes wc-content-shimmer {
-    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
-    15% { opacity: 1; }
-    50% { opacity: 1; }
-    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-  }
-  .wc-shimmer-line2 {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 160%; 
-    height: 420%; 
-    background: linear-gradient(
-      to right,
-      transparent 0%,
-      rgba(255, 255, 255, 0.01) 20%,
-      rgba(255, 255, 255, 0.18) 50%, 
-      rgba(255, 255, 255, 0.01) 80%,
-      transparent 100%
-    );
-    animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
-  }
-                      `}
-                  </style>
-
-                  <div className="wc-spinning-container2">
-                    {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
-                    <div className="wc-spinning-inner" />
-                  </div>
-                </>
-              )}
-
-            {/* SHIMMER */}
-            {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 2 && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 1,
-                  right: 1,
-                  bottom: 0,
-                  borderRadius: 15,
-                  zIndex: 5,
-                  overflow: 'hidden',
-                } as any}
-                pointerEvents="none"
-              >
-                {/* @ts-ignore */}
-                <div className="wc-shimmer-line2" />
-              </View>
-            )}
-            {/* DEGRADADO */}
-            {Platform.OS === 'web' && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: `
-                    linear-gradient(
-                      90deg,
-                      rgba(207, 241, 253, 0.14) 0%,
-                      rgba(207, 240, 255, 0.06) 50%,
-                      rgba(255,255,255,0.02) 70%,
-                      rgba(255,255,255,0.00) 90%,
-                      rgba(0, 0, 0, 0) 100%
-                    )
-                  `,
-                  pointerEvents: 'none',
-                  borderRadius: 15,
-                  zIndex: 1,
-                  opacity: (focusArea === 'game_panel' && gamePanelFocusIndex === 2) ? 1 : 0,
-                  transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                }}
-              />
-            )}
-
-            {/* CONTENIDO */}
+            {/* Trophies Card */}
             <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginBottom: s(12),
-                gap: s(25),
-                zIndex: 2,
-              }}
+              style={[
+                styles.infoCard,
+                { padding: s(16), minWidth: s(350), borderRadius: s(16) },
+                focusArea === 'game_panel' &&
+                gamePanelFocusIndex === 2 &&
+                styles.infoCardFocused,
+              ]}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Image
-                  source={require('@/assets/images/platino.png')}
-                  style={{
-                    width: s(28),
-                    height: s(28),
-                    resizeMode: 'contain',
-                  }}
-                />
-                <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
-                  {trophyCounts.platinum}
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Image
-                  source={require('@/assets/images/oro.png')}
-                  style={{
-                    width: s(28),
-                    height: s(28),
-                    resizeMode: 'contain',
-                  }}
-                />
-                <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
-                  {trophyCounts.gold}
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Image
-                  source={require('@/assets/images/plata.png')}
-                  style={{
-                    width: s(28),
-                    height: s(28),
-                    resizeMode: 'contain',
-                  }}
-                />
-                <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
-                  {trophyCounts.silver}
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Image
-                  source={require('@/assets/images/bronce.png')}
-                  style={{
-                    width: s(28),
-                    height: s(28),
-                    resizeMode: 'contain',
-                  }}
-                />
-                <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
-                  {trophyCounts.bronze}
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ zIndex: 2 }}>
-              <Text
-                style={{
-                  color: '#FFF',
-                  fontSize: s(16),
-                  fontFamily: 'SSTBold',
-                  marginBottom: s(4),
-                }}
-              >
-                {t('game.trophies')}
-              </Text>
-
-              <Text style={{ color: '#ddddddff', fontFamily: 'SSTLight', fontSize: s(17) }}>
-                {t('game.trophiesCount', { count: achievementsLoading ? '…' : `${steamAchievements?.unlocked ?? 0}/${steamAchievements?.total ?? 0}` })}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10), marginTop: s(8) }}>
-                <View style={{ flex: 1, height: s(4), borderRadius: s(2), backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' }}>
-                  <View style={{ width: `${achievementsLoading ? 0 : trophyProgress}%`, height: '100%', backgroundColor: '#E7E9EE', borderRadius: s(2) }} />
-                </View>
-                <Text style={{ color: '#FFF', fontSize: s(16), fontFamily: 'SSTBold', minWidth: s(40), textAlign: 'right' }}>
-                  {achievementsLoading ? '…' : `${trophyProgress}%`}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Friends Playing Card */}
-          <View
-            style={[
-              styles.infoCard,
-              { padding: s(16), minWidth: s(350), borderRadius: s(16) },
-              focusArea === 'game_panel' &&
-              gamePanelFocusIndex === 3 &&
-              styles.infoCardFocused,
-            ]}
-          >
-            {Platform.OS === 'web' &&
-              focusArea === 'game_panel' &&
-              gamePanelFocusIndex === 3 && (
-                <>
-                  <style>
-                    {`
+              {Platform.OS === 'web' &&
+                focusArea === 'game_panel' &&
+                gamePanelFocusIndex === 2 && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -1119,41 +874,41 @@ export const GameInfoPanel = ({
     animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
   }
                       `}
-                  </style>
+                    </style>
 
-                  <div className="wc-spinning-container2">
-                    {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
-                    <div className="wc-spinning-inner" />
-                  </div>
-                </>
+                    <div className="wc-spinning-container2">
+                      {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
+                      <div className="wc-spinning-inner" />
+                    </div>
+                  </>
+                )}
+
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 2 && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 15,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
+                </View>
               )}
-
-            {/* SHIMMER */}
-            {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 3 && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 1,
-                  right: 1,
-                  bottom: 0,
-                  borderRadius: 15,
-                  zIndex: 5,
-                  overflow: 'hidden',
-                } as any}
-                pointerEvents="none"
-              >
-                {/* @ts-ignore */}
-                <div className="wc-shimmer-line2" />
-              </View>
-            )}
-            {/* DEGRADADO */}
-            {Platform.OS === 'web' && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: `
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
                     linear-gradient(
                       90deg,
                       rgba(207, 241, 253, 0.14) 0%,
@@ -1163,52 +918,297 @@ export const GameInfoPanel = ({
                       rgba(0, 0, 0, 0) 100%
                     )
                   `,
-                  pointerEvents: 'none',
-                  zIndex: 1,
-                  borderRadius: 15,
-                  opacity: (focusArea === 'game_panel' && gamePanelFocusIndex === 3) ? 1 : 0,
-                  transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                  backdropFilter: 'blur(2px)',
-                }}
-              />
-            )}
+                    pointerEvents: 'none',
+                    borderRadius: 15,
+                    zIndex: 1,
+                    opacity: (focusArea === 'game_panel' && gamePanelFocusIndex === 2) ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+              )}
 
-            {/* CONTENIDO */}
-            <View style={{ flexDirection: 'row', marginBottom: s(12), zIndex: 2 }}>
-              <Image
-                source={require('@/assets/images/amigos.png')}
+              {/* CONTENIDO */}
+              <View
                 style={{
-                  width: s(35),
-                  height: s(35),
-                  resizeMode: 'contain',
-                }}
-              />
-            </View>
-
-            <View style={{ zIndex: 2 }}>
-              <Text
-                style={{
-                  color: '#FFF',
-                  fontSize: s(16),
-                  fontFamily: 'SSTBold',
-                  marginBottom: s(4),
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginBottom: s(12),
+                  gap: s(25),
+                  zIndex: 2,
                 }}
               >
-                {t('game.friendsPlaying')}
-              </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Image
+                    source={require('@/assets/images/platino.png')}
+                    style={{
+                      width: s(28),
+                      height: s(28),
+                      resizeMode: 'contain',
+                    }}
+                  />
+                  <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
+                    {trophyCounts.platinum}
+                  </Text>
+                </View>
 
-              <Text style={{ color: '#ddddddff', fontFamily: 'SSTLight', fontSize: s(17) }}>
-                {t('game.friendsCount', { count: 5 })}
-              </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Image
+                    source={require('@/assets/images/oro.png')}
+                    style={{
+                      width: s(28),
+                      height: s(28),
+                      resizeMode: 'contain',
+                    }}
+                  />
+                  <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
+                    {trophyCounts.gold}
+                  </Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Image
+                    source={require('@/assets/images/plata.png')}
+                    style={{
+                      width: s(28),
+                      height: s(28),
+                      resizeMode: 'contain',
+                    }}
+                  />
+                  <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
+                    {trophyCounts.silver}
+                  </Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Image
+                    source={require('@/assets/images/bronce.png')}
+                    style={{
+                      width: s(28),
+                      height: s(28),
+                      resizeMode: 'contain',
+                    }}
+                  />
+                  <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold', marginTop: s(15) }}>
+                    {trophyCounts.bronze}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ zIndex: 2 }}>
+                <Text
+                  style={{
+                    color: '#FFF',
+                    fontSize: s(16),
+                    fontFamily: 'SSTBold',
+                    marginBottom: s(4),
+                  }}
+                >
+                  {t('game.trophies')}
+                </Text>
+
+                <Text style={{ color: '#ddddddff', fontFamily: 'SSTLight', fontSize: s(17) }}>
+                  {t('game.trophiesCount', { count: achievementsLoading ? '…' : `${steamAchievements?.unlocked ?? 0}/${steamAchievements?.total ?? 0}` })}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10), marginTop: s(8) }}>
+                  <View style={{ flex: 1, height: s(4), borderRadius: s(2), backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' }}>
+                    <View style={{ width: `${achievementsLoading ? 0 : trophyProgress}%`, height: '100%', backgroundColor: '#E7E9EE', borderRadius: s(2) }} />
+                  </View>
+                  <Text style={{ color: '#FFF', fontSize: s(16), fontFamily: 'SSTBold', minWidth: s(40), textAlign: 'right' }}>
+                    {achievementsLoading ? '…' : `${trophyProgress}%`}
+                  </Text>
+                </View>
+              </View>
             </View>
-          </View>
 
-          {/* Music Player Card (only visible on media/spotify) */}
-          {isMediaSection && (
-            <MusicPlayerCard
-              isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 4}
-            />
-          )}
+            {/* Friends Playing Card */}
+            <View
+              style={[
+                styles.infoCard,
+                { padding: s(16), minWidth: s(350), borderRadius: s(16) },
+                focusArea === 'game_panel' &&
+                gamePanelFocusIndex === 3 &&
+                styles.infoCardFocused,
+              ]}
+            >
+              {Platform.OS === 'web' &&
+                focusArea === 'game_panel' &&
+                gamePanelFocusIndex === 3 && (
+                  <>
+                    <style>
+                      {`
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
+                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                        }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: 0px;
+                          left: 0px;
+                          right: 0px;
+                          bottom: 0px;
+                          border-radius: 15px;
+                          z-index: 9999;
+                          overflow: visible !important;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 3px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 300%;
+                          height: 600%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+  @keyframes wc-content-shimmer {
+    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+    15% { opacity: 1; }
+    50% { opacity: 1; }
+    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+  }
+  .wc-shimmer-line2 {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 160%; 
+    height: 420%; 
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(255, 255, 255, 0.01) 20%,
+      rgba(255, 255, 255, 0.18) 50%, 
+      rgba(255, 255, 255, 0.01) 80%,
+      transparent 100%
+    );
+    animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+  }
+                      `}
+                    </style>
+
+                    <div className="wc-spinning-container2">
+                      {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
+                      <div className="wc-spinning-inner" />
+                    </div>
+                  </>
+                )}
+
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 3 && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 15,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
+                </View>
+              )}
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
+                    linear-gradient(
+                      90deg,
+                      rgba(207, 241, 253, 0.14) 0%,
+                      rgba(207, 240, 255, 0.06) 50%,
+                      rgba(255,255,255,0.02) 70%,
+                      rgba(255,255,255,0.00) 90%,
+                      rgba(0, 0, 0, 0) 100%
+                    )
+                  `,
+                    pointerEvents: 'none',
+                    zIndex: 1,
+                    borderRadius: 15,
+                    opacity: (focusArea === 'game_panel' && gamePanelFocusIndex === 3) ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                    backdropFilter: 'blur(2px)',
+                  }}
+                />
+              )}
+
+              {/* CONTENIDO */}
+              <View style={{ flexDirection: 'row', marginBottom: s(12), zIndex: 2 }}>
+                <Image
+                  source={require('@/assets/images/amigos.png')}
+                  style={{
+                    width: s(35),
+                    height: s(35),
+                    resizeMode: 'contain',
+                  }}
+                />
+              </View>
+
+              <View style={{ zIndex: 2 }}>
+                <Text
+                  style={{
+                    color: '#FFF',
+                    fontSize: s(16),
+                    fontFamily: 'SSTBold',
+                    marginBottom: s(4),
+                  }}
+                >
+                  {t('game.friendsPlaying')}
+                </Text>
+
+                <Text style={{ color: '#ddddddff', fontFamily: 'SSTLight', fontSize: s(17) }}>
+                  {t('game.friendsCount', { count: 5 })}
+                </Text>
+              </View>
+            </View>
+
+            {/* Music Player Card (only visible on media/spotify) */}
+            {isMediaSection && (
+              <MusicPlayerCard
+                isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 4}
+              />
+            )}
           </Animated.View>
         </Animated.View>
       )}
@@ -1487,13 +1487,13 @@ export const GameInfoPanel = ({
                     </View>
                   )}
                   <Text style={{ color: achievement.achieved ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.45)', fontSize: s(11), fontFamily: 'SSTMedium', marginBottom: s(4) }}>
-                    {achievement.achieved ? 'Desbloqueado' : 'Bloqueado'}{hasGlobalPercentage ? ` · ${globalPercentage.toFixed(1)}%` : ''}
+                    {achievement.achieved ? t('game.trophiesUnlock') : t('game.trophiesLock')}{hasGlobalPercentage ? ` · ${globalPercentage.toFixed(1)}%` : ''}
                   </Text>
                   <Text numberOfLines={1} style={{ color: '#FFF', fontSize: s(17), fontFamily: 'SSTBold', marginBottom: s(5) }}>
                     {achievement.name}
                   </Text>
                   <Text numberOfLines={2} style={{ color: 'rgba(255,255,255,0.62)', fontSize: s(12), lineHeight: s(16), fontFamily: 'SSTLight' }}>
-                    {achievement.description || (achievement.achieved ? 'Logro conseguido' : 'Sigue jugando para desbloquear este logro.')}
+                    {achievement.description || (achievement.achieved ? 'Logro conseguido' : t('game.trophiesDesc'))}
                   </Text>
                 </TouchableOpacity>
               );

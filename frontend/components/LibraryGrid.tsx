@@ -834,13 +834,17 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                                         const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
                                         const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
                                         const isRetro = platformId === 'Retro';
+                                        const isPS3 = platformId === 'PS3';
+                                        const isPS5 = platformId === 'PS5' || platformId === 'PS1' || platformId === 'PS2' || platformId === 'PS4' || platformId === 'PC';
+                                        const isXbox = platformId === 'Xbox';
+                                        const isSwitch = platformId === 'Switch';
                                         const badgeLabel = isRetro
                                           ? ((game as any).retroSystem?.trim() || 'Retro')
                                           : platformId;
 
                                         const isEpicGame = platformId === 'Epic';
                                         const isSteam = steamGame || platformId === 'Steam';
-                                        const platformBgColor = isEpicGame ? '#000000' : isSteam ? 'rgba(2, 15, 36, 1)' : 'white';
+                                        const platformBgColor = isEpicGame ? '#000000' : steamGame ? 'rgba(2, 15, 36, 1)' : isPS3 ? 'rgba(0, 0, 0, 1)' : isXbox ? 'rgba(88, 151, 69, 1)' : isSwitch ? 'rgba(255, 40, 40, 1)' : isRetro ? 'rgba(175, 202, 21, 1)' : 'white';
 
                                         return (
                                           <View style={[styles.platformRow, { backgroundColor: platformBgColor }]}>
@@ -856,12 +860,59 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                                                 style={styles.platformBadgeImage}
                                                 contentFit="contain"
                                               />
-                                            ) : (
+                                            ) : isPS3 ? (
+                                              <Text
+                                                style={{
+                                                  color: '#ffffffff',
+                                                  fontFamily: 'SSTBadge',
+                                                  fontSize: 13,
+                                                  alignItems: 'center',
+                                                  justifyContent: 'center',
+                                                }}
+                                              >
+                                                {' '}{badgeLabel}
+                                              </Text>
+                                            ) : isSwitch ? (
+                                              <Image
+                                                source={require('@/assets/images/SwitchBadge.png')}
+                                                style={styles.platformBadgeImage}
+                                                contentFit="contain"
+                                              />
+                                            ) : isXbox ? (
+                                              <Image
+                                                source={require('@/assets/images/XboxBadgeWhite.png')}
+                                                style={styles.platformBadgeImage}
+                                                contentFit="contain"
+                                              />
+                                            ) : isPS5 ? (
                                               <Text
                                                 style={{
                                                   color: '#000000',
                                                   fontFamily: 'SSTBadge',
-                                                  fontSize: 12,
+                                                  fontSize: 13,
+                                                  alignItems: 'center',
+                                                  justifyContent: 'center',
+                                                }}
+                                              >
+                                                {' '}{badgeLabel}
+                                              </Text>
+                                            ) : isRetro ? (
+                                              <View style={[styles.platformRow2, { backgroundColor: 'transparent' }]}>
+                                                <Image
+                                                  source={require('@/assets/images/retroBadge.png')}
+                                                  style={styles.platformBadgeImage3}
+                                                  contentFit="contain"
+                                                />
+                                                <Text style={[styles.platformBadgeText, { fontFamily: 'SSTMediumIt', fontSize: 14, color: 'white' }]}>
+                                                  {badgeLabel}
+                                                </Text>
+                                              </View>
+                                            ) : (
+                                              <Text
+                                                style={{
+                                                  color: '#000000',
+                                                  fontFamily: 'SSTMediumIt',
+                                                  fontSize: 14,
                                                   alignItems: 'center',
                                                   justifyContent: 'center',
                                                 }}
@@ -1281,9 +1332,29 @@ const styles = StyleSheet.create({
     marginTop: 8,
     height: 30,
   },
+  platformRow2: {
+    backgroundColor: 'white',
+    borderRadius: 4,
+    flexDirection: 'row',
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 0,
+    height: 30,
+  },
   platformBadgeImage: {
     width: 60,
     height: 24,
     marginTop: 4,
+  },
+  platformBadgeImage3: {
+    width: 30,
+    height: 24,
+    marginBottom: 6,
+  },
+  platformBadgeText: {
+    color: '#000000ff',
+    fontFamily: 'SSTBadge',
+    fontSize: 13,
   },
 });

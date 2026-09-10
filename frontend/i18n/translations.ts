@@ -309,6 +309,9 @@ const es = {
   'game.noNews': 'No hay noticias disponibles',
   'game.musicQuote': 'La música es el fondo perfecto para cada aventura.',
   'game.comingSoon': 'Próximamente',
+  'game.trophiesLock': 'Bloqueado',
+  'game.trophiesUnlock': 'Desbloqueado',
+  'game.trophiesDesc': 'Sigue jugando para desbloquear este logro.',
 
   'edit.title': 'Editar Datos',
   'edit.basic': 'Datos Básicos',
@@ -804,6 +807,9 @@ const en: Record<TranslationKey, string> = {
   'game.noNews': 'No news available',
   'game.musicQuote': 'Music is the perfect backdrop for every adventure.',
   'game.comingSoon': 'Coming soon',
+  'game.trophiesLock': 'Locked',
+  'game.trophiesUnlock': 'Unlocked',
+  'game.trophiesDesc': 'Keep playing to unlock this achievement.',
 
   'edit.title': 'Edit Data',
   'edit.basic': 'Basic Data',
@@ -1294,6 +1300,9 @@ const pt: Record<TranslationKey, string> = {
   'game.noNews': 'Não há notícias disponíveis',
   'game.musicQuote': 'A música é o fundo perfeito para cada aventura.',
   'game.comingSoon': 'Em breve',
+  'game.trophiesLock': 'Bloqueado',
+  'game.trophiesUnlock': 'Desbloqueado',
+  'game.trophiesDesc': 'Continua a jogar para desbloquear esta conquista.',
 
   'edit.title': 'Editar Dados',
   'edit.basic': 'Dados Básicos',

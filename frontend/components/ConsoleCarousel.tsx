@@ -274,11 +274,16 @@ export const ConsoleCarousel = ({
                     const platformId =
                       platformSource.platform || (steamGame ? 'Steam' : 'PC');
                     const isRetro = platformId === 'Retro';
+                    const isPS3 = platformId === 'PS3';
+                    const isPS5 = platformId === 'PS5' || platformId === 'PS1' || platformId === 'PS2' || platformId === 'PS4' || platformId === 'PC';
+                    const isXbox = platformId === 'Xbox';
+                    const isSwitch = platformId === 'Switch';
                     const badgeLabel = isRetro
                       ? ((platformSource as any).retroSystem?.trim() || 'Retro')
                       : platformId;
 
                     const isEpicGame = platformId === 'Epic';
+                    const platformBgColor = isEpicGame ? '#000000' : steamGame ? 'rgba(2, 15, 36, 1)' : isPS3 ? 'rgba(0, 0, 0, 1)' : isXbox ? 'rgba(88, 151, 69, 1)' : isSwitch ? 'rgba(255, 40, 40, 1)' : isRetro ? 'rgba(175, 202, 21, 1)' : 'white';
 
                     return (
                       <View style={[styles.platformBadge, { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 0 }]}>
@@ -294,6 +299,45 @@ export const ConsoleCarousel = ({
                             style={styles.platformBadgeImage}
                             contentFit="contain"
                           />
+                        ) : isPS3 ? (
+                          <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
+                            <Text style={{
+                              color: '#ffffffff',
+                              fontFamily: 'SSTBadge',
+                              fontSize: 13,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}>
+                              {badgeLabel}
+                            </Text>
+                          </View>
+                        ) : isXbox ? (
+                          <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
+                            <Image
+                              source={require('@/assets/images/XboxBadgeWhite.png')}
+                              style={styles.platformBadgeImage2}
+                              contentFit="contain"
+                            />
+                          </View>
+                        ) : isSwitch ? (
+                          <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
+                            <Image
+                              source={require('@/assets/images/SwitchBadge.png')}
+                              style={styles.platformBadgeImage2}
+                              contentFit="contain"
+                            />
+                          </View>
+                        ) : isRetro ? (
+                          <View style={[styles.platformRow, { backgroundColor: platformBgColor }]}>
+                            <Image
+                              source={require('@/assets/images/retroBadge.png')}
+                              style={styles.platformBadgeImage3}
+                              contentFit="contain"
+                            />
+                            <Text style={[styles.platformBadgeText, { fontFamily: 'SSTMediumIt', fontSize: 14, color: 'white' }]}>
+                              {badgeLabel}
+                            </Text>
+                          </View>
                         ) : (
                           <View style={styles.platformBadge}>
                             <Text style={styles.platformBadgeText}>
@@ -415,8 +459,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    marginRight: 10,
-    marginLeft: 5,
+    marginRight: 5,
+    marginLeft: 2,
     marginTop: 8,
     marginBottom: 5,
     alignItems: 'center',
@@ -425,7 +469,7 @@ const styles = StyleSheet.create({
   platformBadgeText: {
     color: '#000000ff',
     fontFamily: 'SSTBadge',
-    fontSize: 12,
+    fontSize: 13,
   },
   steamPlatformContent: {
     flexDirection: 'row',
@@ -450,6 +494,30 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     backgroundColor: 'black',
     borderRadius: 4,
+  },
+  platformBadgeImage2: {
+    width: 60,
+    height: 24,
+    marginTop: 4,
+  },
+  platformBadgeImage3: {
+    width: 30,
+    height: 24,
+    marginBottom: 6,
+  },
+  platformRow: {
+    backgroundColor: 'white',
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    height: 30,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 5,
+    marginLeft: 2,
+    marginBottom: 5,
   },
   activeGameTitle: {
     color: '#FFFFFF',
