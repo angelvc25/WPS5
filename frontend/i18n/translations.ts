@@ -313,6 +313,9 @@ const es = {
   'game.trophiesUnlock': 'Desbloqueado',
   'game.trophiesDesc': 'Sigue jugando para desbloquear este logro.',
 
+  'settings.storeSource': 'Tienda',
+  'settings.storeSourceDesc': 'Selecciona entre PlayStation Store y Steam',
+
   'edit.title': 'Editar Datos',
   'edit.basic': 'Datos Básicos',
   'edit.path': 'Ruta del Juego',
@@ -811,6 +814,9 @@ const en: Record<TranslationKey, string> = {
   'game.trophiesUnlock': 'Unlocked',
   'game.trophiesDesc': 'Keep playing to unlock this achievement.',
 
+  'settings.storeSource': 'Store Source',
+  'settings.storeSourceDesc': 'Choose between PlayStation Store and Steam',
+
   'edit.title': 'Edit Data',
   'edit.basic': 'Basic Data',
   'edit.path': 'Game Path',
@@ -1304,8 +1310,11 @@ const pt: Record<TranslationKey, string> = {
   'game.trophiesUnlock': 'Desbloqueado',
   'game.trophiesDesc': 'Continua a jogar para desbloquear esta conquista.',
 
-  'edit.title': 'Editar Dados',
-  'edit.basic': 'Dados Básicos',
+  'settings.storeSource': 'Tienda',
+  'settings.storeSourceDesc': 'Selecciona la tienda entre PlayStation Store y Steam',
+
+  'edit.title': 'Editar Datos',
+  'edit.basic': 'Datos Básicos',
   'edit.path': 'Caminho do Jogo',
   'edit.art': 'Arte e Multimédia',
   'edit.gameTitle': 'Título',

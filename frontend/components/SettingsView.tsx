@@ -6,16 +6,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Dimensions,
-    Linking,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-    useWindowDimensions
+  Dimensions,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { toastService } from '../services/toastService';
@@ -275,7 +275,7 @@ export default function SettingsView({
 
   // ── Accessibility screen: right-column focus helpers ─────────────────────
   const getAccessibilityRightMaxIndex = () => {
-    if (accessibilityLeftIndex === 0) return 1;
+    if (accessibilityLeftIndex === 0) return 2;
     if (accessibilityLeftIndex === 1) {
       const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
       const hasCapturePath = !!activeUser?.settings?.capturePath;
@@ -308,6 +308,11 @@ export default function SettingsView({
             ...activeUser?.settings,
             invertTransitionDirection: !activeUser?.settings?.invertTransitionDirection,
           },
+        });
+      } else if (subFocusIndex === 2) {
+        const current = activeUser?.settings?.storeSource || 'ps5';
+        updateUser({
+          settings: { ...activeUser?.settings, storeSource: current === 'ps5' ? 'steam' : 'ps5' } as any,
         });
       }
       return;
@@ -938,6 +943,35 @@ export default function SettingsView({
                       ]}
                     />
                   </TouchableOpacity>
+                </View>
+
+                {/* Fuente de la tienda: PS5 Store o Steam */}
+                <View
+                  style={[
+                    styles.toggleRowSection,
+                    accessibilityFocusArea === 'right' && subFocusIndex === 2 && styles.rightItemFocused,
+                  ]}
+                >
+                  <View style={{ flex: 1, paddingRight: 20 }}>
+                    <Text style={styles.toggleRowTitle}>{t('settings.storeSource')}</Text>
+                    <Text style={styles.toggleRowDesc}>{t('settings.storeSourceDesc')}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    {(['ps5', 'steam'] as const).map((opt) => {
+                      const isActive = (activeUser?.settings?.storeSource || 'ps5') === opt;
+                      return (
+                        <TouchableOpacity
+                          key={opt}
+                          style={[styles.platformBtn, isActive && styles.platformBtnActive]}
+                          onPress={() => updateUser({ settings: { ...activeUser?.settings, storeSource: opt } as any })}
+                        >
+                          <Text style={[styles.platformBtnText, isActive && styles.platformBtnTextActive]}>
+                            {opt === 'ps5' ? 'PS5 Store' : 'Steam'}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
               </ScrollView>
             )}

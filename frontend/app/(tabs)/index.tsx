@@ -51,6 +51,7 @@ import { Language } from '@/i18n/translations';
 import { fetchSteamGridData } from '@/services/steamGridService';
 import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
+import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
@@ -413,10 +414,16 @@ export default function ConsoleHome() {
 
   // Fetch PlayStation Storefront offers
   useEffect(() => {
-    fetchStoreOffers()
-      .then((data) => setStoreOffers(data))
+    const source = activeUser?.settings?.storeSource || 'ps5';
+    setStoreLoading(true);
+    const loader = source === 'steam'
+      ? fetchSteamStoreOffers()
+      : fetchStoreOffers();
+
+    loader
+      .then((data) => setStoreOffers(data.length > 0 ? data : LOCAL_FALLBACK_OFFERS))
       .finally(() => setStoreLoading(false));
-  }, []);
+  }, [activeUser?.settings?.storeSource]);
 
   const isGamePanelFocused = focusArea === 'game_panel';
   const isLowerSectionFocused = isGamePanelFocused && gamePanelFocusIndex >= 2;

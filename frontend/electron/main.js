@@ -1599,7 +1599,7 @@ app.whenReady().then(() => {
   // IPC: Obtener ofertas destacadas de Steam (para bypass de CORS)
   ipcMain.handle('fetch-steam-specials', async () => {
     try {
-      const response = await fetch('https://store.steampowered.com/api/featuredgcategories/?l=spanish&cc=US');
+      const response = await fetch('https://store.steampowered.com/api/featuredcategories/?l=spanish&cc=US');
       if (!response.ok) throw new Error('Network response was not ok');
       const data = await response.json();
       return data;
@@ -1749,7 +1749,7 @@ app.whenReady().then(() => {
     if (code === 3221225477) return ' — acceso inválido a memoria (0xC0000005)';
     if (code === 3221225781) return ' — DLL no encontrada (0xC0000135)';
     if (code === 3221226505) return ' — stack buffer overrun (0xC0000409)';
-    if (code === -4092)      return ' — emulador/juego rechazó el arranque (puede ser detección de entorno o falta de prerequisites)';
+    if (code === -4092) return ' — emulador/juego rechazó el arranque (puede ser detección de entorno o falta de prerequisites)';
     if (code === -1073741515) return ' — DLL no encontrada (0xC0000135)';
     return '';
   }

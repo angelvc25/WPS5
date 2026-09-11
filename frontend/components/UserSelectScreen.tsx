@@ -36,6 +36,7 @@ export interface UserSettings {
   avatarPath?: string;
   invertTransitionDirection?: boolean;
   language?: 'es' | 'en' | 'pt';
+  storeSource?: 'ps5' | 'steam';
 }
 
 export interface UserProfile {
