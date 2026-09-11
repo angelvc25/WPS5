@@ -315,12 +315,12 @@ export default function MusicExpandedCard({ isOpen, onClose }: MusicExpandedCard
           <View style={styles.footer}>
             <View style={styles.footerLeft}>
               <TouchableOpacity style={styles.footerHint} onPress={handlePrevTrack} activeOpacity={0.7}>
-                <PSIcon char={PSIcons.l1} size={18} color="rgba(255, 255, 255, 0.9)" />
+                <PSIcon char={PSIcons.r1} size={18} color="rgba(255, 255, 255, 0.9)" />
                 <Text style={styles.footerHintText}>{t('musicExpanded.previous')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.footerHint} onPress={handleNextTrack} activeOpacity={0.7}>
-                <PSIcon char={PSIcons.r1} size={18} color="rgba(255, 255, 255, 0.9)" />
+                <PSIcon char={PSIcons.l1} size={18} color="rgba(255, 255, 255, 0.9)" />
                 <Text style={styles.footerHintText}>{t('musicExpanded.next')}</Text>
               </TouchableOpacity>
             </View>
