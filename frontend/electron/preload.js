@@ -67,6 +67,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // rpcs3Dir: carpeta raíz de RPCS3 configurada en Settings
   resolveRpcs3LnkTrophies: (lnkPath, rpcs3Dir) =>
     ipcRenderer.invoke('resolve-rpcs3-lnk-trophies', lnkPath, rpcs3Dir),
+  // ── Overlay ─────────────────────────────────────────────────────────────
+  getActiveGameInfo: () => ipcRenderer.invoke('get-active-game-info'),
+  closeCurrentGame: (installDir) => ipcRenderer.invoke('close-current-game', installDir),
+  hideOverlay: () => ipcRenderer.invoke('hide-overlay'),
+  showMainWindowToSwitchGame: () => ipcRenderer.invoke('show-main-window-to-switch-game'),
+  quitToDesktop: () => ipcRenderer.invoke('quit-to-desktop'),
+  onOverlayShown: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('overlay-shown', listener);
+    return () => ipcRenderer.removeListener('overlay-shown', listener);
+  },
 });
 
 

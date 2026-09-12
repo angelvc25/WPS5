@@ -316,6 +316,14 @@ const es = {
   'settings.storeSource': 'Tienda',
   'settings.storeSourceDesc': 'Selecciona entre PlayStation Store y Steam',
 
+  'overlay.resume': 'Reanudar',
+  'overlay.switch': 'Cambiar juego',
+  'overlay.close': 'Cerrar juego',
+  'overlay.quit': 'Salir a escritorio',
+  'overlay.confirmClose': '¿Cerrar? Pulsa de nuevo',
+  'overlay.subtitle': 'Menú del juego',
+  'overlay.unknownGame': 'Juego en curso',
+
   'edit.title': 'Editar Datos',
   'edit.basic': 'Datos Básicos',
   'edit.path': 'Ruta del Juego',
@@ -509,6 +517,7 @@ const es = {
   'addModal.addSelectedCount': 'Añadir seleccionados ({count})',
   'addModal.addSelected': 'Añadir seleccionados',
   'addModal.savingDefault': 'Buscando metadatos y guardando...',
+  'addModal.retroSystemPlaceholder': 'Seleccionar sistema retro...',
 } as const;
 
 export type TranslationKey = keyof typeof es;
@@ -817,6 +826,14 @@ const en: Record<TranslationKey, string> = {
   'settings.storeSource': 'Store Source',
   'settings.storeSourceDesc': 'Choose between PlayStation Store and Steam',
 
+  'overlay.resume': 'Resume',
+  'overlay.switch': 'Switch game',
+  'overlay.close': 'Close game',
+  'overlay.quit': 'Quit to desktop',
+  'overlay.confirmClose': 'Close? Press again',
+  'overlay.subtitle': 'Game menu',
+  'overlay.unknownGame': 'Game in progress',
+
   'edit.title': 'Edit Data',
   'edit.basic': 'Basic Data',
   'edit.path': 'Game Path',
@@ -1007,6 +1024,7 @@ const en: Record<TranslationKey, string> = {
   'addModal.addSelectedCount': 'Add selected ({count})',
   'addModal.addSelected': 'Add selected',
   'addModal.savingDefault': 'Fetching metadata and saving...',
+  'addModal.retroSystemPlaceholder': 'Select retro system...',
 };
 
 const pt: Record<TranslationKey, string> = {
@@ -1313,6 +1331,14 @@ const pt: Record<TranslationKey, string> = {
   'settings.storeSource': 'Tienda',
   'settings.storeSourceDesc': 'Selecciona la tienda entre PlayStation Store y Steam',
 
+  'overlay.resume': 'Retomar',
+  'overlay.switch': 'Trocar jogo',
+  'overlay.close': 'Fechar jogo',
+  'overlay.quit': 'Sair para desktop',
+  'overlay.confirmClose': 'Fechar? Pressione de novo',
+  'overlay.subtitle': 'Menu do jogo',
+  'overlay.unknownGame': 'Jogo em andamento',
+
   'edit.title': 'Editar Datos',
   'edit.basic': 'Datos Básicos',
   'edit.path': 'Caminho do Jogo',
@@ -1505,6 +1531,7 @@ const pt: Record<TranslationKey, string> = {
   'addModal.addSelectedCount': 'Adicionar selecionados ({count})',
   'addModal.addSelected': 'Adicionar selecionados',
   'addModal.savingDefault': 'Buscando metadados e salvando...',
+  'addModal.retroSystemPlaceholder': 'Selecionar sistema retro...',
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {

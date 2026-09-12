@@ -26,32 +26,46 @@ export function useGamepadInput({
   callbacksRef.current = { onInputModeChange, onGamepadChange, onConnected };
   const previousButtonsRef = useRef<boolean[]>(new Array(16).fill(false));
   const previousAxesRef = useRef([0, 0, 0, 0]);
-  const lastGamepadIdRef = useRef<string | null>(null)
-  //const preferredGamepadIdRef = useRef<string | null>(null);;
+  const lastGamepadIdRef = useRef<string | null>(null);
   const isFirstPollRef = useRef(true);
+  const animationFrameIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof navigator === 'undefined') return;
 
-    let animationFrameId: number | undefined;
+    const hasFocus = () => {
+      if (typeof document === 'undefined') return false;
+      if (document.hidden) return false;
+      return typeof document.hasFocus === 'function' ? document.hasFocus() : true;
+    };
+
+    const cancelLoop = () => {
+      if (animationFrameIdRef.current !== null) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
+    };
+
     const schedulePoll = () => {
-      if (!document.hidden && animationFrameId === undefined) {
-        animationFrameId = requestAnimationFrame(() => {
-          animationFrameId = undefined;
+      if (!hasFocus()) {
+        cancelLoop();
+        return;
+      }
+      if (animationFrameIdRef.current === null) {
+        animationFrameIdRef.current = requestAnimationFrame(() => {
+          animationFrameIdRef.current = null;
           poll();
         });
       }
     };
-    const poll = () => {
-      const gamepad = navigator.getGamepads?.()[0];
 
-      // // DualSense no siempre ocupa el índice 0: Steam y los emuladores pueden
-      // // reservar esa posición para un dispositivo virtual o desconectado.
-      // const connectedGamepads = Array.from(navigator.getGamepads?.() ?? [])
-      //   .filter((candidate): candidate is Gamepad => Boolean(candidate?.connected));
-      // const gamepad =
-      //   connectedGamepads.find((candidate) => candidate.id === preferredGamepadIdRef.current) ??
-      //   connectedGamepads[0];
+    const poll = () => {
+      if (!hasFocus()) {
+        cancelLoop();
+        return;
+      }
+
+      const gamepad = navigator.getGamepads?.()[0];
 
       if (!gamepad) {
         if (lastGamepadIdRef.current !== null) {
@@ -62,13 +76,6 @@ export function useGamepadInput({
         schedulePoll();
         return;
       }
-
-      // // Steam puede añadir un mando virtual antes del DualSense. Una vez que
-      // // el launcher ha identificado el mando físico, se conserva esa elección
-      // // mientras siga disponible.
-      // if (preferredGamepadIdRef.current === null) {
-      //   preferredGamepadIdRef.current = gamepad.id;
-      // }
 
       if (isFirstPollRef.current) {
         isFirstPollRef.current = false;
@@ -122,23 +129,24 @@ export function useGamepadInput({
       schedulePoll();
     };
 
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        if (animationFrameId !== undefined) cancelAnimationFrame(animationFrameId);
-        animationFrameId = undefined;
+    const handleFocusStateChange = () => {
+      if (!hasFocus()) {
+        cancelLoop();
       } else {
-        // Al volver a la ventana, se toma el estado actual del mando antes
-        // de procesar pulsaciones para evitar acciones acumuladas.
         isFirstPollRef.current = true;
         schedulePoll();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleFocusStateChange);
+    window.addEventListener('focus', handleFocusStateChange);
+    window.addEventListener('blur', handleFocusStateChange);
     schedulePoll();
     return () => {
-      if (animationFrameId !== undefined) cancelAnimationFrame(animationFrameId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      cancelLoop();
+      document.removeEventListener('visibilitychange', handleFocusStateChange);
+      window.removeEventListener('focus', handleFocusStateChange);
+      window.removeEventListener('blur', handleFocusStateChange);
     };
   }, []);
 }

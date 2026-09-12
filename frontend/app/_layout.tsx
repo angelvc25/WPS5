@@ -1,5 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { useState, useEffect } from 'react';
@@ -19,10 +19,18 @@ import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
 import { isLanguage } from '@/i18n/translations';
 import { openWebLink } from '@/services/linkService';
 import ToastHost from '@/components/ToastHost';
+import OverlayScreen from './overlay';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
+
+function checkIsOverlay() {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
+  const path = window.location.pathname || '';
+  const hash = window.location.hash || '';
+  return path.includes('overlay') || hash.includes('overlay');
+}
 
 // expo-font registers fonts in the browser via the FontFace API using the exact key name.
 // After useFonts({ SSTRg: require(...) }), 'SSTRg' is a valid font-family in CSS.
@@ -38,6 +46,13 @@ const GLOBAL_CSS_FONTS = `
   }
   *::-webkit-scrollbar {
     display: none;
+  }
+`;
+
+const OVERLAY_CSS_TRANSPARENT = `
+  html, body, #root, .react-native-root, [data-reactroot] {
+    background: transparent !important;
+    background-color: transparent !important;
   }
 `;
 
@@ -61,7 +76,7 @@ export default function RootLayout() {
   });
 
   if (!fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: '#000' }} />;
+    return <View style={{ flex: 1, backgroundColor: 'transparent' }} />;
   }
 
   return (
@@ -76,6 +91,8 @@ function RootLayoutInner() {
   const { setLanguage } = useTranslation();
   const [activeUser, setActiveUser] = useState<UserProfile | null>(null);
   const [showSplash, setShowSplash] = useState(true);
+  const pathname = usePathname();
+  const isOverlayMode = checkIsOverlay() || pathname === '/overlay' || pathname?.includes('overlay');
 
   // Valores compartidos de Reanimated
   const splashOpacity = useSharedValue(1);
@@ -97,10 +114,12 @@ function RootLayoutInner() {
     };
   }, []);
 
-  // Animación de Entrada: se muestra un splash con fondo negro y el logo de
-  // PlayStation centrado durante un tiempo fijo, y luego se desvanece para
-  // revelar la pantalla de selección de usuario.
+  // Animación de Entrada (solo para la app principal, no para el overlay)
   useEffect(() => {
+    if (isOverlayMode) {
+      setShowSplash(false);
+      return;
+    }
     const timer = setTimeout(() => {
       splashOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
         if (finished) {
@@ -110,12 +129,31 @@ function RootLayoutInner() {
     }, 1800);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [isOverlayMode]);
 
   // Estilos animados
   const animatedSplashStyle = useAnimatedStyle(() => ({
     opacity: splashOpacity.value,
   }));
+
+  const transparentTheme = {
+    ...(colorScheme === 'dark' ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(colorScheme === 'dark' ? DarkTheme.colors : DefaultTheme.colors),
+      background: 'transparent',
+    },
+  };
+
+  if (isOverlayMode) {
+    return (
+      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <style dangerouslySetInnerHTML={{
+          __html: GLOBAL_CSS_FONTS + OVERLAY_CSS_TRANSPARENT
+        }} />
+        <OverlayScreen />
+      </View>
+    );
+  }
 
   if (!activeUser) {
     return (
@@ -168,8 +206,14 @@ function RootLayoutInner() {
         __html: GLOBAL_CSS_FONTS
       }} />
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="overlay" options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
         <ToastHost />

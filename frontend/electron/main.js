@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage, screen, Tray, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage, screen, Tray, Menu, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -49,6 +49,12 @@ let mediaSessionsPollTimer = null;
 let wps5WebMediaHint = null;
 let windowsMediaSessionsModule = null;
 let trayIcon = null;
+let overlayWindow = null; // ventana transparente del overlay
+let overlayHotkeyRegistered = false;
+let activeGameInfo = null; // { id, title, image, installDir, appId, source, nativePid }
+// En Windows, 'F12' está reservado por el sistema/depurador para RegisterHotKey.
+// Usamos F11 como atajo principal y combinaciones adicionales como alternativa:
+const OVERLAY_HOTKEYS = ['F11', 'Alt+F12', 'Control+F12', 'Shift+F2'];
 const activeGameWatchers = new Map(); // id -> intervalId (vigilancia de juegos lanzados por protocolo, ej. steam://)
 
 const WINDOWS_MEDIA_SESSIONS_PATH = path.join(__dirname, '..', 'node_modules', 'windows-media-sessions');
@@ -556,6 +562,148 @@ function hideTrayIcon() {
   trayIcon = null;
 }
 
+// ── Overlay transparente sobre el juego (estilo Xbox Game Bar) ──────────────
+function resolveOverlayEntry() {
+  const isDev = !app.isPackaged;
+  if (isDev) return 'http://localhost:8081/overlay';
+  // Expo static export puede generar overlay.html como archivo propio
+  // (rutas de archivo de Expo Router) o servir todo desde index.html con
+  // routing client-side. Probamos ambos casos.
+  const staticHtml = path.join(distPath, 'overlay.html');
+  if (fs.existsSync(staticHtml)) {
+    return pathToFileURL(staticHtml).href;
+  }
+  return pathToFileURL(path.join(distPath, 'index.html')).href + '#/overlay';
+}
+
+function createOverlayWindow() {
+  if (overlayWindow && !overlayWindow.isDestroyed()) return overlayWindow;
+
+  const display = screen.getPrimaryDisplay();
+  overlayWindow = new BrowserWindow({
+    x: display.bounds.x,
+    y: display.bounds.y,
+    width: display.bounds.width,
+    height: display.bounds.height,
+    fullscreen: false, // 'fullscreen: true' puede pelear con el juego; usamos bounds manuales
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    skipTaskbar: true,
+    show: false,
+    focusable: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      webSecurity: false,
+    },
+  });
+
+  // 'screen-saver' es el nivel más alto disponible en Electron/Win32 y es
+  // el que suele lograr quedar por encima de juegos en modo ventana o
+  // fullscreen "sin bordes". Juegos en fullscreen EXCLUSIVO (DirectX
+  // exclusive mode) pueden seguir tapando cualquier ventana externa —
+  // es una limitación del propio modo exclusivo del juego, no de Electron.
+  overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+
+  overlayWindow.loadURL(resolveOverlayEntry());
+
+  overlayWindow.on('closed', () => {
+    overlayWindow = null;
+  });
+
+  return overlayWindow;
+}
+
+function showOverlay() {
+  const win = createOverlayWindow();
+  win.setIgnoreMouseEvents(false);
+  win.showInactive();
+  win.focus();
+  win.webContents.send('overlay-shown');
+  if (process.platform === 'win32') {
+    win.setAlwaysOnTop(true, 'screen-saver');
+  }
+}
+
+function hideOverlayWindow() {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+  overlayWindow.hide();
+}
+
+function isOverlayVisible() {
+  return !!(overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible());
+}
+
+function toggleOverlay() {
+  if (!activeGameInfo) return; // no hay juego corriendo, no tiene sentido mostrarlo
+  if (isOverlayVisible()) {
+    hideOverlayWindow();
+  } else {
+    showOverlay();
+  }
+}
+
+function enableOverlayHotkey() {
+  if (overlayHotkeyRegistered) return;
+  let registeredCount = 0;
+  for (const hotkey of OVERLAY_HOTKEYS) {
+    try {
+      if (globalShortcut.register(hotkey, () => toggleOverlay())) {
+        registeredCount++;
+      }
+    } catch (err) {
+      console.warn('[Overlay] Error registrando hotkey:', hotkey, err.message);
+    }
+  }
+  overlayHotkeyRegistered = registeredCount > 0;
+  if (overlayHotkeyRegistered) {
+    console.log(`[Overlay] Hotkeys registrados correctamente (${registeredCount}):`, OVERLAY_HOTKEYS.join(', '));
+  } else {
+    console.warn('[Overlay] No se pudo registrar ningún hotkey:', OVERLAY_HOTKEYS);
+  }
+}
+
+function disableOverlayHotkey() {
+  if (!overlayHotkeyRegistered) return;
+  for (const hotkey of OVERLAY_HOTKEYS) {
+    try {
+      globalShortcut.unregister(hotkey);
+    } catch (_) { /* ignore */ }
+  }
+  overlayHotkeyRegistered = false;
+  hideOverlayWindow();
+}
+
+// Mata el proceso (o árbol de procesos) del juego activo.
+// - Juegos nativos (.exe lanzados por spawn): usamos el PID directo.
+// - Steam / Epic: no tenemos PID propio, matamos por ruta de instalación
+// igual que hace isProcessRunningUnderDir() para detectarlos.
+function killProcessTree(pid) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve(false);
+    exec(`taskkill /PID ${pid} /T /F`, { timeout: 8000 }, (error) => {
+      resolve(!error);
+    });
+  });
+}
+
+function killProcessesUnderDir(dirPath) {
+  return new Promise((resolve) => {
+    if (!dirPath || process.platform !== 'win32') return resolve(false);
+    const escaped = dirPath.replace(/'/g, "''");
+    const psCommand = `Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '${escaped}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`;
+    exec(`powershell -NoProfile -Command "${psCommand}"`, { timeout: 8000 }, (error) => {
+      resolve(!error);
+    });
+  });
+}
+
 // ── Vigilancia de juegos lanzados por protocolo (steam://rungameid/...) ──
 // Steam gestiona el proceso real del juego, así que no tenemos un child
 // process propio que monitorear (como sí ocurre con .exe lanzados
@@ -604,7 +752,7 @@ function stopSteamGameWatch(id) {
   }
 }
 
-function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam') {
+function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameMeta = {}) {
   stopSteamGameWatch(id); // por si ya había un watcher previo para este id
 
   const POLL_MS = 4000;
@@ -613,11 +761,27 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam') {
   let seenRunning = false;
   let gameExited = false;
 
+  // ── NUEVO: registrar juego activo + habilitar overlay ──
+  activeGameInfo = {
+    id,
+    title: gameMeta.title || sourceLabel,
+    image: gameMeta.image || null,
+    installDir,
+    appId,
+    source: sourceLabel.toLowerCase(),
+    nativePid: null,
+  };
+  enableOverlayHotkey();
+
   const finish = () => {
     if (gameExited) return;
     gameExited = true;
     stopSteamGameWatch(id);
     hideTrayIcon();
+
+    // ── NUEVO ──
+    disableOverlayHotkey();
+    activeGameInfo = null;
 
     if (mainWindow) {
       mainWindow.webContents.send('game-closed', id);
@@ -1981,7 +2145,10 @@ app.whenReady().then(() => {
         return { success: true, suspended: false };
       }
 
-      startSteamGameWatch(id, appId, installDir);
+      startSteamGameWatch(id, appId, installDir, 'Steam', {
+        title: appRecord?.title,
+        image: resolveAppRecordThumbnail(appRecord),
+      });
       return { success: true, suspended: true };
     }
 
@@ -2001,7 +2168,10 @@ app.whenReady().then(() => {
         return { success: true, suspended: false };
       }
 
-      startSteamGameWatch(id, epicAppName, installDir, 'Epic');
+      startSteamGameWatch(id, epicAppName, installDir, 'Epic', {
+        title: appRecord?.title,
+        image: resolveAppRecordThumbnail(appRecord),
+      });
       return { success: true, suspended: true };
     }
 
@@ -2053,6 +2223,9 @@ app.whenReady().then(() => {
       gameExited = true;
       if (hideTimer) clearTimeout(hideTimer);
       hideTrayIcon();
+      // ── NUEVO ──
+      disableOverlayHotkey();
+      activeGameInfo = null;
 
       if (mainWindow) {
         mainWindow.webContents.send('game-closed', id);
@@ -2096,6 +2269,18 @@ app.whenReady().then(() => {
         windowsHide: false,
         windowsVerbatimArguments: true,
       });
+
+      // ── NUEVO: registrar juego activo + habilitar overlay ──
+      activeGameInfo = {
+        id,
+        title: appRecord?.title || path.basename(targetExe),
+        image: resolveAppRecordThumbnail(appRecord),
+        installDir: gameCwd,
+        appId: null,
+        source: 'native',
+        nativePid: child.pid,
+      };
+      enableOverlayHotkey();
 
       child.on('error', (err) => {
         console.error('Error al iniciar el juego:', err);
@@ -2956,6 +3141,48 @@ app.whenReady().then(() => {
     }
   });
 
+  // ── IPC: Overlay ─────────────────────────────────────────────────────────
+  ipcMain.handle('get-active-game-info', async () => {
+    if (!activeGameInfo) return null;
+    return {
+      id: activeGameInfo.id,
+      title: activeGameInfo.title,
+      image: activeGameInfo.image,
+      installDir: activeGameInfo.installDir,
+      source: activeGameInfo.source,
+    };
+  });
+
+  ipcMain.handle('close-current-game', async (_event, installDirArg) => {
+    if (!activeGameInfo) return { success: false, error: 'No hay juego activo' };
+    let ok = false;
+    if (activeGameInfo.nativePid) {
+      ok = await killProcessTree(activeGameInfo.nativePid);
+    } else {
+      const dir = installDirArg || activeGameInfo.installDir;
+      ok = await killProcessesUnderDir(dir);
+    }
+    // No limpiamos activeGameInfo aquí: dejamos que el watcher/child 'close'
+    // detecte el cierre real y dispare finish()/resumeLauncher(), que es
+    // la única fuente de verdad y ya notifica 'game-closed' al renderer.
+    return { success: ok };
+  });
+
+  ipcMain.handle('hide-overlay', async () => {
+    hideOverlayWindow();
+    return { success: true };
+  });
+
+  ipcMain.handle('show-main-window-to-switch-game', async () => {
+    hideOverlayWindow();
+    restoreMainWindow();
+    return { success: true };
+  });
+
+  ipcMain.handle('quit-to-desktop', async () => {
+    app.quit();
+  });
+
   createWindow();
 
 
@@ -2973,6 +3200,9 @@ app.on('before-quit', () => {
   stopStoreBackend();
   stopMediaSessionsBridge();
   hideTrayIcon();
+  disableOverlayHotkey();
+  globalShortcut.unregisterAll();
+  if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.destroy();
   for (const id of Array.from(activeGameWatchers.keys())) {
     stopSteamGameWatch(id);
   }
