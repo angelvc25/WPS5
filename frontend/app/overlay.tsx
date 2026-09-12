@@ -1,21 +1,22 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
     Platform,
-    Image as RNImage,
+    Pressable,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withTiming,
+    Easing,
     FadeIn,
     FadeOut,
-    Easing,
 } from 'react-native-reanimated';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import PSIcon from '@/components/PSIcon';
@@ -32,28 +33,36 @@ interface ActiveGameInfo {
     source?: 'steam' | 'epic' | 'native';
 }
 
-type OverlayAction = 'resume' | 'switch' | 'close' | 'quit';
+type GameMenuAction = 'switch' | 'close';
 
-interface OverlayItem {
-    id: OverlayAction;
-    icon: keyof typeof Ionicons.glyphMap;
-    labelKey: 'overlay.resume' | 'overlay.switch' | 'overlay.close' | 'overlay.quit';
-    danger?: boolean;
-}
-
-const ITEMS: OverlayItem[] = [
-    { id: 'resume', icon: 'play', labelKey: 'overlay.resume' },
-    { id: 'switch', icon: 'swap-horizontal', labelKey: 'overlay.switch' },
-    { id: 'close', icon: 'close-circle-outline', labelKey: 'overlay.close', danger: true },
-    { id: 'quit', icon: 'power', labelKey: 'overlay.quit', danger: true },
+// ── Nav items that mirror FloatingSystemNav exactly ──────────────────────────
+// Index 0 = Home, Index 1 = Game icon (switcher slot), Index 2..N = rest
+const NAV_ICON_ITEMS: Array<{ icon: keyof typeof Ionicons.glyphMap; labelKey: string }> = [
+    { icon: 'home', labelKey: 'nav.home' },
+    // index 1 → replaced by active-game icon (GAME_ICON_INDEX)
+    { icon: 'notifications', labelKey: 'nav.notifications' },
+    { icon: 'people', labelKey: 'nav.gameBase' },
+    { icon: 'musical-notes', labelKey: 'nav.music' },
+    { icon: 'download', labelKey: 'nav.downloads' },
+    { icon: 'volume-high', labelKey: 'nav.sound' },
+    { icon: 'mic', labelKey: 'nav.mic' },
+    { icon: 'game-controller', labelKey: 'nav.accessories' },
+    { icon: 'person-circle', labelKey: 'nav.profile' },
+    { icon: 'power', labelKey: 'nav.power' },
 ];
+
+// Total number of items in the nav (home + game-icon + 9 others)
+const NAV_TOTAL = 1 + 1 + (NAV_ICON_ITEMS.length - 1); // 12
+const GAME_ICON_INDEX = 1; // position of the game thumbnail in the nav
 
 export default function OverlayScreen() {
     const { t } = useTranslation();
     const [activeGame, setActiveGame] = useState<ActiveGameInfo | null>(null);
-    const [focusIndex, setFocusIndex] = useState(0);
-    const [confirmingClose, setConfirmingClose] = useState(false);
     const [isBusy, setIsBusy] = useState(false);
+    const [gameMenuOpen, setGameMenuOpen] = useState(false);
+    const [confirmingClose, setConfirmingClose] = useState(false);
+    const [focusedNavIndex, setFocusedNavIndex] = useState(GAME_ICON_INDEX);
+    const [focusedPopupIndex, setFocusedPopupIndex] = useState(0);
 
     useGamepadInput({
         onInputModeChange: () => {},
@@ -61,48 +70,50 @@ export default function OverlayScreen() {
         onConnected: () => {},
     });
 
+    // ── Animation ──────────────────────────────────────────────────────────
     const opacity = useSharedValue(0);
-    const scale = useSharedValue(0.97);
+    const translateY = useSharedValue(50);
 
     const refreshActiveGame = useCallback(async () => {
         if (Platform.OS !== 'web' || !(window as any).electronAPI?.getActiveGameInfo) return;
         try {
             const info = await (window as any).electronAPI.getActiveGameInfo();
             setActiveGame(info || null);
-        } catch (err) {
-            console.warn('[Overlay] getActiveGameInfo failed:', err);
+        } catch {
             setActiveGame(null);
         }
     }, []);
 
-    // Entrada animada + refresco de datos cada vez que el main muestra la ventana
     useEffect(() => {
-        opacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
-        scale.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) });
-        setFocusIndex(0);
+        opacity.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.ease) });
+        translateY.value = withTiming(0, { duration: 250, easing: Easing.out(Easing.ease) });
+        setGameMenuOpen(false);
         setConfirmingClose(false);
+        setFocusedNavIndex(GAME_ICON_INDEX);
         refreshActiveGame();
 
         let unsubscribe: (() => void) | undefined;
         if (Platform.OS === 'web' && (window as any).electronAPI?.onOverlayShown) {
             unsubscribe = (window as any).electronAPI.onOverlayShown(() => {
                 opacity.value = 0;
-                scale.value = 0.97;
-                opacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
-                scale.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) });
-                setFocusIndex(0);
+                translateY.value = 50;
+                opacity.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.ease) });
+                translateY.value = withTiming(0, { duration: 250, easing: Easing.out(Easing.ease) });
+                setGameMenuOpen(false);
                 setConfirmingClose(false);
+                setFocusedNavIndex(GAME_ICON_INDEX);
                 refreshActiveGame();
             });
         }
         return () => unsubscribe?.();
     }, [refreshActiveGame]);
 
-    const containerStyle = useAnimatedStyle(() => ({
+    const menuStyle = useAnimatedStyle(() => ({
         opacity: opacity.value,
-        transform: [{ scale: scale.value }],
+        transform: [{ translateY: translateY.value }],
     }));
 
+    // ── Actions ────────────────────────────────────────────────────────────
     const hideOverlay = useCallback(() => {
         soundService.playBack?.();
         if (Platform.OS === 'web' && (window as any).electronAPI?.hideOverlay) {
@@ -119,13 +130,7 @@ export default function OverlayScreen() {
             }
         } finally {
             setIsBusy(false);
-        }
-    }, []);
-
-    const handleQuitToDesktop = useCallback(() => {
-        soundService.playActivation?.();
-        if (Platform.OS === 'web' && (window as any).electronAPI?.quitToDesktop) {
-            (window as any).electronAPI.quitToDesktop();
+            setGameMenuOpen(false);
         }
     }, []);
 
@@ -138,54 +143,50 @@ export default function OverlayScreen() {
                 activeGame.installDir ?? activeGame.id
             );
             if (result?.success) {
-                // El main detecta el cierre real vía su watcher existente y
-                // restaurará mainWindow + emitirá game-closed; aquí solo
-                // ocultamos el overlay para no dejarlo tapando un escritorio vacío.
                 hideOverlay();
-            } else {
-                console.warn('[Overlay] closeCurrentGame no tuvo éxito:', result);
             }
         } finally {
             setIsBusy(false);
             setConfirmingClose(false);
+            setGameMenuOpen(false);
         }
     }, [activeGame, hideOverlay]);
 
-    const activateItem = useCallback(
-        (action: OverlayAction) => {
-            if (isBusy) return;
-            if (action === 'resume') {
-                hideOverlay();
-            } else if (action === 'switch') {
-                handleSwitchGame();
-            } else if (action === 'close') {
-                if (confirmingClose) {
-                    void handleCloseGame();
-                } else {
-                    soundService.playNavigation();
-                    setConfirmingClose(true);
-                }
-            } else if (action === 'quit') {
-                handleQuitToDesktop();
-            }
-        },
-        [isBusy, confirmingClose, hideOverlay, handleSwitchGame, handleCloseGame, handleQuitToDesktop]
-    );
+    const handleGameIconPress = useCallback(() => {
+        soundService.playActivation?.();
+        setConfirmingClose(false);
+        setFocusedPopupIndex(0);
+        setGameMenuOpen(prev => !prev);
+    }, []);
 
-    // Navegación por teclado / mando (el mando ya se traduce a eventos de
-    // teclado por useGamepadInput en la ventana principal; aquí replicamos
-    // el mismo listener liviano, propio de esta ventana).
+    const handleMenuAction = useCallback((action: GameMenuAction) => {
+        if (isBusy) return;
+        if (action === 'switch') {
+            void handleSwitchGame();
+        } else if (action === 'close') {
+            if (confirmingClose) {
+                void handleCloseGame();
+            } else {
+                soundService.playNavigation();
+                setConfirmingClose(true);
+            }
+        }
+    }, [isBusy, confirmingClose, handleSwitchGame, handleCloseGame]);
+
+    // ── Keyboard / gamepad navigation ──────────────────────────────────────
     useEffect(() => {
         if (Platform.OS !== 'web') return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (['ArrowRight', 'ArrowLeft', 'Enter', ' ', 'Escape'].includes(e.key)) {
+            if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' ', 'Escape'].includes(e.key)) {
                 e.preventDefault();
             }
 
+            // Escape / Circle — close popup or hide overlay
             if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-                if (confirmingClose) {
+                if (gameMenuOpen) {
                     soundService.playBack?.();
+                    setGameMenuOpen(false);
                     setConfirmingClose(false);
                 } else {
                     hideOverlay();
@@ -193,24 +194,59 @@ export default function OverlayScreen() {
                 return;
             }
 
-            if (e.key === 'ArrowRight') {
+            // When popup is open: ArrowUp/Down navigate menu items; Enter confirms
+            if (gameMenuOpen) {
+                // Any left/right closes the popup and navigates the nav bar instead
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    soundService.playBack?.();
+                    setGameMenuOpen(false);
+                    setConfirmingClose(false);
+                    setFocusedNavIndex((prev: number) =>
+                        e.key === 'ArrowLeft'
+                            ? Math.max(0, prev - 1)
+                            : Math.min(NAV_TOTAL - 1, prev + 1)
+                    );
+                } else if (e.key === 'ArrowUp') {
+                    soundService.playNavigation();
+                    setFocusedPopupIndex(prev => Math.max(0, prev - 1));
+                    setConfirmingClose(false);
+                } else if (e.key === 'ArrowDown') {
+                    soundService.playNavigation();
+                    setFocusedPopupIndex(prev => Math.min(1, prev + 1));
+                    setConfirmingClose(false);
+                } else if (e.key === 'Enter' || e.key === ' ') {
+                    if (focusedPopupIndex === 0) {
+                        handleMenuAction('switch');
+                    } else if (focusedPopupIndex === 1) {
+                        handleMenuAction('close');
+                    }
+                }
+                return;
+            }
+
+            // Navigate the nav bar left / right
+            if (e.key === 'ArrowLeft') {
                 soundService.playNavigation();
-                setFocusIndex((prev) => Math.min(prev + 1, ITEMS.length - 1));
-                setConfirmingClose(false);
-            } else if (e.key === 'ArrowLeft') {
+                setFocusedNavIndex((prev: number) => Math.max(0, prev - 1));
+            } else if (e.key === 'ArrowRight') {
                 soundService.playNavigation();
-                setFocusIndex((prev) => Math.max(prev - 1, 0));
-                setConfirmingClose(false);
+                setFocusedNavIndex((prev: number) => Math.min(NAV_TOTAL - 1, prev + 1));
             } else if (e.key === 'Enter' || e.key === ' ') {
-                activateItem(ITEMS[focusIndex].id);
+                // Activate the focused nav item
+                if (focusedNavIndex === 0) {
+                    hideOverlay();
+                } else if (focusedNavIndex === GAME_ICON_INDEX) {
+                    handleGameIconPress();
+                }
+                // Other items are visual-only in the overlay context
             }
         };
 
         window.addEventListener('keydown', handleKeyDown, true);
         return () => window.removeEventListener('keydown', handleKeyDown, true);
-    }, [focusIndex, confirmingClose, activateItem, hideOverlay]);
+    }, [gameMenuOpen, hideOverlay, focusedNavIndex, focusedPopupIndex, handleGameIconPress, handleMenuAction]);
 
-    // Asegurar transparencia en el DOM web
+    // ── Transparent background ─────────────────────────────────────────────
     useEffect(() => {
         if (Platform.OS === 'web') {
             document.documentElement.style.backgroundColor = 'transparent';
@@ -225,105 +261,186 @@ export default function OverlayScreen() {
         }
     }, []);
 
+    // ── Render ─────────────────────────────────────────────────────────────
     return (
         <View style={styles.root}>
-                {/* Fondo: la ventana Electron ya es transparente, aquí solo añadimos
-              una viñeta sutil para que el menú se lea sobre cualquier juego */}
-                {Platform.OS === 'web' && (
-                    <div
-                        style={{
-                            position: 'absolute',
-                            inset: 0,
-                            background:
-                                'linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0) 100%)',
-                            pointerEvents: 'none',
-                        }}
-                    />
+            {/* Bottom gradient identical to FloatingSystemNav */}
+            {Platform.OS === 'web' && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background:
+                            'linear-gradient(to top, rgba(0,0,0,1) 10%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.15) 100%)',
+                        pointerEvents: 'none',
+                    }}
+                />
+            )}
+
+            {/* Backdrop to close game-menu popup */}
+            {gameMenuOpen && (
+                <Pressable
+                    style={StyleSheet.absoluteFill}
+                    onPress={() => {
+                        soundService.playBack?.();
+                        setGameMenuOpen(false);
+                        setConfirmingClose(false);
+                    }}
+                />
+            )}
+
+            {/* The nav bar — matches FloatingSystemNav exactly */}
+            <Animated.View style={[styles.menuContainer, menuStyle]}>
+                {/* ── Game actions popup: anchored inside menuContainer, above the icon ── */}
+                {gameMenuOpen && (
+                    <Animated.View
+                        entering={FadeIn.duration(180)}
+                        exiting={FadeOut.duration(140)}
+                        style={styles.gameMenuPopup}
+                    >
+                        {/* Switch game */}
+                        <TouchableOpacity
+                            activeOpacity={0.75}
+                            disabled={isBusy}
+                            onPress={() => handleMenuAction('switch')}
+                            style={[styles.gameMenuRow, focusedPopupIndex === 0 && styles.gameMenuRowFocused]}
+                        >
+                            <View style={styles.gameMenuIconWrap}>
+                                <Ionicons name="swap-horizontal" size={18} color="#FFF" />
+                            </View>
+                            <Text style={styles.gameMenuLabel}>{t('overlay.switch')}</Text>
+                        </TouchableOpacity>
+
+                        {/* Divider */}
+                        <View style={styles.gameMenuDivider} />
+
+                        {/* Close game */}
+                        <TouchableOpacity
+                            activeOpacity={0.75}
+                            disabled={isBusy}
+                            onPress={() => handleMenuAction('close')}
+                            style={[styles.gameMenuRow, focusedPopupIndex === 1 && styles.gameMenuRowFocused]}
+                        >
+                            <View style={[styles.gameMenuIconWrap, styles.gameMenuIconDanger]}>
+                                <Ionicons name="close-circle-outline" size={18} color="#FFF" />
+                            </View>
+                            <Text style={[styles.gameMenuLabel, styles.gameMenuLabelDanger]}>
+                                {confirmingClose ? t('overlay.confirmClose') : t('overlay.close')}
+                            </Text>
+                        </TouchableOpacity>
+                    </Animated.View>
                 )}
 
-            <Animated.View style={[styles.centerWrap, containerStyle]}>
-                {/* Cabecera con el juego activo */}
-                <Animated.View style={styles.gameHeader} entering={FadeIn.duration(300).delay(80)}>
-                    <View style={styles.gameCover}>
-                        {activeGame?.image ? (
-                            <Image source={{ uri: activeGame.image }} style={styles.gameCoverImg} contentFit="cover" />
+                <BlurView intensity={0} tint="dark" style={styles.pillContainer}>
+                    {/* Home button — index 0 */}
+                    <TouchableOpacity
+                        activeOpacity={0.7}
+                        style={styles.iconButton}
+                        onPress={hideOverlay}
+                    >
+                        {focusedNavIndex === 0 ? (
+                            <RadarFocusWrapper id="overlay-home" isFocused size={58} innerSize={0}>
+                                <Ionicons
+                                    name="home"
+                                    size={24}
+                                    color="#000"
+                                    style={styles.iconFocusedBg as any}
+                                />
+                            </RadarFocusWrapper>
                         ) : (
-                            <View style={[styles.gameCoverImg, styles.gameCoverFallback]}>
-                                <Ionicons name="game-controller" size={26} color="rgba(255,255,255,0.5)" />
+                            <View style={styles.iconWrapper}>
+                                <Ionicons name="home" size={24} color="rgba(255,255,255,1)" />
                             </View>
                         )}
-                    </View>
-                    <View>
-                        <Text style={styles.gameTitle} numberOfLines={1}>
-                            {activeGame?.title || t('overlay.unknownGame')}
-                        </Text>
-                        <Text style={styles.gameSubtitle}>{t('overlay.subtitle')}</Text>
-                    </View>
-                </Animated.View>
+                        {focusedNavIndex === 0 && (
+                            <View style={styles.tooltip}>
+                                <Text style={styles.tooltipText}>{t('overlay.resume')}</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
 
-                {/* Pill de acciones estilo FloatingSystemNav */}
-                <View style={styles.pillContainer}>
-                    {ITEMS.map((item, index) => {
-                        const isFocused = focusIndex === index;
-                        const isConfirmStep = item.id === 'close' && confirmingClose && isFocused;
+                    {/* ── SWITCHER SLOT: active game icon — index 1 ── */}
+                    <TouchableOpacity
+                        activeOpacity={0.7}
+                        style={styles.iconButton}
+                        onPress={handleGameIconPress}
+                    >
+                        <RadarFocusWrapper
+                            id="overlay-game-icon"
+                            isFocused={gameMenuOpen || focusedNavIndex === GAME_ICON_INDEX}
+                            size={58}
+                            innerSize={0}
+                        >
+                            <View style={[
+                                styles.gameIconCircle,
+                                (gameMenuOpen || focusedNavIndex === GAME_ICON_INDEX) && styles.gameIconCircleFocused,
+                            ]}>
+                                {activeGame?.image ? (
+                                    <Image
+                                        source={{ uri: activeGame.image }}
+                                        style={styles.gameIconImg}
+                                        contentFit="cover"
+                                    />
+                                ) : (
+                                    <Ionicons
+                                        name="game-controller"
+                                        size={20}
+                                        color={(gameMenuOpen || focusedNavIndex === GAME_ICON_INDEX) ? '#000' : 'rgba(255,255,255,0.9)'}
+                                    />
+                                )}
+                            </View>
+                        </RadarFocusWrapper>
+                        {/* Game title tooltip — always shown so popup renders above it */}
+                        <View style={styles.tooltip}>
+                            <Text style={styles.tooltipText} numberOfLines={1}>
+                                {activeGame?.title ?? t('overlay.unknownGame')}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* Remaining nav items — visual only, respond to focus ring */}
+                    {NAV_ICON_ITEMS.slice(1).map((item, i) => {
+                        const navIdx = i + 2; // home=0, game=1, rest start at 2
+                        const isFocused = focusedNavIndex === navIdx;
                         return (
                             <TouchableOpacity
-                                key={item.id}
-                                activeOpacity={0.75}
-                                disabled={isBusy}
-                                onPress={() => {
-                                    setFocusIndex(index);
-                                    activateItem(item.id);
-                                }}
+                                key={i}
+                                activeOpacity={0.7}
                                 style={styles.iconButton}
+                                onPress={() => setFocusedNavIndex(navIdx)}
                             >
                                 {isFocused ? (
-                                    <RadarFocusWrapper id={`overlay-${item.id}`} isFocused size={58} innerSize={0}>
-                                        <View
-                                            style={[
-                                                styles.iconWrapperFocused,
-                                                item.danger && styles.iconWrapperDanger,
-                                                isConfirmStep && styles.iconWrapperConfirm,
-                                            ]}
-                                        >
-                                            <Ionicons
-                                                name={item.icon}
-                                                size={22}
-                                                color={item.danger ? '#FFF' : '#000'}
-                                            />
-                                        </View>
+                                    <RadarFocusWrapper id={`overlay-nav-${navIdx}`} isFocused size={58} innerSize={0}>
+                                        <Ionicons
+                                            name={item.icon}
+                                            size={24}
+                                            color="#000"
+                                            style={styles.iconFocusedBg as any}
+                                        />
                                     </RadarFocusWrapper>
                                 ) : (
                                     <View style={styles.iconWrapper}>
-                                        <Ionicons name={item.icon} size={22} color="rgba(255,255,255,0.85)" />
-                                    </View>
-                                )}
-
-                                {isFocused && (
-                                    <View style={styles.tooltip}>
-                                        <Text style={styles.tooltipText}>
-                                            {isConfirmStep ? t('overlay.confirmClose') : t(item.labelKey)}
-                                        </Text>
+                                        <Ionicons name={item.icon} size={24} color="rgba(255,255,255,1)" />
                                     </View>
                                 )}
                             </TouchableOpacity>
                         );
                     })}
-                </View>
+                </BlurView>
 
-                {/* Hints inferiores */}
+                {/* PS hints */}
                 <View style={styles.hintsRow}>
                     <View style={styles.hintItem}>
-                        <PSIcon char={PSIcons.dpadLeft} size={16} color="rgba(255,255,255,0.7)" />
-                        <PSIcon char={PSIcons.dpadRight} size={16} color="rgba(255,255,255,0.7)" />
+                        <PSIcon char={PSIcons.dpadLeft} size={14} color="rgba(255,255,255,0.7)" />
+                        <PSIcon char={PSIcons.dpadRight} size={14} color="rgba(255,255,255,0.7)" />
                         <Text style={styles.hintText}>{t('common.navigate')}</Text>
                     </View>
                     <View style={styles.hintItem}>
-                        <PSIcon char={PSIcons.cross} size={16} color="rgba(255,255,255,0.7)" />
+                        <PSIcon char={PSIcons.cross} size={14} color="rgba(255,255,255,0.7)" />
                         <Text style={styles.hintText}>{t('common.select')}</Text>
                     </View>
                     <View style={styles.hintItem}>
-                        <PSIcon char={PSIcons.circle} size={16} color="rgba(255,255,255,0.7)" />
+                        <PSIcon char={PSIcons.circle} size={14} color="rgba(255,255,255,0.7)" />
                         <Text style={styles.hintText}>{t('overlay.resume')}</Text>
                     </View>
                 </View>
@@ -337,64 +454,27 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'transparent',
     },
-    centerWrap: {
+    // ── Nav bar ──
+    menuContainer: {
         position: 'absolute',
-        bottom: 60,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-    },
-    gameHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-        backgroundColor: 'rgba(15, 16, 22, 0.65)',
-        paddingVertical: 10,
-        paddingHorizontal: 18,
-        borderRadius: 14,
-        marginBottom: 22,
-    },
-    gameCover: {
-        width: 44,
-        height: 44,
-        borderRadius: 8,
-        overflow: 'hidden',
-        backgroundColor: 'rgba(255,255,255,0.08)',
-    },
-    gameCoverImg: {
-        width: '100%',
-        height: '100%',
-    },
-    gameCoverFallback: {
+        bottom: 20,
+        alignSelf: 'center',
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    gameTitle: {
-        color: '#FFF',
-        fontSize: 16,
-        fontFamily: 'SSTMedium',
-        maxWidth: 260,
-    },
-    gameSubtitle: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 12,
-        fontFamily: 'SSTLight',
-        marginTop: 2,
+        width: '100%',
     },
     pillContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(15, 16, 22, 0.55)',
-        borderRadius: 30,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        gap: 6,
-    },
+        paddingHorizontal: 8,
+        paddingVertical: 8,
+        overflow: 'visible',
+    } as any,
     iconButton: {
         alignItems: 'center',
         justifyContent: 'center',
-        marginHorizontal: 6,
+        marginHorizontal: 4,
         width: 44,
         height: 44,
         position: 'relative',
@@ -405,42 +485,61 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'transparent',
     },
-    iconWrapperFocused: {
+    // ── Game icon (switcher slot) ──
+    gameIconCircle: {
         width: 40,
         height: 40,
-        borderRadius: 20,
-        backgroundColor: '#FFFFFF',
+        borderRadius: 29,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(255,255,255,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.55)',
     },
-    iconWrapperDanger: {
-        backgroundColor: '#FF3B30',
+    gameIconCircleFocused: {
+        backgroundColor: '#FFFFFF',
+        borderColor: '#FFFFFF',
     },
-    iconWrapperConfirm: {
-        backgroundColor: '#B52A22',
+    gameIconImg: {
+        width: '100%',
+        height: '100%',
     },
     tooltip: {
         position: 'absolute',
         top: -34,
-        backgroundColor: 'rgba(0,0,0,0.8)',
-        paddingHorizontal: 10,
-        paddingVertical: 5,
+        backgroundColor: 'rgba(0,0,0,0)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
         borderRadius: 8,
-        minWidth: 90,
+        zIndex: 100,
+        minWidth: 80,
         alignItems: 'center',
-    },
+        pointerEvents: 'none',
+    } as any,
     tooltipText: {
         color: '#FFF',
-        fontSize: 12,
+        fontSize: 13,
         fontFamily: 'SSTMedium',
+        letterSpacing: 0.5,
         whiteSpace: 'nowrap',
     } as any,
+    iconFocusedBg: {
+        backgroundColor: '#FFF',
+        width: 40,
+        height: 40,
+        borderRadius: 29,
+        padding: 7,
+        paddingLeft: 8,
+    },
+    // ── Hints row ──
     hintsRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 20,
-        marginTop: 18,
+        marginTop: 8,
     },
     hintItem: {
         flexDirection: 'row',
@@ -451,5 +550,59 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.6)',
         fontSize: 12,
         fontFamily: 'SSTMedium',
+    },
+    // ── Game actions popup: rendered inside menuContainer, floats ABOVE the nav ──
+    gameMenuPopup: {
+        position: 'absolute',
+        bottom: '100%',     // anchor to top of menuContainer (above the pill)
+        marginBottom: 10,
+        alignSelf: 'center',
+        backgroundColor: 'rgba(18, 18, 28, 0.95)',
+        borderRadius: 14,
+        paddingVertical: 6,
+        paddingHorizontal: 4,
+        minWidth: 220,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 22,
+        zIndex: 50,
+    } as any,
+    gameMenuRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 13,
+        borderRadius: 10,
+    },
+    gameMenuRowFocused: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+    gameMenuIconWrap: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    gameMenuIconDanger: {
+        backgroundColor: 'rgba(255,59,48,0.25)',
+    },
+    gameMenuLabel: {
+        color: '#FFF',
+        fontSize: 15,
+        fontFamily: 'SSTMedium',
+    },
+    gameMenuLabelDanger: {
+        color: '#FF6B6B',
+    },
+    gameMenuDivider: {
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        marginHorizontal: 12,
     },
 });
