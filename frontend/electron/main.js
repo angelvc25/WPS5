@@ -3175,6 +3175,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle('show-main-window-to-switch-game', async () => {
     hideOverlayWindow();
+    if (activeGameInfo) {
+      if (activeGameInfo.nativePid) {
+        await killProcessTree(activeGameInfo.nativePid);
+      } else if (activeGameInfo.installDir) {
+        await killProcessesUnderDir(activeGameInfo.installDir);
+      }
+    }
     restoreMainWindow();
     return { success: true };
   });

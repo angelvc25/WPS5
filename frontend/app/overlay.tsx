@@ -110,10 +110,15 @@ export default function OverlayScreen() {
         }
     }, []);
 
-    const handleSwitchGame = useCallback(() => {
+    const handleSwitchGame = useCallback(async () => {
+        setIsBusy(true);
         soundService.playActivation?.();
-        if (Platform.OS === 'web' && (window as any).electronAPI?.showMainWindowToSwitchGame) {
-            (window as any).electronAPI.showMainWindowToSwitchGame();
+        try {
+            if (Platform.OS === 'web' && (window as any).electronAPI?.showMainWindowToSwitchGame) {
+                await (window as any).electronAPI.showMainWindowToSwitchGame();
+            }
+        } finally {
+            setIsBusy(false);
         }
     }, []);
 
