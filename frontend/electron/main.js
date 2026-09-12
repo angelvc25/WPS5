@@ -55,6 +55,10 @@ let activeGameInfo = null; // { id, title, image, installDir, appId, source, nat
 // En Windows, 'F12' está reservado por el sistema/depurador para RegisterHotKey.
 // Usamos F11 como atajo principal y combinaciones adicionales como alternativa:
 const OVERLAY_HOTKEYS = ['F11', 'Alt+F12', 'Control+F12', 'Shift+F2'];
+let activeHidDevice = null;
+let hidCheckInterval = null;
+let xinputWatcherChild = null;
+let lastGamepadToggleTime = 0;
 const activeGameWatchers = new Map(); // id -> intervalId (vigilancia de juegos lanzados por protocolo, ej. steam://)
 
 const WINDOWS_MEDIA_SESSIONS_PATH = path.join(__dirname, '..', 'node_modules', 'windows-media-sessions');
@@ -484,6 +488,9 @@ function restoreMainWindow() {
   if (mainWindow.isMinimized()) mainWindow.restore();
   if (!mainWindow.isVisible()) mainWindow.show();
   mainWindow.show();
+  if (!mainWindow.isFullScreen()) {
+    mainWindow.setFullScreen(true);
+  }
   mainWindow.focus();
 
   // ── Forzar el robo de foco real en Windows ──
@@ -680,6 +687,144 @@ function disableOverlayHotkey() {
   hideOverlayWindow();
 }
 
+function startGamepadOverlayListener() {
+  stopGamepadOverlayListener();
+
+  // 1. Monitoreo directo por node-hid (DualShock 4, DualSense, mandos Sony y genéricos)
+  const connectHid = () => {
+    if (activeHidDevice) return;
+    try {
+      let HID;
+      try {
+        HID = require('node-hid');
+      } catch (_) {
+        const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'node-hid');
+        HID = require(unpackedPath);
+      }
+      const devices = HID.devices();
+      const sonyDev = devices.find(d => 
+        (d.vendorId === 1356 && d.usagePage === 1 && d.usage === 5) ||
+        (d.vendorId === 1356 && /controller|wireless/i.test(d.product || '')) ||
+        (d.vendorId === 1356)
+      );
+
+      if (!sonyDev) return;
+
+      const dev = new HID.HID(sonyDev.path);
+      activeHidDevice = dev;
+      console.log('[GamepadListener] Conectado a mando PlayStation por HID:', sonyDev.product);
+
+      dev.on('data', (buf) => {
+        if (!buf || buf.length < 6) return;
+        let share = false;
+        let options = false;
+
+        if (buf[0] === 0x01 && buf.length >= 7) {
+          // Report ID 0x01: DualSense / DualShock 4 estándar (USB o Bluetooth estándar en Windows)
+          // Byte 6 contiene: L1(0x01), R1(0x02), L2_btn(0x04), R2_btn(0x08), Create/Share(0x10), Options(0x20)
+          // NOTA: Byte 8 es el valor analógico del gatillo L2 (0-255), NO un mapa de botones.
+          const b6 = buf[6];
+          share = Boolean(b6 & 0x10);
+          options = Boolean(b6 & 0x20);
+        } else if (buf[0] === 0x11 && buf.length >= 9) {
+          // Report ID 0x11: DualShock 4 extendido Bluetooth
+          const b8 = buf[8];
+          share = Boolean(b8 & 0x10);
+          options = Boolean(b8 & 0x20);
+        } else if (buf[0] === 0x31 && buf.length >= 10) {
+          // Report ID 0x31: DualSense extendido Bluetooth
+          const b9 = buf[9];
+          share = Boolean(b9 & 0x10);
+          options = Boolean(b9 & 0x20);
+        } else if (buf.length >= 7) {
+          const b6 = buf[6];
+          share = Boolean(b6 & 0x10);
+          options = Boolean(b6 & 0x20);
+        }
+
+        if (share && options) {
+          const now = Date.now();
+          if (now - lastGamepadToggleTime > 600) {
+            lastGamepadToggleTime = now;
+            console.log('[GamepadListener] Combo Select + Start (Share + Options) pulsado en mando PS');
+            toggleOverlay();
+          }
+        }
+      });
+
+      dev.on('error', (err) => {
+        console.warn('[GamepadListener] Error en conexión HID:', err.message);
+        try { dev.close(); } catch (_) {}
+        activeHidDevice = null;
+      });
+    } catch (_) {
+      activeHidDevice = null;
+    }
+  };
+
+  connectHid();
+  hidCheckInterval = setInterval(connectHid, 3000);
+
+  // 2. Monitoreo para mandos XInput (Xbox o controladores emulados)
+  if (process.platform === 'win32') {
+    const candidates = [
+      path.join(__dirname, 'bin/xinput-watcher.exe'),
+      path.join(process.resourcesPath || '', 'app.asar.unpacked', 'electron', 'bin', 'xinput-watcher.exe'),
+      path.join(process.resourcesPath || '', 'bin/xinput-watcher.exe'),
+    ];
+    const xinputExe = candidates.find(c => fs.existsSync(c));
+
+    if (xinputExe) {
+      try {
+        xinputWatcherChild = spawn(xinputExe, [], {
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'ignore'],
+        });
+
+        xinputWatcherChild.stdout.on('data', (data) => {
+          if (data && data.toString().includes('SELECT_START')) {
+            const now = Date.now();
+            if (now - lastGamepadToggleTime > 600) {
+              lastGamepadToggleTime = now;
+              console.log('[GamepadListener] Combo Select + Start pulsado en mando XInput');
+              toggleOverlay();
+            }
+          }
+        });
+
+        xinputWatcherChild.on('error', () => {
+          xinputWatcherChild = null;
+        });
+
+        xinputWatcherChild.on('exit', () => {
+          xinputWatcherChild = null;
+        });
+      } catch (err) {
+        console.warn('[GamepadListener] No se pudo iniciar xinput-watcher:', err.message);
+      }
+    }
+  }
+}
+
+function stopGamepadOverlayListener() {
+  if (hidCheckInterval) {
+    clearInterval(hidCheckInterval);
+    hidCheckInterval = null;
+  }
+  if (activeHidDevice) {
+    try {
+      activeHidDevice.close();
+    } catch (_) {}
+    activeHidDevice = null;
+  }
+  if (xinputWatcherChild) {
+    try {
+      xinputWatcherChild.kill();
+    } catch (_) {}
+    xinputWatcherChild = null;
+  }
+}
+
 // Mata el proceso (o árbol de procesos) del juego activo.
 // - Juegos nativos (.exe lanzados por spawn): usamos el PID directo.
 // - Steam / Epic: no tenemos PID propio, matamos por ruta de instalación
@@ -772,6 +917,7 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
     nativePid: null,
   };
   enableOverlayHotkey();
+  startGamepadOverlayListener();
 
   const finish = () => {
     if (gameExited) return;
@@ -781,6 +927,7 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
 
     // ── NUEVO ──
     disableOverlayHotkey();
+    stopGamepadOverlayListener();
     activeGameInfo = null;
 
     if (mainWindow) {
@@ -796,19 +943,13 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
     }
   };
 
-  // Minimizar el launcher tras un breve delay, igual que con procesos nativos,
-  // y mostrar el icono de bandeja mientras dure la sesión.
-  // IMPORTANTE: usamos minimize() en vez de hide(). Con hide(), Windows
-  // reporta la ventana como no-visible (IsWindowVisible = false), lo cual
-  // hace que herramientas tipo "reemplazo de Xbox Game Bar" (ej.
-  // Omniconsola) puedan creer que el launcher se cerró y traten de
-  // relanzarlo, generando una instancia duplicada. Una ventana minimizada
-  // sigue contando como visible/activa para ese tipo de detección.
+  // Ocultar el launcher en la bandeja tras un breve delay, mostrando el icono
+  // de tray mientras dure la sesión del juego.
   setTimeout(() => {
     if (!gameExited && mainWindow) {
-      mainWindow.minimize();
+      mainWindow.hide();
       showTrayIcon('WPS5 - Jugando');
-      console.log(`Launcher suspendido (juego de ${sourceLabel}) — ventana minimizada`);
+      console.log(`Launcher suspendido (juego de ${sourceLabel}) — ventana oculta en bandeja`);
     }
   }, 1500);
 
@@ -2225,6 +2366,7 @@ app.whenReady().then(() => {
       hideTrayIcon();
       // ── NUEVO ──
       disableOverlayHotkey();
+      stopGamepadOverlayListener();
       activeGameInfo = null;
 
       if (mainWindow) {
@@ -2241,17 +2383,13 @@ app.whenReady().then(() => {
       }
     };
 
-    // Minimizar el launcher después de 1.5s para que se vea la animación de lanzamiento.
-    // Usamos minimize() en vez de hide() por la misma razón explicada en
-    // startSteamGameWatch(): hide() marca la ventana como no-visible ante
-    // Windows, lo cual puede hacer que herramientas externas (ej.
-    // Omniconsola) crean que el proceso terminó y relancen una segunda
-    // instancia del launcher al salir del juego.
+    // Ocultar el launcher en la bandeja tras un breve delay, mostrando el icono
+    // de tray mientras dure la sesión del juego.
     hideTimer = setTimeout(() => {
       if (!gameExited && mainWindow) {
-        mainWindow.minimize();
+        mainWindow.hide();
         showTrayIcon('WPS5 - Jugando');
-        console.log('Launcher suspendido — ventana minimizada');
+        console.log('Launcher suspendido — ventana oculta en bandeja');
       }
     }, 1500);
 
@@ -2281,6 +2419,7 @@ app.whenReady().then(() => {
         nativePid: child.pid,
       };
       enableOverlayHotkey();
+      startGamepadOverlayListener();
 
       child.on('error', (err) => {
         console.error('Error al iniciar el juego:', err);
@@ -3182,6 +3321,10 @@ app.whenReady().then(() => {
         await killProcessesUnderDir(activeGameInfo.installDir);
       }
     }
+    hideTrayIcon();
+    disableOverlayHotkey();
+    stopGamepadOverlayListener();
+    activeGameInfo = null;
     restoreMainWindow();
     return { success: true };
   });
@@ -3208,6 +3351,7 @@ app.on('before-quit', () => {
   stopMediaSessionsBridge();
   hideTrayIcon();
   disableOverlayHotkey();
+  stopGamepadOverlayListener();
   globalShortcut.unregisterAll();
   if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.destroy();
   for (const id of Array.from(activeGameWatchers.keys())) {

@@ -118,6 +118,13 @@ export function useGamepadInput({
         checkButton(4, 'q'); checkButton(5, 'e');
         checkButton(6, 'z'); checkButton(7, 'c');
         checkButton(9, 's'); checkButton(8, 'Home');
+
+        // Combo Select + Start (Share + Options) -> Escape (cerrar/alternar overlay)
+        const isSelect = Boolean(gamepad.buttons[8]?.pressed);
+        const isStart = Boolean(gamepad.buttons[9]?.pressed);
+        if (isSelect && isStart && (!previousButtonsRef.current[8] || !previousButtonsRef.current[9])) {
+          dispatch('Escape');
+        }
       }
 
       if (lastGamepadIdRef.current !== gamepad.id) {

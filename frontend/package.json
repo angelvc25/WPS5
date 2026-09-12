@@ -99,11 +99,14 @@
       "package.json",
       "assets/**/*",
       "node_modules/windows-media-sessions/**/*",
-      "node_modules/win-media-control/**/*"
+      "node_modules/win-media-control/**/*",
+      "node_modules/node-hid/**/*"
     ],
     "asarUnpack": [
       "node_modules/windows-media-sessions/bin/**",
-      "node_modules/win-media-control/**"
+      "node_modules/win-media-control/**",
+      "node_modules/node-hid/**",
+      "electron/bin/**"
     ],
     "extraMetadata": {
       "main": "electron/main.js"
