@@ -24,6 +24,7 @@ import { PSIcons } from '@/constants/psIcons';
 import { soundService } from '@/services/soundService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
+import MusicExpandedCard from '@/components/MusicExpandedCard';
 
 interface ActiveGameInfo {
     id: string;
@@ -63,6 +64,7 @@ export default function OverlayScreen() {
     const [confirmingClose, setConfirmingClose] = useState(false);
     const [focusedNavIndex, setFocusedNavIndex] = useState(GAME_ICON_INDEX);
     const [focusedPopupIndex, setFocusedPopupIndex] = useState(0);
+    const [isMusicOpen, setIsMusicOpen] = useState(false);
 
     useGamepadInput({
         onInputModeChange: () => {},
@@ -90,6 +92,7 @@ export default function OverlayScreen() {
         setGameMenuOpen(false);
         setConfirmingClose(false);
         setFocusedNavIndex(GAME_ICON_INDEX);
+        setIsMusicOpen(false);
         refreshActiveGame();
 
         let unsubscribe: (() => void) | undefined;
@@ -102,6 +105,7 @@ export default function OverlayScreen() {
                 setGameMenuOpen(false);
                 setConfirmingClose(false);
                 setFocusedNavIndex(GAME_ICON_INDEX);
+                setIsMusicOpen(false);
                 refreshActiveGame();
             });
         }
@@ -119,6 +123,11 @@ export default function OverlayScreen() {
         if (Platform.OS === 'web' && (window as any).electronAPI?.hideOverlay) {
             (window as any).electronAPI.hideOverlay();
         }
+    }, []);
+
+    const handleCloseMusic = useCallback(() => {
+        soundService.playBack?.();
+        setIsMusicOpen(false);
     }, []);
 
     const handleSwitchGame = useCallback(async () => {
@@ -182,6 +191,19 @@ export default function OverlayScreen() {
                 e.preventDefault();
             }
 
+            if (isMusicOpen) {
+                if (['ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    soundService.playBack?.();
+                    setIsMusicOpen(false);
+                } else if (['Escape', 'b', 'B'].includes(e.key)) {
+                    // Let MusicExpandedCard handle this and call onClose (handleCloseMusic)
+                    return;
+                } else {
+                    // Let MusicExpandedCard handle Up/Down/Enter
+                    return;
+                }
+            }
+
             // Escape / Circle — close popup or hide overlay
             if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
                 if (gameMenuOpen) {
@@ -237,6 +259,9 @@ export default function OverlayScreen() {
                     hideOverlay();
                 } else if (focusedNavIndex === GAME_ICON_INDEX) {
                     handleGameIconPress();
+                } else if (focusedNavIndex === 4) {
+                    soundService.playActivation?.();
+                    setIsMusicOpen(true);
                 }
                 // Other items are visual-only in the overlay context
             }
@@ -244,7 +269,7 @@ export default function OverlayScreen() {
 
         window.addEventListener('keydown', handleKeyDown, true);
         return () => window.removeEventListener('keydown', handleKeyDown, true);
-    }, [gameMenuOpen, hideOverlay, focusedNavIndex, focusedPopupIndex, handleGameIconPress, handleMenuAction]);
+    }, [gameMenuOpen, hideOverlay, focusedNavIndex, focusedPopupIndex, isMusicOpen, handleGameIconPress, handleMenuAction]);
 
     // ── Transparent background ─────────────────────────────────────────────
     useEffect(() => {
@@ -288,6 +313,8 @@ export default function OverlayScreen() {
                     }}
                 />
             )}
+
+            <MusicExpandedCard isOpen={isMusicOpen} onClose={handleCloseMusic} />
 
             {/* The nav bar — matches FloatingSystemNav exactly */}
             <Animated.View style={[styles.menuContainer, menuStyle]}>
@@ -398,18 +425,26 @@ export default function OverlayScreen() {
                         </View>
                     </TouchableOpacity>
 
-                    {/* Remaining nav items — visual only, respond to focus ring */}
+                    {/* Remaining nav items — visual only (except music at index 4), respond to focus ring */}
                     {NAV_ICON_ITEMS.slice(1).map((item, i) => {
                         const navIdx = i + 2; // home=0, game=1, rest start at 2
                         const isFocused = focusedNavIndex === navIdx;
+                        // For music, it's index 4. Show focus ring also if the card is open
+                        const isActive = isFocused || (navIdx === 4 && isMusicOpen);
                         return (
                             <TouchableOpacity
                                 key={i}
                                 activeOpacity={0.7}
                                 style={styles.iconButton}
-                                onPress={() => setFocusedNavIndex(navIdx)}
+                                onPress={() => {
+                                    setFocusedNavIndex(navIdx);
+                                    if (navIdx === 4) {
+                                        soundService.playActivation?.();
+                                        setIsMusicOpen(true);
+                                    }
+                                }}
                             >
-                                {isFocused ? (
+                                {isActive ? (
                                     <RadarFocusWrapper id={`overlay-nav-${navIdx}`} isFocused size={58} innerSize={0}>
                                         <Ionicons
                                             name={item.icon}
