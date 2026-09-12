@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -25,6 +25,9 @@ import { soundService } from '@/services/soundService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
 import MusicExpandedCard from '@/components/MusicExpandedCard';
+import FriendsExpandedCard from '@/components/FriendsExpandedCard';
+import NotificationsExpandedCard from '@/components/NotificationsExpandedCard';
+import DownloadsExpandedCard from '@/components/DownloadsExpandedCard';
 
 interface ActiveGameInfo {
     id: string;
@@ -65,11 +68,19 @@ export default function OverlayScreen() {
     const [focusedNavIndex, setFocusedNavIndex] = useState(GAME_ICON_INDEX);
     const [focusedPopupIndex, setFocusedPopupIndex] = useState(0);
     const [isMusicOpen, setIsMusicOpen] = useState(false);
+    const [isFriendsOpen, setIsFriendsOpen] = useState(false);
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [isDownloadsOpen, setIsDownloadsOpen] = useState(false);
+
+    // Ancla para posicionar NotificationsExpandedCard justo encima del icono
+    // de campana (mismo patrón que FloatingSystemNav.tsx).
+    const notificationsBtnRef = useRef<any>(null);
+    const [notificationsAnchor, setNotificationsAnchor] = useState({ top: 0, left: 0 });
 
     useGamepadInput({
-        onInputModeChange: () => {},
-        onGamepadChange: () => {},
-        onConnected: () => {},
+        onInputModeChange: () => { },
+        onGamepadChange: () => { },
+        onConnected: () => { },
     });
 
     // ── Animation ──────────────────────────────────────────────────────────
@@ -93,6 +104,9 @@ export default function OverlayScreen() {
         setConfirmingClose(false);
         setFocusedNavIndex(GAME_ICON_INDEX);
         setIsMusicOpen(false);
+        setIsFriendsOpen(false);
+        setIsNotificationsOpen(false);
+        setIsDownloadsOpen(false);
         refreshActiveGame();
 
         let unsubscribe: (() => void) | undefined;
@@ -106,6 +120,9 @@ export default function OverlayScreen() {
                 setConfirmingClose(false);
                 setFocusedNavIndex(GAME_ICON_INDEX);
                 setIsMusicOpen(false);
+                setIsFriendsOpen(false);
+                setIsNotificationsOpen(false);
+                setIsDownloadsOpen(false);
                 refreshActiveGame();
             });
         }
@@ -129,6 +146,85 @@ export default function OverlayScreen() {
         soundService.playBack?.();
         setIsMusicOpen(false);
     }, []);
+
+    const handleCloseFriends = useCallback(() => {
+        soundService.playBack?.();
+        setIsFriendsOpen(false);
+    }, []);
+
+    const handleCloseNotifications = useCallback(() => {
+        soundService.playBack?.();
+        setIsNotificationsOpen(false);
+    }, []);
+
+    const handleCloseDownloads = useCallback(() => {
+        soundService.playBack?.();
+        setIsDownloadsOpen(false);
+    }, []);
+
+    // Mide la posición del botón de notificaciones (campana) para anclar su
+    // card justo encima, igual que en FloatingSystemNav.tsx.
+    useEffect(() => {
+        if (isNotificationsOpen) {
+            notificationsBtnRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+                setNotificationsAnchor({ top: y, left: x + width / 2 });
+            });
+        }
+    }, [isNotificationsOpen]);
+
+    // Activa (o alterna) la card expandida correspondiente al índice de nav
+    // dado, cerrando cualquier otra card abierta — mismo comportamiento que
+    // FloatingSystemNav.handlePressItem para notificaciones/amigos/música/descargas.
+    const handleNavIconActivate = useCallback((navIdx: number) => {
+        if (navIdx === 2) { // Notificaciones
+            if (isFriendsOpen) setIsFriendsOpen(false);
+            if (isMusicOpen) setIsMusicOpen(false);
+            if (isDownloadsOpen) setIsDownloadsOpen(false);
+            if (!isNotificationsOpen) {
+                setIsNotificationsOpen(true);
+                soundService.playActivation?.();
+            } else {
+                soundService.playNavigation();
+            }
+            return;
+        }
+        if (navIdx === 3) { // Game Base / Amigos
+            if (isNotificationsOpen) setIsNotificationsOpen(false);
+            if (isMusicOpen) setIsMusicOpen(false);
+            if (isDownloadsOpen) setIsDownloadsOpen(false);
+            if (!isFriendsOpen) {
+                setIsFriendsOpen(true);
+                soundService.playActivation?.();
+            } else {
+                soundService.playNavigation();
+            }
+            return;
+        }
+        if (navIdx === 4) { // Música
+            if (isNotificationsOpen) setIsNotificationsOpen(false);
+            if (isFriendsOpen) setIsFriendsOpen(false);
+            if (isDownloadsOpen) setIsDownloadsOpen(false);
+            if (!isMusicOpen) {
+                soundService.playActivation?.();
+                setIsMusicOpen(true);
+            } else {
+                soundService.playNavigation();
+            }
+            return;
+        }
+        if (navIdx === 5) { // Descargas
+            if (isNotificationsOpen) setIsNotificationsOpen(false);
+            if (isFriendsOpen) setIsFriendsOpen(false);
+            if (isMusicOpen) setIsMusicOpen(false);
+            if (!isDownloadsOpen) {
+                setIsDownloadsOpen(true);
+                soundService.playActivation?.();
+            } else {
+                soundService.playNavigation();
+            }
+            return;
+        }
+    }, [isFriendsOpen, isNotificationsOpen, isMusicOpen, isDownloadsOpen]);
 
     const handleSwitchGame = useCallback(async () => {
         setIsBusy(true);
@@ -191,15 +287,21 @@ export default function OverlayScreen() {
                 e.preventDefault();
             }
 
-            if (isMusicOpen) {
+            const isExpandedCardOpen = isMusicOpen || isFriendsOpen || isNotificationsOpen || isDownloadsOpen;
+            if (isExpandedCardOpen) {
                 if (['ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    // Izquierda/derecha cierra la card abierta y devuelve el
+                    // foco a la barra de navegación (igual que hacía música).
                     soundService.playBack?.();
-                    setIsMusicOpen(false);
+                    if (isMusicOpen) setIsMusicOpen(false);
+                    if (isFriendsOpen) setIsFriendsOpen(false);
+                    if (isNotificationsOpen) setIsNotificationsOpen(false);
+                    if (isDownloadsOpen) setIsDownloadsOpen(false);
                 } else if (['Escape', 'b', 'B'].includes(e.key)) {
-                    // Let MusicExpandedCard handle this and call onClose (handleCloseMusic)
+                    // Deja que la card expandida maneje esto y llame a su onClose
                     return;
                 } else {
-                    // Let MusicExpandedCard handle Up/Down/Enter
+                    // Deja que la card expandida maneje Up/Down/Enter/etc.
                     return;
                 }
             }
@@ -259,9 +361,8 @@ export default function OverlayScreen() {
                     hideOverlay();
                 } else if (focusedNavIndex === GAME_ICON_INDEX) {
                     handleGameIconPress();
-                } else if (focusedNavIndex === 4) {
-                    soundService.playActivation?.();
-                    setIsMusicOpen(true);
+                } else if ([2, 3, 4, 5].includes(focusedNavIndex)) {
+                    handleNavIconActivate(focusedNavIndex);
                 }
                 // Other items are visual-only in the overlay context
             }
@@ -269,7 +370,19 @@ export default function OverlayScreen() {
 
         window.addEventListener('keydown', handleKeyDown, true);
         return () => window.removeEventListener('keydown', handleKeyDown, true);
-    }, [gameMenuOpen, hideOverlay, focusedNavIndex, focusedPopupIndex, isMusicOpen, handleGameIconPress, handleMenuAction]);
+    }, [
+        gameMenuOpen,
+        hideOverlay,
+        focusedNavIndex,
+        focusedPopupIndex,
+        isMusicOpen,
+        isFriendsOpen,
+        isNotificationsOpen,
+        isDownloadsOpen,
+        handleGameIconPress,
+        handleMenuAction,
+        handleNavIconActivate,
+    ]);
 
     // ── Transparent background ─────────────────────────────────────────────
     useEffect(() => {
@@ -315,6 +428,14 @@ export default function OverlayScreen() {
             )}
 
             <MusicExpandedCard isOpen={isMusicOpen} onClose={handleCloseMusic} />
+            <FriendsExpandedCard isOpen={isFriendsOpen} onClose={handleCloseFriends} />
+            <NotificationsExpandedCard
+                isOpen={isNotificationsOpen}
+                onClose={handleCloseNotifications}
+                anchorLeft={notificationsAnchor.left}
+                anchorTop={notificationsAnchor.top}
+            />
+            <DownloadsExpandedCard isOpen={isDownloadsOpen} onClose={handleCloseDownloads} />
 
             {/* The nav bar — matches FloatingSystemNav exactly */}
             <Animated.View style={[styles.menuContainer, menuStyle]}>
@@ -425,22 +546,28 @@ export default function OverlayScreen() {
                         </View>
                     </TouchableOpacity>
 
-                    {/* Remaining nav items — visual only (except music at index 4), respond to focus ring */}
+                    {/* Remaining nav items — notificaciones(2), amigos(3), música(4) y
+                        descargas(5) abren su card expandida; el resto siguen siendo
+                        solo visuales en el overlay, respondiendo al anillo de foco */}
                     {NAV_ICON_ITEMS.slice(1).map((item, i) => {
                         const navIdx = i + 2; // home=0, game=1, rest start at 2
                         const isFocused = focusedNavIndex === navIdx;
-                        // For music, it's index 4. Show focus ring also if the card is open
-                        const isActive = isFocused || (navIdx === 4 && isMusicOpen);
+                        // Muestra el anillo de foco también si la card correspondiente está abierta
+                        const isActive = isFocused
+                            || (navIdx === 2 && isNotificationsOpen)
+                            || (navIdx === 3 && isFriendsOpen)
+                            || (navIdx === 4 && isMusicOpen)
+                            || (navIdx === 5 && isDownloadsOpen);
                         return (
                             <TouchableOpacity
                                 key={i}
+                                ref={navIdx === 2 ? notificationsBtnRef : undefined}
                                 activeOpacity={0.7}
                                 style={styles.iconButton}
                                 onPress={() => {
                                     setFocusedNavIndex(navIdx);
-                                    if (navIdx === 4) {
-                                        soundService.playActivation?.();
-                                        setIsMusicOpen(true);
+                                    if ([2, 3, 4, 5].includes(navIdx)) {
+                                        handleNavIconActivate(navIdx);
                                     }
                                 }}
                             >

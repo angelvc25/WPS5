@@ -37,6 +37,8 @@ export interface UserSettings {
   invertTransitionDirection?: boolean;
   language?: 'es' | 'en' | 'pt';
   storeSource?: 'ps5' | 'steam';
+  raUsername?: string;
+  raApiKey?: string;
 }
 
 export interface UserProfile {

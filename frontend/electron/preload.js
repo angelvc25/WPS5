@@ -80,5 +80,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 });
 
-
-
+// ── Detección de ventana overlay ────────────────────────────────────────────
+// Antes usábamos un preload.js separado (preloadOverlay.js) que hacía
+// `require('./preload.js')`. Bajo preload en modo sandbox (default en
+// Electron moderno), el `require()` disponible es un shim restringido que
+// SOLO resuelve módulos nativos de Node/Electron — no archivos locales
+// propios — así que ese require fallaba con "module not found" y mataba
+// el preload completo en silencio.
+//
+// En su lugar, usamos un único preload.js para ambas ventanas y detectamos
+// si esta ventana es el overlay leyendo `process.argv`, que se puebla con
+// lo que pasemos en `webPreferences.additionalArguments` al crear el
+// BrowserWindow del overlay en main.js. `process.argv` sí está disponible
+// en preload sandboxeado (es parte del objeto `process` polyfilleado).
+if (process.argv.includes('--wps5-overlay')) {
+  contextBridge.exposeInMainWorld('WPS5_OVERLAY', true);
+}

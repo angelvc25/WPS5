@@ -570,17 +570,17 @@ function hideTrayIcon() {
 }
 
 // ── Overlay transparente sobre el juego (estilo Xbox Game Bar) ──────────────
-function resolveOverlayEntry() {
+function loadOverlayContent(win) {
   const isDev = !app.isPackaged;
-  if (isDev) return 'http://localhost:8081/overlay';
-  // Expo static export puede generar overlay.html como archivo propio
-  // (rutas de archivo de Expo Router) o servir todo desde index.html con
-  // routing client-side. Probamos ambos casos.
-  const staticHtml = path.join(distPath, 'overlay.html');
-  if (fs.existsSync(staticHtml)) {
-    return pathToFileURL(staticHtml).href;
+  if (isDev) {
+    // En dev no importa qué ruta pidamos: el flag WPS5_OVERLAY decide la UI.
+    win.loadURL('http://localhost:8081');
+  } else {
+    // Mismo electron-serve que usa mainWindow: garantiza que los assets
+    // con rutas absolutas (/_expo/...) resuelvan igual que en la ventana
+    // principal. Cargar file:// directo rompía el bundle en producción.
+    loadURL(win);
   }
-  return pathToFileURL(path.join(distPath, 'index.html')).href + '#/overlay';
 }
 
 function createOverlayWindow() {
@@ -592,7 +592,7 @@ function createOverlayWindow() {
     y: display.bounds.y,
     width: display.bounds.width,
     height: display.bounds.height,
-    fullscreen: false, // 'fullscreen: true' puede pelear con el juego; usamos bounds manuales
+    fullscreen: false,
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
@@ -603,27 +603,67 @@ function createOverlayWindow() {
     show: false,
     focusable: true,
     webPreferences: {
+      // Un solo preload.js compartido con mainWindow: bajo sandbox, un
+      // preload separado que hace require('./preload.js') no funciona
+      // (require restringido no resuelve archivos locales). En su lugar,
+      // preload.js detecta esta ventana vía additionalArguments abajo.
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: false,
+      additionalArguments: ['--wps5-overlay'],
     },
   });
 
-  // 'screen-saver' es el nivel más alto disponible en Electron/Win32 y es
-  // el que suele lograr quedar por encima de juegos en modo ventana o
-  // fullscreen "sin bordes". Juegos en fullscreen EXCLUSIVO (DirectX
-  // exclusive mode) pueden seguir tapando cualquier ventana externa —
-  // es una limitación del propio modo exclusivo del juego, no de Electron.
   overlayWindow.setAlwaysOnTop(true, 'screen-saver');
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setIgnoreMouseEvents(true, { forward: true });
 
-  overlayWindow.loadURL(resolveOverlayEntry());
+  loadOverlayContent(overlayWindow); // ← CAMBIO: antes overlayWindow.loadURL(resolveOverlayEntry())
 
   overlayWindow.on('closed', () => {
     overlayWindow = null;
   });
 
   return overlayWindow;
+}
+
+// ── Ocultar/mostrar la barra de tareas de Windows durante el overlay ────────
+// El overlay cubre toda la pantalla (display.bounds), pero Windows sigue
+// dibujando la taskbar por encima incluso de ventanas con
+// setAlwaysOnTop(true, 'screen-saver'), porque esa banda de z-order es
+// especial en el shell de Windows. La única forma confiable de que el
+// overlay se vea "detrás" de esa franja es ocultar la taskbar por completo
+// mientras el overlay está visible, y restaurarla al ocultarlo.
+// SW_HIDE = 0, SW_SHOW = 5. Se oculta tanto la taskbar primaria
+// (Shell_TrayWnd) como las de monitores secundarios (Shell_SecondaryTrayWnd).
+function setWindowsTaskbarVisible(visible) {
+  if (process.platform !== 'win32') return;
+  const showCmd = visible ? 5 : 0;
+  const psScript = `
+    Add-Type -Name Win32ShowWindow -Namespace Win32Functions -MemberDefinition '
+      [DllImport("user32.dll")] public static extern IntPtr FindWindow(string strClassName, string strWindowName);
+      [DllImport("user32.dll")] public static extern int ShowWindow(IntPtr hwnd, int command);
+    ';
+    $primary = [Win32Functions.Win32ShowWindow]::FindWindow("Shell_TrayWnd", $null);
+    if ($primary -ne [IntPtr]::Zero) { [Win32Functions.Win32ShowWindow]::ShowWindow($primary, ${showCmd}) | Out-Null }
+    $secondary = [Win32Functions.Win32ShowWindow]::FindWindow("Shell_SecondaryTrayWnd", $null);
+    if ($secondary -ne [IntPtr]::Zero) { [Win32Functions.Win32ShowWindow]::ShowWindow($secondary, ${showCmd}) | Out-Null }
+  `.trim();
+
+  try {
+    exec(`powershell -NoProfile -WindowStyle Hidden -Command "${psScript.replace(/"/g, '\\"')}"`, (err) => {
+      if (err) console.warn('[Overlay] No se pudo cambiar visibilidad de la taskbar:', err.message);
+    });
+  } catch (err) {
+    console.warn('[Overlay] Error ejecutando PowerShell para la taskbar:', err.message);
+  }
+}
+
+function hideWindowsTaskbar() {
+  setWindowsTaskbarVisible(false);
+}
+
+function showWindowsTaskbar() {
+  setWindowsTaskbarVisible(true);
 }
 
 function showOverlay() {
@@ -635,12 +675,14 @@ function showOverlay() {
   if (process.platform === 'win32') {
     win.setAlwaysOnTop(true, 'screen-saver');
   }
+  hideWindowsTaskbar();
 }
 
 function hideOverlayWindow() {
   if (!overlayWindow || overlayWindow.isDestroyed()) return;
   overlayWindow.setIgnoreMouseEvents(true, { forward: true });
   overlayWindow.hide();
+  showWindowsTaskbar();
 }
 
 function isOverlayVisible() {
@@ -702,7 +744,7 @@ function startGamepadOverlayListener() {
         HID = require(unpackedPath);
       }
       const devices = HID.devices();
-      const sonyDev = devices.find(d => 
+      const sonyDev = devices.find(d =>
         (d.vendorId === 1356 && d.usagePage === 1 && d.usage === 5) ||
         (d.vendorId === 1356 && /controller|wireless/i.test(d.product || '')) ||
         (d.vendorId === 1356)
@@ -754,7 +796,7 @@ function startGamepadOverlayListener() {
 
       dev.on('error', (err) => {
         console.warn('[GamepadListener] Error en conexión HID:', err.message);
-        try { dev.close(); } catch (_) {}
+        try { dev.close(); } catch (_) { }
         activeHidDevice = null;
       });
     } catch (_) {
@@ -814,13 +856,13 @@ function stopGamepadOverlayListener() {
   if (activeHidDevice) {
     try {
       activeHidDevice.close();
-    } catch (_) {}
+    } catch (_) { }
     activeHidDevice = null;
   }
   if (xinputWatcherChild) {
     try {
       xinputWatcherChild.kill();
-    } catch (_) {}
+    } catch (_) { }
     xinputWatcherChild = null;
   }
 }
@@ -3353,6 +3395,7 @@ app.on('before-quit', () => {
   disableOverlayHotkey();
   stopGamepadOverlayListener();
   globalShortcut.unregisterAll();
+  showWindowsTaskbar(); // red de seguridad: nunca dejar la taskbar oculta al salir
   if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.destroy();
   for (const id of Array.from(activeGameWatchers.keys())) {
     stopSteamGameWatch(id);

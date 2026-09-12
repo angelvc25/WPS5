@@ -27,6 +27,8 @@ export const unstable_settings = {
 
 function checkIsOverlay() {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
+  console.log('[DEBUG overlay]', (window as any).WPS5_OVERLAY, window.location.pathname, window.location.hash);
+  if ((window as any).WPS5_OVERLAY === true) return true;
   const path = window.location.pathname || '';
   const hash = window.location.hash || '';
   return path.includes('overlay') || hash.includes('overlay');
