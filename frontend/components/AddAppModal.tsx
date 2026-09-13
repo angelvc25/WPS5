@@ -43,6 +43,34 @@ const PLATFORMS = [
   { id: 'Retro', icon: 'gamepad-variant' },
 ];
 
+// Sistemas retro soportados por RetroAchievements (deben matchear RA_PLATFORM_MAP en GameInfoPanel)
+const RETRO_SYSTEMS: { id: string; label: string; group: string }[] = [
+  // Nintendo
+  { id: 'NES',       label: 'NES',         group: 'Nintendo' },
+  { id: 'SNES',      label: 'SNES',        group: 'Nintendo' },
+  { id: 'N64',       label: 'N64',         group: 'Nintendo' },
+  { id: 'GB',        label: 'Game Boy',    group: 'Nintendo' },
+  { id: 'GBC',       label: 'GBC',         group: 'Nintendo' },
+  { id: 'GBA',       label: 'GBA',         group: 'Nintendo' },
+  { id: 'NDS',       label: 'DS',          group: 'Nintendo' },
+  { id: 'N3DS',      label: '3DS',         group: 'Nintendo' },
+  { id: 'GC',        label: 'GameCube',    group: 'Nintendo' },
+  { id: 'WII',       label: 'Wii',         group: 'Nintendo' },
+  { id: 'WIIU',      label: 'Wii U',       group: 'Nintendo' },
+  // Sega
+  { id: 'MASTER SYSTEM', label: 'Master System', group: 'Sega' },
+  { id: 'GAME GEAR',     label: 'Game Gear',     group: 'Sega' },
+  { id: 'GENESIS',       label: 'Genesis/MD',    group: 'Sega' },
+  { id: 'SEGA CD',       label: 'Sega CD',       group: 'Sega' },
+  { id: '32X',           label: '32X',           group: 'Sega' },
+  { id: 'SATURN',        label: 'Saturn',        group: 'Sega' },
+  { id: 'DREAMCAST',     label: 'Dreamcast',     group: 'Sega' },
+  // Atari
+  { id: 'ATARI 2600',    label: 'Atari 2600',    group: 'Atari' },
+  // SNK
+  { id: 'NEO GEO',       label: 'Neo Geo',       group: 'SNK' },
+];
+
 export const AddAppModal: React.FC<AddAppModalProps> = ({
   visible,
   onClose,
@@ -56,7 +84,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedType, setSelectedType] = useState<'game' | 'media' | 'web'>('game');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('PC');
-  const [retroSystem, setRetroSystem] = useState<string>('');
+  const [retroSystem, setRetroSystem] = useState<string>('N64');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
 
@@ -69,7 +97,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
     setSearchQuery('');
     setSelectedType('game');
     setSelectedPlatform('PC');
-    setRetroSystem('');
+    setRetroSystem('N64');
     setFocusedIndex(0);
 
     if (Platform.OS === 'web' && (window as any).electronAPI?.getInstalledPrograms) {
@@ -254,10 +282,9 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
           title: prog.name,
           path: prog.path,
           type: selectedType,
-          platform: selectedType === 'game' ? selectedPlatform : '',
-          ...(selectedType === 'game' && selectedPlatform === 'Retro' && retroSystem.trim()
-            ? { retroSystem: retroSystem.trim() }
-            : {}),
+          platform: selectedType === 'game'
+            ? (selectedPlatform === 'Retro' ? retroSystem : selectedPlatform)
+            : '',
           image: prog.icon || '',
           playtimeMinutes: 0,
           playtime_forever: 0,
@@ -605,16 +632,49 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
         fontWeight: '600',
       },
       retroSystemWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        borderRadius: s(6),
+        marginTop: s(8),
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: s(8),
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.14)',
-        paddingHorizontal: s(10),
-        height: s(34),
-        minWidth: s(160),
+        borderColor: 'rgba(255,255,255,0.10)',
+        overflow: 'hidden',
+      },
+      retroFloatingPanel: {
+        width: '100%',
+        backgroundColor: '#0E1520',
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 150, 0, 0.25)',
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.06)',
+        paddingVertical: s(4),
+      },
+      retroSystemScrollRow: {
+        flexDirection: 'row',
         gap: s(6),
+        paddingHorizontal: s(10),
+        paddingVertical: s(8),
+        alignItems: 'center',
+      },
+      retroSystemChip: {
+        paddingHorizontal: s(12),
+        paddingVertical: s(5),
+        borderRadius: s(20),
+        backgroundColor: 'rgba(255,255,255,0.07)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+      },
+      retroSystemChipActive: {
+        backgroundColor: 'rgba(255, 150, 0, 0.25)',
+        borderColor: 'rgba(255, 150, 0, 0.6)',
+      },
+      retroSystemChipText: {
+        color: 'rgba(255,255,255,0.55)',
+        fontSize: s(12),
+        fontFamily: 'SSTMedium',
+      },
+      retroSystemChipTextActive: {
+        color: '#FFAA00',
+        fontFamily: 'SSTBold',
       },
       retroSystemInput: {
         flex: 1,
@@ -787,6 +847,37 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
             )}
           </View>
 
+          {/* Floating retro system picker — aparece encima del footer */}
+          {selectedType === 'game' && selectedPlatform === 'Retro' && (
+            <View style={styles.retroFloatingPanel}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.retroSystemScrollRow}
+              >
+                {RETRO_SYSTEMS.map((sys) => (
+                  <TouchableOpacity
+                    key={sys.id}
+                    style={[
+                      styles.retroSystemChip,
+                      retroSystem === sys.id && styles.retroSystemChipActive,
+                    ]}
+                    onPress={() => setRetroSystem(sys.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.retroSystemChipText,
+                        retroSystem === sys.id && styles.retroSystemChipTextActive,
+                      ]}
+                    >
+                      {sys.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           {/* FOOTER */}
           <View style={styles.footer}>
             {/* Left: Browse manual file */}
@@ -870,23 +961,6 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
                       </TouchableOpacity>
                     ))}
                   </View>
-                  {selectedPlatform === 'Retro' && (
-                    <View style={styles.retroSystemWrap}>
-                      <MaterialCommunityIcons
-                        name="gamepad-variant-outline"
-                        size={15}
-                        color="rgba(255,255,255,0.45)"
-                      />
-                      <TextInput
-                        style={styles.retroSystemInput}
-                        placeholder={t('addModal.retroSystemPlaceholder')}
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                        value={retroSystem}
-                        onChangeText={setRetroSystem}
-                        maxLength={40}
-                      />
-                    </View>
-                  )}
                 </>
               )}
             </View>
