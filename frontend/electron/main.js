@@ -3309,6 +3309,35 @@ app.whenReady().then(() => {
     }
   });
 
+  // ── IPC: Logros de RetroAchievements (juegos clásicos: PS2, PS1, SNES, etc.) ─
+  const retroAchievements = require('./retroAchievements.js');
+
+  ipcMain.handle('get-retro-achievements', async (_event, opts) => {
+    try {
+      // opts puede ser { username, apiKey, gameTitle, consoleId }
+      // o (legado) gameTitle posicional — soportamos ambas formas
+      let gameTitle, platform, username, apiKey, consoleId;
+      if (opts && typeof opts === 'object' && !Array.isArray(opts)) {
+        ({ gameTitle, username, apiKey, consoleId } = opts);
+        platform = null; // lo resolveremos por consoleId directamente
+      } else {
+        // Llamada legada con argumentos posicionales
+        [gameTitle, platform, username, apiKey] = [opts, ...Array.from(arguments).slice(2)];
+      }
+      const result = await retroAchievements.fetchRetroAchievements(
+        gameTitle,
+        platform,
+        username,
+        apiKey,
+        consoleId   // nuevo parámetro opcional: si se pasa, omite resolución de plataforma
+      );
+      return { success: true, data: result };
+    } catch (err) {
+      console.error('[IPC:get-retro-achievements]', err);
+      return { success: false, data: null, error: err.message };
+    }
+  });
+
   // ── IPC: Trofeos de RPCS3 ──────────────────────────────────────────────────
   // rpcs3Dir: carpeta raíz de RPCS3 (contiene rpcs3.exe + dev_hdd0/)
   // npCommId: NPcommID del juego ("NPWR00001-A", etc.)

@@ -67,6 +67,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // rpcs3Dir: carpeta raíz de RPCS3 configurada en Settings
   resolveRpcs3LnkTrophies: (lnkPath, rpcs3Dir) =>
     ipcRenderer.invoke('resolve-rpcs3-lnk-trophies', lnkPath, rpcs3Dir),
+  // ── RetroAchievements (juegos clásicos: PS1, PS2, SNES, N64, GBA, etc.) ──
+  // gameTitle: título del juego en el launcher
+  // platform:  string de plataforma (e.g. "ps2", "snes", "gba")
+  // username:  nombre de usuario de RetroAchievements (puede ser vacío para solo ver logros)
+  // apiKey:    API Key de RetroAchievements del usuario
+  getRetroAchievements: (gameTitle, platform, username, apiKey) =>
+    ipcRenderer.invoke('get-retro-achievements', gameTitle, platform, username, apiKey),
   // ── Overlay ─────────────────────────────────────────────────────────────
   getActiveGameInfo: () => ipcRenderer.invoke('get-active-game-info'),
   closeCurrentGame: (installDir) => ipcRenderer.invoke('close-current-game', installDir),

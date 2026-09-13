@@ -375,6 +375,11 @@ export default function SettingsView({
       return;
     }
 
+    if (accessibilityLeftIndex === 4) {
+      // RetroAchievements — text inputs handled inline; Enter here is a no-op
+      return;
+    }
+
     if (accessibilityLeftIndex === 2) {
       const hasAvatarPath = !!activeUser?.settings?.avatarPath;
       let idx = 0;
@@ -827,6 +832,7 @@ export default function SettingsView({
       { id: 'wallpapers', title: t('settings.accWallpapers') },
       { id: 'avatars', title: t('settings.avatars') },
       { id: 'steam', title: 'Steam' },
+      { id: 'retroachievements', title: 'RetroAchievements' },
       { id: 'sync', title: t('settings.smartSync') },
     ];
 
@@ -1275,7 +1281,71 @@ export default function SettingsView({
               );
             })()}
 
-            {accessibilityLeftIndex === 4 && (
+            {accessibilityLeftIndex === 4 && (() => {
+              const isRightFocused = accessibilityFocusArea === 'right';
+              const raUsername = activeUser?.settings?.raUsername || '';
+              const raApiKey = activeUser?.settings?.raApiKey || '';
+              return (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.rightSectionTitle}>RetroAchievements</Text>
+                  <Text style={[styles.pathDesc, { marginBottom: 16 }]}>
+                    Vincula tu cuenta de RetroAchievements para ver tus logros en juegos clásicos (PS1, PS2, SNES, N64, GBA, etc.).
+                  </Text>
+
+                  {/* RA Username */}
+                  <View style={styles.cardSection}>
+                    <Text style={styles.sectionLabel}>Usuario (Username)</Text>
+                    <TextInput
+                      style={[styles.raInput, isRightFocused && subFocusIndex === 0 && styles.rightItemFocused]}
+                      placeholder="Tu usuario de RetroAchievements"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={raUsername}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      onChangeText={(val) =>
+                        updateUser({ settings: { ...activeUser?.settings, raUsername: val } as any })
+                      }
+                    />
+                  </View>
+
+                  {/* RA API Key */}
+                  <View style={styles.cardSection}>
+                    <Text style={styles.sectionLabel}>API Key</Text>
+                    <Text style={[styles.pathDesc, { marginBottom: 6 }]}>
+                      Obtenla en retroachievements.org → Settings → Keys
+                    </Text>
+                    <TextInput
+                      style={[styles.raInput, isRightFocused && subFocusIndex === 1 && styles.rightItemFocused]}
+                      placeholder="Tu API Key de RetroAchievements"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={raApiKey}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry={false}
+                      onChangeText={(val) =>
+                        updateUser({ settings: { ...activeUser?.settings, raApiKey: val } as any })
+                      }
+                    />
+                  </View>
+
+                  {/* Connection status */}
+                  <View style={[styles.cardSection, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+                    <Ionicons
+                      name={raUsername && raApiKey ? 'checkmark-circle' : 'alert-circle-outline'}
+                      size={s(22)}
+                      color={raUsername && raApiKey ? '#1DB954' : '#FF5566'}
+                    />
+                    <Text style={[styles.pathDesc, { flex: 1 }]}>
+                      {raUsername && raApiKey
+                        ? `Configurado como "${raUsername}". Los logros se mostrarán automáticamente para juegos clásicos.`
+                        : 'Completa el usuario y la API Key para habilitar los logros de RetroAchievements.'}
+                    </Text>
+                  </View>
+                </ScrollView>
+              );
+            })()}
+
+            {accessibilityLeftIndex === 5 && (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.rightSectionTitle}>{t('settings.smartSync')}</Text>
                 <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.smartSyncDesc')}</Text>
@@ -2946,5 +3016,17 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   psButtonLargeTextFocused: {
     color: '#000000',
     fontFamily: 'SSTBold',
+  },
+  raInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: '#FFF',
+    fontSize: 15,
+    fontFamily: 'SSTLight',
+    marginTop: 6,
   },
 });

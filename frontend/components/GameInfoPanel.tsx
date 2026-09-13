@@ -165,7 +165,7 @@ export const GameInfoPanel = ({
   // 'aw'     → logros leídos por AchievementWatcher (juego emulado/externo)
   // 'rpcs3'  → trofeos de RPCS3
   // null     → sin logros
-  const [achievementsSource, setAchievementsSource] = React.useState<'steam' | 'aw' | 'rpcs3' | null>(null);
+  const [achievementsSource, setAchievementsSource] = React.useState<'steam' | 'aw' | 'rpcs3' | 'retro' | null>(null);
 
   // Inicialización sincrónica desde caché ─────────────────────────────────────
   const [steamAchievements, setSteamAchievements] = React.useState<SteamGameAchievementsSummary | null>(() => {
@@ -400,15 +400,116 @@ export const GameInfoPanel = ({
       };
     }
 
-    // Sin Steam ni AW disponible
+    // ── RetroAchievements: juegos clásicos (PS1, PS2, N64, SNES, GBA, etc.) ──
+    // Se activa cuando la plataforma del juego es reconocida por RA y el usuario
+    // tiene sus credenciales configuradas en Settings → RetroAchievements.
+    const raUsername = (activeUser?.settings as any)?.raUsername ?? '';
+    const raApiKey   = (activeUser?.settings as any)?.raApiKey   ?? '';
+    const hasRaApi   = typeof (window as any)?.electronAPI?.getRetroAchievements === 'function';
+
+    // Mapa de plataformas del launcher → consoleId de RetroAchievements
+    const RA_PLATFORM_MAP: Record<string, number> = {
+      PS1: 12, PSX: 12, 'PLAYSTATION 1': 12, 'PLAYSTATION': 12,
+      PS2: 21, 'PLAYSTATION 2': 21,
+      PSP: 41, 'PLAYSTATION PORTABLE': 41,
+      N64: 2,  'NINTENDO 64': 2,
+      SNES: 3, 'SUPER NINTENDO': 3, 'SUPER NES': 3,
+      NES: 7,  'FAMICOM': 7,
+      GB: 4,   'GAME BOY': 4,
+      GBC: 6,  'GAME BOY COLOR': 6,
+      GBA: 5,  'GAME BOY ADVANCE': 5,
+      NDS: 18, 'NINTENDO DS': 18,
+      N3DS: 47,'NINTENDO 3DS': 47,
+      GC: 16,  'GAMECUBE': 16, 'NINTENDO GAMECUBE': 16,
+      WII: 45, 'NINTENDO WII': 45,
+      WIIU: 38,'NINTENDO WII U': 38,
+      GENESIS: 1, 'MEGA DRIVE': 1, 'SEGA GENESIS': 1,
+      'GAME GEAR': 15, GAMEGEAR: 15,
+      'SEGA CD': 9, SEGACD: 9,
+      '32X': 10, 'SEGA 32X': 10,
+      SATURN: 39, 'SEGA SATURN': 39,
+      DREAMCAST: 40, DC: 40,
+      'MASTER SYSTEM': 11, SMS: 11,
+      XBOX: 32, 'XBOX 360': 43,
+      'ATARI 2600': 25, 'ATARI 7800': 51, 'ATARI LYNX': 13,
+      'NEO GEO': 56, NEOGEO: 56,
+    };
+
+    const rawPlatform  = (achievementGame?.platform ?? '').toString().trim().toUpperCase();
+    const raConsoleId  = RA_PLATFORM_MAP[rawPlatform] ?? null;
+    const gameTitle    = achievementGame?.title ?? '';
+
+    if (hasRaApi && raUsername && raApiKey && raConsoleId && gameTitle) {
+      setSteamAchievements(null);
+      setAchievementsSource(null);
+      setAchievementsLoading(false);
+
+      let cancelled = false;
+      const timer = setTimeout(() => {
+        setAchievementsLoading(true);
+        (window as any).electronAPI.getRetroAchievements({
+          username: raUsername,
+          apiKey:   raApiKey,
+          gameTitle,
+          consoleId: raConsoleId,
+        }).then((result: any) => {
+          if (cancelled) return;
+          if (result?.success && result.data) {
+            const ra = result.data;
+            // Normalise into the SteamGameAchievementsSummary shape so all
+            // existing UI (progress bar, card list, badge) works unchanged.
+            const achievements = (ra.achievements ?? []).map((a: any) => ({
+              apiname:        a.id?.toString() ?? '',
+              name:           a.title ?? '',
+              description:    a.description ?? '',
+              achieved:       a.dateEarned ? 1 : 0,
+              unlockTime:     a.dateEarned ? new Date(a.dateEarned).getTime() / 1000 : 0,
+              iconUrl:        a.badgeUrl ?? '',
+              iconGrayUrl:    a.badgeLockedUrl ?? a.badgeUrl ?? '',
+              globalPercent:  a.points != null ? undefined : undefined,
+            }));
+            const unlocked = achievements.filter((a: any) => a.achieved).length;
+            const summary: SteamGameAchievementsSummary = {
+              total:       achievements.length,
+              unlocked,
+              achievements,
+              rarityCounts: { platinum: 0, gold: 0, silver: 0, bronze: 0 },
+            };
+            setSteamAchievements(summary.total > 0 ? summary : null);
+            setAchievementsSource(summary.total > 0 ? 'retro' : null);
+          } else {
+            setSteamAchievements(null);
+            setAchievementsSource(null);
+          }
+          setAchievementsLoading(false);
+        }).catch(() => {
+          if (!cancelled) {
+            setSteamAchievements(null);
+            setAchievementsSource(null);
+            setAchievementsLoading(false);
+          }
+        });
+      }, 400);
+
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+        setAchievementsLoading(false);
+      };
+    }
+
+    // Sin ninguna fuente disponible
     setSteamAchievements(null);
     setAchievementsSource(null);
     setAchievementsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [achievementAppId, rpcs3AppId, steamId, awAvailable,
     (activeUser?.settings as any)?.rpcs3Path,
+    (activeUser?.settings as any)?.raUsername,
+    (activeUser?.settings as any)?.raApiKey,
     achievementGame?.path,      // juegos PC: el path del exe identifica el juego
     achievementGame?.platform,  // cambio de plataforma re-ejecuta el fetch
+    achievementGame?.title,     // RetroAchievements: el título identifica el juego
   ]);
 
   const trophyCounts = steamAchievements?.rarityCounts ?? { platinum: 0, gold: 0, silver: 0, bronze: 0 };
@@ -995,16 +1096,74 @@ export const GameInfoPanel = ({
               </View>
 
               <View style={{ zIndex: 2 }}>
-                <Text
-                  style={{
-                    color: '#FFF',
-                    fontSize: s(16),
-                    fontFamily: 'SSTBold',
-                    marginBottom: s(4),
-                  }}
-                >
-                  {t('game.trophies')}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8), marginBottom: s(4) }}>
+                  <Text
+                    style={{
+                      color: '#FFF',
+                      fontSize: s(16),
+                      fontFamily: 'SSTBold',
+                    }}
+                  >
+                    {t('game.trophies')}
+                  </Text>
+                  {/* Source badge */}
+                  {achievementsSource === 'retro' && (
+                    <View style={{
+                      backgroundColor: 'rgba(255, 160, 0, 0.18)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 160, 0, 0.5)',
+                      borderRadius: s(6),
+                      paddingHorizontal: s(7),
+                      paddingVertical: s(2),
+                    }}>
+                      <Text style={{ color: '#FFA000', fontSize: s(10), fontFamily: 'SSTBold', letterSpacing: 0.5 }}>
+                        RetroAchievements
+                      </Text>
+                    </View>
+                  )}
+                  {achievementsSource === 'rpcs3' && (
+                    <View style={{
+                      backgroundColor: 'rgba(100, 180, 255, 0.15)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(100, 180, 255, 0.4)',
+                      borderRadius: s(6),
+                      paddingHorizontal: s(7),
+                      paddingVertical: s(2),
+                    }}>
+                      <Text style={{ color: '#64B4FF', fontSize: s(10), fontFamily: 'SSTBold', letterSpacing: 0.5 }}>
+                        RPCS3
+                      </Text>
+                    </View>
+                  )}
+                  {achievementsSource === 'aw' && (
+                    <View style={{
+                      backgroundColor: 'rgba(120, 220, 120, 0.15)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(120, 220, 120, 0.4)',
+                      borderRadius: s(6),
+                      paddingHorizontal: s(7),
+                      paddingVertical: s(2),
+                    }}>
+                      <Text style={{ color: '#78DC78', fontSize: s(10), fontFamily: 'SSTBold', letterSpacing: 0.5 }}>
+                        AchievementWatcher
+                      </Text>
+                    </View>
+                  )}
+                  {achievementsSource === 'steam' && (
+                    <View style={{
+                      backgroundColor: 'rgba(103, 193, 245, 0.15)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(103, 193, 245, 0.4)',
+                      borderRadius: s(6),
+                      paddingHorizontal: s(7),
+                      paddingVertical: s(2),
+                    }}>
+                      <Text style={{ color: '#67C1F5', fontSize: s(10), fontFamily: 'SSTBold', letterSpacing: 0.5 }}>
+                        Steam
+                      </Text>
+                    </View>
+                  )}
+                </View>
 
                 <Text style={{ color: '#ddddddff', fontFamily: 'SSTLight', fontSize: s(17) }}>
                   {t('game.trophiesCount', { count: achievementsLoading ? '…' : `${steamAchievements?.unlocked ?? 0}/${steamAchievements?.total ?? 0}` })}
