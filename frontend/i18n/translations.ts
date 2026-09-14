@@ -323,6 +323,10 @@ const es = {
   'overlay.confirmClose': '¿Cerrar? Pulsa de nuevo',
   'overlay.subtitle': 'Menú del juego',
   'overlay.unknownGame': 'Juego en curso',
+  'toast.controllerNotResponding': 'Tu mando no responde. Apágalo y vuelve a encenderlo para reconectarlo.',
+  'toast.noPath': 'La aplicación no tiene ruta asignada.',
+  'toast.error': 'Error.',
+  'toast.noGameLaunched': 'Aún no has jugado a ningún juego.',
 
   'edit.title': 'Editar Datos',
   'edit.basic': 'Datos Básicos',
@@ -833,6 +837,10 @@ const en: Record<TranslationKey, string> = {
   'overlay.confirmClose': 'Close? Press again',
   'overlay.subtitle': 'Game menu',
   'overlay.unknownGame': 'Game in progress',
+  'toast.controllerNotResponding': 'Your controller isn\'t responding. Turn it off and back on to reconnect it.',
+  'toast.noPath': 'The application has no path assigned.',
+  'toast.error': 'Error.',
+  'toast.noGameLaunched': 'You haven\'t played any games yet.',
 
   'edit.title': 'Edit Data',
   'edit.basic': 'Basic Data',
@@ -1338,6 +1346,10 @@ const pt: Record<TranslationKey, string> = {
   'overlay.confirmClose': 'Fechar? Pressione de novo',
   'overlay.subtitle': 'Menu do jogo',
   'overlay.unknownGame': 'Jogo em andamento',
+  'toast.controllerNotResponding': 'Seu controle não está respondendo. Desligue e ligue novamente para reconectá-lo.',
+  'toast.noPath': 'A aplicação não tem rota atribuída.',
+  'toast.error': 'Erro.',
+  'toast.noGameLaunched': 'Você ainda não jogou nenhum jogo.',
 
   'edit.title': 'Editar Datos',
   'edit.basic': 'Datos Básicos',

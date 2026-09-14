@@ -667,6 +667,16 @@ export default function ConsoleHome() {
       epicGames.forEach(game => {
         byId.set(game.id, game);
       });
+      // Incluimos también los juegos de Steam (colección completa). No
+      // filtramos aquí por "instalado": LibraryGrid ya aplica ese filtro
+      // internamente usando `installedSteamAppIds`, igual que hace con
+      // los demás juegos de esta pestaña. Si los excluimos aquí, jamás
+      // llegan a LibraryGrid y no aparecen aunque estén instalados.
+      steamGames.forEach(sg => {
+        const override = games.find(g => g.id === sg.id);
+        const merged = override ? { ...sg, ...override } : sg;
+        byId.set(sg.id, { ...merged, path: resolveLaunchPath(merged) });
+      });
       savedGames.forEach(game => {
         byId.set(game.id, { ...game, path: resolveLaunchPath(game) });
       });
@@ -1354,7 +1364,7 @@ export default function ConsoleHome() {
         }
         loadApps();
       } else {
-        alert('Error al eliminar: ' + (result?.error || 'desconocido'));
+        toastService.show('toast.error');
       }
     }
   };
@@ -1472,10 +1482,10 @@ export default function ConsoleHome() {
           const result = await (window as any).electronAPI.openGameLocation(item.path);
 
           if (!result.success) {
-            alert('Error: ' + result.error);
+            toastService.show(t('toast.error') + ": " + result.error);
           }
         } else {
-          alert('La aplicación no tiene ruta asignada.');
+          toastService.show(t('toast.noPath'));
         }
       }
     } else if (idx === 2) {
@@ -1557,6 +1567,13 @@ export default function ConsoleHome() {
     onConnected: () => {
       toastService.show(t('toast.controllerConnected'), {
         duration: 2500,
+        icon: require('@/assets/images/controller.png'),
+        source: 'system',
+      });
+    },
+    onStaleGamepad: () => {
+      toastService.show(t('toast.controllerNotResponding'), {
+        duration: 5000, // un poco más largo, es un mensaje accionable, dale tiempo a leerlo
         icon: require('@/assets/images/controller.png'),
         source: 'system',
       });
@@ -2200,7 +2217,7 @@ export default function ConsoleHome() {
                 setSelectedItem(target);
                 setDetailVisible(true);
               } else {
-                alert('Aún no has jugado a ningún juego.');
+                toastService.show('toast.noGameLaunched');
               }
             }
           } else if (gamePanelFocusIndex >= 200) {
@@ -2259,7 +2276,7 @@ export default function ConsoleHome() {
           if (activeTab === 'Games' && activeIndex === 0) { setHomeBgModalVisible(true); return; }
           if (item.isLastPlayed) {
             if (lastPlayedGame) { handleLaunchApp(lastPlayedGame); }
-            else alert('Aún no has jugado a ningún juego.');
+            else toastService.show('toast.noGameLaunched');
           } else { handleLaunchApp(item); }
         }
       }
@@ -2419,7 +2436,7 @@ export default function ConsoleHome() {
   const handleLaunchApp = (item: ConsoleItem) => {
     if (!item) return;
     if (item.isLastPlayed && !lastPlayedGame) {
-      alert('Aún no has jugado a ningún juego.');
+      toastService.show('toast.noGameLaunched');
       return;
     }
     const targetItem = item.isLastPlayed ? lastPlayedGame! : item;

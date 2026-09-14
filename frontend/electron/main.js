@@ -671,11 +671,27 @@ function showOverlay() {
   win.setIgnoreMouseEvents(false);
   win.showInactive();
   win.focus();
-  win.webContents.send('overlay-shown');
+
   if (process.platform === 'win32') {
     win.setAlwaysOnTop(true, 'screen-saver');
+    win.setAlwaysOnTop(false);
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.focus();
   }
+
+  win.webContents.send('overlay-shown');
   hideWindowsTaskbar();
+
+  // Reintento por si el foco tarda unos ms en liberarse
+  setTimeout(() => {
+    if (!overlayWindow || overlayWindow.isDestroyed()) return;
+    if (!overlayWindow.isFocused()) {
+      overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+      overlayWindow.setAlwaysOnTop(false);
+      overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+      overlayWindow.focus();
+    }
+  }, 250);
 }
 
 function hideOverlayWindow() {
