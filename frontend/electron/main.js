@@ -54,7 +54,7 @@ let overlayHotkeyRegistered = false;
 let activeGameInfo = null; // { id, title, image, installDir, appId, source, nativePid }
 // En Windows, 'F12' está reservado por el sistema/depurador para RegisterHotKey.
 // Usamos F11 como atajo principal y combinaciones adicionales como alternativa:
-const OVERLAY_HOTKEYS = ['F11', 'Alt+F12', 'Control+F12', 'Shift+F2'];
+const OVERLAY_HOTKEYS = ['F10', 'Alt+F12'];
 let activeHidDevice = null;
 let hidCheckInterval = null;
 let xinputWatcherChild = null;
@@ -748,82 +748,11 @@ function disableOverlayHotkey() {
 function startGamepadOverlayListener() {
   stopGamepadOverlayListener();
 
-  // 1. Monitoreo directo por node-hid (DualShock 4, DualSense, mandos Sony y genéricos)
-  const connectHid = () => {
-    if (activeHidDevice) return;
-    try {
-      let HID;
-      try {
-        HID = require('node-hid');
-      } catch (_) {
-        const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'node-hid');
-        HID = require(unpackedPath);
-      }
-      const devices = HID.devices();
-      const sonyDev = devices.find(d =>
-        (d.vendorId === 1356 && d.usagePage === 1 && d.usage === 5) ||
-        (d.vendorId === 1356 && /controller|wireless/i.test(d.product || '')) ||
-        (d.vendorId === 1356)
-      );
-
-      if (!sonyDev) return;
-
-      const dev = new HID.HID(sonyDev.path);
-      activeHidDevice = dev;
-      console.log('[GamepadListener] Conectado a mando PlayStation por HID:', sonyDev.product);
-
-      dev.on('data', (buf) => {
-        if (!buf || buf.length < 6) return;
-        let share = false;
-        let options = false;
-
-        if (buf[0] === 0x01 && buf.length >= 7) {
-          // Report ID 0x01: DualSense / DualShock 4 estándar (USB o Bluetooth estándar en Windows)
-          // Byte 6 contiene: L1(0x01), R1(0x02), L2_btn(0x04), R2_btn(0x08), Create/Share(0x10), Options(0x20)
-          // NOTA: Byte 8 es el valor analógico del gatillo L2 (0-255), NO un mapa de botones.
-          const b6 = buf[6];
-          share = Boolean(b6 & 0x10);
-          options = Boolean(b6 & 0x20);
-        } else if (buf[0] === 0x11 && buf.length >= 9) {
-          // Report ID 0x11: DualShock 4 extendido Bluetooth
-          const b8 = buf[8];
-          share = Boolean(b8 & 0x10);
-          options = Boolean(b8 & 0x20);
-        } else if (buf[0] === 0x31 && buf.length >= 10) {
-          // Report ID 0x31: DualSense extendido Bluetooth
-          const b9 = buf[9];
-          share = Boolean(b9 & 0x10);
-          options = Boolean(b9 & 0x20);
-        } else if (buf.length >= 7) {
-          const b6 = buf[6];
-          share = Boolean(b6 & 0x10);
-          options = Boolean(b6 & 0x20);
-        }
-
-        if (share && options) {
-          const now = Date.now();
-          if (now - lastGamepadToggleTime > 600) {
-            lastGamepadToggleTime = now;
-            console.log('[GamepadListener] Combo Select + Start (Share + Options) pulsado en mando PS');
-            toggleOverlay();
-          }
-        }
-      });
-
-      dev.on('error', (err) => {
-        console.warn('[GamepadListener] Error en conexión HID:', err.message);
-        try { dev.close(); } catch (_) { }
-        activeHidDevice = null;
-      });
-    } catch (_) {
-      activeHidDevice = null;
-    }
-  };
-
-  connectHid();
-  hidCheckInterval = setInterval(connectHid, 3000);
-
   // 2. Monitoreo para mandos XInput (Xbox o controladores emulados)
+  // Se desactiva el monitoreo HID nativo para mandos PlayStation (DualShock 4 / DualSense)
+  // para evitar falsos positivos al usar DS4Windows/DSX con emulación Xbox 360/DS4.
+  // El overlay se activará solo mediante el detector de XInput (xinput-watcher.exe)
+  // que observa las pulsaciones de Back + Start en mandos Xbox reales o emulados.
   if (process.platform === 'win32') {
     const candidates = [
       path.join(__dirname, 'bin/xinput-watcher.exe'),
@@ -862,6 +791,9 @@ function startGamepadOverlayListener() {
       }
     }
   }
+  // TODO: Si en el futuro se requiere compatibilidad con mandos PlayStation
+  // sin falsos positivos, se podría reimplementar con validación de report ID
+  // explícito (0x01/0x11/0x31) en lugar del fallback permisivo anterior.
 }
 
 function stopGamepadOverlayListener() {
