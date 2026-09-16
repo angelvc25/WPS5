@@ -51,6 +51,8 @@ let windowsMediaSessionsModule = null;
 let trayIcon = null;
 let overlayWindow = null; // ventana transparente del overlay
 let overlayHotkeyRegistered = false;
+let overlayEnabled = true;
+let overlayCombo = 'SELECT_START';
 let activeGameInfo = null; // { id, title, image, installDir, appId, source, nativePid }
 // En Windows, 'F12' está reservado por el sistema/depurador para RegisterHotKey.
 // Usamos F11 como atajo principal y combinaciones adicionales como alternativa:
@@ -706,6 +708,7 @@ function isOverlayVisible() {
 }
 
 function toggleOverlay() {
+  if (!overlayEnabled) return;
   if (!activeGameInfo) return; // no hay juego corriendo, no tiene sentido mostrarlo
   if (isOverlayVisible()) {
     hideOverlayWindow();
@@ -715,6 +718,7 @@ function toggleOverlay() {
 }
 
 function enableOverlayHotkey() {
+  if (!overlayEnabled) return;
   if (overlayHotkeyRegistered) return;
   let registeredCount = 0;
   for (const hotkey of OVERLAY_HOTKEYS) {
@@ -747,12 +751,11 @@ function disableOverlayHotkey() {
 
 function startGamepadOverlayListener() {
   stopGamepadOverlayListener();
+  if (!overlayEnabled) return;
 
   // 2. Monitoreo para mandos XInput (Xbox o controladores emulados)
-  // Se desactiva el monitoreo HID nativo para mandos PlayStation (DualShock 4 / DualSense)
-  // para evitar falsos positivos al usar DS4Windows/DSX con emulación Xbox 360/DS4.
-  // El overlay se activará solo mediante el detector de XInput (xinput-watcher.exe)
-  // que observa las pulsaciones de Back + Start en mandos Xbox reales o emulados.
+  // El overlay se activará mediante el detector de XInput (xinput-watcher.exe)
+  // con la combinación configurada (Select + Start, L3 + R3, L1 + R1, etc.).
   if (process.platform === 'win32') {
     const candidates = [
       path.join(__dirname, 'bin/xinput-watcher.exe'),
@@ -763,17 +766,17 @@ function startGamepadOverlayListener() {
 
     if (xinputExe) {
       try {
-        xinputWatcherChild = spawn(xinputExe, [], {
+        xinputWatcherChild = spawn(xinputExe, [overlayCombo], {
           windowsHide: true,
           stdio: ['ignore', 'pipe', 'ignore'],
         });
 
         xinputWatcherChild.stdout.on('data', (data) => {
-          if (data && data.toString().includes('SELECT_START')) {
+          if (data && (data.toString().includes('SELECT_START') || data.toString().includes('OVERLAY_TRIGGER'))) {
             const now = Date.now();
             if (now - lastGamepadToggleTime > 600) {
               lastGamepadToggleTime = now;
-              console.log('[GamepadListener] Combo Select + Start pulsado en mando XInput');
+              console.log(`[GamepadListener] Combo ${overlayCombo} pulsado en mando XInput`);
               toggleOverlay();
             }
           }
@@ -3350,6 +3353,33 @@ app.whenReady().then(() => {
 
   ipcMain.handle('quit-to-desktop', async () => {
     app.quit();
+  });
+
+  ipcMain.handle('set-overlay-settings', async (_event, settings) => {
+    if (settings) {
+      if (typeof settings.enabled === 'boolean') {
+        overlayEnabled = settings.enabled;
+        if (!overlayEnabled) {
+          hideOverlayWindow();
+          disableOverlayHotkey();
+          stopGamepadOverlayListener();
+        } else if (activeGameInfo) {
+          enableOverlayHotkey();
+          startGamepadOverlayListener();
+        }
+      }
+      if (settings.combo) {
+        overlayCombo = settings.combo;
+        if (overlayEnabled && activeGameInfo) {
+          startGamepadOverlayListener();
+        }
+      }
+    }
+    return { success: true, enabled: overlayEnabled, combo: overlayCombo };
+  });
+
+  ipcMain.handle('get-overlay-settings', async () => {
+    return { enabled: overlayEnabled, combo: overlayCombo };
   });
 
   createWindow();

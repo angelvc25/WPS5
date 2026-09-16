@@ -78,6 +78,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getActiveGameInfo: () => ipcRenderer.invoke('get-active-game-info'),
   closeCurrentGame: (installDir) => ipcRenderer.invoke('close-current-game', installDir),
   hideOverlay: () => ipcRenderer.invoke('hide-overlay'),
+  setOverlaySettings: (settings) => ipcRenderer.invoke('set-overlay-settings', settings),
+  getOverlaySettings: () => ipcRenderer.invoke('get-overlay-settings'),
   showMainWindowToSwitchGame: () => ipcRenderer.invoke('show-main-window-to-switch-game'),
   quitToDesktop: () => ipcRenderer.invoke('quit-to-desktop'),
   onOverlayShown: (callback) => {

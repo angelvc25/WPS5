@@ -65,6 +65,19 @@ const PROFILE_EDIT_SECTIONS: ProfileEditSection[] = [
   'languages',
 ];
 
+const OVERLAY_COMBO_OPTIONS = [
+  { id: 'SELECT_START', labelKey: 'settings.comboSelectStart' },
+  { id: 'L3_R3', labelKey: 'settings.comboL3R3' },
+  { id: 'L1_R1', labelKey: 'settings.comboL1R1' },
+  { id: 'L2_R2_START', labelKey: 'settings.comboL2R2Start' },
+] as const;
+
+function applyOverlaySettingsToElectron(enabled: boolean, combo: string) {
+  if (Platform.OS === 'web' && (window as any).electronAPI?.setOverlaySettings) {
+    (window as any).electronAPI.setOverlaySettings({ enabled, combo });
+  }
+}
+
 export function resolveImageSource(img: any) {
   if (!img) return undefined;
   if (typeof img === 'string') return { uri: img };
@@ -288,9 +301,24 @@ export default function SettingsView({
       const count = 2 + (hasAvatarPath ? 1 : 0);
       return Math.max(0, count - 1);
     }
-    if (accessibilityLeftIndex === 3) return 0; // 👈 Steam: solo 1 botón (conectar/desvincular)
-    if (accessibilityLeftIndex === 4) return 3; // sync (antes era 3)
+    if (accessibilityLeftIndex === 3) return 0; // Steam: conectar/desvincular
+    if (accessibilityLeftIndex === 4) return 1; // RetroAchievements: 2 inputs
+    if (accessibilityLeftIndex === 5) return 3; // Smart Sync
+    if (accessibilityLeftIndex === 6) return 1; // Overlay: toggle + combo
     return 0;
+  };
+
+  const persistOverlaySettings = (partial: { overlayEnabled?: boolean; overlayCombo?: string }) => {
+    const nextEnabled = partial.overlayEnabled ?? (activeUser?.settings?.overlayEnabled !== false);
+    const nextCombo = partial.overlayCombo ?? activeUser?.settings?.overlayCombo ?? 'SELECT_START';
+    updateUser({
+      settings: {
+        ...activeUser?.settings,
+        overlayEnabled: nextEnabled,
+        overlayCombo: nextCombo,
+      } as any,
+    });
+    applyOverlaySettingsToElectron(nextEnabled, nextCombo);
   };
 
   const activateAccessibilityRightItem = () => {
@@ -417,7 +445,7 @@ export default function SettingsView({
       return;
     }
 
-    if (accessibilityLeftIndex === 4) {
+    if (accessibilityLeftIndex === 5) {
       const prefs: { key: 'ratingAndSummary' | 'cover' | 'background' | 'logo'; options: string[] }[] = [
         { key: 'ratingAndSummary', options: ['igdb', 'none'] },
         { key: 'cover', options: ['steamgrid', 'igdb', 'none'] },
@@ -441,6 +469,19 @@ export default function SettingsView({
             syncPreferences: { ...currentSync, [pref.key]: nextValue } as any,
           },
         });
+      }
+      return;
+    }
+
+    if (accessibilityLeftIndex === 6) {
+      const overlayEnabled = activeUser?.settings?.overlayEnabled !== false;
+      const overlayCombo = activeUser?.settings?.overlayCombo || 'SELECT_START';
+      if (subFocusIndex === 0) {
+        persistOverlaySettings({ overlayEnabled: !overlayEnabled });
+      } else if (subFocusIndex === 1) {
+        const curIdx = OVERLAY_COMBO_OPTIONS.findIndex((opt) => opt.id === overlayCombo);
+        const next = OVERLAY_COMBO_OPTIONS[(curIdx + 1) % OVERLAY_COMBO_OPTIONS.length];
+        persistOverlaySettings({ overlayCombo: next.id });
       }
     }
   };
@@ -501,7 +542,7 @@ export default function SettingsView({
         if (accessibilityFocusArea === 'left') {
           if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 4));
+            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 6));
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
@@ -834,6 +875,7 @@ export default function SettingsView({
       { id: 'steam', title: 'Steam' },
       { id: 'retroachievements', title: 'RetroAchievements' },
       { id: 'sync', title: t('settings.smartSync') },
+      { id: 'overlay', title: t('settings.overlay') },
     ];
 
     return (
@@ -1340,6 +1382,70 @@ export default function SettingsView({
                         ? `Configurado como "${raUsername}". Los logros se mostrarán automáticamente para juegos clásicos.`
                         : 'Completa el usuario y la API Key para habilitar los logros de RetroAchievements.'}
                     </Text>
+                  </View>
+                </ScrollView>
+              );
+            })()}
+
+            {accessibilityLeftIndex === 6 && (() => {
+              const overlayEnabled = activeUser?.settings?.overlayEnabled !== false;
+              const overlayCombo = activeUser?.settings?.overlayCombo || 'SELECT_START';
+              const isRightFocused = accessibilityFocusArea === 'right';
+
+              return (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.rightSectionTitle}>{t('settings.overlay')}</Text>
+
+                  <View
+                    style={[
+                      styles.toggleRowSection,
+                      isRightFocused && subFocusIndex === 0 && styles.rightItemFocused,
+                    ]}
+                  >
+                    <View style={{ flex: 1, paddingRight: 20 }}>
+                      <Text style={styles.toggleRowTitle}>{t('settings.enableOverlay')}</Text>
+                      <Text style={styles.toggleRowDesc}>{t('settings.enableOverlayDesc')}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.psSwitch, overlayEnabled && styles.psSwitchActive]}
+                      onPress={() => persistOverlaySettings({ overlayEnabled: !overlayEnabled })}
+                    >
+                      <View
+                        style={[
+                          styles.psSwitchThumb,
+                          overlayEnabled && styles.psSwitchThumbActive,
+                        ]}
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.toggleRowSection,
+                      { alignItems: 'flex-start' },
+                      isRightFocused && subFocusIndex === 1 && styles.rightItemFocused,
+                    ]}
+                  >
+                    <View style={{ flex: 1, paddingRight: 20 }}>
+                      <Text style={styles.toggleRowTitle}>{t('settings.overlayCombo')}</Text>
+                      <Text style={styles.toggleRowDesc}>{t('settings.overlayComboDesc')}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, maxWidth: 420, justifyContent: 'flex-end' }}>
+                      {OVERLAY_COMBO_OPTIONS.map((opt) => {
+                        const isActive = overlayCombo === opt.id;
+                        return (
+                          <TouchableOpacity
+                            key={opt.id}
+                            style={[styles.platformBtn, isActive && styles.platformBtnActive]}
+                            onPress={() => persistOverlaySettings({ overlayCombo: opt.id })}
+                          >
+                            <Text style={[styles.platformBtnText, isActive && styles.platformBtnTextActive]}>
+                              {t(opt.labelKey)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   </View>
                 </ScrollView>
               );

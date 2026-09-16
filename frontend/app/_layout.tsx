@@ -169,6 +169,12 @@ function RootLayoutInner() {
           if (isLanguage(user.settings?.language)) {
             setLanguage(user.settings.language);
           }
+          if ((window as any).electronAPI?.setOverlaySettings) {
+            (window as any).electronAPI.setOverlaySettings({
+              enabled: user.settings?.overlayEnabled !== false,
+              combo: user.settings?.overlayCombo || 'SELECT_START',
+            });
+          }
         }} />
 
         {showSplash && (
@@ -197,6 +203,12 @@ function RootLayoutInner() {
         if ((window as any).electronAPI) {
           (window as any).electronAPI.saveUsers(updatedList).catch(console.error);
         }
+      }
+      if (updates.settings && (window as any).electronAPI?.setOverlaySettings) {
+        (window as any).electronAPI.setOverlaySettings({
+          enabled: newUser.settings?.overlayEnabled !== false,
+          combo: newUser.settings?.overlayCombo || 'SELECT_START',
+        });
       }
       return newUser;
     });

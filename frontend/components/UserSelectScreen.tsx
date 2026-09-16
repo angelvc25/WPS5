@@ -39,6 +39,8 @@ export interface UserSettings {
   storeSource?: 'ps5' | 'steam';
   raUsername?: string;
   raApiKey?: string;
+  overlayEnabled?: boolean;
+  overlayCombo?: string;
 }
 
 export interface UserProfile {
