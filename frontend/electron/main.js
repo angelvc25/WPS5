@@ -749,26 +749,48 @@ function disableOverlayHotkey() {
   hideOverlayWindow();
 }
 
+// Resuelve la ruta real de xinput-watcher.exe. IMPORTANTE: fs.existsSync()
+// devuelve `true` para archivos que están DENTRO de app.asar (Electron los
+// expone virtualmente para lectura), pero un .exe empaquetado ahí NO se
+// puede ejecutar con spawn() — falla en silencio. Por eso descartamos
+// explícitamente cualquier candidato "atrapado" en el asar sin unpack.
+function resolveXinputWatcherPath() {
+  const candidates = app.isPackaged
+    ? [
+      // 1) extraResources: build config copia electron/bin -> resources/bin
+      path.join(process.resourcesPath || '', 'bin', 'xinput-watcher.exe'),
+      // 2) asarUnpack: la carpeta 'electron' quedó sin empaquetar dentro de app.asar.unpacked
+      path.join(process.resourcesPath || '', 'app.asar.unpacked', 'electron', 'bin', 'xinput-watcher.exe'),
+    ]
+    : [
+      path.join(__dirname, 'bin', 'xinput-watcher.exe'),
+    ];
+
+  for (const candidate of candidates) {
+    const isTrappedInAsar = candidate.includes(`.asar${path.sep}`) && !candidate.includes('.asar.unpacked');
+    if (isTrappedInAsar) continue;
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 function startGamepadOverlayListener() {
   stopGamepadOverlayListener();
   if (!overlayEnabled) return;
 
-  // 2. Monitoreo para mandos XInput (Xbox o controladores emulados)
-  // El overlay se activará mediante el detector de XInput (xinput-watcher.exe)
+  // 2. Monitoreo para mandos XInput (Xbox o controladores emulados) y
+  // PlayStation (DualShock 4 / DualSense vía Legacy Joystick API).
+  // El overlay se activará mediante el detector externo (xinput-watcher.exe)
   // con la combinación configurada (Select + Start, L3 + R3, L1 + R1, etc.).
   if (process.platform === 'win32') {
-    const candidates = [
-      path.join(__dirname, 'bin/xinput-watcher.exe'),
-      path.join(process.resourcesPath || '', 'app.asar.unpacked', 'electron', 'bin', 'xinput-watcher.exe'),
-      path.join(process.resourcesPath || '', 'bin/xinput-watcher.exe'),
-    ];
-    const xinputExe = candidates.find(c => fs.existsSync(c));
+    const xinputExe = resolveXinputWatcherPath();
 
     if (xinputExe) {
       try {
+        console.log('[GamepadListener] Iniciando xinput-watcher desde:', xinputExe);
         xinputWatcherChild = spawn(xinputExe, [overlayCombo], {
           windowsHide: true,
-          stdio: ['ignore', 'pipe', 'ignore'],
+          stdio: ['ignore', 'pipe', 'pipe'],
         });
 
         xinputWatcherChild.stdout.on('data', (data) => {
@@ -776,27 +798,37 @@ function startGamepadOverlayListener() {
             const now = Date.now();
             if (now - lastGamepadToggleTime > 600) {
               lastGamepadToggleTime = now;
-              console.log(`[GamepadListener] Combo ${overlayCombo} pulsado en mando XInput`);
+              console.log(`[GamepadListener] Combo ${overlayCombo} pulsado en mando`);
               toggleOverlay();
             }
           }
         });
 
-        xinputWatcherChild.on('error', () => {
+        xinputWatcherChild.stderr?.on('data', (data) => {
+          console.warn('[GamepadListener] xinput-watcher stderr:', data.toString());
+        });
+
+        xinputWatcherChild.on('error', (err) => {
+          console.error('[GamepadListener] xinput-watcher no pudo iniciarse desde', xinputExe, '-', err.message);
           xinputWatcherChild = null;
         });
 
-        xinputWatcherChild.on('exit', () => {
+        xinputWatcherChild.on('exit', (code, signal) => {
+          if (code !== 0 && code !== null) {
+            console.warn('[GamepadListener] xinput-watcher terminó con código', code, 'señal', signal);
+          }
           xinputWatcherChild = null;
         });
       } catch (err) {
         console.warn('[GamepadListener] No se pudo iniciar xinput-watcher:', err.message);
       }
+    } else {
+      console.warn(
+        '[GamepadListener] No se encontró xinput-watcher.exe en ninguna ruta candidata. ' +
+        'Revisa que electron-builder incluya la carpeta bin/ vía extraResources o asarUnpack.'
+      );
     }
   }
-  // TODO: Si en el futuro se requiere compatibilidad con mandos PlayStation
-  // sin falsos positivos, se podría reimplementar con validación de report ID
-  // explícito (0x01/0x11/0x31) en lugar del fallback permisivo anterior.
 }
 
 function stopGamepadOverlayListener() {
@@ -2231,7 +2263,7 @@ app.whenReady().then(() => {
   }
 
   // IPC: Ejecutar un programa externo (con suspensión del launcher)
-  ipcMain.handle('launch-app', async (event, id, executablePath) => {
+  ipcMain.handle('launch-app', async (event, id, executablePath, extraLaunchArgs) => {
     if (!executablePath) return;
 
     let appRecord = null;
@@ -2346,6 +2378,13 @@ app.whenReady().then(() => {
         shell.openPath(executablePath).catch(console.error);
         return { success: true, suspended: false };
       }
+    } else if (typeof extraLaunchArgs === 'string' && extraLaunchArgs.trim()) {
+      // Argumentos de lanzamiento definidos por el usuario en "Editar Datos".
+      // Solo aplican a .exe externos lanzados directamente (esta rama "else"
+      // del if de arriba), NUNCA a accesos directos .lnk, que ya resuelven
+      // sus propios argumentos desde el acceso directo original.
+      launchArgs = launchArgs.concat(parseCommandLineArgs(extraLaunchArgs.trim()));
+      console.log('Argumentos extra de usuario aplicados:', extraLaunchArgs.trim());
     }
 
     // --- Suspensión del launcher mientras el juego está activo ---

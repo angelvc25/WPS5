@@ -73,6 +73,8 @@ export interface ConsoleItem {
   isFolder?: boolean;
   isGrid?: boolean;
   path?: string;
+  /** Argumentos extra pasados al ejecutable al lanzar (solo .exe externos, ej: "-dx11 -windowed"). */
+  launchArgs?: string;
   description?: string;
   rating?: number;
   isFavorite?: boolean;
@@ -1327,6 +1329,14 @@ export default function ConsoleHome() {
       setSelectedItem(prev => prev ? formatUpdated(prev) : null);
     }
 
+    // El juego "Último Jugado" vive en su propio estado, separado de `games`/`steamGames`
+    // (ver nota de arquitectura sobre lastPlayedGame). Si no se actualiza aquí también,
+    // lanzar desde el carrusel de Inicio sigue usando el objeto viejo (sin launchArgs, etc.)
+    // aunque ya se haya guardado el cambio en la DB.
+    if (lastPlayedGame && lastPlayedGame.id === id) {
+      setLastPlayedGame(prev => prev ? formatUpdated(prev) : null);
+    }
+
     setGames(prev => {
       const exists = prev.some(g => g.id === id);
       if (exists) {
@@ -2459,7 +2469,7 @@ export default function ConsoleHome() {
     }
     if (launchPath.startsWith('http')) {
       if (Platform.OS === 'web' && (window as any).electronAPI) {
-        (window as any).electronAPI.launchApp(targetItem.id, launchPath).then(() => loadApps());
+        (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs).then(() => loadApps());
       } else {
         Linking.openURL(launchPath);
       }
@@ -2468,7 +2478,7 @@ export default function ConsoleHome() {
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       setLaunchingItem(targetItem);
       setIsLaunching(true);
-      (window as any).electronAPI.launchApp(targetItem.id, launchPath).then((result: any) => {
+      (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs).then((result: any) => {
         loadApps();
         console.log('Juego lanzado');
         soundService.stopBackground();

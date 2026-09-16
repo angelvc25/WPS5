@@ -27,7 +27,7 @@ interface GameDetailViewProps {
   isVisible: boolean;
   item: ConsoleItem | null;
   onClose: () => void;
-  onLaunch?: (id: string, path: string) => void;
+  onLaunch?: (id: string, path: string, launchArgs?: string) => void;
   onRefresh?: (updatedGame?: Partial<ConsoleItem>) => void;
   isLaunching?: boolean;
   inputMode: 'keyboard' | 'gamepad';
@@ -641,6 +641,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const editTitleRef = React.useRef<TextInput>(null);
   const editDescRef = React.useRef<TextInput>(null);
   const editPathInputRef = React.useRef<TextInput>(null);
+  const editLaunchArgsRef = React.useRef<TextInput>(null);
   const editPlatformScrollRef = React.useRef<ScrollView>(null);
   const editPlatformOffsets = React.useRef<number[]>([]);
 
@@ -700,6 +701,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         platform: item.platform,
         path: getSteamLaunchPath(item) || item.path || undefined,
         type: item.type,
+        launchArgs: item.launchArgs,
       };
 
       setEditData(initialData);
@@ -778,7 +780,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 14) setEditModalFocusIndex(20); // to Cancel
 
             // Tab 2: path
-            else if (editModalFocusIndex === 22) setEditModalFocusIndex(20); // to Cancel
+            else if (editModalFocusIndex === 22) setEditModalFocusIndex(isExternalExeGame ? 27 : 20); // to launch args or Cancel
+            else if (editModalFocusIndex === 27) setEditModalFocusIndex(20); // to Cancel
 
             // Tab 3: art
             else if (editModalFocusIndex === 0) setEditModalFocusIndex(15);
@@ -805,6 +808,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
             // Tab 2: path
             else if (editModalFocusIndex === 22) setEditModalFocusIndex(24); // Back to sidebar path tab
+            else if (editModalFocusIndex === 27) setEditModalFocusIndex(22); // Back to path selection
 
             // Tab 3: art
             else if (editModalFocusIndex === 0) setEditModalFocusIndex(25); // Back to sidebar art tab
@@ -817,7 +821,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             // Actions
             else if (editModalFocusIndex >= 19 && editModalFocusIndex <= 21) {
               if (activeTab === 'basic') setEditModalFocusIndex(14);
-              else if (activeTab === 'path') setEditModalFocusIndex(22);
+              else if (activeTab === 'path') setEditModalFocusIndex(isExternalExeGame ? 27 : 22);
               else if (activeTab === 'art') setEditModalFocusIndex(editModalFocusIndex === 21 ? 18 : 17);
             }
           }
@@ -848,6 +852,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 14) setEditModalFocusIndex(23);
 
             else if (editModalFocusIndex === 22) setEditModalFocusIndex(24);
+            else if (editModalFocusIndex === 27) setEditModalFocusIndex(24);
 
             else if (editModalFocusIndex === 0) setEditModalFocusIndex(25);
             else if (editModalFocusIndex === 15 || editModalFocusIndex === 17) setEditModalFocusIndex(25);
@@ -870,6 +875,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               if ((editData.type || item?.type) === 'web') editPathInputRef.current?.focus();
               else handleSelectPath();
             }
+            else if (editModalFocusIndex === 27) editLaunchArgsRef.current?.focus();
             else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount) {
               setEditData({ ...editData, platform: PLATFORM_IDS[editModalFocusIndex - 3] });
             }
@@ -940,8 +946,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           soundService.playActivation?.();
           if (focusIndex === 0) {
             if (item?.path) {
-              if (onLaunch) onLaunch(item.id, item.path);
-              else if ((window as any).electronAPI) (window as any).electronAPI.launchApp(item.id, item.path);
+              if (onLaunch) onLaunch(item.id, item.path, item.launchArgs);
+              else if ((window as any).electronAPI) (window as any).electronAPI.launchApp(item.id, item.path, item.launchArgs);
             }
           } else if (focusIndex === 1) {
             setEditModalVisible(true);
@@ -1018,6 +1024,20 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       if (p) setEditData({ ...editData, path: p });
     }
   };
+
+  // El campo de argumentos de lanzamiento (-dx11, -windowed, etc.) solo
+  // aplica a .exe externos lanzados directamente. Nunca a juegos de Steam
+  // (se lanzan vía protocolo steam://, que no soporta esto de forma fiable)
+  // ni a accesos directos .lnk (ya resuelven sus propios argumentos desde
+  // el acceso directo original).
+  const isExternalExeGame = (() => {
+    const type = editData.type || item?.type;
+    if (type === 'web') return false;
+    if (isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item)) return false;
+    const p = (editData.path || item?.path || '').toLowerCase();
+    if (p.endsWith('.lnk')) return false;
+    return true;
+  })();
 
   const handleSelectImage = async (field: 'image' | 'backgroundImage' | 'logo') => {
     if ((window as any).electronAPI) {
@@ -1242,9 +1262,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 handleLaunchApp={async () => {
                   const launchPath = resolveSteamLaunchPath({ ...item, ...editData } as ConsoleItem, installedSteamAppIds);
                   if (launchPath) {
-                    if (onLaunch) onLaunch(item.id, launchPath);
+                    if (onLaunch) onLaunch(item.id, launchPath, editData.launchArgs ?? item.launchArgs);
                     else if (Platform.OS === 'web' && (window as any).electronAPI)
-                      (window as any).electronAPI.launchApp(item.id, launchPath);
+                      (window as any).electronAPI.launchApp(item.id, launchPath, editData.launchArgs ?? item.launchArgs);
                   } else {
                     setActiveTab('path');
                     setEditModalVisible(true);
@@ -1608,6 +1628,24 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                 <Text style={styles.pathDisplayTextHeader}>{t('edit.currentPath')} </Text>
                                 <Text style={styles.pathDisplayText}>{editData.path || t('edit.noPath')}</Text>
                               </View>
+
+                              {isExternalExeGame && (
+                                <>
+                                  <Text style={[styles.editLabel, { marginTop: 20 }]}>{t('edit.launchArgs')}</Text>
+                                  <TextInput
+                                    ref={editLaunchArgsRef}
+                                    style={[styles.editInput, editModalFocusIndex === 27 && styles.editInputFocused]}
+                                    placeholder="-dx11 -windowed"
+                                    placeholderTextColor="#888"
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                    value={editData.launchArgs}
+                                    onChangeText={(text) => setEditData({ ...editData, launchArgs: text })}
+                                    onFocus={() => setEditModalFocusIndex(27)}
+                                  />
+                                  <Text style={styles.pathDisplayText}>{t('edit.launchArgsHint')}</Text>
+                                </>
+                              )}
                             </>
                           )}
                         </ScrollView>
