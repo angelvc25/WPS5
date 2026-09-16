@@ -435,8 +435,10 @@ export const GameInfoPanel = ({
       'NEO GEO': 56, NEOGEO: 56,
     };
 
-    const rawPlatform  = (achievementGame?.platform ?? '').toString().trim().toUpperCase();
-    const raConsoleId  = RA_PLATFORM_MAP[rawPlatform] ?? null;
+    const rawPlatform = (
+      (achievementGame as any)?.retroSystem || (achievementGame?.platform ?? '')
+    ).toString().trim().toUpperCase();
+    const raConsoleId = RA_PLATFORM_MAP[rawPlatform] ?? null;
     const gameTitle    = achievementGame?.title ?? '';
 
     if (hasRaApi && raUsername && raApiKey && raConsoleId && gameTitle) {

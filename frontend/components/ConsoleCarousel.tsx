@@ -1,3 +1,4 @@
+import { isRetroPlatform } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { getSteamAppId, isSteamGame } from '@/services/steamLaunchService';
@@ -273,13 +274,16 @@ export const ConsoleCarousel = ({
                     const steamGame = isSteamGame(platformSource as any);
                     const platformId =
                       platformSource.platform || (steamGame ? 'Steam' : 'PC');
-                    const isRetro = platformId === 'Retro';
+                    const isRetro =
+                      platformId === 'Retro' ||
+                      Boolean((platformSource as any).retroSystem) ||
+                      isRetroPlatform(platformId);
                     const isPS3 = platformId === 'PS3';
-                    const isPS5 = platformId === 'PS5' || platformId === 'PS1' || platformId === 'PS2' || platformId === 'PS4' || platformId === 'PC';
+                    const isPS5 = !isRetro && (platformId === 'PS5' || platformId === 'PS1' || platformId === 'PS2' || platformId === 'PS4' || platformId === 'PC');
                     const isXbox = platformId === 'Xbox';
                     const isSwitch = platformId === 'Switch';
                     const badgeLabel = isRetro
-                      ? ((platformSource as any).retroSystem?.trim() || 'Retro')
+                      ? ((platformSource as any).retroSystem?.trim() || platformId)
                       : platformId;
 
                     const isEpicGame = platformId === 'Epic';

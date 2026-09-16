@@ -1,4 +1,5 @@
 import { useTranslation } from '@/contexts/LanguageContext';
+import { RETRO_SYSTEMS } from '@/constants/platforms';
 import { soundService } from '@/services/soundService';
 import { fetchSteamGridData } from '@/services/steamGridService';
 import { toastService } from '@/services/toastService';
@@ -43,33 +44,7 @@ const PLATFORMS = [
   { id: 'Retro', icon: 'gamepad-variant' },
 ];
 
-// Sistemas retro soportados por RetroAchievements (deben matchear RA_PLATFORM_MAP en GameInfoPanel)
-const RETRO_SYSTEMS: { id: string; label: string; group: string }[] = [
-  // Nintendo
-  { id: 'NES',       label: 'NES',         group: 'Nintendo' },
-  { id: 'SNES',      label: 'SNES',        group: 'Nintendo' },
-  { id: 'N64',       label: 'N64',         group: 'Nintendo' },
-  { id: 'GB',        label: 'Game Boy',    group: 'Nintendo' },
-  { id: 'GBC',       label: 'GBC',         group: 'Nintendo' },
-  { id: 'GBA',       label: 'GBA',         group: 'Nintendo' },
-  { id: 'NDS',       label: 'DS',          group: 'Nintendo' },
-  { id: 'N3DS',      label: '3DS',         group: 'Nintendo' },
-  { id: 'GC',        label: 'GameCube',    group: 'Nintendo' },
-  { id: 'WII',       label: 'Wii',         group: 'Nintendo' },
-  { id: 'WIIU',      label: 'Wii U',       group: 'Nintendo' },
-  // Sega
-  { id: 'MASTER SYSTEM', label: 'Master System', group: 'Sega' },
-  { id: 'GAME GEAR',     label: 'Game Gear',     group: 'Sega' },
-  { id: 'GENESIS',       label: 'Genesis/MD',    group: 'Sega' },
-  { id: 'SEGA CD',       label: 'Sega CD',       group: 'Sega' },
-  { id: '32X',           label: '32X',           group: 'Sega' },
-  { id: 'SATURN',        label: 'Saturn',        group: 'Sega' },
-  { id: 'DREAMCAST',     label: 'Dreamcast',     group: 'Sega' },
-  // Atari
-  { id: 'ATARI 2600',    label: 'Atari 2600',    group: 'Atari' },
-  // SNK
-  { id: 'NEO GEO',       label: 'Neo Geo',       group: 'SNK' },
-];
+
 
 export const AddAppModal: React.FC<AddAppModalProps> = ({
   visible,
@@ -84,7 +59,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedType, setSelectedType] = useState<'game' | 'media' | 'web'>('game');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('PC');
-  const [retroSystem, setRetroSystem] = useState<string>('N64');
+  const [retroSystem, setRetroSystem] = useState<string>('PSP');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
 
@@ -97,7 +72,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
     setSearchQuery('');
     setSelectedType('game');
     setSelectedPlatform('PC');
-    setRetroSystem('N64');
+    setRetroSystem('PSP');
     setFocusedIndex(0);
 
     if (Platform.OS === 'web' && (window as any).electronAPI?.getInstalledPrograms) {
@@ -283,8 +258,11 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
           path: prog.path,
           type: selectedType,
           platform: selectedType === 'game'
-            ? (selectedPlatform === 'Retro' ? retroSystem : selectedPlatform)
+            ? (selectedPlatform === 'Retro' ? 'Retro' : selectedPlatform)
             : '',
+          ...(selectedType === 'game' && selectedPlatform === 'Retro'
+            ? { retroSystem: retroSystem.trim() || 'PSP' }
+            : {}),
           image: prog.icon || '',
           playtimeMinutes: 0,
           playtime_forever: 0,

@@ -140,6 +140,9 @@ const es = {
   'library.sortZa': 'Nombre (Z-A)',
   'library.sortPlatform': 'Plataforma',
   'library.filterByPlatform': 'Filtrar por plataforma',
+  'library.retroPlatforms': 'Consolas retro',
+  'library.source': 'Origen',
+  'library.resetFilters': 'Restablecer filtros',
   'library.all': 'Todos',
   'notifications.steamOrphanDetected': 'Se agregó "{{gameTitle}}" a tu biblioteca (detectado localmente)',
 
@@ -654,6 +657,9 @@ const en: Record<TranslationKey, string> = {
   'library.sortZa': 'Name (Z-A)',
   'library.sortPlatform': 'Platform',
   'library.filterByPlatform': 'Filter by platform',
+  'library.retroPlatforms': 'Retro consoles',
+  'library.source': 'Source',
+  'library.resetFilters': 'Reset filters',
   'library.all': 'All',
   'notifications.steamOrphanDetected': 'Added "{{gameTitle}}" to your library (detected locally)',
 
@@ -1163,6 +1169,9 @@ const pt: Record<TranslationKey, string> = {
   'library.sortZa': 'Nome (Z-A)',
   'library.sortPlatform': 'Plataforma',
   'library.filterByPlatform': 'Filtrar por plataforma',
+  'library.retroPlatforms': 'Consoles retrô',
+  'library.source': 'Origem',
+  'library.resetFilters': 'Redefinir filtros',
   'library.all': 'Todos',
   'notifications.steamOrphanDetected': 'Adicionado "{gameTitle}" à sua biblioteca (detectado localmente)',
 

@@ -1,11 +1,11 @@
-import { PLATFORM_ICONS, PLATFORM_IDS } from '@/constants/platforms';
+import { PLATFORM_ICONS, PLATFORM_IDS, RETRO_SYSTEMS, isRetroPlatform } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Modal, Platform, Image as RNImage, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Modal, Platform, Image as RNImage, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import GameDetailView from './GameDetailView';
@@ -288,6 +288,8 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   // usar `transform`).
   const filterButtonRef = useRef<any>(null);
   const [filterPanelPos, setFilterPanelPos] = useState({ top: 140, left: 100 });
+  const retroScrollRef = useRef<ScrollView>(null);
+  const platformScrollRef = useRef<ScrollView>(null);
 
   // 1. Estado para controlar la dirección del ordenamiento: 'none' (Más reciente) | 'asc' (A-Z) | 'desc' (Z-A)
   const [sortDirection, setSortDirection] = useState<'none' | 'asc' | 'desc'>('none');
@@ -295,8 +297,10 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   // 2. Estado del panel de filtros/ordenamiento (dropdown estilo PS5)
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [isPlatformSectionOpen, setIsPlatformSectionOpen] = useState(false);
+  const [isRetroSectionOpen, setIsRetroSectionOpen] = useState(false);
   const [isSourceSectionOpen, setIsSourceSectionOpen] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(new Set());
+  const [selectedRetroPlatforms, setSelectedRetroPlatforms] = useState<Set<string>>(new Set());
   const [selectedSources, setSelectedSources] = useState<Set<'steam' | 'local'>>(new Set());
   // Evita notificar al padre repetidamente cuando el filtrado produce la
   // misma lista. Sin este guard, un padre que reconstruye `games` durante
@@ -316,6 +320,8 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     | { type: 'sort' }
     | { type: 'platformHeader' }
     | { type: 'platformOption'; id: string }
+    | { type: 'retroHeader' }
+    | { type: 'retroOption'; id: string; label: string }
     | { type: 'sourceHeader' }
     | { type: 'sourceOption'; id: 'steam' | 'local' }
     | { type: 'reset' };
@@ -338,9 +344,36 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   // Plataformas presentes realmente en la lista de juegos (evita mostrar
   // checkboxes de plataformas que no tienen ningún juego asociado).
   const availablePlatforms = PLATFORM_IDS.filter((id) =>
-    games.some((g) => (g.platform || (isSteamGame(g) ? 'Steam' : 'PC')) === id)
+    games.some((g) => {
+      const p = g.platform || (isSteamGame(g) ? 'Steam' : 'PC');
+      if (id === 'Retro') {
+        return p === 'Retro' || Boolean((g as any).retroSystem) || isRetroPlatform(p);
+      }
+      return p === id;
+    })
   );
   const platformOptions = availablePlatforms.length > 0 ? availablePlatforms : PLATFORM_IDS;
+
+  // Plataformas retro presentes en la lista de juegos
+  const availableRetroPlatforms = useMemo(() => {
+    return RETRO_SYSTEMS.filter((sys) => {
+      const sysIdUpper = sys.id.toUpperCase();
+      const sysLabelUpper = sys.label.toUpperCase();
+      return games.some((g) => {
+        const gRetro = ((g as any).retroSystem || '').toString().trim().toUpperCase();
+        const gPlat = (g.platform || '').toString().trim().toUpperCase();
+        return (
+          gRetro === sysIdUpper ||
+          gRetro === sysLabelUpper ||
+          gPlat === sysIdUpper ||
+          gPlat === sysLabelUpper
+        );
+      });
+    });
+  }, [games]);
+
+  const retroPlatformOptions =
+    availableRetroPlatforms.length > 0 ? availableRetroPlatforms : RETRO_SYSTEMS;
 
   // Lista de filas navegables del panel de filtros. Se recalcula cuando
   // cambian las secciones expandidas, para que las filas de checkboxes
@@ -350,19 +383,56 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     if (isPlatformSectionOpen) {
       platformOptions.forEach((id) => rows.push({ type: 'platformOption', id }));
     }
+    rows.push({ type: 'retroHeader' });
+    if (isRetroSectionOpen) {
+      retroPlatformOptions.forEach((sys) =>
+        rows.push({ type: 'retroOption', id: sys.id, label: sys.label })
+      );
+    }
     rows.push({ type: 'sourceHeader' });
     if (isSourceSectionOpen) {
       rows.push({ type: 'sourceOption', id: 'steam' }, { type: 'sourceOption', id: 'local' });
     }
     rows.push({ type: 'reset' });
     return rows;
-  }, [isPlatformSectionOpen, isSourceSectionOpen, platformOptions]);
+  }, [
+    isPlatformSectionOpen,
+    isRetroSectionOpen,
+    isSourceSectionOpen,
+    platformOptions,
+    retroPlatformOptions,
+  ]);
 
   // Mantiene el índice resaltado dentro de rango si la lista de filas
   // cambia de tamaño (p.ej. al cerrar una sección expandida).
   useEffect(() => {
     setPanelFocusIndex((prev) => Math.min(prev, panelRows.length - 1));
   }, [panelRows.length]);
+
+  // Auto-scroll del contenedor de consolas retro o plataformas cuando se navega con teclado/mando
+  useEffect(() => {
+    const currentRow = panelRows[panelFocusIndex];
+    if (isRetroSectionOpen && currentRow?.type === 'retroOption') {
+      const idx = retroPlatformOptions.findIndex((s) => s.id === currentRow.id);
+      if (idx >= 0 && retroScrollRef.current) {
+        const targetY = Math.max(0, (idx - 2) * 34);
+        retroScrollRef.current.scrollTo({ y: targetY, animated: true });
+      }
+    } else if (isPlatformSectionOpen && currentRow?.type === 'platformOption') {
+      const idx = platformOptions.findIndex((id) => id === currentRow.id);
+      if (idx >= 0 && platformScrollRef.current) {
+        const targetY = Math.max(0, (idx - 2) * 34);
+        platformScrollRef.current.scrollTo({ y: targetY, animated: true });
+      }
+    }
+  }, [
+    panelFocusIndex,
+    isRetroSectionOpen,
+    isPlatformSectionOpen,
+    retroPlatformOptions,
+    platformOptions,
+    panelRows,
+  ]);
 
   // Ejecuta la acción de la fila actualmente resaltada del panel
   // (equivalente a "activar" con Enter / Cross / A).
@@ -378,6 +448,12 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
         break;
       case 'platformOption':
         togglePlatformFilter(row.id);
+        break;
+      case 'retroHeader':
+        setIsRetroSectionOpen((v) => !v);
+        break;
+      case 'retroOption':
+        toggleRetroPlatformFilter(row.id);
         break;
       case 'sourceHeader':
         setIsSourceSectionOpen((v) => !v);
@@ -408,6 +484,15 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     });
   };
 
+  const toggleRetroPlatformFilter = (systemId: string) => {
+    setSelectedRetroPlatforms((prev) => {
+      const next = new Set(prev);
+      if (next.has(systemId)) next.delete(systemId);
+      else next.add(systemId);
+      return next;
+    });
+  };
+
   const toggleSourceFilter = (source: 'steam' | 'local') => {
     setSelectedSources((prev) => {
       const next = new Set(prev);
@@ -417,11 +502,16 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     });
   };
 
-  const hasActiveFilters = selectedPlatforms.size > 0 || selectedSources.size > 0 || sortDirection !== 'none';
+  const hasActiveFilters =
+    selectedPlatforms.size > 0 ||
+    selectedRetroPlatforms.size > 0 ||
+    selectedSources.size > 0 ||
+    sortDirection !== 'none';
 
   const resetFilters = () => {
     setSortDirection('none');
     setSelectedPlatforms(new Set());
+    setSelectedRetroPlatforms(new Set());
     setSelectedSources(new Set());
   };
 
@@ -473,11 +563,41 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     return sortedGames.filter((game) => {
       if (activeTab === 'installed' && !isGameInstalled(game)) return false;
 
+      // 1. Filtro por plataforma general (PC, PS1, PS2, Xbox, Switch, Steam, Retro, etc.)
       if (selectedPlatforms.size > 0) {
         const gamePlatform = game.platform || (isSteamGame(game) ? 'Steam' : 'PC');
-        if (!selectedPlatforms.has(gamePlatform)) return false;
+        const isRetro =
+          gamePlatform === 'Retro' ||
+          Boolean((game as any).retroSystem) ||
+          isRetroPlatform(gamePlatform);
+
+        const matchesPlatform =
+          selectedPlatforms.has(gamePlatform) ||
+          (isRetro && selectedPlatforms.has('Retro'));
+
+        if (!matchesPlatform) return false;
       }
 
+      // 2. Filtro por plataforma/consola retro específica (PSP, NES, SNES, N64, etc.)
+      if (selectedRetroPlatforms.size > 0) {
+        const gRetro = ((game as any).retroSystem || '').toString().trim().toUpperCase();
+        const gPlat = (game.platform || '').toString().trim().toUpperCase();
+        const matchesRetro = Array.from(selectedRetroPlatforms).some((id) => {
+          const targetUpper = id.toUpperCase();
+          const targetLabelUpper =
+            RETRO_SYSTEMS.find((s) => s.id === id)?.label.toUpperCase() || targetUpper;
+          return (
+            gRetro === targetUpper ||
+            gRetro === targetLabelUpper ||
+            gPlat === targetUpper ||
+            gPlat === targetLabelUpper
+          );
+        });
+
+        if (!matchesRetro) return false;
+      }
+
+      // 3. Filtro por fuente (steam / local)
       if (selectedSources.size > 0) {
         const source: 'steam' | 'local' = isSteamGame(game) ? 'steam' : 'local';
         if (!selectedSources.has(source)) return false;
@@ -486,7 +606,14 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortedGames, activeTab, selectedPlatforms, selectedSources, installedSteamAppIds]);
+  }, [
+    sortedGames,
+    activeTab,
+    selectedPlatforms,
+    selectedRetroPlatforms,
+    selectedSources,
+    installedSteamAppIds,
+  ]);
 
   // Avisa al padre cada vez que la lista visible (filtrada+ordenada)
   // cambia, para que su propio índice de foco (teclado/mando) resuelva
@@ -602,108 +729,226 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
               onPress={() => closeFilterPanel()}
             />
 
-            <View style={[styles.filterPanel, { top: filterPanelPos.top, left: filterPanelPos.left }]}>
-              {/* SORT BY */}
-              <View style={[styles.filterPanelSortRow, panelRows[panelFocusIndex]?.type === 'sort' && styles.filterPanelRowFocused]}>
-                <Text style={styles.filterPanelSortLabel}>Sort by</Text>
-                <TouchableOpacity onPress={cycleSort}>
-                  <Text style={styles.filterPanelSortValue}>{sortLabel}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.filterPanelDivider} />
-
-              <Text style={styles.filterPanelHeading}>Filters</Text>
-
-              {/* PLATFORM */}
-              <TouchableOpacity
-                style={[styles.filterPanelOptionRow, panelRows[panelFocusIndex]?.type === 'platformHeader' && styles.filterPanelRowFocused]}
-                onPress={() => setIsPlatformSectionOpen((v) => !v)}
+            <View
+              style={[
+                styles.filterPanel,
+                {
+                  top: filterPanelPos.top,
+                  left: filterPanelPos.left,
+                  maxHeight: Math.min(540, windowHeight - filterPanelPos.top - 16),
+                },
+              ]}
+            >
+              <ScrollView
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+                contentContainerStyle={{ paddingBottom: 6 }}
               >
-                <Text style={styles.filterPanelOptionText}>Platform</Text>
-                <Ionicons
-                  name={isPlatformSectionOpen ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color="rgba(255,255,255,0.5)"
-                />
-              </TouchableOpacity>
-
-              {isPlatformSectionOpen && (
-                <View style={styles.filterPanelCheckList}>
-                  {platformOptions.map((platformId) => {
-                    const checked = selectedPlatforms.has(platformId);
-                    const currentRow = panelRows[panelFocusIndex];
-                    const rowFocused = currentRow?.type === 'platformOption' && currentRow.id === platformId;
-                    return (
-                      <TouchableOpacity
-                        key={platformId}
-                        style={[styles.filterPanelCheckRow, rowFocused && styles.filterPanelRowFocused]}
-                        onPress={() => togglePlatformFilter(platformId)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[styles.filterPanelCheckbox, checked && styles.filterPanelCheckboxChecked]}>
-                          {checked && <Ionicons name="checkmark" size={14} color="#000" />}
-                        </View>
-                        <Text style={styles.filterPanelCheckLabel}>{platformId}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-
-              {/* SOURCE */}
-              <TouchableOpacity
-                style={[styles.filterPanelOptionRow, panelRows[panelFocusIndex]?.type === 'sourceHeader' && styles.filterPanelRowFocused]}
-                onPress={() => setIsSourceSectionOpen((v) => !v)}
-              >
-                <Text style={styles.filterPanelOptionText}>Source</Text>
-                <Ionicons
-                  name={isSourceSectionOpen ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color="rgba(255,255,255,0.5)"
-                />
-              </TouchableOpacity>
-
-              {isSourceSectionOpen && (
-                <View style={styles.filterPanelCheckList}>
-                  {([
-                    { id: 'steam', label: 'Steam' },
-                    { id: 'local', label: 'Local' },
-                  ] as const).map((opt) => {
-                    const checked = selectedSources.has(opt.id);
-                    const currentRow = panelRows[panelFocusIndex];
-                    const rowFocused = currentRow?.type === 'sourceOption' && currentRow.id === opt.id;
-                    return (
-                      <TouchableOpacity
-                        key={opt.id}
-                        style={[styles.filterPanelCheckRow, rowFocused && styles.filterPanelRowFocused]}
-                        onPress={() => toggleSourceFilter(opt.id)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[styles.filterPanelCheckbox, checked && styles.filterPanelCheckboxChecked]}>
-                          {checked && <Ionicons name="checkmark" size={14} color="#000" />}
-                        </View>
-                        <Text style={styles.filterPanelCheckLabel}>{opt.label}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-
-              <TouchableOpacity
-                style={[styles.filterPanelResetBtn, panelRows[panelFocusIndex]?.type === 'reset' && styles.filterPanelRowFocused]}
-                onPress={resetFilters}
-                disabled={!hasActiveFilters}
-              >
-                <Text
+                {/* SORT BY */}
+                <View
                   style={[
-                    styles.filterPanelResetText,
-                    !hasActiveFilters && styles.filterPanelResetTextDisabled,
+                    styles.filterPanelSortRow,
+                    panelRows[panelFocusIndex]?.type === 'sort' && styles.filterPanelRowFocused,
                   ]}
                 >
-                  Reset Filters
-                </Text>
-              </TouchableOpacity>
+                  <Text style={styles.filterPanelSortLabel}>Sort by</Text>
+                  <TouchableOpacity onPress={cycleSort}>
+                    <Text style={styles.filterPanelSortValue}>{sortLabel}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.filterPanelDivider} />
+
+                <Text style={styles.filterPanelHeading}>Filters</Text>
+
+                {/* PLATFORM */}
+                <TouchableOpacity
+                  style={[
+                    styles.filterPanelOptionRow,
+                    panelRows[panelFocusIndex]?.type === 'platformHeader' &&
+                      styles.filterPanelRowFocused,
+                  ]}
+                  onPress={() => setIsPlatformSectionOpen((v) => !v)}
+                >
+                  <Text style={styles.filterPanelOptionText}>{t('library.sortPlatform')}</Text>
+                  <Ionicons
+                    name={isPlatformSectionOpen ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color="rgba(255,255,255,0.5)"
+                  />
+                </TouchableOpacity>
+
+                {isPlatformSectionOpen && (
+                  <ScrollView
+                    ref={platformScrollRef}
+                    style={[
+                      styles.sectionScrollContainer,
+                      Platform.OS === 'web' ? ({ overflowY: 'auto' } as any) : null,
+                    ]}
+                    contentContainerStyle={styles.filterPanelCheckList}
+                    nestedScrollEnabled={true}
+                    showsVerticalScrollIndicator={true}
+                  >
+                    {platformOptions.map((platformId) => {
+                      const checked = selectedPlatforms.has(platformId);
+                      const currentRow = panelRows[panelFocusIndex];
+                      const rowFocused =
+                        currentRow?.type === 'platformOption' && currentRow.id === platformId;
+                      return (
+                        <TouchableOpacity
+                          key={platformId}
+                          style={[
+                            styles.filterPanelCheckRow,
+                            rowFocused && styles.filterPanelRowFocused,
+                          ]}
+                          onPress={() => togglePlatformFilter(platformId)}
+                          activeOpacity={0.7}
+                        >
+                          <View
+                            style={[
+                              styles.filterPanelCheckbox,
+                              checked && styles.filterPanelCheckboxChecked,
+                            ]}
+                          >
+                            {checked && <Ionicons name="checkmark" size={14} color="#000" />}
+                          </View>
+                          <Text style={styles.filterPanelCheckLabel}>{platformId}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+
+                {/* RETRO CONSOLES */}
+                <TouchableOpacity
+                  style={[
+                    styles.filterPanelOptionRow,
+                    panelRows[panelFocusIndex]?.type === 'retroHeader' &&
+                      styles.filterPanelRowFocused,
+                  ]}
+                  onPress={() => setIsRetroSectionOpen((v) => !v)}
+                >
+                  <Text style={styles.filterPanelOptionText}>{t('library.retroPlatforms')}</Text>
+                  <Ionicons
+                    name={isRetroSectionOpen ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color="rgba(255,255,255,0.5)"
+                  />
+                </TouchableOpacity>
+
+                {isRetroSectionOpen && (
+                  <ScrollView
+                    ref={retroScrollRef}
+                    style={[
+                      styles.sectionScrollContainer,
+                      Platform.OS === 'web' ? ({ overflowY: 'auto' } as any) : null,
+                    ]}
+                    contentContainerStyle={styles.filterPanelCheckList}
+                    nestedScrollEnabled={true}
+                    showsVerticalScrollIndicator={true}
+                  >
+                    {retroPlatformOptions.map((sys) => {
+                      const checked = selectedRetroPlatforms.has(sys.id);
+                      const currentRow = panelRows[panelFocusIndex];
+                      const rowFocused =
+                        currentRow?.type === 'retroOption' && currentRow.id === sys.id;
+                      return (
+                        <TouchableOpacity
+                          key={sys.id}
+                          style={[
+                            styles.filterPanelCheckRow,
+                            rowFocused && styles.filterPanelRowFocused,
+                          ]}
+                          onPress={() => toggleRetroPlatformFilter(sys.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View
+                            style={[
+                              styles.filterPanelCheckbox,
+                              checked && styles.filterPanelCheckboxChecked,
+                            ]}
+                          >
+                            {checked && <Ionicons name="checkmark" size={14} color="#000" />}
+                          </View>
+                          <Text style={styles.filterPanelCheckLabel}>{sys.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+
+                {/* SOURCE */}
+                <TouchableOpacity
+                  style={[
+                    styles.filterPanelOptionRow,
+                    panelRows[panelFocusIndex]?.type === 'sourceHeader' &&
+                      styles.filterPanelRowFocused,
+                  ]}
+                  onPress={() => setIsSourceSectionOpen((v) => !v)}
+                >
+                  <Text style={styles.filterPanelOptionText}>{t('library.source')}</Text>
+                  <Ionicons
+                    name={isSourceSectionOpen ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color="rgba(255,255,255,0.5)"
+                  />
+                </TouchableOpacity>
+
+                {isSourceSectionOpen && (
+                  <View style={styles.filterPanelCheckList}>
+                    {(
+                      [
+                        { id: 'steam', label: 'Steam' },
+                        { id: 'local', label: 'Local' },
+                      ] as const
+                    ).map((opt) => {
+                      const checked = selectedSources.has(opt.id);
+                      const currentRow = panelRows[panelFocusIndex];
+                      const rowFocused =
+                        currentRow?.type === 'sourceOption' && currentRow.id === opt.id;
+                      return (
+                        <TouchableOpacity
+                          key={opt.id}
+                          style={[
+                            styles.filterPanelCheckRow,
+                            rowFocused && styles.filterPanelRowFocused,
+                          ]}
+                          onPress={() => toggleSourceFilter(opt.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View
+                            style={[
+                              styles.filterPanelCheckbox,
+                              checked && styles.filterPanelCheckboxChecked,
+                            ]}
+                          >
+                            {checked && <Ionicons name="checkmark" size={14} color="#000" />}
+                          </View>
+                          <Text style={styles.filterPanelCheckLabel}>{opt.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.filterPanelResetBtn,
+                    panelRows[panelFocusIndex]?.type === 'reset' && styles.filterPanelRowFocused,
+                  ]}
+                  onPress={resetFilters}
+                  disabled={!hasActiveFilters}
+                >
+                  <Text
+                    style={[
+                      styles.filterPanelResetText,
+                      !hasActiveFilters && styles.filterPanelResetTextDisabled,
+                    ]}
+                  >
+                    {t('library.resetFilters')}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           </Modal>
         </View>
@@ -833,13 +1078,22 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                                         const steamGame = isSteamGame(game);
                                         const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
                                         const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
-                                        const isRetro = platformId === 'Retro';
+                                        const isRetro =
+                                          platformId === 'Retro' ||
+                                          Boolean((game as any).retroSystem) ||
+                                          isRetroPlatform(platformId);
                                         const isPS3 = platformId === 'PS3';
-                                        const isPS5 = platformId === 'PS5' || platformId === 'PS1' || platformId === 'PS2' || platformId === 'PS4' || platformId === 'PC';
+                                        const isPS5 =
+                                          !isRetro &&
+                                          (platformId === 'PS5' ||
+                                            platformId === 'PS1' ||
+                                            platformId === 'PS2' ||
+                                            platformId === 'PS4' ||
+                                            platformId === 'PC');
                                         const isXbox = platformId === 'Xbox';
                                         const isSwitch = platformId === 'Switch';
                                         const badgeLabel = isRetro
-                                          ? ((game as any).retroSystem?.trim() || 'Retro')
+                                          ? ((game as any).retroSystem?.trim() || platformId)
                                           : platformId;
 
                                         const isEpicGame = platformId === 'Epic';
@@ -1063,9 +1317,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'SSTLight',
   },
+  sectionScrollContainer: {
+    maxHeight: 180,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    marginVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
   filterPanelCheckList: {
-    paddingLeft: 4,
-    paddingBottom: 6,
+    paddingLeft: 2,
+    paddingBottom: 4,
     gap: 4,
   },
   filterPanelCheckRow: {
