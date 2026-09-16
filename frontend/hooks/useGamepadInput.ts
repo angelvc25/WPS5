@@ -232,7 +232,7 @@ export function useGamepadInput({
         lastGamepadIdRef.current = gamepad.id;
         hadGamepadRef.current = true;
         staleNotifiedRef.current = false; // mando funcionando de nuevo: habilita futuros avisos
-        callbacksRef.current.onGamepadChange({ connected: true, name: gamepad.id, battery: 0.75 });
+        callbacksRef.current.onGamepadChange({ connected: true, name: gamepad.id, battery: 0.99 });
         callbacksRef.current.onConnected();
       }
 
