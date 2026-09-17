@@ -17,6 +17,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
 import { StoreOffer } from '@/services/storeService';
+import { isRetroPlatform } from '@/constants/platforms';
 import { UserProfile } from '@/components/UserSelectScreen';
 import { useTranslation } from '@/contexts/LanguageContext';
 import PSIcon from './PSIcon';
@@ -104,6 +105,73 @@ function platformBadge(item: SearchGameItem) {
   return 'PC';
 }
 
+const PLATFORM_BADGE_IMAGES: Record<string, any> = {
+  Steam: require('@/assets/images/SteamBadge.png'),
+  Epic: require('@/assets/images/EpicBadge.png'),
+  Switch: require('@/assets/images/SwitchBadge.png'),
+  Xbox: require('@/assets/images/XboxBadgeWhite.png'),
+};
+
+// Mismo esquema de colores/logos que usa LibraryGrid para el badge de plataforma,
+// adaptado al tamaño reducido de los tiles de resultados de búsqueda.
+const PlatformBadge = React.memo(({ platformId, retroLabel }: { platformId: string; retroLabel?: string }) => {
+  const isRetro = platformId === 'Retro' || isRetroPlatform(platformId);
+  const isPS3 = platformId === 'PS3';
+  const isPS5 =
+    !isRetro &&
+    (platformId === 'PS5' || platformId === 'PS1' || platformId === 'PS2' || platformId === 'PS4' || platformId === 'PC');
+  const isXbox = platformId === 'Xbox';
+  const isSwitch = platformId === 'Switch';
+  const isEpic = platformId === 'Epic';
+  const isSteam = platformId === 'Steam';
+  const badgeLabel = isRetro ? (retroLabel?.trim() || platformId) : platformId;
+
+  const bgColor = isEpic
+    ? '#000000'
+    : isSteam
+      ? 'rgba(2, 15, 36, 1)'
+      : isPS3
+        ? 'rgba(0, 0, 0, 1)'
+        : isXbox
+          ? 'rgba(88, 151, 69, 1)'
+          : isSwitch
+            ? 'rgba(255, 40, 40, 1)'
+            : isRetro
+              ? 'rgba(175, 202, 21, 1)'
+              : 'white';
+
+  return (
+    <View style={[badgeStyles.platformRow, { backgroundColor: bgColor }]}>
+      {isSteam ? (
+        <Image source={PLATFORM_BADGE_IMAGES.Steam} style={badgeStyles.platformBadgeImage} contentFit="contain" />
+      ) : isEpic ? (
+        <Image source={PLATFORM_BADGE_IMAGES.Epic} style={badgeStyles.platformBadgeImage} contentFit="contain" />
+      ) : isPS3 ? (
+        <Text style={badgeStyles.platformBadgeTextWhite}> {badgeLabel}</Text>
+      ) : isSwitch ? (
+        <Image source={PLATFORM_BADGE_IMAGES.Switch} style={badgeStyles.platformBadgeImage} contentFit="contain" />
+      ) : isXbox ? (
+        <Image source={PLATFORM_BADGE_IMAGES.Xbox} style={badgeStyles.platformBadgeImage} contentFit="contain" />
+      ) : isPS5 ? (
+        <Text style={badgeStyles.platformBadgeTextBlack}> {badgeLabel}</Text>
+      ) : isRetro ? (
+        <View style={[badgeStyles.platformRow2, { backgroundColor: 'transparent' }]}>
+          <Image
+            source={require('@/assets/images/retroBadge.png')}
+            style={badgeStyles.platformBadgeImage3}
+            contentFit="contain"
+          />
+          <Text style={badgeStyles.platformBadgeTextRetro}>{badgeLabel}</Text>
+        </View>
+      ) : (
+        <Text style={badgeStyles.platformBadgeTextItalic}> {badgeLabel}</Text>
+      )}
+    </View>
+  );
+});
+
+PlatformBadge.displayName = 'PlatformBadge';
+
 interface ResultTileProps {
   entry: SearchEntry;
   isFocused: boolean;
@@ -156,11 +224,7 @@ const ResultTile = React.memo<ResultTileProps>(({ entry, isFocused, cardSize, fo
         )}
 
         <View style={styles.coverMeta}>
-          {entry.platformLabel ? (
-            <View style={styles.platformBadge}>
-              <Text style={styles.platformBadgeText}>{entry.platformLabel}</Text>
-            </View>
-          ) : null}
+          {entry.platformLabel ? <PlatformBadge platformId={entry.platformLabel} /> : null}
           <Text style={styles.resultTitle} numberOfLines={2}>{entry.title}</Text>
           <Text style={styles.resultSubtitle} numberOfLines={1}>{entry.subtitle}</Text>
         </View>
@@ -739,12 +803,11 @@ const SearchView: React.FC<SearchViewProps> = ({
           <Text style={ui.sectionTitle}>{sectionLabel}</Text>
 
           {searchResults.length > 0 ? (
-            <View style={{ minHeight: cardOuterSize + s(24), overflow: 'visible' }}>
+            <View style={{ minHeight: cardOuterSize + s(24) }}>
               <ScrollView
                 ref={resultsScrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={{ overflow: 'visible' } as any}
                 contentContainerStyle={{
                   gap: cardGap,
                   paddingVertical: s(14),
@@ -871,19 +934,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  platformBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginBottom: 4,
-  },
-  platformBadgeText: {
-    color: '#111',
-    fontSize: 10,
-    fontFamily: 'SSTBadge',
-  },
   resultTitle: {
     color: '#ffffffaf',
     fontSize: 14,
@@ -899,6 +949,55 @@ const styles = StyleSheet.create({
     fontFamily: 'SSTMedium',
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowRadius: 4,
+  },
+});
+
+const badgeStyles = StyleSheet.create({
+  platformRow: {
+    alignSelf: 'flex-start',
+    borderRadius: 3,
+    paddingHorizontal: 6,
+    minWidth: 34,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  platformRow2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    height: 20,
+  },
+  platformBadgeImage: {
+    width: 42,
+    height: 15,
+  },
+  platformBadgeImage3: {
+    width: 18,
+    height: 15,
+  },
+  platformBadgeTextBlack: {
+    color: '#000000',
+    fontFamily: 'SSTBadge',
+    fontSize: 10,
+  },
+  platformBadgeTextWhite: {
+    color: '#ffffffff',
+    fontFamily: 'SSTBadge',
+    fontSize: 10,
+  },
+  platformBadgeTextItalic: {
+    color: '#000000',
+    fontFamily: 'SSTMediumIt',
+    fontSize: 10,
+  },
+  platformBadgeTextRetro: {
+    color: 'white',
+    fontFamily: 'SSTMediumIt',
+    fontSize: 10,
   },
 });
 

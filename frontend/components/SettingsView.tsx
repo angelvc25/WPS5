@@ -79,6 +79,24 @@ function applyOverlaySettingsToElectron(enabled: boolean, combo: string) {
   }
 }
 
+type LauncherPlayBehavior = 'hide' | 'minimize' | 'background';
+
+const LAUNCHER_BEHAVIOR_OPTIONS: {
+  id: LauncherPlayBehavior;
+  labelKey: string;
+  descKey: string;
+}[] = [
+    { id: 'hide', labelKey: 'settings.launcherBehaviorHide', descKey: 'settings.launcherBehaviorHideDesc' },
+    { id: 'minimize', labelKey: 'settings.launcherBehaviorMinimize', descKey: 'settings.launcherBehaviorMinimizeDesc' },
+    { id: 'background', labelKey: 'settings.launcherBehaviorBackground', descKey: 'settings.launcherBehaviorBackgroundDesc' },
+  ];
+
+function applyLauncherBehaviorToElectron(behavior: LauncherPlayBehavior) {
+  if (Platform.OS === 'web' && (window as any).electronAPI?.setLauncherPlayBehavior) {
+    (window as any).electronAPI.setLauncherPlayBehavior(behavior);
+  }
+}
+
 export function resolveImageSource(img: any) {
   if (!img) return undefined;
   if (typeof img === 'string') return { uri: img };
@@ -193,6 +211,12 @@ export default function SettingsView({
       setEditOnlineId(activeUser.onlineId || '');
       setEditAbout(activeUser.about || '');
       setEditCoverImage(activeUser.coverImage || '');
+      // Sincroniza con el proceso principal de Electron el comportamiento de
+      // suspensión guardado, para que aplique aunque el usuario no entre a
+      // Ajustes en esta sesión (p.ej. al reabrir la app tras reiniciarla).
+      applyLauncherBehaviorToElectron(
+        ((activeUser.settings as any)?.launcherPlayBehavior || 'hide') as LauncherPlayBehavior
+      );
     }
   }, [activeUser]);
 
@@ -320,6 +344,16 @@ export default function SettingsView({
       } as any,
     });
     applyOverlaySettingsToElectron(nextEnabled, nextCombo);
+  };
+
+  const persistLauncherBehavior = (behavior: LauncherPlayBehavior) => {
+    updateUser({
+      settings: {
+        ...activeUser?.settings,
+        launcherPlayBehavior: behavior,
+      } as any,
+    });
+    applyLauncherBehaviorToElectron(behavior);
   };
 
   const activateAccessibilityRightItem = () => {
@@ -491,6 +525,7 @@ export default function SettingsView({
   const getSystemRightMaxIndex = () => {
     if (systemLeftIndex === 1) return 1; // HDMI toggles
     if (systemLeftIndex === 2) return Math.max(0, LANGUAGE_OPTIONS.length - 1);
+    if (systemLeftIndex === 4) return LAUNCHER_BEHAVIOR_OPTIONS.length - 1; // Comportamiento del launcher
     return 0;
   };
 
@@ -501,6 +536,9 @@ export default function SettingsView({
     } else if (systemLeftIndex === 2) {
       const opt = LANGUAGE_OPTIONS[subFocusIndex];
       if (opt) changeLanguage(opt.id);
+    } else if (systemLeftIndex === 4) {
+      const opt = LAUNCHER_BEHAVIOR_OPTIONS[subFocusIndex];
+      if (opt) persistLauncherBehavior(opt.id);
     }
   };
 
@@ -579,7 +617,7 @@ export default function SettingsView({
         if (systemFocusArea === 'left') {
           if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setSystemLeftIndex((prev) => Math.min(prev + 1, 3));
+            setSystemLeftIndex((prev) => Math.min(prev + 1, 4));
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
@@ -1984,7 +2022,11 @@ export default function SettingsView({
       { id: 'hdmi', title: t('settings.hdmi') },
       { id: 'language', title: t('settings.language') },
       { id: 'date_time', title: t('settings.dateAndTime') },
+      { id: 'launcher_behavior', title: t('settings.launcherBehavior') },
     ];
+
+    const currentLauncherBehavior: LauncherPlayBehavior =
+      (activeUser?.settings as any)?.launcherPlayBehavior || 'hide';
 
     return (
       <View style={styles.contentWrapper}>
@@ -2179,6 +2221,42 @@ export default function SettingsView({
                         >
                           {opt.nativeName}
                         </Text>
+                        {isSelected && (
+                          <Ionicons name="checkmark-circle" size={s(22)} color="#00D4FF" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            )}
+
+            {systemLeftIndex === 4 && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.rightSectionTitle}>{t('settings.launcherBehavior')}</Text>
+                <Text style={[styles.pathDesc, { marginBottom: 20 }]}>
+                  {t('settings.launcherBehaviorDesc')}
+                </Text>
+
+                <View style={{ gap: 12 }}>
+                  {LAUNCHER_BEHAVIOR_OPTIONS.map((opt, optIdx) => {
+                    const isSelected = currentLauncherBehavior === opt.id;
+                    const isRowFocused = systemFocusArea === 'right' && subFocusIndex === optIdx;
+                    return (
+                      <TouchableOpacity
+                        key={opt.id}
+                        style={[
+                          styles.toggleRowSection,
+                          isSelected && styles.languageSelectRowActive,
+                          isRowFocused && styles.rightItemFocused,
+                        ]}
+                        onPress={() => persistLauncherBehavior(opt.id)}
+                      >
+                        {isRowFocused && <SpinningBorderSearch size={s(160)} spread={0} borderRadius={1} />}
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.toggleRowTitle}>{t(opt.labelKey)}</Text>
+                          <Text style={styles.toggleRowDesc}>{t(opt.descKey)}</Text>
+                        </View>
                         {isSelected && (
                           <Ionicons name="checkmark-circle" size={s(22)} color="#00D4FF" />
                         )}

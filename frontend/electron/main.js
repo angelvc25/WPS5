@@ -53,6 +53,11 @@ let overlayWindow = null; // ventana transparente del overlay
 let overlayHotkeyRegistered = false;
 let overlayEnabled = true;
 let overlayCombo = 'SELECT_START';
+// Comportamiento del launcher al lanzar un juego:
+// 'hide'       -> ocultar ventana y mostrar icono en la bandeja (comportamiento actual/por defecto)
+// 'minimize'   -> minimizar la ventana a la barra de tareas
+// 'background' -> dejar la ventana abierta tal cual, sin ocultar ni minimizar
+let launcherPlayBehavior = 'hide';
 let activeGameInfo = null; // { id, title, image, installDir, appId, source, nativePid }
 // En Windows, 'F12' está reservado por el sistema/depurador para RegisterHotKey.
 // Usamos F11 como atajo principal y combinaciones adicionales como alternativa:
@@ -914,6 +919,44 @@ function isProcessRunningUnderDir(dirPath) {
   });
 }
 
+// Aplica el comportamiento configurado por el usuario cuando arranca un juego.
+// Centraliza lo que antes eran dos bloques duplicados (uno en launch-app,
+// otro en startSteamGameWatch) para que 'hide' | 'minimize' | 'background'
+// se resuelvan siempre igual sin importar el origen del lanzamiento.
+function suspendLauncherForGame(sourceLabel = 'Steam') {
+  if (!mainWindow) return;
+
+  if (launcherPlayBehavior === 'minimize') {
+    mainWindow.minimize();
+    console.log(`Launcher minimizado (${sourceLabel})`);
+  } else if (launcherPlayBehavior === 'background') {
+    console.log(`Launcher permanece abierto en segundo plano (${sourceLabel})`);
+    // No ocultamos ni minimizamos: el usuario eligió mantenerlo visible.
+  } else {
+    mainWindow.hide();
+    showTrayIcon('WPS5 - Jugando');
+    console.log(`Launcher suspendido (${sourceLabel}) — ventana oculta en bandeja`);
+  }
+}
+
+// Restaura el foco del launcher al terminar el juego. Si estaba oculto o
+// minimizado, restoreMainWindow() ya se encarga de traerlo de vuelta; si el
+// usuario eligió 'background', la ventana nunca perdió visibilidad pero puede
+// haber quedado detrás de la ventana del juego, así que solo la enfocamos.
+function refocusLauncherAfterGame(sourceLabel = 'Steam') {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
+    setTimeout(() => {
+      if (mainWindow) {
+        restoreMainWindow();
+        console.log(`Launcher restaurado (${sourceLabel})`);
+      }
+    }, 300);
+  } else if (launcherPlayBehavior === 'background') {
+    mainWindow.focus();
+  }
+}
+
 function stopSteamGameWatch(id) {
   const timer = activeGameWatchers.get(id);
   if (timer) {
@@ -957,24 +1000,15 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
 
     if (mainWindow) {
       mainWindow.webContents.send('game-closed', id);
-      if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
-        setTimeout(() => {
-          if (mainWindow) {
-            restoreMainWindow();
-            console.log(`Launcher restaurado (juego de ${sourceLabel} finalizado)`);
-          }
-        }, 300);
-      }
+      refocusLauncherAfterGame(`juego de ${sourceLabel} finalizado`);
     }
   };
 
-  // Ocultar el launcher en la bandeja tras un breve delay, mostrando el icono
-  // de tray mientras dure la sesión del juego.
+  // Aplicar el comportamiento configurado (ocultar/minimizar/segundo plano)
+  // tras un breve delay.
   setTimeout(() => {
     if (!gameExited && mainWindow) {
-      mainWindow.hide();
-      showTrayIcon('WPS5 - Jugando');
-      console.log(`Launcher suspendido (juego de ${sourceLabel}) — ventana oculta en bandeja`);
+      suspendLauncherForGame(`juego de ${sourceLabel}`);
     }
   }, 1500);
 
@@ -2403,25 +2437,15 @@ app.whenReady().then(() => {
 
       if (mainWindow) {
         mainWindow.webContents.send('game-closed', id);
-        if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
-          // La ventana estaba minimizada/oculta, restaurarla con un breve delay
-          setTimeout(() => {
-            if (mainWindow) {
-              restoreMainWindow();
-              console.log('Launcher restaurado');
-            }
-          }, 300);
-        }
+        refocusLauncherAfterGame('nativo');
       }
     };
 
-    // Ocultar el launcher en la bandeja tras un breve delay, mostrando el icono
-    // de tray mientras dure la sesión del juego.
+    // Aplicar el comportamiento configurado (ocultar/minimizar/segundo plano)
+    // tras un breve delay.
     hideTimer = setTimeout(() => {
       if (!gameExited && mainWindow) {
-        mainWindow.hide();
-        showTrayIcon('WPS5 - Jugando');
-        console.log('Launcher suspendido — ventana oculta en bandeja');
+        suspendLauncherForGame('nativo');
       }
     }, 1500);
 
@@ -3419,6 +3443,17 @@ app.whenReady().then(() => {
 
   ipcMain.handle('get-overlay-settings', async () => {
     return { enabled: overlayEnabled, combo: overlayCombo };
+  });
+
+  ipcMain.handle('set-launcher-play-behavior', async (_event, behavior) => {
+    if (behavior === 'hide' || behavior === 'minimize' || behavior === 'background') {
+      launcherPlayBehavior = behavior;
+    }
+    return { success: true, behavior: launcherPlayBehavior };
+  });
+
+  ipcMain.handle('get-launcher-play-behavior', async () => {
+    return { behavior: launcherPlayBehavior };
   });
 
   createWindow();

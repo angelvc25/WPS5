@@ -108,6 +108,15 @@ const es = {
   'settings.achievementLoginSuccess': 'Configurado como "{raUsername}". Los logros se mostrarán automáticamente para juegos clásicos.',
   'settings.achievementNotConfigured': 'Completa el usuario y la API Key para habilitar los logros de RetroAchievements.',
 
+  'settings.launcherBehavior': 'Comportamiento del Launcher',
+  'settings.launcherBehaviorDesc': 'Define qué sucede con WPS5 cuando inicias un juego.',
+  'settings.launcherBehaviorHide': 'Ocultar',
+  'settings.launcherBehaviorHideDesc': 'Oculta WPS5 automáticamente cuando inicias un juego.',
+  'settings.launcherBehaviorMinimize': 'Minimizar',
+  'settings.launcherBehaviorMinimizeDesc': 'Minimiza WPS5 automáticamente cuando inicias un juego.',
+  'settings.launcherBehaviorBackground': 'Enviar al fondo',
+  'settings.launcherBehaviorBackgroundDesc': 'Envía WPS5 al fondo automáticamente cuando inicias un juego.',
+
   'profile.overview': 'Información general',
   'profile.games': 'Juegos',
   'profile.friends': 'Amigos',
@@ -646,6 +655,15 @@ const en: Record<TranslationKey, string> = {
   'settings.achievementLoginSuccess': 'Configured as "{raUsername}". Achievements will be displayed automatically for classic games.',
   'settings.achievementNotConfigured': 'Complete the username and API Key to enable RetroAchievements achievements.',
 
+  'settings.launcherBehavior': 'Launcher Behavior',
+  'settings.launcherBehaviorDesc': 'Defines what happens to WPS5 when you start a game.',
+  'settings.launcherBehaviorHide': 'Hide',
+  'settings.launcherBehaviorHideDesc': 'Hides WPS5 automatically when you start a game.',
+  'settings.launcherBehaviorMinimize': 'Minimize',
+  'settings.launcherBehaviorMinimizeDesc': 'Minimizes WPS5 automatically when you start a game.',
+  'settings.launcherBehaviorBackground': 'Send to Background',
+  'settings.launcherBehaviorBackgroundDesc': 'Sends WPS5 to the background automatically when you start a game.',
+
   'profile.overview': 'Overview',
   'profile.games': 'Games',
   'profile.friends': 'Friends',
@@ -1178,6 +1196,15 @@ const pt: Record<TranslationKey, string> = {
   'settings.achievementLoginError': 'Erro ao iniciar sessão no RetroAchievements: {error}',
   'settings.achievementLoginSuccess': 'Configurado como "{raUsername}". As conquistas serão mostradas automaticamente para jogos clássicos.',
   'settings.achievementNotConfigured': 'Complete o usuário e a API Key para habilitar as conquistas do RetroAchievements.',
+
+  'settings.launcherBehavior': 'Comportamento do Launcher',
+  'settings.launcherBehaviorDesc': 'Define o que acontece com o WPS5 quando você inicia um jogo.',
+  'settings.launcherBehaviorHide': 'Ocultar',
+  'settings.launcherBehaviorHideDesc': 'Oculta o WPS5 automaticamente quando você inicia um jogo.',
+  'settings.launcherBehaviorMinimize': 'Minimizar',
+  'settings.launcherBehaviorMinimizeDesc': 'Minimiza o WPS5 automaticamente quando você inicia um jogo.',
+  'settings.launcherBehaviorBackground': 'Enviar para o fundo',
+  'settings.launcherBehaviorBackgroundDesc': 'Envia o WPS5 para o fundo automaticamente quando você inicia um jogo.',
 
   'profile.overview': 'Visão Geral',
   'profile.games': 'Jogos',

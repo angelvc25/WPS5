@@ -1,6 +1,7 @@
 import { PLATFORM_ICONS, PLATFORM_IDS, RETRO_SYSTEMS, isRetroPlatform } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
+import { isEpicGame } from '@/services/epicLaunchService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
@@ -301,7 +302,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   const [isSourceSectionOpen, setIsSourceSectionOpen] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(new Set());
   const [selectedRetroPlatforms, setSelectedRetroPlatforms] = useState<Set<string>>(new Set());
-  const [selectedSources, setSelectedSources] = useState<Set<'steam' | 'local'>>(new Set());
+  const [selectedSources, setSelectedSources] = useState<Set<'steam' | 'local' | 'epic'>>(new Set());
   // Evita notificar al padre repetidamente cuando el filtrado produce la
   // misma lista. Sin este guard, un padre que reconstruye `games` durante
   // su render puede entrar en un ciclo: efecto -> setState del padre ->
@@ -323,7 +324,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     | { type: 'retroHeader' }
     | { type: 'retroOption'; id: string; label: string }
     | { type: 'sourceHeader' }
-    | { type: 'sourceOption'; id: 'steam' | 'local' }
+    | { type: 'sourceOption'; id: 'steam' | 'local' | 'epic' }
     | { type: 'reset' };
 
   // Ciclo del ordenamiento: Más reciente -> A-Z -> Z-A -> Más reciente
@@ -391,7 +392,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     }
     rows.push({ type: 'sourceHeader' });
     if (isSourceSectionOpen) {
-      rows.push({ type: 'sourceOption', id: 'steam' }, { type: 'sourceOption', id: 'local' });
+      rows.push({ type: 'sourceOption', id: 'steam' }, { type: 'sourceOption', id: 'local' }, { type: 'sourceOption', id: 'epic' });
     }
     rows.push({ type: 'reset' });
     return rows;
@@ -493,7 +494,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     });
   };
 
-  const toggleSourceFilter = (source: 'steam' | 'local') => {
+  const toggleSourceFilter = (source: 'steam' | 'local' | 'epic') => {
     setSelectedSources((prev) => {
       const next = new Set(prev);
       if (next.has(source)) next.delete(source);
@@ -597,9 +598,9 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
         if (!matchesRetro) return false;
       }
 
-      // 3. Filtro por fuente (steam / local)
+      // 3. Filtro por fuente (steam / local / epic)
       if (selectedSources.size > 0) {
-        const source: 'steam' | 'local' = isSteamGame(game) ? 'steam' : 'local';
+        const source: 'steam' | 'local' | 'epic' = isSteamGame(game) ? 'steam' : isEpicGame(game) ? 'epic' : 'local';
         if (!selectedSources.has(source)) return false;
       }
 
@@ -766,7 +767,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                   style={[
                     styles.filterPanelOptionRow,
                     panelRows[panelFocusIndex]?.type === 'platformHeader' &&
-                      styles.filterPanelRowFocused,
+                    styles.filterPanelRowFocused,
                   ]}
                   onPress={() => setIsPlatformSectionOpen((v) => !v)}
                 >
@@ -824,7 +825,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                   style={[
                     styles.filterPanelOptionRow,
                     panelRows[panelFocusIndex]?.type === 'retroHeader' &&
-                      styles.filterPanelRowFocused,
+                    styles.filterPanelRowFocused,
                   ]}
                   onPress={() => setIsRetroSectionOpen((v) => !v)}
                 >
@@ -882,7 +883,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                   style={[
                     styles.filterPanelOptionRow,
                     panelRows[panelFocusIndex]?.type === 'sourceHeader' &&
-                      styles.filterPanelRowFocused,
+                    styles.filterPanelRowFocused,
                   ]}
                   onPress={() => setIsSourceSectionOpen((v) => !v)}
                 >
@@ -900,6 +901,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                       [
                         { id: 'steam', label: 'Steam' },
                         { id: 'local', label: 'Local' },
+                        { id: 'epic', label: 'Epic' },
                       ] as const
                     ).map((opt) => {
                       const checked = selectedSources.has(opt.id);
