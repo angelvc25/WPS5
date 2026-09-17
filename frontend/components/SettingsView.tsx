@@ -22,6 +22,7 @@ import { toastService } from '../services/toastService';
 import BackgroundVideo from './BackgroundVideo';
 import PSIcon from './PSIcon';
 import { UserProfile } from './UserSelectScreen';
+import SpinningBorderSearch from './SpinningBorderSearch';
 
 function compareVersions(a: string, b: string): number {
   const aParts = a.split('.').map(Number);
@@ -257,10 +258,10 @@ export default function SettingsView({
       if (res.success && res.steamId) {
         updateUser({ settings: { ...activeUser?.settings, steamId: res.steamId } as any });
       } else if (res.error && res.error !== 'Ventana de inicio de sesión cerrada') {
-        alert('Error al iniciar sesión en Steam: ' + res.error);
+        toastService.show(t('settings.steamLoginError', { error: res.error }));
       }
     } else {
-      alert('Esta función solo está disponible en la versión de escritorio.');
+      toastService.show(t('settings.desktopOnly'));
     }
   };
 
@@ -767,6 +768,7 @@ export default function SettingsView({
                   {...(Platform.OS === 'web' ? { onMouseEnter: () => setMainFocusIndex(index) } : {}) as any}
                   onPress={item.onPress}
                 >
+                  {isFocused && <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />}
                   <View style={styles.psMenuRowLeft}>
                     {item.id === 'users_and_accounts' && userAvatarUri ? (
                       <Image
@@ -906,6 +908,7 @@ export default function SettingsView({
                     soundService.playNavigation();
                   }}
                 >
+                  {isFocused && <SpinningBorderSearch size={s(200)} spread={1} borderRadius={0} />}
                   <Text
                     style={[
                       styles.systemLeftItemText,
@@ -932,6 +935,7 @@ export default function SettingsView({
                     accessibilityFocusArea === 'right' && subFocusIndex === 0 && styles.rightItemFocused,
                   ]}
                 >
+                  {accessibilityFocusArea === 'right' && subFocusIndex === 0 && <SpinningBorderSearch size={s(200)} spread={0.5} borderRadius={0} />}
                   <View style={{ flex: 1, paddingRight: 20 }}>
                     <Text style={styles.toggleRowTitle}>{t('settings.autoPlayVideo')}</Text>
                     <Text style={styles.toggleRowDesc}>{t('settings.autoPlayVideoDesc')}</Text>
@@ -966,6 +970,7 @@ export default function SettingsView({
                     accessibilityFocusArea === 'right' && subFocusIndex === 1 && styles.rightItemFocused,
                   ]}
                 >
+                  {accessibilityFocusArea === 'right' && subFocusIndex === 1 && <SpinningBorderSearch size={s(180)} spread={0.5} borderRadius={0} />}
                   <View style={{ flex: 1, paddingRight: 20 }}>
                     <Text style={styles.toggleRowTitle}>{t('settings.invertTransition')}</Text>
                     <Text style={styles.toggleRowDesc}>{t('settings.invertTransitionDesc')}</Text>
@@ -1000,6 +1005,7 @@ export default function SettingsView({
                     accessibilityFocusArea === 'right' && subFocusIndex === 2 && styles.rightItemFocused,
                   ]}
                 >
+                  {accessibilityFocusArea === 'right' && subFocusIndex === 2 && <SpinningBorderSearch size={s(180)} spread={0.5} borderRadius={0} />}
                   <View style={{ flex: 1, paddingRight: 20 }}>
                     <Text style={styles.toggleRowTitle}>{t('settings.storeSource')}</Text>
                     <Text style={styles.toggleRowDesc}>{t('settings.storeSourceDesc')}</Text>
@@ -1055,6 +1061,7 @@ export default function SettingsView({
                         onOpenBgModal();
                       }}
                     >
+                      {isRightFocused && subFocusIndex === chooseWallpaperIdx && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                       <Ionicons name="image-outline" size={s(20)} color="#FFF" />
                       <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseWallpaper')}</Text>
                     </TouchableOpacity>
@@ -1076,6 +1083,7 @@ export default function SettingsView({
                         ]}
                         onPress={onSelectWallpaperFolder}
                       >
+                        {isRightFocused && subFocusIndex === selectWallpaperFolderIdx && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                         <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
@@ -1092,6 +1100,7 @@ export default function SettingsView({
                             })
                           }
                         >
+                          {isRightFocused && subFocusIndex === restoreWallpaperIdx && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                           <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
@@ -1117,6 +1126,7 @@ export default function SettingsView({
                         ]}
                         onPress={onSelectCaptureFolder}
                       >
+                        {isRightFocused && subFocusIndex === selectCaptureFolderIdx && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                         <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
@@ -1133,6 +1143,7 @@ export default function SettingsView({
                             })
                           }
                         >
+                          {isRightFocused && subFocusIndex === restoreCaptureIdx && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                           <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
@@ -1159,6 +1170,7 @@ export default function SettingsView({
                         ]}
                         onPress={onSelectRpcs3Folder}
                       >
+                        {isRightFocused && subFocusIndex === selectRpcs3FolderIdx && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                         <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
@@ -1175,6 +1187,7 @@ export default function SettingsView({
                             })
                           }
                         >
+                          {isRightFocused && subFocusIndex === restoreRpcs3Idx && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                           <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
@@ -1216,6 +1229,7 @@ export default function SettingsView({
                         onOpenAvatarModal?.();
                       }}
                     >
+                      {isRightFocused && subFocusIndex === chooseAvatarIdx && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                       <Ionicons name="person-circle-outline" size={s(20)} color="#FFF" />
                       <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseAvatar')}</Text>
                     </TouchableOpacity>
@@ -1237,6 +1251,7 @@ export default function SettingsView({
                         ]}
                         onPress={onSelectAvatarFolder}
                       >
+                        {isRightFocused && subFocusIndex === selectAvatarFolderIdx && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                         <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
@@ -1253,6 +1268,7 @@ export default function SettingsView({
                             })
                           }
                         >
+                          {isRightFocused && subFocusIndex === restoreAvatarIdx && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                           <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
@@ -1307,6 +1323,7 @@ export default function SettingsView({
                       >
                         {isConnected ? (
                           <>
+                            {isRightFocused && subFocusIndex === 0 && <SpinningBorderSearch size={s(180)} spread={1.5} borderRadius={8} />}
                             <Ionicons name="unlink-outline" size={s(18)} color="#ffffffff" />
                             <Text style={[styles.actionBtnSecondaryText, { color: '#ffffffff' }]}>{t('settings.unlink')}</Text>
                           </>
@@ -1331,15 +1348,15 @@ export default function SettingsView({
                 <ScrollView showsVerticalScrollIndicator={false}>
                   <Text style={styles.rightSectionTitle}>RetroAchievements</Text>
                   <Text style={[styles.pathDesc, { marginBottom: 16 }]}>
-                    Vincula tu cuenta de RetroAchievements para ver tus logros en juegos clásicos (PS1, PS2, SNES, N64, GBA, etc.).
+                    {t('settings.achievementDesc')}
                   </Text>
 
                   {/* RA Username */}
                   <View style={styles.cardSection}>
-                    <Text style={styles.sectionLabel}>Usuario (Username)</Text>
+                    <Text style={styles.sectionLabel}>{t('settings.achievementUsername')}</Text>
                     <TextInput
                       style={[styles.raInput, isRightFocused && subFocusIndex === 0 && styles.rightItemFocused]}
-                      placeholder="Tu usuario de RetroAchievements"
+                      placeholder={t('settings.achievementUsernamePlaceholder')}
                       placeholderTextColor="rgba(255,255,255,0.3)"
                       value={raUsername}
                       autoCapitalize="none"
@@ -1352,13 +1369,13 @@ export default function SettingsView({
 
                   {/* RA API Key */}
                   <View style={styles.cardSection}>
-                    <Text style={styles.sectionLabel}>API Key</Text>
+                    <Text style={styles.sectionLabel}>{t('settings.achievementApiKey')}</Text>
                     <Text style={[styles.pathDesc, { marginBottom: 6 }]}>
-                      Obtenla en retroachievements.org → Settings → Keys
+                      {t('settings.achievementGetApiKey')}
                     </Text>
                     <TextInput
                       style={[styles.raInput, isRightFocused && subFocusIndex === 1 && styles.rightItemFocused]}
-                      placeholder="Tu API Key de RetroAchievements"
+                      placeholder={t('settings.achievementApiKeyPlaceholder')}
                       placeholderTextColor="rgba(255,255,255,0.3)"
                       value={raApiKey}
                       autoCapitalize="none"
@@ -1379,8 +1396,8 @@ export default function SettingsView({
                     />
                     <Text style={[styles.pathDesc, { flex: 1 }]}>
                       {raUsername && raApiKey
-                        ? `Configurado como "${raUsername}". Los logros se mostrarán automáticamente para juegos clásicos.`
-                        : 'Completa el usuario y la API Key para habilitar los logros de RetroAchievements.'}
+                        ? `${t('settings.achievementLoginSuccess', { raUsername })}`
+                        : t('settings.achievementNotConfigured')}
                     </Text>
                   </View>
                 </ScrollView>
@@ -1402,6 +1419,7 @@ export default function SettingsView({
                       isRightFocused && subFocusIndex === 0 && styles.rightItemFocused,
                     ]}
                   >
+                    {isRightFocused && subFocusIndex === 0 && <SpinningBorderSearch size={s(180)} spread={0.5} borderRadius={0} />}
                     <View style={{ flex: 1, paddingRight: 20 }}>
                       <Text style={styles.toggleRowTitle}>{t('settings.enableOverlay')}</Text>
                       <Text style={styles.toggleRowDesc}>{t('settings.enableOverlayDesc')}</Text>
@@ -1426,6 +1444,7 @@ export default function SettingsView({
                       isRightFocused && subFocusIndex === 1 && styles.rightItemFocused,
                     ]}
                   >
+                    {isRightFocused && subFocusIndex === 1 && <SpinningBorderSearch size={s(180)} spread={0.5} borderRadius={0} />}
                     <View style={{ flex: 1, paddingRight: 20 }}>
                       <Text style={styles.toggleRowTitle}>{t('settings.overlayCombo')}</Text>
                       <Text style={styles.toggleRowDesc}>{t('settings.overlayComboDesc')}</Text>
@@ -1505,6 +1524,7 @@ export default function SettingsView({
                       key={pref.key}
                       style={[styles.syncItemRow, isRowFocused && styles.rightItemFocused]}
                     >
+                      {isRowFocused && subFocusIndex === prefIdx && <SpinningBorderSearch size={s(180)} spread={0.5} borderRadius={0} />}
                       <Text style={styles.syncItemLabel}>{pref.label}</Text>
                       <View style={{ flexDirection: 'row', gap: 10 }}>
                         {pref.options.map((opt) => (
@@ -1624,6 +1644,7 @@ export default function SettingsView({
               ]}
               onPress={() => navigateToScreen('profile_edit')}
             >
+              {profileFocusArea === 'header_actions' && profileActionIndex === 0 && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
               <Ionicons name="pencil" size={s(20)} color="#FFF" />
               <Text style={styles.profileActionButtonLabel}>{t('profile.editProfile')}</Text>
             </TouchableOpacity>
@@ -1639,6 +1660,7 @@ export default function SettingsView({
                   if (nextUser && onSwitchUser) onSwitchUser(nextUser);
                 }}
               >
+                {profileFocusArea === 'header_actions' && profileActionIndex === 1 && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
                 <Ionicons name="people-outline" size={s(20)} color="#FFF" />
               </TouchableOpacity>
             )}
@@ -1658,6 +1680,7 @@ export default function SettingsView({
                   soundService.playTab();
                 }}
               >
+                {profileFocusArea === 'tabs' && isActive && <SpinningBorderSearch size={s(180)} spread={0} borderRadius={1} />}
                 <Text style={[styles.profileTabText, isActive && styles.profileTabTextActive]}>
                   {t(`profile.${tabKey}` as any)}
                 </Text>
@@ -1759,6 +1782,7 @@ export default function SettingsView({
                   {...(Platform.OS === 'web' ? { onMouseEnter: () => setSubFocusIndex(index) } : {}) as any}
                   onPress={() => openProfileEditSection(section, index)}
                 >
+                  {isFocused && <SpinningBorderSearch size={s(180)} spread={2} borderRadius={1} />}
                   <Text style={[styles.psMenuRowText, isFocused && styles.psMenuRowTextFocused]}>
                     {profileEditLabels[section]}
                   </Text>
@@ -1990,6 +2014,7 @@ export default function SettingsView({
                     soundService.playNavigation();
                   }}
                 >
+                  {isFocused && <SpinningBorderSearch size={s(180)} spread={2} borderRadius={1} />}
                   <Text
                     style={[
                       styles.systemLeftItemText,
@@ -2092,6 +2117,7 @@ export default function SettingsView({
                     systemFocusArea === 'right' && subFocusIndex === 0 && styles.rightItemFocused,
                   ]}
                 >
+                  {systemFocusArea === 'right' && subFocusIndex === 0 && <SpinningBorderSearch size={s(160)} spread={0} borderRadius={1} />}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.toggleRowTitle}>Enable HDMI Device Link</Text>
                     <Text style={styles.toggleRowDesc}>Control power state via connected HDMI displays.</Text>
@@ -2110,6 +2136,7 @@ export default function SettingsView({
                     systemFocusArea === 'right' && subFocusIndex === 1 && styles.rightItemFocused,
                   ]}
                 >
+                  {systemFocusArea === 'right' && subFocusIndex === 1 && <SpinningBorderSearch size={s(160)} spread={0} borderRadius={1} />}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.toggleRowTitle}>Enable HDCP</Text>
                     <Text style={styles.toggleRowDesc}>High-bandwidth Digital Content Protection.</Text>
@@ -2143,6 +2170,7 @@ export default function SettingsView({
                         ]}
                         onPress={() => changeLanguage(opt.id)}
                       >
+                        {isRowFocused && <SpinningBorderSearch size={s(160)} spread={1} borderRadius={8} />}
                         <Text
                           style={[
                             styles.languageSelectText,
@@ -2696,8 +2724,8 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   profileActionButtonFocused: {
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    //borderColor: '#FFFFFF',
+    //backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   profileActionButtonLabel: {
     color: '#FFF',
@@ -3002,14 +3030,14 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     borderColor: 'transparent',
   },
   systemLeftItemActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    //backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   systemLeftItemFocused: {
-    borderColor: '#ffffff44',
+    //borderColor: '#ffffff44',
   },
   rightItemFocused: {
     //borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0)',
     //borderWidth: 2,
     //borderRadius: 8,
   },
@@ -3082,13 +3110,13 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: s(16),
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(255, 255, 255, 0.01)',
     borderRadius: s(10),
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0)',
   },
   languageSelectRowActive: {
-    borderColor: '#00D4FF',
+    borderColor: '#00d5ff98',
     backgroundColor: 'rgba(0, 212, 255, 0.08)',
   },
   languageSelectText: {

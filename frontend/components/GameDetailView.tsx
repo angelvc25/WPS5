@@ -21,6 +21,7 @@ import { PSIcons } from '@/constants/psIcons';
 import { PLATFORMS, PLATFORM_IDS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import BackgroundVideo from './BackgroundVideo';
+import { toastService } from '@/services/toastService';
 
 
 interface GameDetailViewProps {
@@ -341,7 +342,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       const result = await (window as any).electronAPI.updateApp(cleanData);
       if (result.success) {
         if (onRefresh) onRefresh(cleanData);
-        if (idx === 3) alert("Se han restablecido los assets locales.");
+        if (idx === 3) toastService.show(t('edit.assetsReset'));
       }
     }
   };
@@ -491,7 +492,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         } else if (filterFocusIndex === 1) {
           handleLocalUpload();
         } else if (filterFocusIndex === 2 && showAdjust) {
-          alert("Modo ajustar posición del logotipo activado (visual).");
+          toastService.show(t('edit.logoAdjustMode'));
         }
       }
     }
@@ -1073,7 +1074,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         setEditModalVisible(false);
         if (onRefresh) onRefresh(cleanData);
       } else {
-        alert('Error al actualizar: ' + result.error);
+        toastService.show(t('edit.updateError', { error: result.error }));
       }
     }
   };
@@ -1144,7 +1145,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       if (result.success) {
         if (onRefresh) onRefresh({ id: item.id, isFavorite: newStatus });
       } else {
-        alert('No se pudo marcar como favorito: ' + result.error);
+        toastService.show(t('edit.favoriteError', { error: result.error }));
       }
     } else {
       console.log('Missing electronAPI or item.id');
@@ -1164,7 +1165,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         onClose();
         if (onRefresh) onRefresh({ id: item.id, _deleted: true } as any);
       } else {
-        alert('Error al eliminar: ' + result.error);
+        toastService.show(t('edit.deleteError', { error: result.error }));
       }
     }
   };
@@ -1845,7 +1846,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             styles.filterBtn,
                             assetSelectorFocusArea === 'filters' && filterFocusIndex === 2 && styles.filterBtnFocused
                           ]}
-                          onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(2); alert("Modo ajustar posición del logotipo activado (visual)."); }}
+                          onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(2); toastService.show(t('edit.logoAdjustMode')); }}
                         >
                           <Ionicons name="resize-outline" size={s(16)} color="#FFF" />
                           <Text style={styles.filterBtnText}>{t('edit.adjustLogoPosition')}</Text>

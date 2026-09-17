@@ -20,6 +20,7 @@ import { getGameActionLabel, getSteamAppId } from '../services/steamLaunchServic
 import { fetchSteamGameAchievements, getCachedSteamGameAchievements, SteamGameAchievementsSummary } from '../services/steamUserService';
 import MusicPlayerCard from './MusicPlayerCard';
 import SpinningBorderNoticias from './SpinningborderNoticias';
+import { toastService } from '@/services/toastService';
 
 // ─── Shimmer skeleton placeholder (usado mientras cargan capturas/noticias) ──
 // Evita que las filas de "Capturas y trailers" / "Últimas noticias" aparezcan
@@ -404,25 +405,25 @@ export const GameInfoPanel = ({
     // Se activa cuando la plataforma del juego es reconocida por RA y el usuario
     // tiene sus credenciales configuradas en Settings → RetroAchievements.
     const raUsername = (activeUser?.settings as any)?.raUsername ?? '';
-    const raApiKey   = (activeUser?.settings as any)?.raApiKey   ?? '';
-    const hasRaApi   = typeof (window as any)?.electronAPI?.getRetroAchievements === 'function';
+    const raApiKey = (activeUser?.settings as any)?.raApiKey ?? '';
+    const hasRaApi = typeof (window as any)?.electronAPI?.getRetroAchievements === 'function';
 
     // Mapa de plataformas del launcher → consoleId de RetroAchievements
     const RA_PLATFORM_MAP: Record<string, number> = {
       PS1: 12, PSX: 12, 'PLAYSTATION 1': 12, 'PLAYSTATION': 12,
       PS2: 21, 'PLAYSTATION 2': 21,
       PSP: 41, 'PLAYSTATION PORTABLE': 41,
-      N64: 2,  'NINTENDO 64': 2,
+      N64: 2, 'NINTENDO 64': 2,
       SNES: 3, 'SUPER NINTENDO': 3, 'SUPER NES': 3,
-      NES: 7,  'FAMICOM': 7,
-      GB: 4,   'GAME BOY': 4,
-      GBC: 6,  'GAME BOY COLOR': 6,
-      GBA: 5,  'GAME BOY ADVANCE': 5,
+      NES: 7, 'FAMICOM': 7,
+      GB: 4, 'GAME BOY': 4,
+      GBC: 6, 'GAME BOY COLOR': 6,
+      GBA: 5, 'GAME BOY ADVANCE': 5,
       NDS: 18, 'NINTENDO DS': 18,
-      N3DS: 47,'NINTENDO 3DS': 47,
-      GC: 16,  'GAMECUBE': 16, 'NINTENDO GAMECUBE': 16,
+      N3DS: 47, 'NINTENDO 3DS': 47,
+      GC: 16, 'GAMECUBE': 16, 'NINTENDO GAMECUBE': 16,
       WII: 45, 'NINTENDO WII': 45,
-      WIIU: 38,'NINTENDO WII U': 38,
+      WIIU: 38, 'NINTENDO WII U': 38,
       GENESIS: 1, 'MEGA DRIVE': 1, 'SEGA GENESIS': 1,
       'GAME GEAR': 15, GAMEGEAR: 15,
       'SEGA CD': 9, SEGACD: 9,
@@ -439,7 +440,7 @@ export const GameInfoPanel = ({
       (achievementGame as any)?.retroSystem || (achievementGame?.platform ?? '')
     ).toString().trim().toUpperCase();
     const raConsoleId = RA_PLATFORM_MAP[rawPlatform] ?? null;
-    const gameTitle    = achievementGame?.title ?? '';
+    const gameTitle = achievementGame?.title ?? '';
 
     if (hasRaApi && raUsername && raApiKey && raConsoleId && gameTitle) {
       setSteamAchievements(null);
@@ -451,7 +452,7 @@ export const GameInfoPanel = ({
         setAchievementsLoading(true);
         (window as any).electronAPI.getRetroAchievements({
           username: raUsername,
-          apiKey:   raApiKey,
+          apiKey: raApiKey,
           gameTitle,
           consoleId: raConsoleId,
         }).then((result: any) => {
@@ -461,18 +462,18 @@ export const GameInfoPanel = ({
             // Normalise into the SteamGameAchievementsSummary shape so all
             // existing UI (progress bar, card list, badge) works unchanged.
             const achievements = (ra.achievements ?? []).map((a: any) => ({
-              apiname:        a.id?.toString() ?? '',
-              name:           a.title ?? '',
-              description:    a.description ?? '',
-              achieved:       a.dateEarned ? 1 : 0,
-              unlockTime:     a.dateEarned ? new Date(a.dateEarned).getTime() / 1000 : 0,
-              iconUrl:        a.badgeUrl ?? '',
-              iconGrayUrl:    a.badgeLockedUrl ?? a.badgeUrl ?? '',
-              globalPercent:  a.points != null ? undefined : undefined,
+              apiname: a.id?.toString() ?? '',
+              name: a.title ?? '',
+              description: a.description ?? '',
+              achieved: a.dateEarned ? 1 : 0,
+              unlockTime: a.dateEarned ? new Date(a.dateEarned).getTime() / 1000 : 0,
+              iconUrl: a.badgeUrl ?? '',
+              iconGrayUrl: a.badgeLockedUrl ?? a.badgeUrl ?? '',
+              globalPercent: a.points != null ? undefined : undefined,
             }));
             const unlocked = achievements.filter((a: any) => a.achieved).length;
             const summary: SteamGameAchievementsSummary = {
-              total:       achievements.length,
+              total: achievements.length,
               unlocked,
               achievements,
               rarityCounts: { platinum: 0, gold: 0, silver: 0, bronze: 0 },
@@ -844,7 +845,7 @@ export const GameInfoPanel = ({
                         setSelectedItem(target);
                         setDetailVisible(true);
                       } else {
-                        alert(t('game.noPlayedGame'));
+                        toastService.show(t('game.noPlayedGame'));
                       }
                     }
                   }}

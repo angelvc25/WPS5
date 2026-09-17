@@ -162,10 +162,10 @@ export default function ConsoleHome() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   // PS5-style card sizing: responsive based on window dimensions
-  const CARD_SIZE = Math.round(Math.min(Math.max(windowHeight * 0.12, 90), 180));
+  const CARD_SIZE = Math.round(Math.min(Math.max(windowHeight * 0.12, 90), 120));
   const CARD_GAP = Math.round(Math.max(windowHeight * 0.006, 4));
   const ITEM_WIDTH = CARD_SIZE + CARD_GAP * 2;
-  const LEFT_PADDING = Math.round(Math.max(windowWidth * 0.078, 80));
+  const LEFT_PADDING = Math.round(Math.max(windowWidth * 0.088, 80));
   const RIGHT_PADDING = Math.max(windowWidth - ITEM_WIDTH - LEFT_PADDING, 60);
 
   // States for dynamic data and clock
@@ -570,7 +570,7 @@ export default function ConsoleHome() {
     paddingLeft: Math.max(20, windowWidth * (150 / 1920)),
     //paddingRight: Math.max(20, windowWidth * (10 / 1920)),
     paddingTop: Math.max(8, windowHeight * (16 / 1080)),
-    paddingBottom: Math.max(10, windowHeight * (10 / 1080)),
+    paddingBottom: Math.max(1, windowHeight * (1 / 1080)),
   }), [windowWidth, windowHeight]);
 
   const mainScrollContentStyle = useMemo(() => ({
@@ -1446,7 +1446,7 @@ export default function ConsoleHome() {
         console.warn('No se pudo reproducir el audio de foco:', error);
         if (!isLaunchingRef.current) await soundService.playBackground();
       }
-    }, 2500);
+    }, 500);
 
     return () => { void stopFocusAudio(true); };
   }, [activeIndex, activeTab, focusArea, focusedCarouselAudio, isLaunching]);
