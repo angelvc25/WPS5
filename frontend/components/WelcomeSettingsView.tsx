@@ -9,11 +9,14 @@ import { useTranslation } from '@/contexts/LanguageContext';
 interface WelcomeSettingsViewProps {
   visible: boolean;
   onClose: () => void;
+  presentationEnabled: boolean;
+  inactivityTime: string;
+  onSettingsChange: (enabled: boolean, time: string) => void;
 }
 
 type SubView = 'main' | 'presentation' | 'slides';
 
-export default function WelcomeSettingsView({ visible, onClose }: WelcomeSettingsViewProps) {
+export default function WelcomeSettingsView({ visible, onClose, presentationEnabled, inactivityTime, onSettingsChange }: WelcomeSettingsViewProps) {
   const { t } = useTranslation();
 
   const INACTIVITY_OPTIONS = useMemo(() => [
@@ -52,8 +55,6 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
   const [menuFocusIndex, setMenuFocusIndex] = useState(0);
 
   // ─── Presentation mode settings ───────────────────────────
-  const [presentationEnabled, setPresentationEnabled] = useState(false);
-  const [inactivityTime, setInactivityTime] = useState('15s');
   const [presentationFocusIndex, setPresentationFocusIndex] = useState(0);
   const [showInactivityDropdown, setShowInactivityDropdown] = useState(false);
   const [inactivityDropdownIndex, setInactivityDropdownIndex] = useState(0);
@@ -94,7 +95,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
         if (key === 'ArrowDown') setInactivityDropdownIndex((p) => Math.min(p + 1, INACTIVITY_OPTIONS.length - 1));
         else if (key === 'ArrowUp') setInactivityDropdownIndex((p) => Math.max(p - 1, 0));
         else if (key === 'Enter' || key === ' ') {
-          setInactivityTime(INACTIVITY_OPTIONS[inactivityDropdownIndex].value);
+          onSettingsChange(presentationEnabled, INACTIVITY_OPTIONS[inactivityDropdownIndex].value);
           setShowInactivityDropdown(false);
         } else if (key === 'Escape' || key === 'b' || key === 'B') {
           setShowInactivityDropdown(false);
@@ -150,7 +151,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
           setPresentationFocusIndex((p) => Math.max(p - 1, 0));
         } else if (key === 'Enter' || key === ' ') {
           if (presentationFocusIndex === 0) {
-            setPresentationEnabled((p) => !p);
+            onSettingsChange(!presentationEnabled, inactivityTime);
           } else {
             setShowInactivityDropdown(true);
             setInactivityDropdownIndex(INACTIVITY_OPTIONS.findIndex((o) => o.value === inactivityTime));
@@ -281,12 +282,12 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
         <TouchableOpacity
           style={[styles.menuItem, presentationFocusIndex === 0 && styles.menuItemFocused]}
           activeOpacity={0.8}
-          onPress={() => setPresentationEnabled((p) => !p)}
+          onPress={() => onSettingsChange(!presentationEnabled, inactivityTime)}
         >
           {presentationFocusIndex === 0 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
           <View style={styles.menuItemRow}>
             <Text style={styles.menuItemTitle}>{t('welcome.config.activateTitle')}</Text>
-            <Toggle value={presentationEnabled} onToggle={() => setPresentationEnabled((p) => !p)} />
+            <Toggle value={presentationEnabled} onToggle={() => onSettingsChange(!presentationEnabled, inactivityTime)} />
           </View>
           {presentationFocusIndex === 0 && (
             <Text style={styles.menuItemDescription}>
@@ -314,7 +315,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
             selectedIndex={inactivityDropdownIndex}
             visible={showInactivityDropdown}
             onSelect={(val) => {
-              setInactivityTime(val);
+              onSettingsChange(presentationEnabled, val);
               setShowInactivityDropdown(false);
             }}
           />

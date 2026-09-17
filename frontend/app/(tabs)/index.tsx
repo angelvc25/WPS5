@@ -19,7 +19,7 @@ import { toastService } from '@/services/toastService';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, FadeIn, FadeInDown, FadeOut, interpolate, measure, runOnJS, useAnimatedRef, useAnimatedStyle, useDerivedValue, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
@@ -205,6 +205,28 @@ export default function ConsoleHome() {
   const [isFavoritesVisible, setFavoritesVisible] = useState(false);
   const [isSettingsVisible, setSettingsVisible] = useState(false);
   const [isWelcomeSettingsVisible, setWelcomeSettingsVisible] = useState(false);
+  // Presentation mode
+  const [presentationEnabled, setPresentationEnabled] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('presentation_enabled') === 'true';
+    return false;
+  });
+  const [inactivityTime, setInactivityTime] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('presentation_inactivity_time') || '15s';
+    return '15s';
+  });
+  const [isPresentationMode, setIsPresentationMode] = useState(false);
+  const lastInteractionRef = useRef(Date.now());
+  const presentationAnim = useSharedValue(0);
+
+  const handlePresentationSettingsChange = useCallback((enabled: boolean, time: string) => {
+    setPresentationEnabled(enabled);
+    setInactivityTime(time);
+    localStorage.setItem('presentation_enabled', String(enabled));
+    localStorage.setItem('presentation_inactivity_time', time);
+    lastInteractionRef.current = Date.now();
+    setIsPresentationMode(false);
+  }, []);
+
   const [settingsInitialScreen, setSettingsInitialScreen] = useState<SettingsScreenType>('main');
   const [settingsTab, setSettingsTab] = useState<'profile' | 'home' | 'sync' | 'support'>('profile');
   const [homeBackground, setHomeBackground] = useState<any>(null);
@@ -594,6 +616,23 @@ export default function ConsoleHome() {
 
   const wviewStyle = useAnimatedStyle(() => ({
     display: welcomeWidgetsFocusAnim.value === 1 ? 'flex' : 'none',
+  }));
+
+  // ─── Presentation mode: hide/show animations ───────────────
+  const presentationHeaderStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(presentationAnim.value, [0, 1], [1, 0]),
+    transform: [{ translateY: interpolate(presentationAnim.value, [0, 1], [0, -80]) }],
+  }));
+  const presentationCarouselStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(presentationAnim.value, [0, 1], [1, 0]),
+  }));
+  const presentationWidgetsStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(presentationAnim.value, [0, 1], [1, 0]),
+    transform: [{ translateY: interpolate(presentationAnim.value, [0, 1], [0, 100]) }],
+  }));
+  const presentationToolbarStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(presentationAnim.value, [0, 1], [topBarMiniStyle.opacity, 0]),
+    transform: [{ translateY: interpolate(presentationAnim.value, [0, 1], [0, -40]) }],
   }));
 
   useEffect(() => {
@@ -1204,6 +1243,54 @@ export default function ConsoleHome() {
     return () => clearInterval(interval);
   }, []);
 
+  // ─── Presentation mode: inactivity timer ───────────────────
+  useEffect(() => {
+    if (!presentationEnabled) return;
+    const getMs = () => {
+      switch (inactivityTime) {
+        case '15s': return 15000;
+        case '30s': return 30000;
+        case '60s': return 60000;
+        case '300s': return 300000;
+        default: return 15000;
+      }
+    };
+    const interval = setInterval(() => {
+      if (Date.now() - lastInteractionRef.current >= getMs()) {
+        setIsPresentationMode(true);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [presentationEnabled, inactivityTime]);
+
+  // ─── Presentation mode: animate UI hide/show ───────────────
+  useEffect(() => {
+    presentationAnim.value = withTiming(isPresentationMode ? 1 : 0, {
+      duration: 800,
+      easing: Easing.inOut(Easing.cubic),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPresentationMode]);
+
+  // ─── Presentation mode: reset on mouse/touch ───────────────
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const reset = () => {
+      lastInteractionRef.current = Date.now();
+      if (isPresentationMode) setIsPresentationMode(false);
+    };
+    window.addEventListener('mousemove', reset);
+    window.addEventListener('mousedown', reset);
+    window.addEventListener('touchstart', reset);
+    window.addEventListener('wheel', reset);
+    return () => {
+      window.removeEventListener('mousemove', reset);
+      window.removeEventListener('mousedown', reset);
+      window.removeEventListener('touchstart', reset);
+      window.removeEventListener('wheel', reset);
+    };
+  }, [isPresentationMode]);
+
   const loadApps = () => {
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       (window as any).electronAPI.getApps().then((data: any) => {
@@ -1646,6 +1733,8 @@ export default function ConsoleHome() {
   // Keyboard navigation always reads the current render state. The listener
   // itself is attached once below, avoiding add/remove work on each change.
   const handleKeyDown = (e: any) => {
+    lastInteractionRef.current = Date.now();
+    if (isPresentationMode) { setIsPresentationMode(false); return; }
     if (Date.now() - mountTimeRef.current < 400) return;
     if (!e.fromGamepad) setInputMode('keyboard');
     if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
@@ -3074,7 +3163,7 @@ export default function ConsoleHome() {
       </Animated.View>
 
       {/* MINI TOOLBAR — visible when welcome widgets are focused (PS5 style) */}
-      <Animated.View style={[styles.miniHeaderToolbar, topBarMiniStyle]}>
+      <Animated.View style={[styles.miniHeaderToolbar, topBarMiniStyle, presentationToolbarStyle]}>
         {focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar' ? (
           <View style={styles.miniToolbarRow}>
             {[
@@ -3125,7 +3214,7 @@ export default function ConsoleHome() {
       </Animated.View>
 
       {/* === HEADER (PS5 style) — fixed on top === */}
-      <Animated.View style={[styles.header, headerStyle]}>
+      <Animated.View style={[styles.header, headerStyle, presentationHeaderStyle]}>
         {/* Left: Navigation Tabs */}
         <View style={styles.headerLeft}>
           {/* <ControlPrompt btn="L" label="" inputMode={inputMode} /> */}
@@ -3254,6 +3343,13 @@ export default function ConsoleHome() {
         </View>
       </Animated.View>
 
+      {/* Presentation mode clock — shown when UI is hidden */}
+      {isPresentationMode && (
+        <Animated.View style={styles.presentationClock} entering={FadeIn.duration(600)}>
+          <Text style={styles.timeText2}>{currentTime}</Text>
+        </Animated.View>
+      )}
+
       {/* === MAIN SCROLLABLE CONTENT === */}
       <Animated.ScrollView
         ref={mainScrollRef}
@@ -3263,7 +3359,7 @@ export default function ConsoleHome() {
         scrollEventThrottle={16}
       >
         {/* CAROUSEL ROW */}
-        <Animated.View style={[styles.carouselSection, carouselStyle]}>
+        <Animated.View style={[styles.carouselSection, carouselStyle, presentationCarouselStyle]}>
           <ConsoleCarousel
             currentData={currentData}
             downloadsByAppId={downloadsByAppId}
@@ -3313,7 +3409,7 @@ export default function ConsoleHome() {
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         {!isLibraryFocused && uiReady && (
           activeItem?.id === '1' ? (
-            <Animated.View style={[styles.welcomePanel, welcomePanelLayout, gameInfoPanelStyle]} entering={FadeInDown.duration(500).delay(150)}>
+            <Animated.View style={[styles.welcomePanel, welcomePanelLayout, gameInfoPanelStyle, presentationWidgetsStyle]} entering={FadeInDown.duration(500).delay(150)}>
               <Animated.View style={widgetContainerStyle}>
                 <WelcomeWidgets
                   ref={welcomeWidgetsRef}
@@ -3639,6 +3735,9 @@ export default function ConsoleHome() {
           setFocusArea('welcome_toolbar');
           setToolbarFocusIndex(3);
         }}
+        presentationEnabled={presentationEnabled}
+        inactivityTime={inactivityTime}
+        onSettingsChange={handlePresentationSettingsChange}
       />
 
       {/* USER/POWER MODAL */}
@@ -4584,5 +4683,11 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.85)',
     fontSize: 14,
     fontWeight: '600',
+  },
+  presentationClock: {
+    position: 'absolute',
+    top: 16,
+    right: 40,
+    zIndex: 9998,
   },
 });
