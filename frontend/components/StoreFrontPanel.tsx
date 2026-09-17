@@ -90,23 +90,23 @@ export const StoreFrontPanel = ({
       style={[styles.container, gameInfoPanelStyle, { paddingLeft: s(150) }]}
       entering={FadeInDown.duration(400)}
     >
+      {/* Logo del juego enfocado */}
+      {focusedLogo ? (
+        <Animated.View key={focusedLogo} entering={FadeIn.duration(300)} style={{ marginTop: s(180), marginBottom: s(-110) }}>
+          <Image
+            source={{ uri: focusedLogo }}
+            style={{ width: s(460), height: s(130) }}
+            contentFit="contain"
+          />
+        </Animated.View>
+      ) : null}
+
       {/* Spacer calibrado para StoreFront: posiciona las cards en el tercio inferior visible */}
-      <View style={{ height: Math.max(windowHeight * 0.43, 200) }} />
+      <View style={{ height: Math.max(windowHeight * 0.25, 140) }} />
 
 
       {/* Must see / Ofertas */}
       <Animated.View entering={FadeInDown.duration(400).delay(60)}>
-        {/* Logo del juego enfocado */}
-        {focusedLogo ? (
-          <Animated.View key={focusedLogo} entering={FadeIn.duration(300)} style={{ marginBottom: s(12) }}>
-            <Image
-              source={{ uri: focusedLogo }}
-              style={{ width: s(280), height: s(80) }}
-              contentFit="contain"
-            />
-          </Animated.View>
-        ) : null}
-
         <Text style={[styles.sectionTitle, { fontSize: s(25), marginBottom: s(14) }]}>
           {t('store.mustSee')}
         </Text>
