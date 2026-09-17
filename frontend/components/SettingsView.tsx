@@ -2087,7 +2087,7 @@ export default function SettingsView({
                 <Text style={styles.rightSectionTitle}>{t('settings.systemSoftware')}</Text>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoRowLabel}>WPS5 Console OS</Text>
-                  <Text style={styles.infoRowValue}>Version 1.1.3 (Build 2026.9)</Text>
+                  <Text style={styles.infoRowValue}>Version 1.1.4 (Build 2026.9)</Text>
                 </View>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoRowLabel}>Environment</Text>
@@ -2118,7 +2118,7 @@ export default function SettingsView({
                         const latest = data[0];
                         console.log(latest.version, latest.tipe, latest.link);
                         console.log(data);
-                        const currentVersion = '1.1.3';
+                        const currentVersion = '1.1.4';
                         const comparison = compareVersions(latest.version, currentVersion);
                         if (comparison > 0) {
                           toastService.show(`${t('settings.updateAvailable')}\n${latest.version}`, {
@@ -2254,8 +2254,12 @@ export default function SettingsView({
                       >
                         {isRowFocused && <SpinningBorderSearch size={s(160)} spread={0} borderRadius={1} />}
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.toggleRowTitle}>{t(opt.labelKey)}</Text>
-                          <Text style={styles.toggleRowDesc}>{t(opt.descKey)}</Text>
+                          <Text style={styles.toggleRowTitle}>
+                            {t(opt.labelKey as Parameters<typeof t>[0])}
+                          </Text>
+                          <Text style={styles.toggleRowDesc}>
+                            {t(opt.descKey as Parameters<typeof t>[0])}
+                          </Text>
                         </View>
                         {isSelected && (
                           <Ionicons name="checkmark-circle" size={s(22)} color="#00D4FF" />
