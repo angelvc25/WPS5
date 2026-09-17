@@ -648,7 +648,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   useEffect(() => {
     if (isFocused) {
       const row = Math.floor(focusedIndex / COLUMNS);
-      const targetY = row > 1 ? -(row - 1) * rowHeight : 0;
+      const targetY = -(row * rowHeight);
       translateY.value = withTiming(targetY, { duration: 300 });
     } else {
       translateY.value = withTiming(0, { duration: 300 });
@@ -660,7 +660,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   }));
 
   const currentRow = isFocused ? Math.floor(focusedIndex / COLUMNS) : 0;
-  const hasScrolled = isFocused && currentRow > 1;
+  const hasScrolled = isFocused && currentRow > 0;
   const totalRows = Math.ceil(filteredGames.length / COLUMNS);
   const visibleRowCount = Math.ceil((windowHeight - 220) / rowHeight);
   const VIRTUALIZATION_BUFFER_ROWS = 2;
