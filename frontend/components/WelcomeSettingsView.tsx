@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import SpinningBorderSearch from './SpinningBorderSearch';
 
 interface WelcomeSettingsViewProps {
   visible: boolean;
@@ -227,6 +229,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
             onPress={() => onSelect(opt.value)}
             activeOpacity={0.7}
           >
+            {idx === selectedIndex && <SpinningBorderSearch size={180} spread={0} borderRadius={4} />}
             {idx === selectedIndex && (
               <Ionicons name="checkmark" size={18} color="#FFF" style={styles.dropdownCheck} />
             )}
@@ -257,6 +260,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
                 else if (item.id === 'slides') setCurrentView('slides');
               }}
             >
+              {isFocused && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
               <Text style={styles.menuItemTitle}>{item.title}</Text>
               {isFocused && <Text style={styles.menuItemDescription}>{item.description}</Text>}
             </TouchableOpacity>
@@ -277,13 +281,16 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
           activeOpacity={0.8}
           onPress={() => setPresentationEnabled((p) => !p)}
         >
-          <Text style={styles.menuItemTitle}>Activar</Text>
+          {presentationFocusIndex === 0 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
+          <View style={styles.menuItemRow}>
+            <Text style={styles.menuItemTitle}>Activar</Text>
+            <Toggle value={presentationEnabled} onToggle={() => setPresentationEnabled((p) => !p)} />
+          </View>
           {presentationFocusIndex === 0 && (
             <Text style={styles.menuItemDescription}>
               Cuando tu PS5 esté inactiva, se esconden los widgets y se muestra una vista completa del fondo de tu Centro de bienvenida.
             </Text>
           )}
-          <Toggle value={presentationEnabled} onToggle={() => setPresentationEnabled((p) => !p)} />
         </TouchableOpacity>
 
         {/* Iniciar tras inactividad */}
@@ -296,6 +303,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
               setInactivityDropdownIndex(INACTIVITY_OPTIONS.findIndex((o) => o.value === inactivityTime));
             }}
           >
+            {presentationFocusIndex === 1 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
             <Text style={styles.menuItemTitle}>Iniciar tras un período de inactividad</Text>
             <Text style={styles.menuItemValue}>{getInactivityLabel()}</Text>
           </TouchableOpacity>
@@ -324,6 +332,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
           activeOpacity={0.8}
           onPress={() => { }}
         >
+          {slidesFocusIndex === 0 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
           <Text style={styles.menuItemTitle}>Álbum seleccionado</Text>
           {slidesFocusIndex === 0 && (
             <Text style={styles.menuItemDescription}>
@@ -342,6 +351,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
               setDurationDropdownIndex(SLIDE_DURATION_OPTIONS.findIndex((o) => o.value === slideDuration));
             }}
           >
+            {slidesFocusIndex === 1 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
             <Text style={styles.menuItemTitle}>Duración de diapositiva</Text>
             <Text style={styles.menuItemValue}>{getSlideDurationLabel()}</Text>
           </TouchableOpacity>
@@ -366,6 +376,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
               setTransitionDropdownIndex(TRANSITION_OPTIONS.findIndex((o) => o.value === transitionStyle));
             }}
           >
+            {slidesFocusIndex === 2 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
             <Text style={styles.menuItemTitle}>Estilo de transición</Text>
             <Text style={styles.menuItemValue}>{getTransitionLabel()}</Text>
           </TouchableOpacity>
@@ -390,9 +401,9 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onClose}
     >
       <Animated.View style={styles.root} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
         <View style={styles.content}>
           {currentView === 'main' && renderMainMenu()}
           {currentView === 'presentation' && renderPresentationView()}
@@ -406,7 +417,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#07080ca9',
+    backgroundColor: 'rgba(7, 8, 12, 0.5)',
   },
   content: {
     flex: 1,
@@ -431,16 +442,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.15)',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  menuItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
+    width: '100%',
   },
   menuItemFocused: {
     borderWidth: 1,
-    //borderColor: 'rgba(255, 255, 255, 0.35)',
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(255, 255, 255, 0)',
     borderBottomColor: 'transparent',
   },
   menuItemTitle: {
@@ -465,33 +480,36 @@ const styles = StyleSheet.create({
     width: 50,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#424242ff',
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
   toggleOn: {
-    backgroundColor: 'rgba(100, 200, 100, 0.8)',
+    backgroundColor: 'rgba(122, 122, 122, 0.8)',
   },
   toggleKnob: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#FFF',
+    backgroundColor: '#3a3a3aff',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
     alignSelf: 'flex-start',
   },
   toggleKnobOn: {
     alignSelf: 'flex-end',
+    backgroundColor: 'rgba(255, 255, 255, 1)',
   },
   dropdown: {
     position: 'absolute',
     right: 16,
     top: '100%',
-    backgroundColor: 'rgba(20, 22, 30, 0.95)',
+    backgroundColor: 'rgba(22, 24, 26, 0.95)',
     borderRadius: 4,
     minWidth: 220,
     zIndex: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    //borderColor: 'rgba(255, 255, 255, 0.15)',
     ...Platform.select({
       web: {
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
@@ -508,7 +526,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   dropdownItemFocused: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0)',
   },
   dropdownCheck: {
     marginRight: 10,
