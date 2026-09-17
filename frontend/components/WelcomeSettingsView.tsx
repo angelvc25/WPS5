@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import SpinningBorderSearch from './SpinningBorderSearch';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface WelcomeSettingsViewProps {
   visible: boolean;
@@ -12,39 +13,40 @@ interface WelcomeSettingsViewProps {
 
 type SubView = 'main' | 'presentation' | 'slides';
 
-const INACTIVITY_OPTIONS = [
-  { label: '15 segundos', value: '15s' },
-  { label: '30 segundos', value: '30s' },
-  { label: '1 minuto', value: '60s' },
-  { label: '5 minutos', value: '300s' },
-];
-
-const SLIDE_DURATION_OPTIONS = [
-  { label: '5 segundos', value: '5s' },
-  { label: '10 segundos', value: '10s' },
-  { label: '15 segundos', value: '15s' },
-  { label: '30 segundos', value: '30s' },
-];
-
-const TRANSITION_OPTIONS = [
-  { label: 'Se desplaza a la izquierda', value: 'left' },
-  { label: 'Se desplaza a la derecha', value: 'right' },
-];
-
-const MAIN_MENU_ITEMS = [
-  {
-    id: 'presentation',
-    title: 'Modo de presentación',
-    description: 'Cuando tu PS5 esté inactiva, se esconden los widgets y se muestra una vista completa del fondo de tu Centro de bienvenida.',
-  },
-  {
-    id: 'slides',
-    title: 'Diapositivas',
-    description: 'Crea una presentación de imágenes del álbum que elijas para mostrarla como fondo de tu Centro de bienvenida.',
-  },
-];
-
 export default function WelcomeSettingsView({ visible, onClose }: WelcomeSettingsViewProps) {
+  const { t } = useTranslation();
+
+  const INACTIVITY_OPTIONS = useMemo(() => [
+    { label: `15 ${t('welcome.config.seconds')}`, value: '15s' },
+    { label: `30 ${t('welcome.config.seconds')}`, value: '30s' },
+    { label: `1 ${t('welcome.config.minute')}`, value: '60s' },
+    { label: `5 ${t('welcome.config.minutes')}`, value: '300s' },
+  ], [t]);
+
+  const SLIDE_DURATION_OPTIONS = useMemo(() => [
+    { label: `5 ${t('welcome.config.seconds')}`, value: '5s' },
+    { label: `10 ${t('welcome.config.seconds')}`, value: '10s' },
+    { label: `15 ${t('welcome.config.seconds')}`, value: '15s' },
+    { label: `30 ${t('welcome.config.seconds')}`, value: '30s' },
+  ], [t]);
+
+  const TRANSITION_OPTIONS = useMemo(() => [
+    { label: t('welcome.config.left'), value: 'left' },
+    { label: t('welcome.config.right'), value: 'right' },
+  ], [t]);
+
+  const MAIN_MENU_ITEMS = useMemo(() => [
+    {
+      id: 'presentation',
+      title: t('welcome.config.presentationTitle'),
+      description: t('welcome.config.presentationDesc'),
+    },
+    {
+      id: 'slides',
+      title: t('welcome.config.slidesTitle'),
+      description: t('welcome.config.slidesDesc'),
+    },
+  ], [t]);
   // ─── Navigation state ─────────────────────────────────────
   const [currentView, setCurrentView] = useState<SubView>('main');
   const [menuFocusIndex, setMenuFocusIndex] = useState(0);
@@ -187,7 +189,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
     presentationEnabled, inactivityTime, slideDuration, transitionStyle,
     showInactivityDropdown, showDurationDropdown, showTransitionDropdown,
     inactivityDropdownIndex, durationDropdownIndex, transitionDropdownIndex,
-    onClose,
+    onClose, INACTIVITY_OPTIONS, SLIDE_DURATION_OPTIONS, TRANSITION_OPTIONS, MAIN_MENU_ITEMS,
   ]);
 
   // ─── Helpers ────────────────────────────────────────────────
@@ -245,7 +247,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
   // ─── Render: Main menu ─────────────────────────────────────
   const renderMainMenu = () => (
     <>
-      <Text style={styles.viewTitle}>Configuración del Centro de bienvenida</Text>
+      <Text style={styles.viewTitle}>{t('welcome.config.title')}</Text>
       <View style={styles.menuContainer}>
         {MAIN_MENU_ITEMS.map((item, idx) => {
           const isFocused = menuFocusIndex === idx;
@@ -273,7 +275,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
   // ─── Render: Presentation sub-view ─────────────────────────
   const renderPresentationView = () => (
     <>
-      <Text style={styles.viewTitle}>Modo de presentación</Text>
+      <Text style={styles.viewTitle}>{t('welcome.config.presentationTitle')}</Text>
       <View style={styles.menuContainer}>
         {/* Activar */}
         <TouchableOpacity
@@ -283,12 +285,12 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
         >
           {presentationFocusIndex === 0 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
           <View style={styles.menuItemRow}>
-            <Text style={styles.menuItemTitle}>Activar</Text>
+            <Text style={styles.menuItemTitle}>{t('welcome.config.activateTitle')}</Text>
             <Toggle value={presentationEnabled} onToggle={() => setPresentationEnabled((p) => !p)} />
           </View>
           {presentationFocusIndex === 0 && (
             <Text style={styles.menuItemDescription}>
-              Cuando tu PS5 esté inactiva, se esconden los widgets y se muestra una vista completa del fondo de tu Centro de bienvenida.
+              {t('welcome.config.presentationDesc')}
             </Text>
           )}
         </TouchableOpacity>
@@ -304,7 +306,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
             }}
           >
             {presentationFocusIndex === 1 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
-            <Text style={styles.menuItemTitle}>Iniciar tras un período de inactividad</Text>
+            <Text style={styles.menuItemTitle}>{t('welcome.config.inactivityTitle')}</Text>
             <Text style={styles.menuItemValue}>{getInactivityLabel()}</Text>
           </TouchableOpacity>
           <Dropdown
@@ -324,7 +326,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
   // ─── Render: Slides sub-view ───────────────────────────────
   const renderSlidesView = () => (
     <>
-      <Text style={styles.viewTitle}>Diapositivas</Text>
+      <Text style={styles.viewTitle}>{t('welcome.config.slidesTitle')}</Text>
       <View style={styles.menuContainer}>
         {/* Álbum seleccionado */}
         <TouchableOpacity
@@ -333,10 +335,10 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
           onPress={() => { }}
         >
           {slidesFocusIndex === 0 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
-          <Text style={styles.menuItemTitle}>Álbum seleccionado</Text>
+          <Text style={styles.menuItemTitle}>{t('welcome.config.album')}</Text>
           {slidesFocusIndex === 0 && (
             <Text style={styles.menuItemDescription}>
-              Selecciona un álbum de imágenes para usar como presentación.
+              {t('welcome.config.albumDesc')}
             </Text>
           )}
         </TouchableOpacity>
@@ -352,7 +354,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
             }}
           >
             {slidesFocusIndex === 1 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
-            <Text style={styles.menuItemTitle}>Duración de diapositiva</Text>
+            <Text style={styles.menuItemTitle}>{t('welcome.config.durationTitle')}</Text>
             <Text style={styles.menuItemValue}>{getSlideDurationLabel()}</Text>
           </TouchableOpacity>
           <Dropdown
@@ -377,7 +379,7 @@ export default function WelcomeSettingsView({ visible, onClose }: WelcomeSetting
             }}
           >
             {slidesFocusIndex === 2 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
-            <Text style={styles.menuItemTitle}>Estilo de transición</Text>
+            <Text style={styles.menuItemTitle}>{t('welcome.config.transitionTitle')}</Text>
             <Text style={styles.menuItemValue}>{getTransitionLabel()}</Text>
           </TouchableOpacity>
           <Dropdown
