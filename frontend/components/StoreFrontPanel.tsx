@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,9 @@ import {
   Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { fetchStoreOffers, StoreOffer, LOCAL_FALLBACK_OFFERS } from '../services/storeService';
+import { StoreOffer } from '../services/storeService';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 interface StoreFrontPanelProps {
@@ -56,6 +56,13 @@ export const StoreFrontPanel = ({
   const isUpcomingFocused = (index: number) => focusArea === 'game_panel' && gamePanelFocusIndex === 10 + index;
   const isFooterFocused = () => focusArea === 'game_panel' && gamePanelFocusIndex === 20;
 
+  // Logo del juego enfocado (o primer juego por defecto)
+  const focusedLogo = useMemo(() => {
+    if (gamePanelFocusIndex < 10) return deals[gamePanelFocusIndex]?.logo || deals[0]?.logo || null;
+    if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) return upcoming[gamePanelFocusIndex - 10]?.logo || deals[0]?.logo || null;
+    return deals[0]?.logo || null;
+  }, [gamePanelFocusIndex, deals, upcoming]);
+
   // Horizontal scroll adjustment on focus change
   useEffect(() => {
     if (focusArea === 'game_panel') {
@@ -89,6 +96,17 @@ export const StoreFrontPanel = ({
 
       {/* Must see / Ofertas */}
       <Animated.View entering={FadeInDown.duration(400).delay(60)}>
+        {/* Logo del juego enfocado */}
+        {focusedLogo ? (
+          <Animated.View key={focusedLogo} entering={FadeIn.duration(300)} style={{ marginBottom: s(12) }}>
+            <Image
+              source={{ uri: focusedLogo }}
+              style={{ width: s(280), height: s(80) }}
+              contentFit="contain"
+            />
+          </Animated.View>
+        ) : null}
+
         <Text style={[styles.sectionTitle, { fontSize: s(25), marginBottom: s(14) }]}>
           {t('store.mustSee')}
         </Text>

@@ -5,6 +5,8 @@ export interface StoreOffer {
   originalPrice?: string;
   discountPercent?: number;
   image: string;
+  backgroundImage?: string;
+  logo?: string;
   type: 'offer' | 'release';
   url: string;
 }
@@ -22,6 +24,7 @@ export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
     originalPrice: 'US$59.99',
     discountPercent: 33,
     image: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2322010/header.jpg',
+    backgroundImage: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2322010/capsule_616x353.jpg',
     type: 'offer',
     url: 'https://store.playstation.com',
   },
@@ -32,6 +35,7 @@ export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
     originalPrice: 'US$69.99',
     discountPercent: 35,
     image: 'https://cdn2.steamgriddb.com/hero_thumb/74c12bbaa74d13c2b891cd7673d61370.jpg',
+    backgroundImage: 'https://cdn2.steamgriddb.com/hero_thumb/74c12bbaa74d13c2b891cd7673d61370.jpg',
     type: 'offer',
     url: 'https://www.playstation.com/es-co/games/marvels-spider-man-2/',
   },
@@ -42,6 +46,7 @@ export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
     originalPrice: 'US$59.99',
     discountPercent: 50,
     image: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2215430/header.jpg',
+    backgroundImage: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2215430/capsule_616x353.jpg',
     type: 'offer',
     url: 'https://store.playstation.com',
   },
@@ -52,6 +57,7 @@ export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
     originalPrice: 'US$79.99',
     discountPercent: 30,
     image: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1245620/header.jpg',
+    backgroundImage: 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1245620/capsule_616x353.jpg',
     type: 'offer',
     url: 'https://store.playstation.com',
   },
@@ -60,6 +66,7 @@ export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
     title: 'Grand Theft Auto VI',
     price: 'US$69.99',
     image: 'https://cdn2.steamgriddb.com/hero/b80be7960918982fceea91afaf4d5e27.png',
+    backgroundImage: 'https://cdn2.steamgriddb.com/hero/b80be7960918982fceea91afaf4d5e27.png',
     type: 'release',
     url: 'https://www.playstation.com/es-co/games/grand-theft-auto-vi/',
   },
@@ -68,6 +75,7 @@ export const LOCAL_FALLBACK_OFFERS: StoreOffer[] = [
     title: 'Marvel´s Wolverine',
     price: 'US$69.99',
     image: 'https://cdn2.steamgriddb.com/hero_thumb/5fe904eb5337336c64944610132d5e34.jpg',
+    backgroundImage: 'https://cdn2.steamgriddb.com/hero_thumb/5fe904eb5337336c64944610132d5e34.jpg',
     type: 'release',
     url: 'https://www.playstation.com/es-co/games/marvels-wolverine/',
   },
@@ -129,5 +137,37 @@ export const fetchStoreOffers = async (): Promise<StoreOffer[]> => {
   } catch (error) {
     console.error('[StoreService] Error fetching store offers:', error);
     return LOCAL_FALLBACK_OFFERS;
+  }
+};
+
+/**
+ * Enriquece las ofertas de la tienda con imágenes hero y logos de SteamGridDB.
+ */
+export const enrichOffersWithHeroes = async (offers: StoreOffer[]): Promise<StoreOffer[]> => {
+  try {
+    const { fetchSteamGridData } = await import('./steamGridService');
+
+    const enriched = await Promise.allSettled(
+      offers.map(async (offer) => {
+        const needsHero = !offer.backgroundImage;
+        const needsLogo = !offer.logo;
+        if (!needsHero && !needsLogo) return offer;
+
+        const result = await fetchSteamGridData(offer.title);
+        if (!result.success || !result.data) return offer;
+
+        return {
+          ...offer,
+          backgroundImage: needsHero ? (result.data.hero || offer.backgroundImage) : offer.backgroundImage,
+          logo: needsLogo ? (result.data.logo || offer.logo) : offer.logo,
+        };
+      })
+    );
+
+    return enriched.map((r, i) =>
+      r.status === 'fulfilled' ? r.value : offers[i]
+    );
+  } catch {
+    return offers;
   }
 };

@@ -50,7 +50,7 @@ import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta
 import { Language } from '@/i18n/translations';
 import { fetchSteamGridData } from '@/services/steamGridService';
 import { getSteamAppId } from '@/services/steamLaunchService';
-import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
+import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer, enrichOffersWithHeroes } from '@/services/storeService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 
@@ -423,7 +423,14 @@ export default function ConsoleHome() {
       : fetchStoreOffers();
 
     loader
-      .then((data) => setStoreOffers(data.length > 0 ? data : LOCAL_FALLBACK_OFFERS))
+      .then((data) => {
+        const base = data.length > 0 ? data : LOCAL_FALLBACK_OFFERS;
+        setStoreOffers(base);
+        // Enriquecer con hero images de SteamGrid en background
+        enrichOffersWithHeroes(base).then((enriched) => {
+          setStoreOffers(enriched);
+        });
+      })
       .finally(() => setStoreLoading(false));
   }, [activeUser?.settings?.storeSource]);
 
@@ -2710,9 +2717,25 @@ export default function ConsoleHome() {
     soundService.playNavigation();
   };
 
+  // Background del StoreFrontPanel: se computa sincrónicamente para evitar parpadeos
+  const storeFocusedBackground = useMemo(() => {
+    if (currentData[activeIndex]?.id !== '5') return null;
+    const storeDeals = storeOffers.filter((o) => o.type === 'offer');
+    const storeUpcoming = storeOffers.filter((o) => o.type === 'release');
+    let focused: StoreOffer | undefined;
+    if (gamePanelFocusIndex < 10) {
+      focused = storeDeals[gamePanelFocusIndex];
+    } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
+      focused = storeUpcoming[gamePanelFocusIndex - 10];
+    }
+    return focused?.backgroundImage || storeOffers[0]?.backgroundImage || null;
+  }, [gamePanelFocusIndex, currentData, activeIndex, storeOffers]);
+
   const currentBg = (currentRenderedTab === 'Games' && activeIndex === 1)
     ? (homeBackground || require('@/assets/images/FondoDefault2.jpg'))
-    : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg')));
+    : (currentData[activeIndex]?.id === '5' && storeFocusedBackground
+        ? storeFocusedBackground
+        : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg'))));
   const currentBackgroundVideo =
     currentRenderedTab === 'Games' && activeIndex === 0
       ? currentData[activeIndex]?.backgroundVideo
