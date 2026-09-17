@@ -42,6 +42,7 @@ import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
 import { UserProfile } from '@/components/UserSelectScreen';
 import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
+import WelcomeSettingsView from '@/components/WelcomeSettingsView';
 import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
@@ -203,6 +204,7 @@ export default function ConsoleHome() {
 
   const [isFavoritesVisible, setFavoritesVisible] = useState(false);
   const [isSettingsVisible, setSettingsVisible] = useState(false);
+  const [isWelcomeSettingsVisible, setWelcomeSettingsVisible] = useState(false);
   const [settingsInitialScreen, setSettingsInitialScreen] = useState<SettingsScreenType>('main');
   const [settingsTab, setSettingsTab] = useState<'profile' | 'home' | 'sync' | 'support'>('profile');
   const [homeBackground, setHomeBackground] = useState<any>(null);
@@ -2265,7 +2267,7 @@ export default function ConsoleHome() {
       }
       if (focusArea === 'welcome_toolbar') {
         if (toolbarFocusIndex === 2) setHomeBgModalVisible(true);
-        else if (toolbarFocusIndex === 3) setSettingsVisible(true);
+        else if (toolbarFocusIndex === 3) setWelcomeSettingsVisible(true);
         return;
       }
       if (focusArea === 'welcome_widgets') {
@@ -3099,7 +3101,7 @@ export default function ConsoleHome() {
                     setFocusArea('welcome_toolbar');
                     setToolbarFocusIndex(idx);
                     if (idx === 2) setHomeBgModalVisible(true);
-                    else if (idx === 3) setSettingsVisible(true);
+                    else if (idx === 3) setWelcomeSettingsVisible(true);
                   }}
                 >
                   {item.type === 'ion' ? (
@@ -3627,6 +3629,16 @@ export default function ConsoleHome() {
         onOpenAvatarModal={() => setAvatarModalVisible(true)}
         onSelectAvatarFolder={handleSelectAvatarFolder}
         initialScreen={settingsInitialScreen}
+      />
+
+      {/* WELCOME SETTINGS VIEW */}
+      <WelcomeSettingsView
+        visible={isWelcomeSettingsVisible}
+        onClose={() => {
+          setWelcomeSettingsVisible(false);
+          setFocusArea('welcome_toolbar');
+          setToolbarFocusIndex(3);
+        }}
       />
 
       {/* USER/POWER MODAL */}
