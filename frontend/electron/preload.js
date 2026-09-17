@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUsers: () => ipcRenderer.invoke('get-users'),
   saveApp: (appData) => ipcRenderer.invoke('save-app', appData),
   saveUsers: (users) => ipcRenderer.invoke('save-users', users),
-  launchApp: (id, path) => ipcRenderer.invoke('launch-app', id, path),
+  launchApp: (id, path, launchArgs) => ipcRenderer.invoke('launch-app', id, path, launchArgs),
   selectFile: () => ipcRenderer.invoke('select-file'),
   selectImage: () => ipcRenderer.invoke('select-image'),
   selectVideo: () => ipcRenderer.invoke('select-video'),

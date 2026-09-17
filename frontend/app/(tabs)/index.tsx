@@ -1218,6 +1218,7 @@ export default function ConsoleHome() {
           video: app.video ? (app.video.startsWith('http') ? { uri: app.video } : { uri: `local-file:///${app.video.replace(/\\/g, '/')}` }) : null,
           focusAudio: app.focusAudio,
           path: app.path,
+          launchArgs: app.launchArgs,
           description: app.description || (app.id === 'spotify_default' ? t('home.musicDesc') : ''),
           rating: app.rating,
           isFavorite: app.isFavorite,
