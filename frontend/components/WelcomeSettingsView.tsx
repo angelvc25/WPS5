@@ -5,6 +5,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import SpinningBorderSearch from './SpinningBorderSearch';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { soundService } from '@/services/soundService';
 
 interface WelcomeSettingsViewProps {
   visible: boolean;
@@ -101,6 +102,20 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
           setShowInactivityDropdown(false);
         }
         return;
+      }
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        soundService.playNavigation(); // O el nombre del sonido de movimiento que tengas
+      }
+
+      // Sonido de confirmación / Enter
+      if (e.key === 'Enter' || e.key === ' ') {
+        soundService.playActivation();
+      }
+
+      // Sonido de regreso / Escape / Back
+      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+        soundService.playBack();
+        onClose(); // O la función para cerrar el modal
       }
 
       if (showDurationDropdown) {

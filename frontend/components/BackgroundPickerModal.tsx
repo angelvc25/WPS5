@@ -26,6 +26,11 @@ interface FolderImage {
   mtime: number;
 }
 
+interface Album {
+  name: string;
+  items: string[];
+}
+
 interface BackgroundPickerModalProps {
   visible: boolean;
   onClose: () => void;
@@ -37,13 +42,22 @@ interface BackgroundPickerModalProps {
 }
 
 const TABS = [
-  { id: 'playstation', label: 'From PlayStation' },
-  { id: 'games', label: 'Games' },
-  { id: 'gallery', label: 'Gallery' },
-  { id: 'slideshow', label: 'Slideshow' },
+  { id: 'all', labelKey: 'mediaGallery.all' },
+  { id: 'favorites', labelKey: 'mediaGallery.favorites' },
+  { id: 'albums', labelKey: 'mediaGallery.albums' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
+
+const loadPersisted = <T,>(key: string, fallback: T): T => {
+  try {
+    if (typeof window === 'undefined') return fallback;
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 interface BackgroundTileProps {
   previewUri: string;
@@ -123,69 +137,6 @@ const BackgroundTile = React.memo<BackgroundTileProps>(({
 
 BackgroundTile.displayName = 'BackgroundTile';
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#07080cff',
-  },
-  backdropImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  backdropDim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(7, 8, 12, 0.12)',
-  },
-  content: {
-    flex: 1,
-    zIndex: 2,
-  },
-  tileInner: {
-    flex: 1,
-    borderRadius: 6,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: 'transparent',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  tileFocused: {
-    borderColor: '#ffffff0c',
-  },
-  tileSelected: {
-    borderColor: 'rgba(255,255,255,0.45)',
-  },
-  tileImage: {
-    width: '100%',
-    height: '100%',
-  },
-  tileImageHidden: {
-    opacity: 0,
-  },
-  tilePlaceholder: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  gifBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  gifBadgeText: {
-    color: '#FFF',
-    fontSize: 15,
-    fontFamily: 'SSTLight',
-    letterSpacing: 0.3,
-  }
-});
-
-
 const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
   visible,
   onClose,
@@ -196,25 +147,30 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
   capturePath,
 }) => {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const [activeTab, setActiveTab] = useState<TabId>('playstation');
+  const { t } = useTranslation();
+
+  const [activeTab, setActiveTab] = useState<TabId>('all');
   const [focusArea, setFocusArea] = useState<'tabs' | 'grid'>('grid');
   const [tabFocusIndex, setTabFocusIndex] = useState(0);
   const [gridFocusIndex, setGridFocusIndex] = useState(0);
   const [images, setImages] = useState<FolderImage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [resolvedWallpaperFolder, setResolvedWallpaperFolder] = useState<string | null>(null);
+
+  // Estados de álbumes y favoritos sincronizados con MediaGalleryView
+  const [albums] = useState<Album[]>(() => loadPersisted<Album[]>('mediaGallery_albums', []));
+  const [favorites] = useState<Set<string>>(() => new Set(loadPersisted<string[]>('mediaGallery_favorites', [])));
+  const [openAlbumIndex, setOpenAlbumIndex] = useState<number | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
   const focusAreaRef = useRef(focusArea);
   const tabFocusIndexRef = useRef(tabFocusIndex);
   const gridFocusIndexRef = useRef(gridFocusIndex);
   const imagesRef = useRef(images);
+  const activeTabRef = useRef(activeTab);
+  const albumsRef = useRef(albums);
+  const openAlbumIndexRef = useRef(openAlbumIndex);
   const lastNavSoundRef = useRef(0);
-  const { t } = useTranslation();
 
-  // Tracks the visible window of the grid ScrollView so we only mount/load
-  // thumbnails for rows that are actually on screen (plus a small buffer),
-  // instead of loading every image in the folder at once.
   const [gridScrollY, setGridScrollY] = useState(0);
   const [gridViewportHeight, setGridViewportHeight] = useState(windowHeight);
 
@@ -229,6 +185,9 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
   tabFocusIndexRef.current = tabFocusIndex;
   gridFocusIndexRef.current = gridFocusIndex;
   imagesRef.current = images;
+  activeTabRef.current = activeTab;
+  albumsRef.current = albums;
+  openAlbumIndexRef.current = openAlbumIndex;
 
   const playGridNavSound = useCallback(() => {
     const now = Date.now();
@@ -238,7 +197,8 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     }
   }, []);
 
-  const loadImages = useCallback(async (tab: TabId) => {
+  // Carga simultánea de Capturas y Wallpapers (igual que en MediaGalleryView)
+  const loadImages = useCallback(async () => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI) {
       setImages([]);
       return;
@@ -248,47 +208,60 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     setImages([]);
     try {
       const api = (window as any).electronAPI;
-      let folder: string | null = null;
+      const allImages: FolderImage[] = [];
+      const folders: { path?: string; source: string }[] = [];
 
-      if (tab === 'playstation') {
-        folder = wallpaperPath || resolvedWallpaperFolder || await api.getDefaultWallpaperFolder?.();
-        if (!resolvedWallpaperFolder && folder) setResolvedWallpaperFolder(folder);
-      } else if (tab === 'gallery') {
-        folder = capturePath || await api.getDefaultCaptureFolder?.();
-      } else {
-        setImages([]);
-        return;
+      if (capturePath) folders.push({ path: capturePath, source: 'capture' });
+      if (wallpaperPath) folders.push({ path: wallpaperPath, source: 'wallpaper' });
+      if (!capturePath && !wallpaperPath) {
+        const dc = await api.getDefaultCaptureFolder?.();
+        const dw = await api.getDefaultWallpaperFolder?.();
+        if (dc) folders.push({ path: dc, source: 'capture' });
+        if (dw) folders.push({ path: dw, source: 'wallpaper' });
       }
 
-      if (!folder) {
-        setImages([]);
-        return;
+      for (const folder of folders) {
+        if (!folder.path) continue;
+        try {
+          const result: FolderImage[] = await api.listFolderImages(folder.path);
+          result.forEach(img => allImages.push({ ...img, name: `${folder.source}:${img.name}` }));
+        } catch { /* ignorar carpetas no válidas */ }
       }
 
-      const result: FolderImage[] = await api.listFolderImages(folder);
-      setImages(result);
+      allImages.sort((a, b) => b.mtime - a.mtime);
+      setImages(allImages);
       setGridFocusIndex(0);
-      setFocusArea(result.length > 0 ? 'grid' : 'tabs');
-    } catch (err) {
-      console.error('Error loading background images:', err);
+      setFocusArea(allImages.length > 0 ? 'grid' : 'tabs');
+    } catch {
       setImages([]);
     } finally {
       setLoading(false);
     }
-  }, [wallpaperPath, capturePath, resolvedWallpaperFolder]);
+  }, [capturePath, wallpaperPath]);
 
   useEffect(() => {
     if (visible) {
-      setActiveTab('playstation');
+      setActiveTab('all');
       setTabFocusIndex(0);
       setGridFocusIndex(0);
       setFocusArea('grid');
+      setOpenAlbumIndex(null);
+      loadImages();
     }
-  }, [visible]);
+  }, [visible, loadImages]);
 
-  useEffect(() => {
-    if (visible) loadImages(activeTab);
-  }, [visible, activeTab, loadImages]);
+  const filteredImages = useMemo(() => {
+    if (activeTab === 'all') return images;
+    if (activeTab === 'favorites') return images.filter(img => favorites.has(img.uri));
+    if (activeTab === 'albums') {
+      if (openAlbumIndex === null) return [];
+      const album = albums[openAlbumIndex];
+      if (!album) return [];
+      const albumUris = new Set(album.items);
+      return images.filter(img => albumUris.has(img.uri));
+    }
+    return images;
+  }, [images, activeTab, favorites, albums, openAlbumIndex]);
 
   const scrollToFocusedTile = useCallback((index: number) => {
     const row = Math.floor(index / columns);
@@ -304,30 +277,22 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     setGridViewportHeight(e.nativeEvent.layout.height);
   }, []);
 
-  // A tile "should load" its image if its row falls inside the visible
-  // viewport, extended by one extra screen above and below (buffer) so
-  // scrolling stays smooth instead of popping placeholders in at the edge.
   const isRowVisible = useCallback((idx: number) => {
     const row = Math.floor(idx / columns);
     const rowTop = row * tileStrideY;
     const rowBottom = rowTop + tileHeight;
     const buffer = Math.max(gridViewportHeight, 1);
-    const viewTop = gridScrollY - buffer;
-    const viewBottom = gridScrollY + gridViewportHeight + buffer;
-    return rowBottom >= viewTop && rowTop <= viewBottom;
+    return rowBottom >= gridScrollY - buffer && rowTop <= gridScrollY + gridViewportHeight + buffer;
   }, [columns, tileStrideY, tileHeight, gridScrollY, gridViewportHeight]);
 
   useEffect(() => {
-    // Reset the tracked scroll position whenever a new set of images loads
-    // (tab switch, folder change, etc.) so visibility is recalculated from
-    // the top instead of keeping a stale offset from the previous list.
     setGridScrollY(0);
-  }, [images]);
+  }, [filteredImages]);
 
   useEffect(() => {
-    if (!visible || focusArea !== 'grid' || images.length === 0) return;
+    if (!visible || focusArea !== 'grid' || filteredImages.length === 0) return;
     scrollToFocusedTile(gridFocusIndex);
-  }, [visible, focusArea, gridFocusIndex, images.length, scrollToFocusedTile]);
+  }, [visible, focusArea, gridFocusIndex, filteredImages.length, scrollToFocusedTile]);
 
   const switchTab = useCallback((direction: -1 | 1) => {
     const currentIdx = TABS.findIndex(t => t.id === activeTab);
@@ -336,17 +301,11 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
       setActiveTab(TABS[nextIdx].id);
       setTabFocusIndex(nextIdx);
       setFocusArea('tabs');
+      setOpenAlbumIndex(null);
+      setGridFocusIndex(0);
       soundService.playTab();
     }
   }, [activeTab]);
-
-  const selectFocusedImage = useCallback(() => {
-    const selected = imagesRef.current[gridFocusIndexRef.current];
-    if (selected) {
-      onSelectBackground(selected.uri);
-      onClose();
-    }
-  }, [onSelectBackground, onClose]);
 
   useEffect(() => {
     if (!visible || Platform.OS !== 'web') return;
@@ -358,6 +317,13 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
       }
 
       if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+        if (activeTabRef.current === 'albums' && openAlbumIndexRef.current !== null) {
+          setOpenAlbumIndex(null);
+          setGridFocusIndex(0);
+          setFocusArea('grid');
+          soundService.playBack();
+          return;
+        }
         soundService.playBack();
         onClose();
         return;
@@ -372,7 +338,6 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
         return;
       }
 
-      const currentImages = imagesRef.current;
       const area = focusAreaRef.current;
 
       if (area === 'tabs') {
@@ -390,25 +355,18 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
           setActiveTab(TABS[next].id);
         } else if (e.key === 'ArrowDown') {
           soundService.playNavigation();
-          if (currentImages.length > 0) {
-            focusAreaRef.current = 'grid';
-            setFocusArea('grid');
-          }
-        } else if (e.key === 'Enter' || e.key === ' ') {
-          soundService.playActivation();
-          if (currentImages.length > 0) {
-            focusAreaRef.current = 'grid';
-            setFocusArea('grid');
-          }
+          setFocusArea('grid');
         }
         return;
       }
 
       if (area === 'grid') {
-        if (currentImages.length === 0) {
+        const isOverview = activeTabRef.current === 'albums' && openAlbumIndexRef.current === null;
+        const itemCount = isOverview ? albumsRef.current.length : filteredImages.length;
+
+        if (itemCount === 0) {
           if (e.key === 'ArrowUp') {
             soundService.playNavigation();
-            focusAreaRef.current = 'tabs';
             setFocusArea('tabs');
           }
           return;
@@ -416,203 +374,96 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
 
         if (e.key === 'ArrowRight') {
           playGridNavSound();
-          setGridFocusIndex(prev => {
-            const next = Math.min(prev + 1, currentImages.length - 1);
-            gridFocusIndexRef.current = next;
-            return next;
-          });
+          setGridFocusIndex(prev => Math.min(prev + 1, itemCount - 1));
         } else if (e.key === 'ArrowLeft') {
           playGridNavSound();
-          setGridFocusIndex(prev => {
-            const next = Math.max(prev - 1, 0);
-            gridFocusIndexRef.current = next;
-            return next;
-          });
+          setGridFocusIndex(prev => Math.max(prev - 1, 0));
         } else if (e.key === 'ArrowDown') {
           playGridNavSound();
-          setGridFocusIndex(prev => {
-            const next = Math.min(prev + columns, currentImages.length - 1);
-            gridFocusIndexRef.current = next;
-            return next;
-          });
+          setGridFocusIndex(prev => Math.min(prev + columns, itemCount - 1));
         } else if (e.key === 'ArrowUp') {
           playGridNavSound();
           setGridFocusIndex(prev => {
             const next = prev - columns;
             if (next < 0) {
-              focusAreaRef.current = 'tabs';
               setFocusArea('tabs');
               return prev;
             }
-            gridFocusIndexRef.current = next;
             return next;
           });
         } else if (e.key === 'Enter' || e.key === ' ') {
-          soundService.playActivation();
-          selectFocusedImage();
+          if (isOverview) {
+            const albumIdx = gridFocusIndexRef.current;
+            if (albumsRef.current[albumIdx]) {
+              setOpenAlbumIndex(albumIdx);
+              setGridFocusIndex(0);
+              soundService.playActivation();
+            }
+          } else {
+            const selected = filteredImages[gridFocusIndexRef.current];
+            if (selected) {
+              soundService.playActivation();
+              onSelectBackground(selected.uri);
+              onClose();
+            }
+          }
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [visible, columns, onClose, switchTab, selectFocusedImage, playGridNavSound]);
+  }, [visible, columns, onClose, switchTab, playGridNavSound, filteredImages, onSelectBackground]);
 
   const uiStyles = useMemo(() => StyleSheet.create({
-    content: {
-      flex: 1,
-      paddingTop: s(48),
-      paddingHorizontal: s(100),
-      paddingBottom: s(40),
-    },
-    title: {
-      color: '#FFF',
-      fontSize: s(28),
-      fontWeight: '300',
-      fontFamily: 'SSTLight',
-      marginLeft: s(-50),
-      marginBottom: s(44),
-    },
-    tabsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s(12),
-      marginBottom: s(30),
-    },
-    tab: {
-      paddingHorizontal: s(18),
-      paddingVertical: s(10),
-      borderRadius: s(22),
-      borderWidth: 2,
-      borderColor: 'transparent',
-    },
-    tabActive: {
-      borderColor: 'rgba(255, 255, 255, 0)',
-      backgroundColor: 'rgba(255, 255, 255, 0)',
-    },
-    tabFocused: {
-      //borderColor: '#ffffff',
-      //backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    },
-    tabText: {
-      color: 'rgba(255,255,255,0.55)',
-      fontFamily: 'SSTLight',
-      fontSize: s(15),
-      fontWeight: '400',
-    },
-    tabTextActive: {
-      color: '#FFF',
-      fontFamily: 'SSTBold',
-    },
-    sortRow: {
-      position: 'absolute',
-      top: s(48 + 28 + 24 + 10),
-      right: s(72),
-    },
-    sortText: {
-      color: 'rgba(255,255,255,0.45)',
-      fontSize: s(13),
-      fontFamily: 'SSTLight',
-    },
-    grid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: s(16),
-      paddingTop: s(8),
-    },
-    emptyState: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: s(80),
-    },
-    emptyText: {
-      color: 'rgba(255,255,255,0.45)',
-      fontSize: s(16),
-      textAlign: 'center',
-      maxWidth: s(480),
-      lineHeight: s(24),
-    },
-    footer: {
-      position: 'absolute',
-      bottom: s(28),
-      right: s(72),
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s(8),
-      zIndex: 3,
-    },
-    footerLeft: {
-      position: 'absolute',
-      bottom: s(28),
-      left: s(72),
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s(16),
-      zIndex: 3,
-    },
-    footerText: {
-      color: 'rgba(255, 255, 255, 1)',
-      fontSize: s(15),
-      fontFamily: 'SSTMedium',
-    },
-    footerKey: {
-      color: 'rgba(255,255,255,0.85)',
-      fontSize: s(15),
-      fontFamily: 'SSTBold',
-    },
-    loadingWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: s(60),
-      gap: s(16),
-    },
-    loadingText: {
-      color: 'rgba(255,255,255,0.45)',
-      fontSize: s(14),
-      fontFamily: 'SSTLight',
-    },
-    footerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      backgroundColor: 'rgba(0, 0, 0, 0.9)',
-      borderRadius: s(2),
-      paddingHorizontal: s(18),
-      paddingVertical: s(10),
-    },
-  }), [s]);
+    content: { flex: 1, paddingTop: s(48), paddingHorizontal: s(72), paddingBottom: s(40) },
+    title: { color: '#FFF', fontSize: s(32), fontWeight: '300', fontFamily: 'SSTLight', marginBottom: s(36) },
+    tabsRow: { flexDirection: 'row', alignItems: 'center', gap: s(12), marginBottom: s(30), marginLeft: s(40) },
+    tab: { paddingHorizontal: s(18), paddingVertical: s(10), borderRadius: s(4), borderWidth: 2, borderColor: 'transparent' },
+    tabActive: { borderColor: 'rgba(255, 255, 255, 0)', backgroundColor: 'rgba(255, 255, 255, 0)' },
+    tabFocused: { borderColor: 'rgba(255, 255, 255, 0)', backgroundColor: 'rgba(255, 255, 255, 0)' },
+    tabText: { color: 'rgba(255,255,255,0.55)', fontFamily: 'SSTLight', fontSize: s(20) },
+    tabTextActive: { color: '#FFF', fontFamily: 'SSTLight' },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: s(20), paddingTop: s(8), marginLeft: s(40) },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: s(80) },
+    emptyText: { color: 'rgba(255,255,255,0.45)', fontSize: s(16), textAlign: 'center', maxWidth: s(480), lineHeight: s(24) },
+    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: s(60), gap: s(16) },
+    loadingText: { color: 'rgba(255,255,255,0.45)', fontSize: s(14), fontFamily: 'SSTLight' },
+    footer: { position: 'absolute', bottom: s(28), right: s(72), flexDirection: 'row', alignItems: 'center', gap: s(8), zIndex: 3 },
+    footerLeft: { position: 'absolute', bottom: s(28), left: s(72), flexDirection: 'row', alignItems: 'center', gap: s(16), zIndex: 3 },
+    footerText: { color: 'rgba(255, 255, 255, 1)', fontSize: s(15), fontFamily: 'SSTMedium' },
+    footerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0, 0, 0, 0.9)', borderRadius: s(2), paddingHorizontal: s(18), paddingVertical: s(10) },
+    albumCard: { width: tileWidth, height: tileHeight, borderRadius: 6, overflow: 'hidden', borderWidth: 3, borderColor: 'transparent', backgroundColor: 'rgba(255,255,255,0.05)', position: 'relative' },
+    albumCardFocused: { borderColor: '#ffffff93' },
+    albumCardInner: { flex: 1, justifyContent: 'flex-end' },
+    albumCardImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+    albumCardPlaceholder: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)' },
+    albumCardOverlay: { backgroundColor: 'rgba(0,0,0,0.6)', padding: s(12), flexDirection: 'row', alignItems: 'center', gap: s(8) },
+    albumCardName: { color: '#fff', fontFamily: 'SSTBold', fontSize: s(14), flex: 1 },
+    albumCardCount: { color: 'rgba(255,255,255,0.6)', fontFamily: 'SSTLight', fontSize: s(12) },
+  }), [s, tileWidth, tileHeight]);
 
-  const emptyMessages: Record<TabId, string> = {
-    playstation: wallpaperPath
-      ? t('bg.emptyPsFolder')
-      : t('bg.emptyWallpapers'),
-    games: t('bg.emptyGames'),
-    gallery: t('bg.emptyGallery'),
-    slideshow: t('bg.emptySlideshow'),
-  };
+  const isAlbumsOverview = activeTab === 'albums' && openAlbumIndex === null;
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <Animated.View style={styles.root} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
-        {backdropUri ? (
-          <Image
-            source={{ uri: backdropUri }}
-            style={[styles.backdropImage, { opacity: 0.22 }]}
-            contentFit="cover"
-          />
-        ) : null}
+        {backdropUri && (
+          <Image source={{ uri: backdropUri }} style={[styles.backdropImage, { opacity: 0.22 }]} contentFit="cover" />
+        )}
         <View style={styles.backdropDim} />
 
         <Animated.View style={[styles.content, uiStyles.content]} entering={FadeIn.delay(60).duration(240)}>
-          <Text style={uiStyles.title}>{t('bg.change')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12), marginBottom: s(8) }}>
+            {activeTab === 'albums' && openAlbumIndex !== null && (
+              <TouchableOpacity onPress={() => { setOpenAlbumIndex(null); setGridFocusIndex(0); soundService.playBack(); }} style={{ padding: s(8) }}>
+                <Ionicons name="arrow-back" size={s(24)} color="rgba(255,255,255,0.8)" />
+              </TouchableOpacity>
+            )}
+            <Text style={uiStyles.title}>
+              {activeTab === 'albums' && openAlbumIndex !== null ? albums[openAlbumIndex]?.name || t('mediaGallery.albums') : t('bg.change')}
+            </Text>
+          </View>
 
           <View style={uiStyles.tabsRow}>
             {TABS.map((tab, idx) => {
@@ -626,37 +477,74 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
                     setActiveTab(tab.id);
                     setTabFocusIndex(idx);
                     setFocusArea('tabs');
+                    setOpenAlbumIndex(null);
+                    setGridFocusIndex(0);
                   }}
                   activeOpacity={0.8}
                 >
                   {isFocused && <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />}
-                  <Text style={[uiStyles.tabText, isActive && uiStyles.tabTextActive]}>{tab.label}</Text>
+                  <Text style={[uiStyles.tabText, isActive && uiStyles.tabTextActive]}>{t(tab.labelKey)}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          <View style={uiStyles.sortRow}>
-            <Text style={uiStyles.sortText}>Ordenar por: Fecha en que se agregó (nuevo - antiguo)</Text>
-          </View>
-
           {loading ? (
             <View style={uiStyles.loadingWrap}>
               <ActivityIndicator size="large" color="#FFF" />
-              <Text style={uiStyles.loadingText}>Preparando miniaturas…</Text>
+              <Text style={uiStyles.loadingText}>{t('bg.preparingThumbs')}</Text>
             </View>
-          ) : images.length > 0 ? (
-            <ScrollView
-              ref={scrollRef}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: s(80) }}
-              keyboardShouldPersistTaps="handled"
-              onScroll={handleGridScroll}
-              onLayout={handleGridLayout}
-              scrollEventThrottle={50}
-            >
+          ) : isAlbumsOverview ? (
+            albums.length > 0 ? (
+              <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: s(80) }} keyboardShouldPersistTaps="handled" onScroll={handleGridScroll} onLayout={handleGridLayout} scrollEventThrottle={50}>
+                <View style={uiStyles.grid}>
+                  {albums.map((album, idx) => {
+                    const firstImg = images.find(img => album.items.includes(img.uri));
+                    const previewUri = firstImg ? (firstImg.thumbnail || firstImg.uri) : '';
+                    const isFocused = focusArea === 'grid' && gridFocusIndex === idx;
+                    return (
+                      <TouchableOpacity
+                        key={album.name}
+                        style={[uiStyles.albumCard, isFocused && uiStyles.albumCardFocused]}
+                        activeOpacity={0.92}
+                        onPress={() => {
+                          setGridFocusIndex(idx);
+                          setFocusArea('grid');
+                          setOpenAlbumIndex(idx);
+                          setGridFocusIndex(0);
+                          soundService.playActivation();
+                        }}
+                      >
+                        {isFocused && <SpinningBorderSearch size={tileWidth} spread={1} borderRadius={6} />}
+                        <View style={uiStyles.albumCardInner}>
+                          {previewUri ? (
+                            <Image source={{ uri: previewUri }} style={uiStyles.albumCardImage} contentFit="cover" cachePolicy="memory-disk" />
+                          ) : (
+                            <View style={uiStyles.albumCardPlaceholder}>
+                              <Ionicons name="folder-open-outline" size={s(48)} color="rgba(255,255,255,0.3)" />
+                            </View>
+                          )}
+                          <View style={uiStyles.albumCardOverlay}>
+                            <Ionicons name="folder" size={s(24)} color="rgba(255,255,255,0.9)" />
+                            <Text style={uiStyles.albumCardName} numberOfLines={1}>{album.name}</Text>
+                            <Text style={uiStyles.albumCardCount}>{album.items.length} {t('mediaGallery.all').toLowerCase()}</Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            ) : (
+              <View style={uiStyles.emptyState}>
+                <Ionicons name="folder-open-outline" size={s(48)} color="rgba(255,255,255,0.25)" style={{ marginBottom: s(16) }} />
+                <Text style={uiStyles.emptyText}>{t('mediaGallery.empty')}</Text>
+              </View>
+            )
+          ) : filteredImages.length > 0 ? (
+            <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: s(80) }} keyboardShouldPersistTaps="handled" onScroll={handleGridScroll} onLayout={handleGridLayout} scrollEventThrottle={50}>
               <View style={uiStyles.grid}>
-                {images.map((img, idx) => (
+                {filteredImages.map((img, idx) => (
                   <BackgroundTile
                     key={img.uri}
                     previewUri={img.thumbnail || img.uri}
@@ -681,56 +569,28 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
           ) : (
             <View style={uiStyles.emptyState}>
               <Ionicons name="images-outline" size={s(48)} color="rgba(255,255,255,0.25)" style={{ marginBottom: s(16) }} />
-              <Text style={uiStyles.emptyText}>{emptyMessages[activeTab]}</Text>
+              <Text style={uiStyles.emptyText}>{t('mediaGallery.empty')}</Text>
             </View>
           )}
         </Animated.View>
 
         <View style={uiStyles.footerLeft}>
           <View style={uiStyles.footerRow}>
-            <PSIcon
-              char={PSIcons.dpadUp}
-              size={22}
-              color='#d3d3d3ff'
-            />
-            <PSIcon
-              char={PSIcons.dpadDown}
-              size={22}
-              color='#d3d3d3ff'
-            />
-            <PSIcon
-              char={PSIcons.dpadLeft}
-              size={22}
-              color='#d3d3d3ff'
-            />
-            <PSIcon
-              char={PSIcons.dpadRight}
-              size={22}
-              color='#d3d3d3ff'
-            />
+            <PSIcon char={PSIcons.dpadUp} size={22} color='#d3d3d3ff' />
+            <PSIcon char={PSIcons.dpadDown} size={22} color='#d3d3d3ff' />
+            <PSIcon char={PSIcons.dpadLeft} size={22} color='#d3d3d3ff' />
+            <PSIcon char={PSIcons.dpadRight} size={22} color='#d3d3d3ff' />
             <Text style={uiStyles.footerText}>{t('common.navigate')}</Text>
-            <PSIcon
-              char={PSIcons.cross}
-              size={22}
-              color='#d3d3d3ff'
-            />
+            <PSIcon char={PSIcons.cross} size={22} color='#d3d3d3ff' />
             <Text style={uiStyles.footerText}>{t('common.select')}</Text>
           </View>
         </View>
 
         <View style={uiStyles.footer}>
           <View style={uiStyles.footerRow}>
-            <PSIcon
-              char={PSIcons.r1}
-              size={22}
-              color='#d3d3d3ff'
-            />
+            <PSIcon char={PSIcons.r1} size={22} color='#d3d3d3ff' />
             <Text style={uiStyles.footerText}>/</Text>
-            <PSIcon
-              char={PSIcons.l1}
-              size={22}
-              color='#d3d3d3ff'
-            />
+            <PSIcon char={PSIcons.l1} size={22} color='#d3d3d3ff' />
             <Text style={uiStyles.footerText}>{t('search.changeTabs')}</Text>
           </View>
         </View>
@@ -738,5 +598,20 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#07080cff' },
+  backdropImage: { ...StyleSheet.absoluteFillObject },
+  backdropDim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(7, 8, 12, 0.12)' },
+  content: { flex: 1, zIndex: 2 },
+  tileInner: { flex: 1, borderRadius: 6, overflow: 'hidden', borderWidth: 3, borderColor: 'transparent', backgroundColor: 'rgba(255,255,255,0.05)' },
+  tileFocused: { borderColor: '#ffffff0c' },
+  tileSelected: { borderColor: 'rgba(255,255,255,0.45)' },
+  tileImage: { width: '100%', height: '100%' },
+  tileImageHidden: { opacity: 0 },
+  tilePlaceholder: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)' },
+  gifBadge: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0, 0, 0, 0.72)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)' },
+  gifBadgeText: { color: '#FFF', fontSize: 15, fontFamily: 'SSTLight', letterSpacing: 0.3 },
+});
 
 export default BackgroundPickerModal;

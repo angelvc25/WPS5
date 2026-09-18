@@ -709,11 +709,11 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     footerText: { color: 'rgba(255,255,255,1)', fontSize: s(20), fontFamily: 'SSTMedium' },
     footerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.9)', borderRadius: s(2), paddingHorizontal: s(18), paddingVertical: s(10) },
     albumModalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
-    albumModal: { width: s(420), backgroundColor: 'rgba(20,20,30,0.97)', borderRadius: s(16), borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', padding: s(28) },
+    albumModal: { width: s(420), backgroundColor: 'rgba(20,20,30,0.97)', borderRadius: s(16), padding: s(28) },
     albumModalTitle: { color: '#fff', fontFamily: 'SSTBold', fontSize: s(20), marginBottom: s(20) },
     albumInput: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: s(8), borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', color: '#fff', fontFamily: 'SSTLight', fontSize: s(16), paddingHorizontal: s(16), paddingVertical: s(12), marginBottom: s(20) },
     albumModalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: s(12) },
-    albumModalBtn: { paddingHorizontal: s(20), paddingVertical: s(10), borderRadius: s(8) },
+    albumModalBtn: { paddingHorizontal: s(20), paddingVertical: s(10), borderRadius: s(18) },
     albumModalBtnPrimary: { backgroundColor: 'rgba(74,144,226,0.9)' },
     albumModalBtnText: { color: '#fff', fontFamily: 'SSTMedium', fontSize: s(14) },
     albumPickerItem: { flexDirection: 'row', alignItems: 'center', gap: s(12), paddingVertical: s(12), paddingHorizontal: s(16), borderRadius: s(8), borderWidth: 1.5, borderColor: 'transparent', marginBottom: s(4) },
@@ -1007,7 +1007,8 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
                 <TouchableOpacity
                   style={[
                     uiStyles.albumModalBtn,
-                    confirmModalFocusIndex === 0 && { borderColor: '#fff', borderWidth: 1.5, backgroundColor: 'rgba(255,255,255,0.15)' }
+                    { backgroundColor: '#ffffff17' },
+                    confirmModalFocusIndex === 0 && { borderColor: '#ffffff0e', borderWidth: 1, backgroundColor: 'rgba(255, 255, 255, 1)' }
                   ]}
                   activeOpacity={0.8}
                   onPress={() => {
@@ -1015,7 +1016,8 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
                     soundService.playBack();
                   }}
                 >
-                  <Text style={[uiStyles.albumModalBtnText, confirmModalFocusIndex === 0 && { fontFamily: 'SSTBold', color: '#fff' }]}>
+                  {confirmModalFocusIndex === 0 && <SpinningBorderSearch size={s(180)} spread={5} borderRadius={25} />}
+                  <Text style={[uiStyles.albumModalBtnText, confirmModalFocusIndex === 0 && { fontFamily: 'SSTBold', color: '#000000ff' }]}>
                     {t('mediaGallery.cancel') || 'Cancelar'}
                   </Text>
                 </TouchableOpacity>
@@ -1024,13 +1026,14 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
                 <TouchableOpacity
                   style={[
                     uiStyles.albumModalBtn,
-                    { backgroundColor: 'rgba(220, 53, 69, 0.85)' },
-                    confirmModalFocusIndex === 1 && { borderColor: '#fff', borderWidth: 1.5, backgroundColor: 'rgba(220, 53, 69, 1)' }
+                    { backgroundColor: '#ffffff17' },
+                    confirmModalFocusIndex === 1 && { borderColor: '#ffffff0a', borderWidth: 1, backgroundColor: 'rgba(255, 255, 255, 1)' }
                   ]}
                   activeOpacity={0.8}
                   onPress={confirmRemoveOrDelete}
                 >
-                  <Text style={[uiStyles.albumModalBtnText, confirmModalFocusIndex === 1 && { fontFamily: 'SSTBold', color: '#fff' }]}>
+                  {confirmModalFocusIndex === 1 && <SpinningBorderSearch size={s(180)} spread={5} borderRadius={25} />}
+                  <Text style={[uiStyles.albumModalBtnText, confirmModalFocusIndex === 1 && { fontFamily: 'SSTBold', color: '#000000ff' }]}>
                     {t('mediaGallery.delete') || 'Eliminar'}
                   </Text>
                 </TouchableOpacity>

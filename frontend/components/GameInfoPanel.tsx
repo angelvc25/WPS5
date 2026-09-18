@@ -572,11 +572,11 @@ export const GameInfoPanel = ({
   const buttonLabel = isMediaGallery
     ? t('mediaGallery.open')
     : getGameActionLabel(activeItem, installedSteamAppIds, {
-        play: t('action.play'),
-        playMedia: t('action.playMedia'),
-        assignPath: t('action.assignPath'),
-        download: t('action.download'),
-      });
+      play: t('action.play'),
+      playMedia: t('action.playMedia'),
+      assignPath: t('action.assignPath'),
+      download: t('action.download'),
+    });
 
   return (
     <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }]}>
@@ -642,13 +642,13 @@ export const GameInfoPanel = ({
             </Animated.View>
           ) : isMediaGallery ? (
             <Animated.View key={`media-gallery-title-${activeIndex}`} entering={FadeInDown.duration(400)}>
-              <Text style={[styles.gameTitle, { fontSize: s(38), marginBottom: s(10) }]} numberOfLines={2}>
-                {t('mediaGallery.title')}
+              <Text style={[styles.gameTitle, { fontSize: s(38), marginBottom: s(10), marginTop: s(-80) }]} numberOfLines={2}>
+                {t('mediaGallery.descriptionPrev')}
               </Text>
-              <Text style={[styles.gameTitle, { fontSize: s(20), opacity: 0.7, marginBottom: s(4), lineHeight: s(28) }]} numberOfLines={2}>
+              <Text style={[styles.gameTitle, { fontSize: s(38), opacity: 1, marginBottom: s(15), lineHeight: s(38) }]} numberOfLines={2}>
                 {t('mediaGallery.description')}
               </Text>
-              <Text style={[styles.gameTitle, { fontSize: s(15), opacity: 0.5, marginBottom: s(20) }]} numberOfLines={1}>
+              <Text style={[styles.gameTitle, { fontSize: s(27), opacity: 0.8, marginBottom: s(50) }]} numberOfLines={1}>
                 {t('mediaGallery.subtitle')}
               </Text>
             </Animated.View>

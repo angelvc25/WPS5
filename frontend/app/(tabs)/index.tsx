@@ -1257,7 +1257,8 @@ export default function ConsoleHome() {
 
   // ─── Presentation mode: inactivity timer ───────────────────
   useEffect(() => {
-    if (!presentationEnabled) return;
+    if (!presentationEnabled || isPresentationMode || isLaunching) return;
+
     const getMs = () => {
       switch (inactivityTime) {
         case '15s': return 15000;
@@ -1267,13 +1268,15 @@ export default function ConsoleHome() {
         default: return 15000;
       }
     };
+
     const interval = setInterval(() => {
       if (Date.now() - lastInteractionRef.current >= getMs()) {
         setIsPresentationMode(true);
       }
     }, 1000);
+
     return () => clearInterval(interval);
-  }, [presentationEnabled, inactivityTime]);
+  }, [presentationEnabled, inactivityTime, isPresentationMode, isLaunching]);
 
   // ─── Presentation mode: animate UI hide/show ───────────────
   useEffect(() => {
@@ -1745,10 +1748,18 @@ export default function ConsoleHome() {
   // Keyboard navigation always reads the current render state. The listener
   // itself is attached once below, avoiding add/remove work on each change.
   const handleKeyDown = (e: any) => {
+    // Prevent main scroll from moving when welcome settings is open
+    // if (isWelcomeSettingsVisible) {
+    //   e.preventDefault();
+    //   e.stopPropagation();
+    //   return;
+    // }
+
     lastInteractionRef.current = Date.now();
     if (isPresentationMode) { setIsPresentationMode(false); return; }
     if (Date.now() - mountTimeRef.current < 400) return;
     if (!e.fromGamepad) setInputMode('keyboard');
+    if (isWelcomeSettingsVisible) return;
     if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
     if (isLaunching) return;
     if (isMediaGalleryVisible) return;
@@ -3366,6 +3377,7 @@ export default function ConsoleHome() {
       {/* === MAIN SCROLLABLE CONTENT === */}
       <Animated.ScrollView
         ref={mainScrollRef}
+        scrollEnabled={!isWelcomeSettingsVisible} // <--- Deshabilita el scroll del fondo cuando la configuración está abierta
         style={[styles.mainContent, animatedTabContentStyle]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={mainScrollContentStyle}

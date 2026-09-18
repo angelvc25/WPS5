@@ -352,7 +352,8 @@ const es = {
   'bg.slideshow': 'Diapositivas',
 
   'mediaGallery.title': 'Galería multimedia',
-  'mediaGallery.description': 'El lugar para tus capturas de pantalla y videoclips',
+  'mediaGallery.descriptionPrev': 'El lugar para tus capturas de',
+  'mediaGallery.description': 'pantalla y videoclips',
   'mediaGallery.subtitle': 'Ve y administra tu contenido multimedia guardado.',
   'mediaGallery.open': 'Abrir',
   'mediaGallery.all': 'Todo',
@@ -950,8 +951,9 @@ const en: Record<TranslationKey, string> = {
   'bg.slideshow': 'Slideshow',
 
   'mediaGallery.title': 'Media gallery',
-  'mediaGallery.description': 'The place for your screenshots and video clips',
-  'mediaGallery.subtitle': 'View and manage your saved media content.',
+  'mediaGallery.descriptionPrev': 'Home for all your screenshots',
+  'mediaGallery.description': 'and video clips',
+  'mediaGallery.subtitle': 'View and manage your saved media.',
   'mediaGallery.open': 'Open',
   'mediaGallery.all': 'All',
   'mediaGallery.favorites': 'Favorites',
@@ -1543,7 +1545,8 @@ const pt: Record<TranslationKey, string> = {
   'bg.slideshow': 'Diapositivos',
 
   'mediaGallery.title': 'Galeria multimédia',
-  'mediaGallery.description': 'O lugar para as suas capturas de ecrã e clipes de vídeo',
+  'mediaGallery.descriptionPrev': 'O lugar para as suas capturas de',
+  'mediaGallery.description': 'ecrã e clipes de vídeo',
   'mediaGallery.subtitle': 'Ver e gerir o seu conteúdo multimédia guardado.',
   'mediaGallery.open': 'Abrir',
   'mediaGallery.all': 'Tudo',
