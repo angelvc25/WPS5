@@ -17,6 +17,7 @@ import { soundService } from '@/services/soundService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
+import SpinningBorderSearch from './SpinningBorderSearch';
 
 interface FolderImage {
   uri: string;
@@ -76,6 +77,7 @@ const BackgroundTile = React.memo<BackgroundTileProps>(({
 
   return (
     <View style={{ width: tileWidth, height: tileHeight }}>
+      {isFocused && <SpinningBorderSearch size={tileWidth} spread={1} borderRadius={6} />}
       <TouchableOpacity
         style={[
           styles.tileInner,
@@ -146,7 +148,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
   tileFocused: {
-    borderColor: '#ffffff93',
+    borderColor: '#ffffff0c',
   },
   tileSelected: {
     borderColor: 'rgba(255,255,255,0.45)',
@@ -485,12 +487,12 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
       borderColor: 'transparent',
     },
     tabActive: {
-      borderColor: 'rgba(255,255,255,0.85)',
-      backgroundColor: 'rgba(255,255,255,0.08)',
+      borderColor: 'rgba(255, 255, 255, 0)',
+      backgroundColor: 'rgba(255, 255, 255, 0)',
     },
     tabFocused: {
-      borderColor: '#FFF',
-      backgroundColor: 'rgba(255,255,255,0.15)',
+      //borderColor: '#ffffff',
+      //backgroundColor: 'rgba(255, 255, 255, 0.07)',
     },
     tabText: {
       color: 'rgba(255,255,255,0.55)',
@@ -627,6 +629,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
                   }}
                   activeOpacity={0.8}
                 >
+                  {isFocused && <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />}
                   <Text style={[uiStyles.tabText, isActive && uiStyles.tabTextActive]}>{tab.label}</Text>
                 </TouchableOpacity>
               );
