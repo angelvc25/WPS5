@@ -400,6 +400,12 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
         return;
       }
 
+      // ── L1 / R1: cambiar de pestaña desde cualquier parte (excepto lightbox, ya manejado arriba) ──
+      if (!isSel || area !== 'selectPanel') {
+        if (e.key === 'q' || e.key === 'Q') { switchTab(-1); return; }
+        if (e.key === 'e' || e.key === 'E') { switchTab(1); return; }
+      }
+
       // ── Tabs ──
       if (area === 'tabs') {
         if (e.key === 'ArrowRight') { soundService.playNavigation(); const next = Math.min(tabFocusIndexRef.current + 1, TABS.length - 1); tabFocusIndexRef.current = next; setTabFocusIndex(next); setActiveTab(TABS[next].id); }
@@ -516,90 +522,102 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { }}>
       <Animated.View style={rootStyles.root} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
+        <Image
+          source={require('@/assets/images/FondoDefault2.jpg')}
+          style={StyleSheet.absoluteFillObject}
+          contentFit="cover"
+        />
         <View style={rootStyles.backdropDim} />
 
-        <Animated.View style={[rootStyles.content, uiStyles.content, isSelectMode && { paddingRight: s(72) + selectPanelWidth + s(20) }]} entering={FadeIn.delay(60).duration(240)}>
-          <Text style={uiStyles.title}>{isSelectMode ? t('mediaGallery.selectTitle') : t('mediaGallery.title')}</Text>
+        {/* Fila principal: contenido (izquierda) + panel de selección (derecha, en el
+            espacio vacío) — deben ir en un contenedor con flexDirection: 'row' para que
+            el panel aparezca al lado en vez de debajo (React Native usa 'column' por
+            defecto). */}
+        <View style={rootStyles.mainRow}>
+          <Animated.View style={[rootStyles.content, uiStyles.content]} entering={FadeIn.delay(60).duration(240)}>
+            <Text style={uiStyles.title}>{isSelectMode ? t('mediaGallery.selectTitle') : t('mediaGallery.title')}</Text>
 
-          <View style={uiStyles.tabsRow}>
-            {TABS.map((tab, idx) => {
-              const isActive = activeTab === tab.id;
-              const isFocused = focusArea === 'tabs' && tabFocusIndex === idx;
-              return (
-                <TouchableOpacity key={tab.id} style={[uiStyles.tab, isActive && uiStyles.tabActive, isFocused && uiStyles.tabFocused]} onPress={() => { setActiveTab(tab.id); setTabFocusIndex(idx); setFocusArea('tabs'); }} activeOpacity={0.8}>
-                  {isFocused && <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />}
-                  <Text style={[uiStyles.tabText, isActive && uiStyles.tabTextActive]}>{t(tab.labelKey)}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {loading ? (
-            <View style={uiStyles.loadingWrap}>
-              <ActivityIndicator size="large" color="#FFF" />
-              <Text style={uiStyles.loadingText}>{t('bg.preparingThumbs')}</Text>
+            <View style={uiStyles.tabsRow}>
+              {TABS.map((tab, idx) => {
+                const isActive = activeTab === tab.id;
+                const isFocused = focusArea === 'tabs' && tabFocusIndex === idx;
+                return (
+                  <TouchableOpacity key={tab.id} style={[uiStyles.tab, isActive && uiStyles.tabActive, isFocused && uiStyles.tabFocused]} onPress={() => { setActiveTab(tab.id); setTabFocusIndex(idx); setFocusArea('tabs'); }} activeOpacity={0.8}>
+                    {isFocused && <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />}
+                    <Text style={[uiStyles.tabText, isActive && uiStyles.tabTextActive]}>{t(tab.labelKey)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          ) : filteredImages.length > 0 ? (
-            <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: s(80) }} keyboardShouldPersistTaps="handled" onScroll={handleGridScroll} onLayout={handleGridLayout} scrollEventThrottle={50}>
-              <View style={uiStyles.grid}>
-                {filteredImages.map((img, idx) => (
-                  <MediaGalleryTile
-                    key={img.uri}
-                    previewUri={img.thumbnail || img.uri}
-                    isFocused={focusArea === 'grid' && gridFocusIndex === idx}
-                    isSelected={selectedItems.has(img.uri)}
-                    isSelectMode={isSelectMode}
-                    shouldLoad={isRowVisible(idx)}
-                    tileWidth={tileWidth}
-                    tileHeight={tileHeight}
-                    onFocus={() => { setGridFocusIndex(idx); setFocusArea('grid'); }}
-                    onPress={() => {
-                      if (isSelectMode) toggleSelectItem(img.uri);
-                      else openLightbox(idx);
-                    }}
-                  />
-                ))}
+
+            {loading ? (
+              <View style={uiStyles.loadingWrap}>
+                <ActivityIndicator size="large" color="#FFF" />
+                <Text style={uiStyles.loadingText}>{t('bg.preparingThumbs')}</Text>
               </View>
-            </ScrollView>
-          ) : (
-            <View style={uiStyles.emptyState}>
-              <Ionicons name="images-outline" size={s(48)} color="rgba(255,255,255,0.25)" style={{ marginBottom: s(16) }} />
-              <Text style={uiStyles.emptyText}>{t('mediaGallery.empty')}</Text>
-            </View>
+            ) : filteredImages.length > 0 ? (
+              <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: s(80) }} keyboardShouldPersistTaps="handled" onScroll={handleGridScroll} onLayout={handleGridLayout} scrollEventThrottle={50}>
+                <View style={uiStyles.grid}>
+                  {filteredImages.map((img, idx) => (
+                    <MediaGalleryTile
+                      key={img.uri}
+                      previewUri={img.thumbnail || img.uri}
+                      isFocused={focusArea === 'grid' && gridFocusIndex === idx}
+                      isSelected={selectedItems.has(img.uri)}
+                      isSelectMode={isSelectMode}
+                      shouldLoad={isRowVisible(idx)}
+                      tileWidth={tileWidth}
+                      tileHeight={tileHeight}
+                      onFocus={() => { setGridFocusIndex(idx); setFocusArea('grid'); }}
+                      onPress={() => {
+                        if (isSelectMode) toggleSelectItem(img.uri);
+                        else openLightbox(idx);
+                      }}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+            ) : (
+              <View style={uiStyles.emptyState}>
+                <Ionicons name="images-outline" size={s(48)} color="rgba(255,255,255,0.25)" style={{ marginBottom: s(16) }} />
+                <Text style={uiStyles.emptyText}>{t('mediaGallery.empty')}</Text>
+              </View>
+            )}
+          </Animated.View>
+
+          {/* Select mode toggle button (left side) */}
+          {!isSelectMode && !loading && filteredImages.length > 0 && (
+            <TouchableOpacity
+              style={[uiStyles.selectBtn, focusArea === 'selectBtn' && uiStyles.selectBtnFocused]}
+              activeOpacity={0.8}
+              onPress={() => { setIsSelectMode(true); setFocusArea('grid'); soundService.playActivation(); }}
+            >
+              <Ionicons name="checkmark-circle-outline" size={24} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
           )}
-        </Animated.View>
 
-        {/* Select mode toggle button (left side) */}
-        {!isSelectMode && !loading && filteredImages.length > 0 && (
-          <TouchableOpacity
-            style={[uiStyles.selectBtn, focusArea === 'selectBtn' && uiStyles.selectBtnFocused]}
-            activeOpacity={0.8}
-            onPress={() => { setIsSelectMode(true); setFocusArea('grid'); soundService.playActivation(); }}
-          >
-            <Ionicons name="checkmark-circle-outline" size={24} color="rgba(255,255,255,0.8)" />
-          </TouchableOpacity>
-        )}
-
-        {/* Select panel (right side) */}
-        {isSelectMode && (
-          <View style={uiStyles.selectPanel}>
-            <Text style={uiStyles.selectPanelTitle}>{t('mediaGallery.selectTitle')}</Text>
-            <Text style={uiStyles.selectPanelCount}>{t('mediaGallery.selected', { count: selectedItems.size })}</Text>
-            {selectPanelItems.map((item, idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={[uiStyles.selectPanelItem, focusArea === 'selectPanel' && selectPanelFocusIndex === idx && uiStyles.selectPanelItemFocused]}
-                activeOpacity={0.8}
-                onPress={item.onPress}
-              >
-                <Ionicons name={item.icon as any} size={20} color={focusArea === 'selectPanel' && selectPanelFocusIndex === idx ? '#fff' : 'rgba(255,255,255,0.7)'} />
-                <Text style={[uiStyles.selectPanelText, focusArea === 'selectPanel' && selectPanelFocusIndex === idx && uiStyles.selectPanelTextFocused]}>
-                  {t(item.labelKey)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+          {/* Select panel — ahora dentro de la fila (row), por lo que aparece a la
+              derecha, en el espacio vacío, en vez de debajo del contenido. */}
+          {isSelectMode && (
+            <Animated.View style={uiStyles.selectPanel} entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)}>
+              <Text style={uiStyles.selectPanelTitle}>{t('mediaGallery.selectTitle')}</Text>
+              <Text style={uiStyles.selectPanelCount}>{t('mediaGallery.selected', { count: selectedItems.size })}</Text>
+              {selectPanelItems.map((item, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[uiStyles.selectPanelItem, focusArea === 'selectPanel' && selectPanelFocusIndex === idx && uiStyles.selectPanelItemFocused]}
+                  activeOpacity={0.8}
+                  onPress={item.onPress}
+                >
+                  <Ionicons name={item.icon as any} size={20} color={focusArea === 'selectPanel' && selectPanelFocusIndex === idx ? '#fff' : 'rgba(255,255,255,0.7)'} />
+                  <Text style={[uiStyles.selectPanelText, focusArea === 'selectPanel' && selectPanelFocusIndex === idx && uiStyles.selectPanelTextFocused]}>
+                    {t(item.labelKey)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </Animated.View>
+          )}
+        </View>
 
         {/* Lightbox */}
         {lightboxVisible && lightboxImage && (
@@ -677,8 +695,11 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
 
 const rootStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#07080cff' },
-  backdropDim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(7,8,12,0.85)' },
-  content: { flex: 1, zIndex: 2 },
+  backdropDim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(7,8,12,0.72)' },
+  // Fila que contiene el contenido principal y el panel de selección, uno al
+  // lado del otro (en vez de apilados verticalmente, que es el default de RN).
+  mainRow: { flex: 1, flexDirection: 'row', zIndex: 2 },
+  content: { flex: 1 },
 });
 
 const lightboxStyles = StyleSheet.create({
