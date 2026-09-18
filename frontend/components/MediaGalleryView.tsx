@@ -18,6 +18,7 @@ import { soundService } from '@/services/soundService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
+import SpinningBorderSearch from './SpinningBorderSearch';
 
 interface FolderImage {
   uri: string;
@@ -63,7 +64,8 @@ const MediaGalleryTile = React.memo<{
   useEffect(() => { setIsLoaded(false); }, [previewUri]);
 
   return (
-    <View style={{ width: tileWidth, height: tileHeight }}>
+    <View style={{ width: tileWidth, height: tileHeight, position: 'relative' }}>
+      {isFocused && <SpinningBorderSearch size={tileWidth} spread={2} borderRadius={6} />}
       <TouchableOpacity
         style={[
           tileStyles.inner,
@@ -111,7 +113,7 @@ MediaGalleryTile.displayName = 'MediaGalleryTile';
 
 const tileStyles = StyleSheet.create({
   inner: { flex: 1, borderRadius: 6, overflow: 'hidden', borderWidth: 3, borderColor: 'transparent', backgroundColor: 'rgba(255,255,255,0.05)' },
-  focused: { borderColor: '#ffffff93' },
+  focused: { borderColor: '#ffffff0a' },
   selected: { borderColor: 'rgba(74, 144, 226, 0.9)' },
   image: { width: '100%', height: '100%' },
   imageHidden: { opacity: 0 },
@@ -458,14 +460,14 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
 
   const uiStyles = useMemo(() => StyleSheet.create({
     content: { flex: 1, paddingTop: s(48), paddingHorizontal: s(72), paddingBottom: s(40) },
-    title: { color: '#FFF', fontSize: s(28), fontWeight: '300', fontFamily: 'SSTLight', marginBottom: s(36) },
-    tabsRow: { flexDirection: 'row', alignItems: 'center', gap: s(12), marginBottom: s(24) },
+    title: { color: '#FFF', fontSize: s(32), fontWeight: '300', fontFamily: 'SSTLight', marginBottom: s(36) },
+    tabsRow: { flexDirection: 'row', alignItems: 'center', gap: s(12), marginBottom: s(90), marginLeft: s(40) },
     tab: { paddingHorizontal: s(18), paddingVertical: s(10), borderRadius: s(4), borderWidth: 2, borderColor: 'transparent' },
-    tabActive: { borderColor: 'rgba(255, 255, 255, 0.63)', backgroundColor: 'rgba(255,255,255,0.08)' },
-    tabFocused: { borderColor: 'rgba(255, 255, 255, 0.63)', backgroundColor: 'rgba(255,255,255,0.15)' },
-    tabText: { color: 'rgba(255,255,255,0.55)', fontFamily: 'SSTLight', fontSize: s(15) },
-    tabTextActive: { color: '#FFF', fontFamily: 'SSTBold' },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: s(20), paddingTop: s(8) },
+    tabActive: { borderColor: 'rgba(255, 255, 255, 0)', backgroundColor: 'rgba(255, 255, 255, 0)' },
+    tabFocused: { borderColor: 'rgba(255, 255, 255, 0)', backgroundColor: 'rgba(255, 255, 255, 0)' },
+    tabText: { color: 'rgba(255,255,255,0.55)', fontFamily: 'SSTLight', fontSize: s(20) },
+    tabTextActive: { color: '#FFF', fontFamily: 'SSTLight' },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: s(20), paddingTop: s(8), marginLeft: s(40) },
     emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: s(80) },
     emptyText: { color: 'rgba(255,255,255,0.45)', fontSize: s(16), textAlign: 'center', maxWidth: s(480), lineHeight: s(24) },
     loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: s(60), gap: s(16) },
@@ -473,7 +475,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     selectBtn: {
       position: 'absolute', left: s(20), top: s(160), width: s(48), height: s(48),
       borderRadius: s(24), backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 2, borderColor: 'transparent',
-      alignItems: 'center', justifyContent: 'center', zIndex: 10,
+      alignItems: 'center', justifyContent: 'center', zIndex: 10, marginLeft: s(25), marginTop: s(190)
     },
     selectBtnFocused: { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.18)' },
     selectBtnActive: { borderColor: '#4a90e2', backgroundColor: 'rgba(74,144,226,0.25)' },
@@ -491,7 +493,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     selectPanelTextFocused: { color: '#fff', fontFamily: 'SSTBold' },
     selectPanelCount: { color: 'rgba(255,255,255,0.45)', fontFamily: 'SSTLight', fontSize: s(14), marginTop: s(16), marginBottom: s(16), paddingHorizontal: s(16) },
     footer: { position: 'absolute', bottom: s(28), right: s(72), flexDirection: 'row', alignItems: 'center', gap: s(8), zIndex: 3 },
-    footerText: { color: 'rgba(255,255,255,1)', fontSize: s(15), fontFamily: 'SSTMedium' },
+    footerText: { color: 'rgba(255,255,255,1)', fontSize: s(20), fontFamily: 'SSTMedium' },
     footerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.9)', borderRadius: s(2), paddingHorizontal: s(18), paddingVertical: s(10) },
     albumModalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
     albumModal: { width: s(420), backgroundColor: 'rgba(20,20,30,0.97)', borderRadius: s(16), borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', padding: s(28) },
@@ -525,6 +527,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
               const isFocused = focusArea === 'tabs' && tabFocusIndex === idx;
               return (
                 <TouchableOpacity key={tab.id} style={[uiStyles.tab, isActive && uiStyles.tabActive, isFocused && uiStyles.tabFocused]} onPress={() => { setActiveTab(tab.id); setTabFocusIndex(idx); setFocusArea('tabs'); }} activeOpacity={0.8}>
+                  {isFocused && <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />}
                   <Text style={[uiStyles.tabText, isActive && uiStyles.tabTextActive]}>{t(tab.labelKey)}</Text>
                 </TouchableOpacity>
               );
