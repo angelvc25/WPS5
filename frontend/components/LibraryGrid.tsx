@@ -1053,7 +1053,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                                   <View style={[styles.gameImage, { backgroundColor: '#0d0d0fff', justifyContent: 'center', alignItems: 'center' }]}>
                                     <Image
                                       source={game.image}
-                                      style={{ width: '80%', height: '80%' }}
+                                      style={{ width: '70%', height: '70%' }}
                                       contentFit="contain"
                                     />
                                   </View>
@@ -1084,7 +1084,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                                     <View style={styles.gradientOverlay} />
 
                                     <View style={styles.gameInfoContainer}>
-                                      {(() => {
+                                      {game.id !== 'media_gallery' && (() => {
                                         const steamGame = isSteamGame(game);
                                         const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
                                         const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
