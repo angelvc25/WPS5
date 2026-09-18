@@ -43,6 +43,7 @@ import StoreFrontPanel from '@/components/StoreFrontPanel';
 import { UserProfile } from '@/components/UserSelectScreen';
 import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
 import WelcomeSettingsView from '@/components/WelcomeSettingsView';
+import MediaGalleryView from '@/components/MediaGalleryView';
 import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
@@ -205,6 +206,7 @@ export default function ConsoleHome() {
   const [isFavoritesVisible, setFavoritesVisible] = useState(false);
   const [isSettingsVisible, setSettingsVisible] = useState(false);
   const [isWelcomeSettingsVisible, setWelcomeSettingsVisible] = useState(false);
+  const [isMediaGalleryVisible, setMediaGalleryVisible] = useState(false);
   // Presentation mode
   const [presentationEnabled, setPresentationEnabled] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('presentation_enabled') === 'true';
@@ -649,6 +651,14 @@ export default function ConsoleHome() {
   );
 
   const BASE_CARD_IDS = ['1', 'last_played', '5'];
+  const MEDIA_GALLERY_ITEM: ConsoleItem = {
+    id: 'media_gallery',
+    title: t('mediaGallery.title'),
+    time: 'Capturas y videoclips',
+    image: require('@/assets/images/GaleriaMultimedia.png'),
+    isFolder: true,
+    type: 'media',
+  };
   const baseCards = nonSteamGames.filter(g => BASE_CARD_IDS.includes(g.id));
   const otherSavedGames = nonSteamGames.filter(g => !BASE_CARD_IDS.includes(g.id));
 
@@ -730,7 +740,9 @@ export default function ConsoleHome() {
       savedGames.forEach(game => {
         byId.set(game.id, { ...game, path: resolveLaunchPath(game) });
       });
-      return Array.from(byId.values());
+      const result = Array.from(byId.values());
+      result.unshift(MEDIA_GALLERY_ITEM);
+      return result;
     }
     return steamGames.map(sg => {
       const override = games.find(g => g.id === sg.id);
@@ -1739,6 +1751,7 @@ export default function ConsoleHome() {
     if (!e.fromGamepad) setInputMode('keyboard');
     if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
     if (isLaunching) return;
+    if (isMediaGalleryVisible) return;
     if (isDetailVisible || isLibraryDetailVisible) return;
     if (deleteConfirmItem) return;
     if (isLibraryFilterPanelOpen) {
@@ -3399,7 +3412,14 @@ export default function ConsoleHome() {
             filterButtonFocused={focusArea === 'library_grid' && libraryFilterFocused}
             onFilterPanelVisibilityChange={setIsLibraryFilterPanelOpen}
             focusedIndex={libraryGridFocusIndex}
-            onItemPress={(index, game) => { setSelectedItem(game); setDetailVisible(true); }}
+            onItemPress={(index, game) => {
+              if (game.id === 'media_gallery') {
+                setMediaGalleryVisible(true);
+                return;
+              }
+              setSelectedItem(game);
+              setDetailVisible(true);
+            }}
             onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}
             installedSteamAppIds={installedSteamAppIds}
             onVisibleGamesChange={setVisibleLibraryGames}
@@ -3487,6 +3507,7 @@ export default function ConsoleHome() {
         inputMode={inputMode}
         isLaunching={isLaunching}
         installedSteamAppIds={installedSteamAppIds}
+        onOpenMediaGallery={() => { setDetailVisible(false); setMediaGalleryVisible(true); }}
         onLaunch={(_id, _path) => {
           if (selectedItem) handleLaunchApp(selectedItem);
         }}
@@ -3687,6 +3708,14 @@ export default function ConsoleHome() {
         }
         wallpaperPath={activeUser?.settings?.wallpaperPath}
         capturePath={activeUser?.settings?.capturePath}
+      />
+
+      {/* MEDIA GALLERY */}
+      <MediaGalleryView
+        visible={isMediaGalleryVisible}
+        onClose={() => setMediaGalleryVisible(false)}
+        capturePath={activeUser?.settings?.capturePath}
+        wallpaperPath={activeUser?.settings?.wallpaperPath}
       />
 
       {/* AVATAR PICKER */}

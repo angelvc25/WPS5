@@ -33,6 +33,7 @@ interface GameDetailViewProps {
   isLaunching?: boolean;
   inputMode: 'keyboard' | 'gamepad';
   installedSteamAppIds?: Set<string> | null;
+  onOpenMediaGallery?: () => void;
 }
 
 // Normaliza un string de path/url de editData a un source { uri } válido.
@@ -46,7 +47,7 @@ const resolveEditSource = (val: string | undefined): { uri: string } | null => {
   return { uri: `local-file:///${clean}` };
 };
 
-const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null }) => {
+const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery }) => {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
@@ -630,8 +631,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   // panelLiftStyle vacio - el lift se hace animando paddingTop del ScrollView
   const panelLiftStyle = useAnimatedStyle(() => ({}));
 
+  const isGallery = item?.id === 'media_gallery';
   const scrollPaddingStyle = useAnimatedStyle(() => ({
-    paddingTop: interpolate(panelLiftAnim.value, [0, 1], [380, 60]),
+    paddingTop: interpolate(panelLiftAnim.value, [0, 1], [isGallery ? 520 : 380, 60]),
     paddingBottom: 80,
   }));
 
@@ -946,7 +948,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         } else if (e.key === 'Enter') {
           soundService.playActivation?.();
           if (focusIndex === 0) {
-            if (item?.path) {
+            if (item?.id === 'media_gallery') {
+              onOpenMediaGallery?.();
+            } else if (item?.path) {
               if (onLaunch) onLaunch(item.id, item.path, item.launchArgs);
               else if ((window as any).electronAPI) (window as any).electronAPI.launchApp(item.id, item.path, item.launchArgs);
             }
@@ -989,6 +993,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     currentPage,
     assetsData,
     isLoadingAssets,
+    onOpenMediaGallery,
   ]);
 
   // ─── Mando: botón Options/Start guarda y cierra el selector de imágenes ───
@@ -1186,25 +1191,34 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               previa y la nueva en vez de un corte/parpadeo negro. cachePolicy
               evita que un juego ya visto vuelva a mostrar el tirón al volver
               a entrar. */}
-          {(editData.backgroundImage || item.backgroundImage) ? (
-            <Image
-              recyclingKey={item.id}
-              source={resolveEditSource(editData.backgroundImage) ?? item.backgroundImage}
-              style={styles.detailBg}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              transition={{ effect: 'cross-dissolve', duration: 350 }}
-            />
-          ) : (editData.image || item.image) ? (
-            <Image
-              recyclingKey={item.id}
-              source={resolveEditSource(editData.image) ?? item.image}
-              style={styles.detailBg}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              transition={{ effect: 'cross-dissolve', duration: 350 }}
-            />
-          ) : null}
+          {(() => {
+            const isGallery = item?.id === 'media_gallery';
+            const bgSource = isGallery
+              ? require('@/assets/images/FondoDefault2.jpg')
+              : (resolveEditSource(editData.backgroundImage) ?? item?.backgroundImage);
+            const imgSource = isGallery
+              ? null
+              : (resolveEditSource(editData.image) ?? item?.image);
+            return bgSource ? (
+              <Image
+                recyclingKey={item.id}
+                source={bgSource}
+                style={styles.detailBg}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={{ effect: 'cross-dissolve', duration: 350 }}
+              />
+            ) : imgSource ? (
+              <Image
+                recyclingKey={item.id}
+                source={imgSource}
+                style={styles.detailBg}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={{ effect: 'cross-dissolve', duration: 350 }}
+              />
+            ) : null;
+          })()}
 
           {/* BOTTOM GRADIENT */}
           {Platform.OS === 'web' && (
@@ -1286,6 +1300,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 infoCardsStyle={infoCardsStyle}
                 topPanelStyle={topPanelStyle}
                 installedSteamAppIds={installedSteamAppIds}
+                onOpenMediaGallery={onOpenMediaGallery}
               />
             </Animated.View>
           </ScrollView>

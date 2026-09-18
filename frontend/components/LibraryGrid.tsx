@@ -1049,7 +1049,15 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                               ]}
                             >
                               <View style={styles.imageContainer}>
-                                {game.image ? (
+                                {game.id === 'media_gallery' ? (
+                                  <View style={[styles.gameImage, { backgroundColor: '#1a1a2e', justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Image
+                                      source={game.image}
+                                      style={{ width: '60%', height: '60%' }}
+                                      contentFit="contain"
+                                    />
+                                  </View>
+                                ) : game.image ? (
                                   <Image source={game.image} style={styles.gameImage} contentFit="cover" />
                                 ) : (
                                   <View style={styles.placeholderImage}>

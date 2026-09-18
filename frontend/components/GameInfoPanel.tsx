@@ -111,6 +111,7 @@ interface GameInfoPanelProps {
   installedSteamAppIds?: Set<string> | null;
   activeDownload?: SteamDownloadItem | null;
   onAchievementCountChange?: (count: number) => void;
+  onOpenMediaGallery?: () => void;
 }
 
 export const GameInfoPanel = ({
@@ -139,14 +140,16 @@ export const GameInfoPanel = ({
   installedSteamAppIds = null,
   activeDownload = null,
   onAchievementCountChange,
+  onOpenMediaGallery,
 }: GameInfoPanelProps) => {
   const { t } = useTranslation();
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : t('lastPlayed.title')) : activeItem?.title;
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
   const playtimeItem = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
-  const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
+  const canPlay = activeItem && (!activeItem.isFolder || activeItem.id === 'media_gallery') && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
   const isSpotify = activeItem?.title?.toLowerCase()?.includes('spotify');
-  const isMediaSection = activeItem?.type === 'media' || activeItem?.type === 'web' || isSpotify;
+  const isMediaSection = (activeItem?.type === 'media' || activeItem?.type === 'web' || isSpotify) && activeItem?.id !== 'media_gallery';
+  const isMediaGallery = activeItem?.id === 'media_gallery';
   // Scale factor: 1.0 at 1080p, shrinks proportionally for smaller screens.
   const scale = Math.min(
     Math.max(Math.max(windowWidth / 1920, windowHeight / 1080), 0.6),
@@ -566,12 +569,14 @@ export const GameInfoPanel = ({
     }
   }, [canPlay, isMediaSection, onAchievementCountChange, steamAchievements, achievementsSource]);
 
-  const buttonLabel = getGameActionLabel(activeItem, installedSteamAppIds, {
-    play: t('action.play'),
-    playMedia: t('action.playMedia'),
-    assignPath: t('action.assignPath'),
-    download: t('action.download'),
-  });
+  const buttonLabel = isMediaGallery
+    ? t('mediaGallery.open')
+    : getGameActionLabel(activeItem, installedSteamAppIds, {
+        play: t('action.play'),
+        playMedia: t('action.playMedia'),
+        assignPath: t('action.assignPath'),
+        download: t('action.download'),
+      });
 
   return (
     <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }]}>
@@ -635,6 +640,18 @@ export const GameInfoPanel = ({
                 </Text>
               )}
             </Animated.View>
+          ) : isMediaGallery ? (
+            <Animated.View key={`media-gallery-title-${activeIndex}`} entering={FadeInDown.duration(400)}>
+              <Text style={[styles.gameTitle, { fontSize: s(38), marginBottom: s(10) }]} numberOfLines={2}>
+                {t('mediaGallery.title')}
+              </Text>
+              <Text style={[styles.gameTitle, { fontSize: s(20), opacity: 0.7, marginBottom: s(4), lineHeight: s(28) }]} numberOfLines={2}>
+                {t('mediaGallery.description')}
+              </Text>
+              <Text style={[styles.gameTitle, { fontSize: s(15), opacity: 0.5, marginBottom: s(20) }]} numberOfLines={1}>
+                {t('mediaGallery.subtitle')}
+              </Text>
+            </Animated.View>
           ) : displayLogo ? (
             <Animated.View key={`logo-${activeIndex}`} entering={FadeInDown.duration(400)}>
               <Image source={displayLogo} style={[styles.gameLogo, { width: s(400), height: s(220) }]} contentFit="contain" />
@@ -696,7 +713,11 @@ export const GameInfoPanel = ({
                     ]}
                     activeOpacity={0.85}
                     onPress={() => {
-                      if (activeItem) { handleLaunchApp(activeItem); }
+                      if (isMediaGallery) {
+                        onOpenMediaGallery?.();
+                      } else if (activeItem) {
+                        handleLaunchApp(activeItem);
+                      }
                     }}
                   >
                     <Text style={[
@@ -871,7 +892,7 @@ export const GameInfoPanel = ({
       </Animated.View>
 
       {/* Info Cards (Trophies & Friends) */}
-      {canPlay && (
+      {canPlay && !isMediaGallery && (
         <Animated.View
           key={`cards-${activeIndex}`}
           entering={FadeInDown.duration(400).delay(120)}
@@ -1398,7 +1419,7 @@ export const GameInfoPanel = ({
       )}
 
       {/* Screenshots and Trailers row */}
-      {canPlay && !isMediaSection && (
+      {canPlay && !isMediaSection && !isMediaGallery && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(50) }]}>
           <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.capturesAndTrailers')}</Text>
 
@@ -1585,7 +1606,7 @@ export const GameInfoPanel = ({
       )}
 
       {/* Achievements row: Steam legítimo, AchievementWatcher (emulado) o RPCS3 */}
-      {canPlay && !isMediaSection && steamAchievements && steamAchievements.achievements.length > 0 && (
+      {canPlay && !isMediaSection && !isMediaGallery && steamAchievements && steamAchievements.achievements.length > 0 && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(30) }]}>
           {/* Título + badge de fuente */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10), marginBottom: s(16), paddingLeft: s(50) }}>
@@ -1665,7 +1686,7 @@ export const GameInfoPanel = ({
       )}
 
       {/* Steam News row */}
-      {canPlay && !isMediaSection && (
+      {canPlay && !isMediaSection && !isMediaGallery && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
           <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.latestNews')}</Text>
 
