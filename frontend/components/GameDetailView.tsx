@@ -1194,7 +1194,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           {(() => {
             const isGallery = item?.id === 'media_gallery';
             const bgSource = isGallery
-              ? require('@/assets/images/FondoDefault2.jpg')
+              ? require('@/assets/images/fondoGaleria2.png')
               : (resolveEditSource(editData.backgroundImage) ?? item?.backgroundImage);
             const imgSource = isGallery
               ? null

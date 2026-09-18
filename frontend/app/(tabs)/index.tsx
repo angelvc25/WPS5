@@ -655,7 +655,7 @@ export default function ConsoleHome() {
     id: 'media_gallery',
     title: t('mediaGallery.title'),
     time: 'Capturas y videoclips',
-    image: require('@/assets/images/GaleriaMultimedia.png'),
+    image: require('@/assets/images/GaleriaMultimedia2.png'),
     isFolder: true,
     type: 'media',
   };
@@ -2838,8 +2838,8 @@ export default function ConsoleHome() {
   const currentBg = (currentRenderedTab === 'Games' && activeIndex === 1)
     ? (homeBackground || require('@/assets/images/FondoDefault2.jpg'))
     : (currentData[activeIndex]?.id === '5' && storeFocusedBackground
-        ? storeFocusedBackground
-        : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg'))));
+      ? storeFocusedBackground
+      : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg'))));
   const currentBackgroundVideo =
     currentRenderedTab === 'Games' && activeIndex === 0
       ? currentData[activeIndex]?.backgroundVideo

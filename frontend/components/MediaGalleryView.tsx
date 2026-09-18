@@ -142,6 +142,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
 
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [selectedAlbums, setSelectedAlbums] = useState<Set<number>>(new Set());
   const [selectPanelFocusIndex, setSelectPanelFocusIndex] = useState(0);
 
   const [lightboxVisible, setLightboxVisible] = useState(false);
@@ -151,7 +152,12 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
   const [albums, setAlbums] = useState<Album[]>(() => loadPersisted<Album[]>('mediaGallery_albums', []));
   const [favorites, setFavorites] = useState<Set<string>>(() => new Set(loadPersisted<string[]>('mediaGallery_favorites', [])));
   const [albumModalVisible, setAlbumModalVisible] = useState(false);
+  const [addToAlbumModalVisible, setAddToAlbumModalVisible] = useState(false);
+  const [addToAlbumFocusIndex, setAddToAlbumFocusIndex] = useState(0);
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+  const [confirmModalFocusIndex, setConfirmModalFocusIndex] = useState(0);
   const [albumName, setAlbumName] = useState('');
+  const [openAlbumIndex, setOpenAlbumIndex] = useState<number | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
   const focusAreaRef = useRef(focusArea);
@@ -159,12 +165,20 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
   const gridFocusIndexRef = useRef(gridFocusIndex);
   const imagesRef = useRef(images);
   const selectedItemsRef = useRef(selectedItems);
+  const selectedAlbumsRef = useRef(selectedAlbums);
   const isSelectModeRef = useRef(isSelectMode);
   const lightboxVisibleRef = useRef(lightboxVisible);
   const lightboxIndexRef = useRef(lightboxIndex);
   const lightboxActionFocusRef = useRef(lightboxActionFocus);
+  const activeTabRef = useRef(activeTab);
+  const albumsRef = useRef(albums);
   const selectPanelFocusIndexRef = useRef(selectPanelFocusIndex);
+  const openAlbumIndexRef = useRef(openAlbumIndex);
+  const addToAlbumFocusIndexRef = useRef(addToAlbumFocusIndex);
   const lastNavSoundRef = useRef(0);
+
+  const confirmDeleteVisibleRef = useRef(confirmDeleteVisible);
+  const confirmModalFocusIndexRef = useRef(confirmModalFocusIndex);
 
   const [gridScrollY, setGridScrollY] = useState(0);
   const [gridViewportHeight, setGridViewportHeight] = useState(windowHeight);
@@ -183,11 +197,19 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
   gridFocusIndexRef.current = gridFocusIndex;
   imagesRef.current = images;
   selectedItemsRef.current = selectedItems;
+  selectedAlbumsRef.current = selectedAlbums;
   isSelectModeRef.current = isSelectMode;
   lightboxVisibleRef.current = lightboxVisible;
   lightboxIndexRef.current = lightboxIndex;
   lightboxActionFocusRef.current = lightboxActionFocus;
+  activeTabRef.current = activeTab;
+  albumsRef.current = albums;
   selectPanelFocusIndexRef.current = selectPanelFocusIndex;
+  openAlbumIndexRef.current = openAlbumIndex;
+  addToAlbumFocusIndexRef.current = addToAlbumFocusIndex;
+
+  confirmDeleteVisibleRef.current = confirmDeleteVisible;
+  confirmModalFocusIndexRef.current = confirmModalFocusIndex;
 
   const playGridNavSound = useCallback(() => {
     const now = Date.now();
@@ -231,8 +253,10 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
       setGridFocusIndex(0);
       setFocusArea('tabs');
       setSelectedItems(new Set());
+      setSelectedAlbums(new Set());
       setIsSelectMode(false);
       setLightboxVisible(false);
+      setOpenAlbumIndex(null);
     }
   }, [visible]);
 
@@ -249,8 +273,15 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
   const filteredImages = useMemo(() => {
     if (activeTab === 'all') return images;
     if (activeTab === 'favorites') return images.filter(img => favorites.has(img.uri));
+    if (activeTab === 'albums') {
+      if (openAlbumIndex === null) return [];
+      const album = albums[openAlbumIndex];
+      if (!album) return [];
+      const albumUris = new Set(album.items);
+      return images.filter(img => albumUris.has(img.uri));
+    }
     return images;
-  }, [images, activeTab, favorites]);
+  }, [images, activeTab, favorites, albums, openAlbumIndex]);
 
   const scrollToFocusedTile = useCallback((index: number) => {
     const row = Math.floor(index / columns);
@@ -279,7 +310,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
   const switchTab = useCallback((direction: -1 | 1) => {
     const currentIdx = TABS.findIndex(tb => tb.id === activeTab);
     const nextIdx = Math.max(0, Math.min(TABS.length - 1, currentIdx + direction));
-    if (nextIdx !== currentIdx) { setActiveTab(TABS[nextIdx].id); setTabFocusIndex(nextIdx); setFocusArea('tabs'); soundService.playTab(); }
+    if (nextIdx !== currentIdx) { setActiveTab(TABS[nextIdx].id); setTabFocusIndex(nextIdx); setFocusArea('tabs'); setOpenAlbumIndex(null); setGridFocusIndex(0); soundService.playTab(); }
   }, [activeTab]);
 
   const toggleSelectItem = useCallback((uri: string) => {
@@ -287,10 +318,38 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
   }, []);
 
   const toggleSelectAll = useCallback(() => {
-    if (selectedItems.size === filteredImages.length) setSelectedItems(new Set());
-    else setSelectedItems(new Set(filteredImages.map(img => img.uri)));
+    if (activeTabRef.current === 'albums' && openAlbumIndexRef.current === null) {
+      if (selectedAlbums.size === albums.length) setSelectedAlbums(new Set());
+      else setSelectedAlbums(new Set(albums.map((_, i) => i)));
+    } else {
+      if (selectedItems.size === filteredImages.length) setSelectedItems(new Set());
+      else setSelectedItems(new Set(filteredImages.map(img => img.uri)));
+    }
     soundService.playActivation();
-  }, [selectedItems.size, filteredImages]);
+  }, [selectedItems.size, filteredImages, selectedAlbums.size, albums]);
+
+
+  const toggleSelectAlbum = useCallback((idx: number) => {
+    setSelectedAlbums(prev => { const next = new Set(prev); if (next.has(idx)) next.delete(idx); else next.add(idx); return next; });
+  }, []);
+
+  const deleteSelectedAlbums = useCallback(() => {
+    setAlbums(prev => prev.filter((_, i) => !selectedAlbums.has(i)));
+    setSelectedAlbums(new Set());
+    setFocusArea('grid');
+    setGridFocusIndex(0);
+    soundService.playActivation();
+  }, [selectedAlbums]);
+
+  const addSelectedToAlbum = useCallback((albumIdx: number) => {
+    const album = albums[albumIdx];
+    if (!album) return;
+    const newItems = new Set(album.items);
+    for (const uri of selectedItems) newItems.add(uri);
+    setAlbums(prev => prev.map((a, i) => i === albumIdx ? { ...a, items: Array.from(newItems) } : a));
+    setAddToAlbumModalVisible(false);
+    soundService.playActivation();
+  }, [albums, selectedItems]);
 
   const toggleFavoriteSingle = useCallback((uri: string) => {
     setFavorites(prev => { const next = new Set(prev); if (next.has(uri)) next.delete(uri); else next.add(uri); return next; });
@@ -321,12 +380,63 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     soundService.playBack();
   }, []);
 
+  // Abre el modal de confirmación
+  const requestRemoveOrDelete = useCallback(() => {
+    setConfirmModalFocusIndex(0);
+    setConfirmDeleteVisible(true);
+    soundService.playActivation();
+  }, []);
+
+  const confirmRemoveOrDelete = useCallback(() => {
+    const imageUri = filteredImages[lightboxIndex]?.uri;
+    if (!imageUri) return;
+
+    if (activeTabRef.current === 'albums' && openAlbumIndexRef.current !== null) {
+      const currentAlbumIdx = openAlbumIndexRef.current;
+
+      setAlbums(prev => prev.map((album, idx) => {
+        if (idx === currentAlbumIdx) {
+          return {
+            ...album,
+            items: album.items.filter(uri => uri !== imageUri)
+          };
+        }
+        return album;
+      }));
+
+      const album = albumsRef.current[currentAlbumIdx];
+      const remainingItems = album ? album.items.filter(uri => uri !== imageUri) : [];
+
+      if (remainingItems.length === 0) {
+        closeLightbox();
+      } else {
+        setLightboxIndex(prev => Math.min(prev, remainingItems.length - 1));
+      }
+    } else {
+      setImages(prev => prev.filter(img => img.uri !== imageUri));
+      closeLightbox();
+    }
+
+    setConfirmDeleteVisible(false);
+    soundService.playActivation();
+  }, [filteredImages, lightboxIndex, closeLightbox]);
+
   const confirmCreateAlbum = useCallback(() => {
     if (selectedItems.size > 0) {
-      const newAlbum: Album = { name: albumName.trim() || t('mediaGallery.newAlbum'), items: Array.from(selectedItems) };
+      const newAlbum: Album = {
+        name: albumName.trim() || t('mediaGallery.newAlbum'),
+        items: Array.from(selectedItems)
+      };
       setAlbums(prev => [...prev, newAlbum]);
       setSelectedItems(new Set());
+      setSelectedAlbums(new Set());
       setIsSelectMode(false);
+
+      // ── Actualizar estados de navegación ──
+      setActiveTab('albums');
+      setTabFocusIndex(2);
+      setGridFocusIndex(0);
+      setFocusArea('grid'); // <-- Enfoca directamente el nuevo álbum creado en la cuadrícula
     }
     setAlbumModalVisible(false);
     setAlbumName('');
@@ -337,9 +447,35 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     if (!visible || Platform.OS !== 'web') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target && (e.target as HTMLElement).tagName === 'INPUT') return;
+
       if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' ', 'Escape'].includes(e.key)) {
         e.preventDefault();
         e.stopImmediatePropagation();
+      }
+
+      // === AGREGAR AQUÍ (Paso 4) ===
+      if (confirmDeleteVisibleRef.current) {
+        if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+          soundService.playBack();
+          setConfirmDeleteVisible(false);
+          return;
+        }
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          soundService.playNavigation();
+          setConfirmModalFocusIndex(prev => (prev === 0 ? 1 : 0));
+          return;
+        }
+        if (e.key === 'Enter' || e.key === ' ') {
+          soundService.playActivation();
+          if (confirmModalFocusIndexRef.current === 0) {
+            setConfirmDeleteVisible(false);
+          } else {
+            confirmRemoveOrDelete();
+          }
+          return;
+        }
+        return; // Detiene el evento para que no afecte al lightbox ni al fondo
       }
 
       const area = focusAreaRef.current;
@@ -365,7 +501,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
             const lbImg = imagesRef.current[lightboxIndexRef.current];
             if (!lbImg) return;
             if (lightboxActionFocusRef.current === 0) { toggleFavoriteSingle(lbImg.uri); }
-            else if (lightboxActionFocusRef.current === 2) { /* delete placeholder */ }
+            else if (lightboxActionFocusRef.current === 2) { requestRemoveOrDelete(); }
             return;
           }
         }
@@ -374,27 +510,50 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
 
       // ── Escape / Back ──
       if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+        if (confirmDeleteVisible) {
+          setConfirmDeleteVisible(false);
+          soundService.playBack();
+          return;
+        }
+        if (addToAlbumModalVisible) { setAddToAlbumModalVisible(false); soundService.playBack(); return; }
         if (albumModalVisible) { setAlbumModalVisible(false); soundService.playBack(); return; }
-        if (isSel) { setIsSelectMode(false); setSelectedItems(new Set()); setFocusArea('grid'); soundService.playBack(); return; }
+        if (isSel) { setIsSelectMode(false); setSelectedItems(new Set()); setSelectedAlbums(new Set()); setFocusArea('grid'); soundService.playBack(); return; }
+        if (activeTabRef.current === 'albums' && openAlbumIndexRef.current !== null) {
+          setOpenAlbumIndex(null);
+          setGridFocusIndex(0);
+          setFocusArea('grid');
+          soundService.playBack();
+          return;
+        }
         soundService.playBack();
         onClose();
         return;
       }
 
+      // ── Add to Album modal ──
+      if (addToAlbumModalVisible) {
+        const albumCount = albumsRef.current.length;
+        if (e.key === 'ArrowDown') { soundService.playNavigation(); setAddToAlbumFocusIndex(prev => Math.min(prev + 1, albumCount - 1)); return; }
+        if (e.key === 'ArrowUp') { soundService.playNavigation(); setAddToAlbumFocusIndex(prev => Math.max(prev - 1, 0)); return; }
+        if (e.key === 'Enter' || e.key === ' ') {
+          soundService.playActivation();
+          addSelectedToAlbum(addToAlbumFocusIndexRef.current);
+          return;
+        }
+        return;
+      }
+
       // ── Select panel ──
       if (isSel && area === 'selectPanel') {
-        const panelItems = 5;
-        if (e.key === 'ArrowDown') { soundService.playNavigation(); setSelectPanelFocusIndex(prev => Math.min(prev + 1, panelItems - 1)); return; }
+        const isAlbumsMode = activeTabRef.current === 'albums' && openAlbumIndexRef.current === null;
+        const panelCount = selectPanelItemsRef.current.length;
+        if (e.key === 'ArrowDown') { soundService.playNavigation(); setSelectPanelFocusIndex(prev => Math.min(prev + 1, panelCount - 1)); return; }
         if (e.key === 'ArrowUp') { soundService.playNavigation(); setSelectPanelFocusIndex(prev => Math.max(prev - 1, 0)); return; }
         if (e.key === 'ArrowLeft') { soundService.playNavigation(); setFocusArea('grid'); return; }
         if (e.key === 'Enter' || e.key === ' ') {
           soundService.playActivation();
           const idx = selectPanelFocusIndexRef.current;
-          if (idx === 0) toggleSelectAll();
-          else if (idx === 1) { setSelectedItems(new Set()); }
-          else if (idx === 2) handleFavoriteSelected();
-          else if (idx === 3) { if (selectedItems.size > 0) { setAlbumName(''); setAlbumModalVisible(true); } }
-          else if (idx === 4) { setIsSelectMode(false); setSelectedItems(new Set()); setFocusArea('grid'); }
+          selectPanelItemsRef.current[idx]?.onPress();
           return;
         }
         return;
@@ -424,9 +583,41 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
         });
         if (filtered.length === 0) { if (e.key === 'ArrowUp') { soundService.playNavigation(); setFocusArea('tabs'); } return; }
 
-        if (e.key === 'ArrowRight') { playGridNavSound(); setGridFocusIndex(prev => Math.min(prev + 1, filtered.length - 1)); }
-        else if (e.key === 'ArrowLeft') { playGridNavSound(); setGridFocusIndex(prev => Math.max(prev - 1, 0)); }
-        else if (e.key === 'ArrowDown') { playGridNavSound(); setGridFocusIndex(prev => Math.min(prev + columns, filtered.length - 1)); }
+        if (e.key === 'ArrowRight') {
+          const isOverview = activeTabRef.current === 'albums' && openAlbumIndexRef.current === null;
+          const itemCount = isOverview ? albumsRef.current.length : filtered.length;
+          const atLastCol = (gridFocusIndexRef.current + 1) % columns === 0;
+          const atLastItem = gridFocusIndexRef.current >= itemCount - 1;
+          if (isSel && (atLastCol || atLastItem)) {
+            soundService.playNavigation();
+            setFocusArea('selectPanel');
+            setSelectPanelFocusIndex(0);
+          } else {
+            playGridNavSound();
+            setGridFocusIndex(prev => Math.min(prev + 1, itemCount - 1));
+          }
+        }
+        else if (e.key === 'ArrowLeft') {
+          const isOverview = activeTabRef.current === 'albums' && openAlbumIndexRef.current === null;
+          const itemCount = isOverview ? albumsRef.current.length : filtered.length;
+          const atFirstCol = gridFocusIndexRef.current % columns === 0;
+
+          if (atFirstCol && !isSel) {
+            if (itemCount > 0) {
+              soundService.playNavigation();
+              setFocusArea('selectBtn');
+            }
+          } else {
+            playGridNavSound();
+            setGridFocusIndex(prev => Math.max(prev - 1, 0));
+          }
+        }
+        else if (e.key === 'ArrowDown') {
+          const isOverview = activeTabRef.current === 'albums' && openAlbumIndexRef.current === null;
+          const itemCount = isOverview ? albumsRef.current.length : filtered.length;
+          playGridNavSound();
+          setGridFocusIndex(prev => Math.min(prev + columns, itemCount - 1));
+        }
         else if (e.key === 'ArrowUp') {
           playGridNavSound();
           setGridFocusIndex(prev => {
@@ -436,20 +627,36 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
           });
         }
         else if (e.key === 'Enter' || e.key === ' ') {
-          const img = filtered[gridFocusIndexRef.current];
-          if (img) {
-            if (isSel) { toggleSelectItem(img.uri); soundService.playActivation(); }
-            else { openLightbox(gridFocusIndexRef.current); }
+          if (activeTabRef.current === 'albums' && openAlbumIndexRef.current === null) {
+            const albumIdx = gridFocusIndexRef.current;
+            if (albumsRef.current[albumIdx]) {
+              if (isSel) {
+                toggleSelectAlbum(albumIdx);
+                soundService.playActivation();
+              } else {
+                setOpenAlbumIndex(albumIdx);
+                setGridFocusIndex(0);
+                soundService.playActivation();
+              }
+            }
+          } else {
+            const img = filtered[gridFocusIndexRef.current];
+            if (img) {
+              if (isSel) { toggleSelectItem(img.uri); soundService.playActivation(); }
+              else { openLightbox(gridFocusIndexRef.current); }
+            }
           }
-        }
-        else if ((e.key === 'm' || e.key === 'M') && isSel && selectedItemsRef.current.size > 0) {
-          soundService.playActivation();
-          setFocusArea('selectPanel');
-          setSelectPanelFocusIndex(0);
         }
         else if (e.key === 's' || e.key === 'S') {
           if (!isSel) { setIsSelectMode(true); setFocusArea('grid'); soundService.playActivation(); }
         }
+        return;
+      }
+
+      // ── Select Button (left side) ──
+      if (area === 'selectBtn') {
+        if (e.key === 'ArrowRight') { soundService.playNavigation(); setFocusArea('grid'); }
+        else if (e.key === 'Enter' || e.key === ' ') { soundService.playActivation(); setIsSelectMode(true); setFocusArea('grid'); }
         return;
       }
     };
@@ -458,8 +665,8 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [
     visible, columns, onClose, switchTab, playGridNavSound, filteredImages, favorites,
-    toggleSelectItem, toggleSelectAll, handleFavoriteSelected, openLightbox, closeLightbox,
-    toggleFavoriteSingle, isSelectMode, selectedItems, albumModalVisible,
+    toggleSelectItem, toggleSelectAlbum, toggleSelectAll, handleFavoriteSelected, openLightbox, closeLightbox,
+    toggleFavoriteSingle, isSelectMode, selectedItems, albumModalVisible, confirmDeleteVisible,
   ]);
 
   const lightboxImage = filteredImages[lightboxIndex];
@@ -509,21 +716,53 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     albumModalBtn: { paddingHorizontal: s(20), paddingVertical: s(10), borderRadius: s(8) },
     albumModalBtnPrimary: { backgroundColor: 'rgba(74,144,226,0.9)' },
     albumModalBtnText: { color: '#fff', fontFamily: 'SSTMedium', fontSize: s(14) },
-  }), [s, selectPanelWidth]);
+    albumPickerItem: { flexDirection: 'row', alignItems: 'center', gap: s(12), paddingVertical: s(12), paddingHorizontal: s(16), borderRadius: s(8), borderWidth: 1.5, borderColor: 'transparent', marginBottom: s(4) },
+    albumPickerItemFocused: { borderColor: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.08)' },
+    albumPickerText: { color: 'rgba(255,255,255,0.8)', fontFamily: 'SSTLight', fontSize: s(15), flex: 1 },
+    albumPickerTextFocused: { color: '#fff', fontFamily: 'SSTBold' },
+    albumPickerCount: { color: 'rgba(255,255,255,0.45)', fontFamily: 'SSTLight', fontSize: s(13) },
+    albumCard: { width: tileWidth, height: tileHeight, borderRadius: 6, overflow: 'hidden', borderWidth: 3, borderColor: 'transparent', backgroundColor: 'rgba(255,255,255,0.05)', position: 'relative' },
+    albumCardFocused: { borderColor: '#ffffff93' },
+    albumCardSelected: { borderColor: 'rgba(74, 144, 226, 0.9)' },
+    albumCheckbox: { position: 'absolute', top: 8, left: 8, zIndex: 5 },
+    albumCardInner: { flex: 1, justifyContent: 'flex-end' },
+    albumCardImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+    albumCardPlaceholder: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)' },
+    albumCardOverlay: { backgroundColor: 'rgba(0,0,0,0.6)', padding: s(12), flexDirection: 'row', alignItems: 'center', gap: s(8) },
+    albumCardName: { color: '#fff', fontFamily: 'SSTBold', fontSize: s(14), flex: 1 },
+    albumCardCount: { color: 'rgba(255,255,255,0.6)', fontFamily: 'SSTLight', fontSize: s(12) },
+  }), [s, selectPanelWidth, tileWidth, tileHeight]);
 
-  const selectPanelItems = useMemo(() => [
-    { icon: selectedItems.size === filteredImages.length ? 'checkbox' : 'square-outline', labelKey: selectedItems.size === filteredImages.length ? 'mediaGallery.deselectAll' as const : 'mediaGallery.selectAll' as const, onPress: toggleSelectAll },
-    { icon: 'close-circle-outline', labelKey: 'mediaGallery.deselectAll' as const, onPress: () => { setSelectedItems(new Set()); soundService.playActivation(); } },
-    { icon: Array.from(selectedItems).every(uri => favorites.has(uri)) ? 'heart' : 'heart-outline', labelKey: 'mediaGallery.markFavorite' as const, onPress: handleFavoriteSelected },
-    { icon: 'folder-open-outline', labelKey: 'mediaGallery.createAlbum' as const, onPress: () => { if (selectedItems.size > 0) { setAlbumName(''); setAlbumModalVisible(true); } } },
-    { icon: 'close', labelKey: 'mediaGallery.cancel' as const, onPress: () => { setIsSelectMode(false); setSelectedItems(new Set()); setFocusArea('grid'); soundService.playBack(); } },
-  ], [selectedItems, filteredImages, favorites, toggleSelectAll, handleFavoriteSelected]);
+  const isAlbumsOverview = activeTab === 'albums' && openAlbumIndex === null;
+
+  const selectPanelItems = useMemo(() => {
+    if (isAlbumsOverview) {
+      return [
+        { icon: selectedAlbums.size === albums.length && albums.length > 0 ? 'checkbox' : 'square-outline', labelKey: selectedAlbums.size === albums.length && albums.length > 0 ? 'mediaGallery.deselectAll' as const : 'mediaGallery.selectAll' as const, onPress: toggleSelectAll },
+        { icon: 'close-circle-outline', labelKey: 'mediaGallery.deselectAll' as const, onPress: () => { setSelectedAlbums(new Set()); soundService.playActivation(); } },
+        { icon: 'trash-outline', labelKey: 'mediaGallery.delete' as const, onPress: () => { if (selectedAlbums.size > 0) deleteSelectedAlbums(); } },
+        { icon: 'close', labelKey: 'mediaGallery.cancel' as const, onPress: () => { setIsSelectMode(false); setSelectedAlbums(new Set()); setFocusArea('grid'); soundService.playBack(); } },
+      ];
+    }
+    return [
+      { icon: selectedItems.size === filteredImages.length ? 'checkbox' : 'square-outline', labelKey: selectedItems.size === filteredImages.length ? 'mediaGallery.deselectAll' as const : 'mediaGallery.selectAll' as const, onPress: toggleSelectAll },
+      { icon: 'close-circle-outline', labelKey: 'mediaGallery.deselectAll' as const, onPress: () => { setSelectedItems(new Set()); soundService.playActivation(); } },
+      { icon: Array.from(selectedItems).every(uri => favorites.has(uri)) ? 'heart' : 'heart-outline', labelKey: 'mediaGallery.markFavorite' as const, onPress: handleFavoriteSelected },
+      { icon: 'folder-open-outline', labelKey: 'mediaGallery.createAlbum' as const, onPress: () => { if (selectedItems.size > 0) { setAlbumName(''); setAlbumModalVisible(true); } } },
+      { icon: 'add-circle-outline', labelKey: 'mediaGallery.addToAlbum' as const, onPress: () => { if (selectedItems.size > 0 && albums.length > 0) { setAddToAlbumFocusIndex(0); setAddToAlbumModalVisible(true); } } },
+      { icon: 'close', labelKey: 'mediaGallery.cancel' as const, onPress: () => { setIsSelectMode(false); setSelectedItems(new Set()); setSelectedAlbums(new Set()); setFocusArea('grid'); soundService.playBack(); } },
+    ];
+  }, [selectedItems, filteredImages, favorites, toggleSelectAll, handleFavoriteSelected, isAlbumsOverview, selectedAlbums, albums, deleteSelectedAlbums]);
+
+  const selectPanelItemsRef = useRef(selectPanelItems);
+  selectPanelItemsRef.current = selectPanelItems;
+  const isInsideAlbum = activeTab === 'albums' && openAlbumIndex !== null;
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { }}>
       <Animated.View style={rootStyles.root} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
         <Image
-          source={require('@/assets/images/FondoDefault2.jpg')}
+          source={require('@/assets/images/fondoGaleria2.png')}
           style={StyleSheet.absoluteFillObject}
           contentFit="cover"
         />
@@ -535,14 +774,21 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
             defecto). */}
         <View style={rootStyles.mainRow}>
           <Animated.View style={[rootStyles.content, uiStyles.content]} entering={FadeIn.delay(60).duration(240)}>
-            <Text style={uiStyles.title}>{isSelectMode ? t('mediaGallery.selectTitle') : t('mediaGallery.title')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12), marginBottom: s(8) }}>
+              {activeTab === 'albums' && openAlbumIndex !== null && (
+                <TouchableOpacity onPress={() => { setOpenAlbumIndex(null); setGridFocusIndex(0); soundService.playBack(); }} style={{ padding: s(8) }}>
+                  <Ionicons name="arrow-back" size={s(24)} color="rgba(255,255,255,0.8)" />
+                </TouchableOpacity>
+              )}
+              <Text style={uiStyles.title}>{isSelectMode ? t('mediaGallery.selectTitle') : activeTab === 'albums' && openAlbumIndex !== null ? albums[openAlbumIndex]?.name || t('mediaGallery.albums') : t('mediaGallery.title')}</Text>
+            </View>
 
             <View style={uiStyles.tabsRow}>
               {TABS.map((tab, idx) => {
                 const isActive = activeTab === tab.id;
                 const isFocused = focusArea === 'tabs' && tabFocusIndex === idx;
                 return (
-                  <TouchableOpacity key={tab.id} style={[uiStyles.tab, isActive && uiStyles.tabActive, isFocused && uiStyles.tabFocused]} onPress={() => { setActiveTab(tab.id); setTabFocusIndex(idx); setFocusArea('tabs'); }} activeOpacity={0.8}>
+                  <TouchableOpacity key={tab.id} style={[uiStyles.tab, isActive && uiStyles.tabActive, isFocused && uiStyles.tabFocused]} onPress={() => { setActiveTab(tab.id); setTabFocusIndex(idx); setFocusArea('tabs'); setOpenAlbumIndex(null); setGridFocusIndex(0); }} activeOpacity={0.8}>
                     {isFocused && <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />}
                     <Text style={[uiStyles.tabText, isActive && uiStyles.tabTextActive]}>{t(tab.labelKey)}</Text>
                   </TouchableOpacity>
@@ -555,6 +801,68 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
                 <ActivityIndicator size="large" color="#FFF" />
                 <Text style={uiStyles.loadingText}>{t('bg.preparingThumbs')}</Text>
               </View>
+            ) : activeTab === 'albums' && openAlbumIndex === null ? (
+              albums.length > 0 ? (
+                <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: s(80) }} keyboardShouldPersistTaps="handled" onScroll={handleGridScroll} onLayout={handleGridLayout} scrollEventThrottle={50}>
+                  <View style={uiStyles.grid}>
+                    {albums.map((album, idx) => {
+                      const firstImg = images.find(img => album.items.includes(img.uri));
+                      const previewUri = firstImg ? (firstImg.thumbnail || firstImg.uri) : '';
+                      const isFocused = focusArea === 'grid' && gridFocusIndex === idx;
+                      const isSelected = selectedAlbums.has(idx);
+                      return (
+                        <TouchableOpacity
+                          key={album.name}
+                          style={[uiStyles.albumCard, isFocused && uiStyles.albumCardFocused, isSelected && uiStyles.albumCardSelected]}
+                          activeOpacity={0.92}
+                          onPress={() => {
+                            setGridFocusIndex(idx);
+                            setFocusArea('grid');
+                            if (isSelectMode) {
+                              toggleSelectAlbum(idx);
+                              soundService.playActivation();
+                            } else {
+                              setOpenAlbumIndex(idx);
+                              setGridFocusIndex(0);
+                              soundService.playActivation();
+                            }
+                          }}
+                        >
+                          {isFocused && <SpinningBorderSearch size={tileWidth} spread={1} borderRadius={6} />}
+                          {isSelectMode && (
+                            <View style={uiStyles.albumCheckbox}>
+                              <Ionicons
+                                name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                                size={26}
+                                color={isSelected ? '#4a90e2' : 'rgba(255,255,255,0.6)'}
+                              />
+                            </View>
+                          )}
+                          <View style={uiStyles.albumCardInner}>
+                            {previewUri ? (
+                              <Image source={{ uri: previewUri }} style={uiStyles.albumCardImage} contentFit="cover" cachePolicy="memory-disk" />
+                            ) : (
+                              <View style={uiStyles.albumCardPlaceholder}>
+                                <Ionicons name="folder-open-outline" size={s(48)} color="rgba(255,255,255,0.3)" />
+                              </View>
+                            )}
+                            <View style={uiStyles.albumCardOverlay}>
+                              <Ionicons name="folder" size={s(24)} color="rgba(255,255,255,0.9)" />
+                              <Text style={uiStyles.albumCardName} numberOfLines={1}>{album.name}</Text>
+                              <Text style={uiStyles.albumCardCount}>{album.items.length} {t('mediaGallery.all').toLowerCase()}</Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              ) : (
+                <View style={uiStyles.emptyState}>
+                  <Ionicons name="folder-open-outline" size={s(48)} color="rgba(255,255,255,0.25)" style={{ marginBottom: s(16) }} />
+                  <Text style={uiStyles.emptyText}>{t('mediaGallery.empty')}</Text>
+                </View>
+              )
             ) : filteredImages.length > 0 ? (
               <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: s(80) }} keyboardShouldPersistTaps="handled" onScroll={handleGridScroll} onLayout={handleGridLayout} scrollEventThrottle={50}>
                 <View style={uiStyles.grid}>
@@ -586,7 +894,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
           </Animated.View>
 
           {/* Select mode toggle button (left side) */}
-          {!isSelectMode && !loading && filteredImages.length > 0 && (
+          {!isSelectMode && !loading && (filteredImages.length > 0 || (isAlbumsOverview && albums.length > 0)) && (
             <TouchableOpacity
               style={[uiStyles.selectBtn, focusArea === 'selectBtn' && uiStyles.selectBtnFocused]}
               activeOpacity={0.8}
@@ -601,7 +909,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
           {isSelectMode && (
             <Animated.View style={uiStyles.selectPanel} entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)}>
               <Text style={uiStyles.selectPanelTitle}>{t('mediaGallery.selectTitle')}</Text>
-              <Text style={uiStyles.selectPanelCount}>{t('mediaGallery.selected', { count: selectedItems.size })}</Text>
+              <Text style={uiStyles.selectPanelCount}>{t('mediaGallery.selected', { count: isAlbumsOverview ? selectedAlbums.size : selectedItems.size })}</Text>
               {selectPanelItems.map((item, idx) => (
                 <TouchableOpacity
                   key={idx}
@@ -622,9 +930,9 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
         {/* Lightbox */}
         {lightboxVisible && lightboxImage && (
           <Animated.View style={lightboxStyles.overlay} entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
-            <View style={lightboxStyles.imageContainer}>
+            <Animated.View key={lightboxIndex} style={lightboxStyles.imageContainer} entering={FadeIn.duration(200)}>
               <Image source={{ uri: lightboxImage.uri }} style={lightboxStyles.image} contentFit="contain" cachePolicy="memory-disk" recyclingKey={lightboxImage.uri} />
-            </View>
+            </Animated.View>
             <Text style={lightboxStyles.counter}>{lightboxIndex + 1}/{filteredImages.length}</Text>
             <View style={lightboxStyles.l1r1}>
               <View style={lightboxStyles.lrBadge}><Text style={lightboxStyles.lrText}>L1</Text></View>
@@ -641,7 +949,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
                   {[
                     { icon: favorites.has(lightboxImage.uri) ? 'heart' : 'heart-outline', label: favorites.has(lightboxImage.uri) ? t('mediaGallery.unmarkFavorite') : t('mediaGallery.markFavorite') },
                     { icon: 'create-outline', label: '' },
-                    { icon: 'trash-outline', label: t('mediaGallery.delete') },
+                    { icon: 'trash-outline', label: isInsideAlbum ? t('mediaGallery.removeFromAlbum') : t('mediaGallery.delete') },
                     { icon: 'ellipsis-horizontal', label: '' },
                   ].map((action, idx) => (
                     <TouchableOpacity
@@ -650,6 +958,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
                       activeOpacity={0.8}
                       onPress={() => {
                         if (idx === 0) toggleFavoriteSingle(lightboxImage.uri);
+                        if (idx === 2) requestRemoveOrDelete();
                         soundService.playActivation();
                       }}
                     >
@@ -674,6 +983,83 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
                 </TouchableOpacity>
                 <TouchableOpacity style={[uiStyles.albumModalBtn, uiStyles.albumModalBtnPrimary]} onPress={confirmCreateAlbum}>
                   <Text style={uiStyles.albumModalBtnText}>{t('mediaGallery.save')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {confirmDeleteVisible && (
+          <View style={uiStyles.albumModalOverlay}>
+            <View style={uiStyles.albumModal}>
+              <Text style={uiStyles.albumModalTitle}>
+                {activeTab === 'albums' && openAlbumIndex !== null
+                  ? t('mediaGallery.confirmRemoveFromAlbum') || '¿Quitar imagen del álbum?'
+                  : t('mediaGallery.confirmDelete') || '¿Eliminar imagen?'}
+              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: s(14), marginBottom: s(20), fontFamily: 'SSTLight' }}>
+                {activeTab === 'albums' && openAlbumIndex !== null
+                  ? t('mediaGallery.confirmRemoveFromAlbumDesc') || 'Esta acción quitará la imagen del álbum, pero no se eliminará del sistema.'
+                  : t('mediaGallery.confirmDeleteDesc2') || 'Esta acción quitará la imagen de la vista.'}
+              </Text>
+              <View style={uiStyles.albumModalActions}>
+                {/* Botón Cancelar */}
+                <TouchableOpacity
+                  style={[
+                    uiStyles.albumModalBtn,
+                    confirmModalFocusIndex === 0 && { borderColor: '#fff', borderWidth: 1.5, backgroundColor: 'rgba(255,255,255,0.15)' }
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setConfirmDeleteVisible(false);
+                    soundService.playBack();
+                  }}
+                >
+                  <Text style={[uiStyles.albumModalBtnText, confirmModalFocusIndex === 0 && { fontFamily: 'SSTBold', color: '#fff' }]}>
+                    {t('mediaGallery.cancel') || 'Cancelar'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Botón Eliminar / Confirmar */}
+                <TouchableOpacity
+                  style={[
+                    uiStyles.albumModalBtn,
+                    { backgroundColor: 'rgba(220, 53, 69, 0.85)' },
+                    confirmModalFocusIndex === 1 && { borderColor: '#fff', borderWidth: 1.5, backgroundColor: 'rgba(220, 53, 69, 1)' }
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={confirmRemoveOrDelete}
+                >
+                  <Text style={[uiStyles.albumModalBtnText, confirmModalFocusIndex === 1 && { fontFamily: 'SSTBold', color: '#fff' }]}>
+                    {t('mediaGallery.delete') || 'Eliminar'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {addToAlbumModalVisible && (
+          <View style={uiStyles.albumModalOverlay}>
+            <View style={uiStyles.albumModal}>
+              <Text style={uiStyles.albumModalTitle}>{t('mediaGallery.selectAlbum')}</Text>
+              <ScrollView style={{ maxHeight: s(300) }} keyboardShouldPersistTaps="handled">
+                {albums.map((album, idx) => (
+                  <TouchableOpacity
+                    key={album.name}
+                    style={[uiStyles.albumPickerItem, addToAlbumFocusIndex === idx && uiStyles.albumPickerItemFocused]}
+                    activeOpacity={0.8}
+                    onPress={() => { addSelectedToAlbum(idx); }}
+                  >
+                    <Ionicons name="folder" size={20} color={addToAlbumFocusIndex === idx ? '#fff' : 'rgba(255,255,255,0.7)'} />
+                    <Text style={[uiStyles.albumPickerText, addToAlbumFocusIndex === idx && uiStyles.albumPickerTextFocused]} numberOfLines={1}>{album.name}</Text>
+                    <Text style={uiStyles.albumPickerCount}>{album.items.length}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <View style={uiStyles.albumModalActions}>
+                <TouchableOpacity style={uiStyles.albumModalBtn} onPress={() => { setAddToAlbumModalVisible(false); }}>
+                  <Text style={uiStyles.albumModalBtnText}>{t('mediaGallery.cancel')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
