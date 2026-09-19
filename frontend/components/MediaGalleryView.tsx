@@ -947,9 +947,9 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
                 <Animated.View style={lightboxStyles.bottomGradient} pointerEvents="none" entering={FadeIn.duration(250)} exiting={FadeOut.duration(200)} />
                 <Animated.View style={lightboxStyles.actionBar} entering={FadeIn.duration(250)} exiting={FadeOut.duration(200)}>
                   {[
-                    { icon: favorites.has(lightboxImage.uri) ? 'heart' : 'heart-outline', label: favorites.has(lightboxImage.uri) ? t('mediaGallery.unmarkFavorite') : t('mediaGallery.markFavorite') },
+                    { icon: favorites.has(lightboxImage.uri) ? 'heart' : 'heart-outline', label: '' },
                     { icon: 'create-outline', label: '' },
-                    { icon: 'trash-outline', label: isInsideAlbum ? t('mediaGallery.removeFromAlbum') : t('mediaGallery.delete') },
+                    { icon: 'trash-outline', label: '' },
                     { icon: 'ellipsis-horizontal', label: '' },
                   ].map((action, idx) => (
                     <TouchableOpacity
