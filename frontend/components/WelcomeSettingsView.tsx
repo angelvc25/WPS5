@@ -13,11 +13,15 @@ interface WelcomeSettingsViewProps {
   presentationEnabled: boolean;
   inactivityTime: string;
   onSettingsChange: (enabled: boolean, time: string) => void;
+  selectedAlbumName: string | null;
+  onOpenAlbumPicker: () => void;
+  onSlidesSettingsChange: (settings: { albumName: string | null; duration: string; transition: string }) => void;
+  isAlbumPickerOpen: boolean;
 }
 
 type SubView = 'main' | 'presentation' | 'slides';
 
-export default function WelcomeSettingsView({ visible, onClose, presentationEnabled, inactivityTime, onSettingsChange }: WelcomeSettingsViewProps) {
+export default function WelcomeSettingsView({ visible, onClose, presentationEnabled, inactivityTime, onSettingsChange, selectedAlbumName, onOpenAlbumPicker, onSlidesSettingsChange, isAlbumPickerOpen }: WelcomeSettingsViewProps) {
   const { t } = useTranslation();
 
   const INACTIVITY_OPTIONS = useMemo(() => [
@@ -61,8 +65,14 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
   const [inactivityDropdownIndex, setInactivityDropdownIndex] = useState(0);
 
   // ─── Slides settings ──────────────────────────────────────
-  const [slideDuration, setSlideDuration] = useState('10s');
-  const [transitionStyle, setTransitionStyle] = useState('left');
+  const [slideDuration, setSlideDuration] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('slideshow_duration') || '10s';
+    return '10s';
+  });
+  const [transitionStyle, setTransitionStyle] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('slideshow_transition') || 'left';
+    return 'left';
+  });
   const [slidesFocusIndex, setSlidesFocusIndex] = useState(0);
   const [showDurationDropdown, setShowDurationDropdown] = useState(false);
   const [durationDropdownIndex, setDurationDropdownIndex] = useState(1);
@@ -82,7 +92,7 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
 
   // ─── Keyboard / gamepad handler ───────────────────────────
   useEffect(() => {
-    if (!visible || Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (!visible || isAlbumPickerOpen || Platform.OS !== 'web' || typeof window === 'undefined') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Always block parent navigation
@@ -115,15 +125,17 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
       // Sonido de regreso / Escape / Back
       if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
         soundService.playBack();
-        onClose(); // O la función para cerrar el modal
       }
 
       if (showDurationDropdown) {
         if (key === 'ArrowDown') setDurationDropdownIndex((p) => Math.min(p + 1, SLIDE_DURATION_OPTIONS.length - 1));
         else if (key === 'ArrowUp') setDurationDropdownIndex((p) => Math.max(p - 1, 0));
         else if (key === 'Enter' || key === ' ') {
-          setSlideDuration(SLIDE_DURATION_OPTIONS[durationDropdownIndex].value);
+          const val = SLIDE_DURATION_OPTIONS[durationDropdownIndex].value;
+          setSlideDuration(val);
           setShowDurationDropdown(false);
+          if (typeof window !== 'undefined') localStorage.setItem('slideshow_duration', val);
+          onSlidesSettingsChange({ albumName: selectedAlbumName, duration: val, transition: transitionStyle });
         } else if (key === 'Escape' || key === 'b' || key === 'B') {
           setShowDurationDropdown(false);
         }
@@ -134,8 +146,11 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
         if (key === 'ArrowDown') setTransitionDropdownIndex((p) => Math.min(p + 1, TRANSITION_OPTIONS.length - 1));
         else if (key === 'ArrowUp') setTransitionDropdownIndex((p) => Math.max(p - 1, 0));
         else if (key === 'Enter' || key === ' ') {
-          setTransitionStyle(TRANSITION_OPTIONS[transitionDropdownIndex].value);
+          const val = TRANSITION_OPTIONS[transitionDropdownIndex].value;
+          setTransitionStyle(val);
           setShowTransitionDropdown(false);
+          if (typeof window !== 'undefined') localStorage.setItem('slideshow_transition', val);
+          onSlidesSettingsChange({ albumName: selectedAlbumName, duration: slideDuration, transition: val });
         } else if (key === 'Escape' || key === 'b' || key === 'B') {
           setShowTransitionDropdown(false);
         }
@@ -184,7 +199,9 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
         } else if (key === 'ArrowUp') {
           setSlidesFocusIndex((p) => Math.max(p - 1, 0));
         } else if (key === 'Enter' || key === ' ') {
-          if (slidesFocusIndex === 1) {
+          if (slidesFocusIndex === 0) {
+            onOpenAlbumPicker();
+          } else if (slidesFocusIndex === 1) {
             setShowDurationDropdown(true);
             setDurationDropdownIndex(SLIDE_DURATION_OPTIONS.findIndex((o) => o.value === slideDuration));
           } else if (slidesFocusIndex === 2) {
@@ -202,10 +219,10 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [
     visible, currentView, menuFocusIndex, presentationFocusIndex, slidesFocusIndex,
-    presentationEnabled, inactivityTime, slideDuration, transitionStyle,
+    presentationEnabled, inactivityTime, slideDuration, transitionStyle, selectedAlbumName,
     showInactivityDropdown, showDurationDropdown, showTransitionDropdown,
     inactivityDropdownIndex, durationDropdownIndex, transitionDropdownIndex,
-    onClose, INACTIVITY_OPTIONS, SLIDE_DURATION_OPTIONS, TRANSITION_OPTIONS, MAIN_MENU_ITEMS,
+    onClose, onOpenAlbumPicker, onSlidesSettingsChange, INACTIVITY_OPTIONS, SLIDE_DURATION_OPTIONS, TRANSITION_OPTIONS, MAIN_MENU_ITEMS,
   ]);
 
   // ─── Helpers ────────────────────────────────────────────────
@@ -348,10 +365,17 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
         <TouchableOpacity
           style={[styles.menuItem, slidesFocusIndex === 0 && styles.menuItemFocused]}
           activeOpacity={0.8}
-          onPress={() => { }}
+          onPress={() => {
+            onOpenAlbumPicker();
+          }}
         >
           {slidesFocusIndex === 0 && <SpinningBorderSearch size={180} spread={4} borderRadius={0} />}
-          <Text style={styles.menuItemTitle}>{t('welcome.config.album')}</Text>
+          <View style={styles.menuItemRow}>
+            <Text style={styles.menuItemTitle}>{t('welcome.config.album')}</Text>
+            <Text style={styles.menuItemValue}>
+              {selectedAlbumName || t('welcome.config.noAlbum')}
+            </Text>
+          </View>
           {slidesFocusIndex === 0 && (
             <Text style={styles.menuItemDescription}>
               {t('welcome.config.albumDesc')}
@@ -380,6 +404,8 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
             onSelect={(val) => {
               setSlideDuration(val);
               setShowDurationDropdown(false);
+              if (typeof window !== 'undefined') localStorage.setItem('slideshow_duration', val);
+              onSlidesSettingsChange({ albumName: selectedAlbumName, duration: val, transition: transitionStyle });
             }}
           />
         </View>
@@ -405,6 +431,8 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
             onSelect={(val) => {
               setTransitionStyle(val);
               setShowTransitionDropdown(false);
+              if (typeof window !== 'undefined') localStorage.setItem('slideshow_transition', val);
+              onSlidesSettingsChange({ albumName: selectedAlbumName, duration: slideDuration, transition: val });
             }}
           />
         </View>
@@ -415,13 +443,13 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
   // ─── Main render ───────────────────────────────────────────
   return (
     <Modal
-      visible={visible}
+      visible={visible && !isAlbumPickerOpen}
       transparent
       animationType="fade"
       statusBarTranslucent
     >
-      <Animated.View style={styles.root} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
-        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+      <Animated.View style={[styles.root, isAlbumPickerOpen && { backgroundColor: 'transparent' }]} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
+        {!isAlbumPickerOpen && <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />}
         <View style={styles.content}>
           {currentView === 'main' && renderMainMenu()}
           {currentView === 'presentation' && renderPresentationView()}

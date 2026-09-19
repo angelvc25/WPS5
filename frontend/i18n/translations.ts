@@ -320,6 +320,7 @@ const es = {
   'welcome.config.transitionTitle': 'Estilo de transición',
   'welcome.config.left': 'Se desplaza a la izquierda',
   'welcome.config.right': 'Se desplaza a la derecha',
+  'welcome.config.noAlbum': 'Ninguno',
 
   'search.games': 'Juegos',
   'search.media': 'Multimedia',
@@ -919,6 +920,7 @@ const en: Record<TranslationKey, string> = {
   'welcome.config.transitionTitle': 'Transition style',
   'welcome.config.left': 'Slide from left',
   'welcome.config.right': 'Slide from right',
+  'welcome.config.noAlbum': 'None',
 
   'search.games': 'Games',
   'search.media': 'Media',
@@ -1513,6 +1515,7 @@ const pt: Record<TranslationKey, string> = {
   'welcome.config.transitionTitle': 'Estilo de transição',
   'welcome.config.left': 'Deslizar para a esquerda',
   'welcome.config.right': 'Deslizar para a direita',
+  'welcome.config.noAlbum': 'Nenhum',
 
   'search.games': 'Jogos',
   'search.media': 'Multimédia',

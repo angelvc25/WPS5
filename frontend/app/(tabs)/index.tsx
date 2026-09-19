@@ -61,6 +61,80 @@ const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Media', labelKey: 'tabs.media' },
 ];
 
+// ─── Slideshow Overlay ────────────────────────────────────────
+interface SlideshowOverlayProps {
+  images: string[];
+  currentIndex: number;
+  transition: string;
+  windowWidth: number;
+  windowHeight: number;
+}
+
+const SLIDE_MS = 900;
+
+const SlideshowOverlay = React.memo<SlideshowOverlayProps>(({
+  images, currentIndex, transition, windowWidth, windowHeight,
+}) => {
+  const uri = images[currentIndex % images.length] ?? null;
+
+  const progress = useSharedValue(1);
+  const lastUriRef = useRef<string | null>(uri);
+  const [pair, setPair] = useState<{ prev: string | null; current: string | null }>({
+    prev: null,
+    current: uri,
+  });
+
+  useEffect(() => {
+    if (!uri || uri === lastUriRef.current) return;
+    setPair({ prev: lastUriRef.current, current: uri });
+    lastUriRef.current = uri;
+    progress.value = 0;
+    progress.value = withTiming(1, { duration: SLIDE_MS, easing: Easing.out(Easing.cubic) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uri]);
+
+  // 'left' => el contenido se desplaza hacia la izquierda
+  const dir = transition === 'left' ? -1 : 1;
+
+  // saliente: 0 -> dir * W
+  const outgoingStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: progress.value * dir * windowWidth }],
+    opacity: progress.value < 1 ? 1 : 0,
+  }));
+
+  // entrante: -dir * W -> 0
+  const incomingStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: (1 - progress.value) * -dir * windowWidth }],
+  }));
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 0, elevation: 0, }]} pointerEvents="none">
+      {pair.prev && (
+        <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 10, elevation: 10, }, outgoingStyle]}>
+          <Image
+            source={{ uri: pair.prev }}
+            style={{ width: windowWidth, height: windowHeight }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+        </Animated.View>
+      )}
+      {pair.current && (
+        <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 11, elevation: 11, }, incomingStyle]}>
+          <Image
+            source={{ uri: pair.current }}
+            style={{ width: windowWidth, height: windowHeight }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+        </Animated.View>
+      )}
+    </View>
+  );
+});
+
+SlideshowOverlay.displayName = 'SlideshowOverlay';
+
 export interface ConsoleItem {
   id: string;
   title: string;
@@ -207,6 +281,7 @@ export default function ConsoleHome() {
   const [isSettingsVisible, setSettingsVisible] = useState(false);
   const [isWelcomeSettingsVisible, setWelcomeSettingsVisible] = useState(false);
   const [isMediaGalleryVisible, setMediaGalleryVisible] = useState(false);
+  const [isSlidesModalVisible, setIsSlidesModalVisible] = useState(false);
   // Presentation mode
   const [presentationEnabled, setPresentationEnabled] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('presentation_enabled') === 'true';
@@ -227,6 +302,65 @@ export default function ConsoleHome() {
     localStorage.setItem('presentation_inactivity_time', time);
     lastInteractionRef.current = Date.now();
     setIsPresentationMode(false);
+  }, []);
+
+  // ─── Slideshow settings ──────────────────────────────
+  const [slideshowAlbumName, setSlideshowAlbumName] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('slideshow_album') || null;
+    return null;
+  });
+  const [slideshowDuration, setSlideshowDuration] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('slideshow_duration') || '10s';
+    return '10s';
+  });
+  const [slideshowTransition, setSlideshowTransition] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('slideshow_transition') || 'left';
+    return 'left';
+  });
+  const [slideshowImages, setSlideshowImages] = useState<string[]>([]);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const slideshowTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleSlidesSettingsChange = useCallback((settings: { albumName: string | null; duration: string; transition: string }) => {
+    setSlideshowAlbumName(settings.albumName);
+    setSlideshowDuration(settings.duration);
+    setSlideshowTransition(settings.transition);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('slideshow_album', settings.albumName || '');
+      localStorage.setItem('slideshow_duration', settings.duration);
+      localStorage.setItem('slideshow_transition', settings.transition);
+    }
+    // Load images for the selected album
+    if (settings.albumName) {
+      try {
+        const storedAlbums = JSON.parse(localStorage.getItem('mediaGallery_albums') || '[]');
+        const album = storedAlbums.find((a: any) => a.name === settings.albumName);
+        if (album) {
+          setSlideshowImages(album.items);
+          setCurrentSlideIndex(0);
+        } else {
+          setSlideshowImages([]);
+        }
+      } catch {
+        setSlideshowImages([]);
+      }
+    } else {
+      setSlideshowImages([]);
+    }
+  }, []);
+
+  // ─── Slideshow: cargar álbum guardado al iniciar ──────────
+  useEffect(() => {
+    if (!slideshowAlbumName || typeof window === 'undefined') return;
+    try {
+      const stored = JSON.parse(localStorage.getItem('mediaGallery_albums') || '[]');
+      const album = stored.find((a: any) => a.name === slideshowAlbumName);
+      setSlideshowImages(album?.items ?? []);
+      setCurrentSlideIndex(0);
+    } catch {
+      setSlideshowImages([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [settingsInitialScreen, setSettingsInitialScreen] = useState<SettingsScreenType>('main');
@@ -1287,6 +1421,37 @@ export default function ConsoleHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPresentationMode]);
 
+  // ─── Slideshow: cycle through album images ─────────────
+  useEffect(() => {
+    if (slideshowTimerRef.current) {
+      clearInterval(slideshowTimerRef.current);
+      slideshowTimerRef.current = null;
+    }
+
+    if (slideshowImages.length < 2) return;
+
+    const getMs = () => {
+      switch (slideshowDuration) {
+        case '5s': return 5000;
+        case '10s': return 10000;
+        case '15s': return 15000;
+        case '30s': return 30000;
+        default: return 10000;
+      }
+    };
+
+    slideshowTimerRef.current = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % slideshowImages.length);
+    }, getMs());
+
+    return () => {
+      if (slideshowTimerRef.current) {
+        clearInterval(slideshowTimerRef.current);
+        slideshowTimerRef.current = null;
+      }
+    };
+  }, [slideshowImages.length, slideshowDuration]);
+
   // ─── Presentation mode: reset on mouse/touch ───────────────
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -1980,6 +2145,7 @@ export default function ConsoleHome() {
       return;
     }
     if (isHomeBgModalVisible) return;
+    if (isSlidesModalVisible) return;
     if (isSearchVisible) return;
     if (isRandomSelectorVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setRandomSelectorVisible(false); return; }
     if (isFavoritesVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setFavoritesVisible(false); return; }
@@ -2859,6 +3025,9 @@ export default function ConsoleHome() {
   const prevActiveIndexRef = useRef(activeIndex);
   const wipeDirection = useSharedValue<1 | -1>(1);
 
+  const isWelcomeCard = currentRenderedTab === 'Games' && currentData[activeIndex]?.id === '1';
+  const slideshowActive = slideshowImages.length > 0 && (isWelcomeCard || isPresentationMode);
+
   useEffect(() => {
     if (activeIndex !== prevActiveIndexRef.current) {
       const normalDirection = activeIndex > prevActiveIndexRef.current ? 1 : -1;
@@ -3049,10 +3218,20 @@ export default function ConsoleHome() {
     };
   });
 
+
+
   return (
     <SafeAreaView style={styles.container}>
       {/* === BACKGROUND: Dual Layer Crossfade === */}
-      <View style={StyleSheet.absoluteFill}>
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            zIndex: 0,
+            elevation: 0,
+          },
+        ]}
+      >
 
         {/* VIDEO DE FONDO */}
         {currentBackgroundVideo ? (
@@ -3102,6 +3281,28 @@ export default function ConsoleHome() {
           </>
         )}
       </View>
+
+      {/* === SLIDESHOW: POR ENCIMA DEL BACKGROUND ORIGINAL === */}
+      {slideshowActive && (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              zIndex: 0,
+              elevation: 0,
+            },
+          ]}
+        >
+          <SlideshowOverlay
+            images={slideshowImages}
+            currentIndex={currentSlideIndex}
+            transition={slideshowTransition}
+            windowWidth={windowWidth}
+            windowHeight={windowHeight}
+          />
+        </View>
+      )}
 
       {/* === GRADIENT OVERLAY (PS5 style: dark on left, transparent on right) === */}
       <View style={styles.gradientOverlay} pointerEvents="none" />
@@ -3722,6 +3923,18 @@ export default function ConsoleHome() {
         capturePath={activeUser?.settings?.capturePath}
       />
 
+      {/* Background Picker for Slideshow Album Selection */}
+      <BackgroundPickerModal
+        visible={isSlidesModalVisible}
+        onClose={() => setIsSlidesModalVisible(false)}
+        onSelectBackground={() => { }}
+        initialTab="slides"
+        onSelectAlbum={(albumName: string, items: string[]) => {
+          setIsSlidesModalVisible(false);
+          handleSlidesSettingsChange({ albumName, duration: slideshowDuration, transition: slideshowTransition });
+        }}
+      />
+
       {/* MEDIA GALLERY */}
       <MediaGalleryView
         visible={isMediaGalleryVisible}
@@ -3779,6 +3992,12 @@ export default function ConsoleHome() {
         presentationEnabled={presentationEnabled}
         inactivityTime={inactivityTime}
         onSettingsChange={handlePresentationSettingsChange}
+        selectedAlbumName={slideshowAlbumName}
+        onOpenAlbumPicker={() => {
+          setIsSlidesModalVisible(true);
+        }}
+        onSlidesSettingsChange={handleSlidesSettingsChange}
+        isAlbumPickerOpen={isSlidesModalVisible}
       />
 
       {/* USER/POWER MODAL */}

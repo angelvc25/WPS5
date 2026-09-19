@@ -39,12 +39,15 @@ interface BackgroundPickerModalProps {
   backdropUri?: string | null;
   wallpaperPath?: string;
   capturePath?: string;
+  initialTab?: 'all' | 'favorites' | 'albums' | 'slides';
+  onSelectAlbum?: (albumName: string, items: string[]) => void;
 }
 
 const TABS = [
   { id: 'all', labelKey: 'mediaGallery.all' },
   { id: 'favorites', labelKey: 'mediaGallery.favorites' },
   { id: 'albums', labelKey: 'mediaGallery.albums' },
+  { id: 'slides', labelKey: 'bg.slideshow' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -145,16 +148,19 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
   backdropUri,
   wallpaperPath,
   capturePath,
+  initialTab = 'all',
+  onSelectAlbum,
 }) => {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { t } = useTranslation();
 
-  const [activeTab, setActiveTab] = useState<TabId>('all');
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [focusArea, setFocusArea] = useState<'tabs' | 'grid'>('grid');
   const [tabFocusIndex, setTabFocusIndex] = useState(0);
   const [gridFocusIndex, setGridFocusIndex] = useState(0);
   const [images, setImages] = useState<FolderImage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [slideshowSelectedAlbum, setSlideshowSelectedAlbum] = useState<string | null>(null);
 
   // Estados de álbumes y favoritos sincronizados con MediaGalleryView
   const [albums] = useState<Album[]>(() => loadPersisted<Album[]>('mediaGallery_albums', []));
@@ -241,14 +247,15 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
 
   useEffect(() => {
     if (visible) {
-      setActiveTab('all');
+      setActiveTab(initialTab);
       setTabFocusIndex(0);
       setGridFocusIndex(0);
       setFocusArea('grid');
       setOpenAlbumIndex(null);
+      setSlideshowSelectedAlbum(null);
       loadImages();
     }
-  }, [visible, loadImages]);
+  }, [visible, loadImages, initialTab]);
 
   const filteredImages = useMemo(() => {
     if (activeTab === 'all') return images;
@@ -262,6 +269,8 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
     }
     return images;
   }, [images, activeTab, favorites, albums, openAlbumIndex]);
+
+  const isAlbumPickerActive = activeTab === 'slides';
 
   const scrollToFocusedTile = useCallback((index: number) => {
     const row = Math.floor(index / columns);
@@ -362,7 +371,8 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
 
       if (area === 'grid') {
         const isOverview = activeTabRef.current === 'albums' && openAlbumIndexRef.current === null;
-        const itemCount = isOverview ? albumsRef.current.length : filteredImages.length;
+        const isSlidesPicker = activeTabRef.current === 'slides';
+        const itemCount = (isOverview || isSlidesPicker) ? albumsRef.current.length : filteredImages.length;
 
         if (itemCount === 0) {
           if (e.key === 'ArrowUp') {
@@ -399,6 +409,14 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
               setGridFocusIndex(0);
               soundService.playActivation();
             }
+          } else if (isSlidesPicker) {
+            const albumIdx = gridFocusIndexRef.current;
+            const album = albumsRef.current[albumIdx];
+            if (album) {
+              soundService.playActivation();
+              onSelectAlbum?.(album.name, album.items);
+              onClose();
+            }
           } else {
             const selected = filteredImages[gridFocusIndexRef.current];
             if (selected) {
@@ -413,7 +431,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [visible, columns, onClose, switchTab, playGridNavSound, filteredImages, onSelectBackground]);
+  }, [visible, columns, onClose, switchTab, playGridNavSound, filteredImages, albums, onSelectBackground, onSelectAlbum]);
 
   const uiStyles = useMemo(() => StyleSheet.create({
     content: { flex: 1, paddingTop: s(48), paddingHorizontal: s(72), paddingBottom: s(40) },
@@ -461,7 +479,8 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
               </TouchableOpacity>
             )}
             <Text style={uiStyles.title}>
-              {activeTab === 'albums' && openAlbumIndex !== null ? albums[openAlbumIndex]?.name || t('mediaGallery.albums') : t('bg.change')}
+              {activeTab === 'albums' && openAlbumIndex !== null ? albums[openAlbumIndex]?.name || t('mediaGallery.albums') :
+               activeTab === 'slides' ? t('bg.slideshow') : t('bg.change')}
             </Text>
           </View>
 
@@ -494,6 +513,58 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
               <ActivityIndicator size="large" color="#FFF" />
               <Text style={uiStyles.loadingText}>{t('bg.preparingThumbs')}</Text>
             </View>
+          ) : isAlbumPickerActive ? (
+            albums.length > 0 ? (
+              <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: s(80) }} keyboardShouldPersistTaps="handled" onScroll={handleGridScroll} onLayout={handleGridLayout} scrollEventThrottle={50}>
+                <View style={uiStyles.grid}>
+                  {albums.map((album, idx) => {
+                    const firstImg = images.find(img => album.items.includes(img.uri));
+                    const previewUri = firstImg ? (firstImg.thumbnail || firstImg.uri) : '';
+                    const isFocused = focusArea === 'grid' && gridFocusIndex === idx;
+                    const isSelected = slideshowSelectedAlbum === album.name;
+                    return (
+                      <TouchableOpacity
+                        key={album.name}
+                        style={[uiStyles.albumCard, isFocused && uiStyles.albumCardFocused, isSelected && { borderColor: '#4CD964' }]}
+                        activeOpacity={0.92}
+                        onPress={() => {
+                          setSlideshowSelectedAlbum(album.name);
+                          soundService.playActivation();
+                          onSelectAlbum?.(album.name, album.items);
+                          onClose();
+                        }}
+                      >
+                        {isFocused && <SpinningBorderSearch size={tileWidth} spread={1} borderRadius={6} />}
+                        {isSelected && (
+                          <View style={{ position: 'absolute', top: 8, right: 8, zIndex: 5 }}>
+                            <Ionicons name="checkmark-circle" size={s(24)} color="#4CD964" />
+                          </View>
+                        )}
+                        <View style={uiStyles.albumCardInner}>
+                          {previewUri ? (
+                            <Image source={{ uri: previewUri }} style={uiStyles.albumCardImage} contentFit="cover" cachePolicy="memory-disk" />
+                          ) : (
+                            <View style={uiStyles.albumCardPlaceholder}>
+                              <Ionicons name="folder-open-outline" size={s(48)} color="rgba(255,255,255,0.3)" />
+                            </View>
+                          )}
+                          <View style={uiStyles.albumCardOverlay}>
+                            <Ionicons name="folder" size={s(24)} color="rgba(255,255,255,0.9)" />
+                            <Text style={uiStyles.albumCardName} numberOfLines={1}>{album.name}</Text>
+                            <Text style={uiStyles.albumCardCount}>{album.items.length} {t('mediaGallery.all').toLowerCase()}</Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            ) : (
+              <View style={uiStyles.emptyState}>
+                <Ionicons name="folder-open-outline" size={s(48)} color="rgba(255,255,255,0.25)" style={{ marginBottom: s(16) }} />
+                <Text style={uiStyles.emptyText}>{t('mediaGallery.empty')}</Text>
+              </View>
+            )
           ) : isAlbumsOverview ? (
             albums.length > 0 ? (
               <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: s(80) }} keyboardShouldPersistTaps="handled" onScroll={handleGridScroll} onLayout={handleGridLayout} scrollEventThrottle={50}>
