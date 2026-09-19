@@ -20,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import PSIcon from '@/components/PSIcon';
+import { PSIcons } from '@/constants/psIcons';
 import { Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, FadeIn, FadeInDown, FadeOut, interpolate, measure, runOnJS, useAnimatedRef, useAnimatedStyle, useDerivedValue, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
@@ -4293,12 +4295,12 @@ export default function ConsoleHome() {
           exiting={FadeOut.duration(150)}
         >
           <View style={styles.moveHintItem}>
-            <View style={styles.moveHintBadge}><Text style={styles.moveHintBadgeText}>✕</Text></View>
-            <Text style={styles.moveHintText}>Confirmar</Text>
+            <PSIcon char={PSIcons.cross} size={20} color="#d3d3d3ff" />
+            <Text style={styles.moveHintText}>{t('common.confirm')}</Text>
           </View>
           <View style={styles.moveHintItem}>
-            <View style={styles.moveHintBadge}><Text style={styles.moveHintBadgeText}>○</Text></View>
-            <Text style={styles.moveHintText}>Salir</Text>
+            <PSIcon char={PSIcons.circle} size={20} color="#d3d3d3ff" />
+            <Text style={styles.moveHintText}>{t('common.cancel')}</Text>
           </View>
         </Animated.View>
       )}
@@ -4844,12 +4846,10 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     gap: 20,
     zIndex: 99999,
-    backgroundColor: 'rgba(10, 14, 24, 0.88)',
+    backgroundColor: 'rgba(12, 12, 12, 1)',
     paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,

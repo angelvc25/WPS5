@@ -10,12 +10,19 @@ import {
   Animated as RNAnimated,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import PSIcon from './PSIcon';
+import { PSIcons } from '@/constants/psIcons';
+import SpinningBorderSearch from './SpinningBorderSearch';
+import { useTranslation } from '@/contexts/LanguageContext';
+import type { TranslationKey } from '@/i18n/translations';
 
 // ─── Definitions ─────────────────────────────────────────────────────────────
 export interface WidgetDef {
   id: string;
-  label: string;
-  description?: string;
+  /** Clave de traducción del título */
+  labelKey: TranslationKey;
+  /** Clave de traducción de la descripción */
+  descriptionKey?: TranslationKey;
   iconName: string;
   iconLib: 'ion' | 'mci';
 }
@@ -71,16 +78,16 @@ export function saveWidgetOrder(order: string[]) {
 
 // ─── Widget definitions ───────────────────────────────────────────────────────
 export const PANEL_WIDGETS: WidgetDef[] = [
-  { id: 'controller',      label: 'Carga de la batería',       description: 'Muestra el estado de la batería de tus accesorios.', iconName: 'game-controller-outline', iconLib: 'ion' },
-  { id: 'recently_played', label: 'Jugados recientemente',      description: 'Muestra el último juego al que has jugado.', iconName: 'time-outline',         iconLib: 'ion' },
-  { id: 'trophies',        label: 'Trofeos',                    description: 'Resumen y estadísticas de tus trofeos obtenidos.', iconName: 'trophy-outline',       iconLib: 'mci' },
-  { id: 'friends',         label: 'Amigos en línea',            description: 'Amigos conectados y su actividad de juego actual.', iconName: 'people-outline',       iconLib: 'ion' },
-  { id: 'store',           label: 'PlayStation Store',          description: 'Ofertas destacadas y promociones de la tienda.', iconName: 'bag-handle-outline',   iconLib: 'ion' },
-  { id: 'storage',         label: 'Resumen del almacenamiento', description: 'Espacio libre y estado del disco de almacenamiento.', iconName: 'harddisk',             iconLib: 'mci' },
-  { id: 'news',            label: 'Noticias',                   description: 'Últimas novedades y actualizaciones de tus juegos.', iconName: 'newspaper-outline',    iconLib: 'ion' },
-  { id: 'add_game',        label: 'Agregar juego',              description: 'Acceso directo para agregar nuevos juegos.', iconName: 'add-circle-outline',   iconLib: 'ion' },
-  { id: 'random_pick',     label: 'Juego aleatorio',            description: 'Elige un juego aleatorio de tu colección.', iconName: 'shuffle-outline',      iconLib: 'ion' },
-  { id: 'change_bg',       label: 'Cambiar fondo',              description: 'Personaliza el fondo de pantalla de tu consola.', iconName: 'image-outline',        iconLib: 'ion' },
+  { id: 'controller', labelKey: 'widgetEdit.battery.label', descriptionKey: 'widgetEdit.battery.desc', iconName: 'battery-full', iconLib: 'ion' },
+  { id: 'recently_played', labelKey: 'widgetEdit.recentlyPlayed.label', descriptionKey: 'widgetEdit.recentlyPlayed.desc', iconName: 'time', iconLib: 'ion' },
+  { id: 'trophies', labelKey: 'widgetEdit.trophies.label', descriptionKey: 'widgetEdit.trophies.desc', iconName: 'trophy', iconLib: 'mci' },
+  { id: 'friends', labelKey: 'widgetEdit.friends.label', descriptionKey: 'widgetEdit.friends.desc', iconName: 'people', iconLib: 'ion' },
+  { id: 'store', labelKey: 'widgetEdit.store.label', descriptionKey: 'widgetEdit.store.desc', iconName: 'bag-handle', iconLib: 'ion' },
+  { id: 'storage', labelKey: 'widgetEdit.storage.label', descriptionKey: 'widgetEdit.storage.desc', iconName: 'harddisk', iconLib: 'mci' },
+  { id: 'news', labelKey: 'widgetEdit.news.label', descriptionKey: 'widgetEdit.news.desc', iconName: 'newspaper', iconLib: 'ion' },
+  { id: 'add_game', labelKey: 'widgetEdit.addGame.label', descriptionKey: 'widgetEdit.addGame.desc', iconName: 'add-circle', iconLib: 'ion' },
+  { id: 'random_pick', labelKey: 'widgetEdit.randomPick.label', descriptionKey: 'widgetEdit.randomPick.desc', iconName: 'shuffle', iconLib: 'ion' },
+  { id: 'change_bg', labelKey: 'widgetEdit.changeBg.label', descriptionKey: 'widgetEdit.changeBg.desc', iconName: 'image', iconLib: 'ion' },
 ];
 
 // ─── WidgetIcon helper ────────────────────────────────────────────────────────
@@ -98,6 +105,7 @@ interface WidgetRowProps {
 }
 
 const WidgetRow: React.FC<WidgetRowProps> = ({ widget, enabled, isFocused, onToggle }) => {
+  const { t } = useTranslation();
   const focusAnim = useRef(new RNAnimated.Value(isFocused ? 1 : 0)).current;
   useEffect(() => {
     RNAnimated.timing(focusAnim, { toValue: isFocused ? 1 : 0, duration: 180, useNativeDriver: false }).start();
@@ -112,24 +120,30 @@ const WidgetRow: React.FC<WidgetRowProps> = ({ widget, enabled, isFocused, onTog
         onPress={onToggle}
         style={[rowStyles.row, isFocused && rowStyles.rowFocused]}
       >
+        {/* Borde giratorio: solo en la fila enfocada, superpuesto a toda la fila */}
+        {isFocused && (
+          <View style={rowStyles.spinningOverlay} pointerEvents="none">
+            <SpinningBorderSearch size={50} spread={4} borderRadius={2} />
+          </View>
+        )}
         <View style={rowStyles.iconWrap}>
           <WidgetIcon def={widget} />
         </View>
         <View style={rowStyles.textWrap}>
           <Text style={[rowStyles.label, !enabled && rowStyles.labelDisabled]}>
-            {widget.label}
+            {t(widget.labelKey)}
           </Text>
-          {isFocused && widget.description ? (
+          {isFocused && widget.descriptionKey ? (
             <Text style={rowStyles.description} numberOfLines={2}>
-              {widget.description}
+              {t(widget.descriptionKey)}
             </Text>
           ) : null}
         </View>
         <Switch
           value={enabled}
           onValueChange={onToggle}
-          trackColor={{ false: 'rgba(255,255,255,0.2)', true: '#FFFFFF' }}
-          thumbColor={enabled ? '#121624' : '#777788'}
+          trackColor={{ false: '#363636ff', true: '#363636ff' }}
+          thumbColor={enabled ? '#ffffffff' : '#5c5c5cff'}
           ios_backgroundColor="rgba(255,255,255,0.2)"
         />
       </TouchableOpacity>
@@ -150,8 +164,13 @@ const rowStyles = StyleSheet.create({
     borderColor: 'transparent',
   } as any,
   rowFocused: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(255, 255, 255, 0)',
+    //borderColor: 'rgba(255,255,255,0.7)',
+  },
+  spinningOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 10,
+    zIndex: 0,
   },
   iconWrap: {
     width: 32,
@@ -161,9 +180,9 @@ const rowStyles = StyleSheet.create({
     marginRight: 12,
   },
   textWrap: { flex: 1, paddingRight: 10 },
-  label: { color: '#FFFFFF', fontSize: 14, fontFamily: 'SSTMedium', fontWeight: '500' },
+  label: { color: '#FFFFFF', fontSize: 15, fontFamily: 'SSTLight', fontWeight: '500' },
   labelDisabled: { color: 'rgba(255,255,255,0.5)' },
-  description: { color: 'rgba(255,255,255,0.7)', fontSize: 11.5, fontFamily: 'SSTRg', marginTop: 3, lineHeight: 15 },
+  description: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontFamily: 'SSTRg', marginTop: 8, lineHeight: 15 },
 });
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
@@ -187,6 +206,7 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
   onStartMove,
   windowHeight,
 }) => {
+  const { t } = useTranslation();
   const slideAnim = useRef(new RNAnimated.Value(-420)).current;
   const opacityAnim = useRef(new RNAnimated.Value(0)).current;
   const scrollRef = useRef<ScrollView>(null);
@@ -210,7 +230,7 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
       style={[
         panelStyles.container,
         {
-          height: Math.min(windowHeight * 0.78, 580),
+          height: Math.min(windowHeight * 0.78, 650),
           transform: [{ translateX: slideAnim }],
           opacity: opacityAnim,
         },
@@ -221,15 +241,14 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
         // @ts-ignore
         <div style={{
           position: 'absolute', inset: 0, zIndex: 0, borderRadius: 16,
-          background: 'linear-gradient(150deg, rgba(16,20,36,0.95) 0%, rgba(8,12,22,0.98) 100%)',
-          backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'linear-gradient(150deg, rgba(12, 12, 14, 0.68) 0%, rgba(0, 0, 0, 0.67) 100%)',
+          backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         }} />
       )}
 
       <View style={panelStyles.header}>
         <Ionicons name="create-outline" size={18} color="rgba(255,255,255,0.65)" style={{ marginRight: 8 }} />
-        <Text style={panelStyles.headerTitle}>Personalizar widgets</Text>
+        <Text style={panelStyles.headerTitle}>{t('widgetEdit.title')}</Text>
         <TouchableOpacity
           onPress={onClose}
           style={panelStyles.closeBtn}
@@ -260,12 +279,12 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
 
       <View style={panelStyles.footerHints}>
         <View style={panelStyles.hintItem}>
-          <View style={panelStyles.hintBadge}><Text style={panelStyles.hintBadgeText}>✕</Text></View>
-          <Text style={panelStyles.hintLabel}>Alternar</Text>
+          <PSIcon char={PSIcons.cross} size={20} style={panelStyles.hintBadge} color="#d3d3d3ff" />
+          <Text style={panelStyles.hintLabel}>{t('widgetEdit.hintToggle')}</Text>
         </View>
         <View style={panelStyles.hintItem}>
-          <View style={panelStyles.hintBadge}><Text style={panelStyles.hintBadgeText}>○</Text></View>
-          <Text style={panelStyles.hintLabel}>Salir</Text>
+          <PSIcon char={PSIcons.circle} size={20} style={panelStyles.hintBadge} color="#d3d3d3ff" />
+          <Text style={panelStyles.hintLabel}>{t('widgetEdit.hintExit')}</Text>
         </View>
         <TouchableOpacity
           style={panelStyles.hintItem}
@@ -275,8 +294,8 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
             if (currentWidget && onStartMove) onStartMove(currentWidget.id);
           }}
         >
-          <View style={panelStyles.hintBadge}><Text style={panelStyles.hintBadgeText}>□</Text></View>
-          <Text style={panelStyles.hintLabel}>Mover</Text>
+          <PSIcon char={PSIcons.square} size={20} style={panelStyles.hintBadge} color="#d3d3d3ff" />
+          <Text style={panelStyles.hintLabel}>{t('widgetEdit.hintMove')}</Text>
         </TouchableOpacity>
       </View>
     </RNAnimated.View>
@@ -288,12 +307,12 @@ const panelStyles = StyleSheet.create({
     position: 'absolute',
     left: 48,
     top: 105,
-    width: 350,
+    width: 465,
     borderRadius: 16,
     overflow: 'hidden',
     zIndex: 9999,
     shadowColor: '#000',
-    shadowOffset: { width: 4, height: 8 },
+    shadowOffset: { width: 8, height: 8 },
     shadowOpacity: 0.55,
     shadowRadius: 24,
     elevation: 20,
@@ -309,9 +328,8 @@ const panelStyles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     color: 'rgba(255,255,255,0.85)',
-    fontSize: 13,
-    fontFamily: 'SSTMedium',
-    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: 'SSTBold',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
@@ -343,20 +361,19 @@ const panelStyles = StyleSheet.create({
     gap: 6,
   },
   hintBadge: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    //backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
   hintBadgeText: {
     color: '#FFF',
-    fontSize: 10.5,
-    fontWeight: '700',
+    fontSize: 12.5,
     fontFamily: 'SSTMedium',
   },
   hintLabel: {
     color: 'rgba(255,255,255,0.6)',
-    fontSize: 11.5,
+    fontSize: 15,
     fontFamily: 'SSTRg',
   },
 });
