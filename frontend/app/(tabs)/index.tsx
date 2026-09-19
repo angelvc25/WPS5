@@ -42,6 +42,15 @@ import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
 import { UserProfile } from '@/components/UserSelectScreen';
 import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
+import WidgetEditPanel, {
+  loadWidgetVisibility,
+  saveWidgetVisibility,
+  loadWidgetOrder,
+  saveWidgetOrder,
+  PANEL_WIDGETS,
+  DEFAULT_WIDGET_IDS,
+  WidgetVisibility,
+} from '@/components/WidgetEditPanel';
 import WelcomeSettingsView from '@/components/WelcomeSettingsView';
 import MediaGalleryView from '@/components/MediaGalleryView';
 import { PLATFORMS } from '@/constants/platforms';
@@ -280,6 +289,54 @@ export default function ConsoleHome() {
   const [isFavoritesVisible, setFavoritesVisible] = useState(false);
   const [isSettingsVisible, setSettingsVisible] = useState(false);
   const [isWelcomeSettingsVisible, setWelcomeSettingsVisible] = useState(false);
+  const [isWidgetEditOpen, setIsWidgetEditOpen] = useState(false);
+  const [widgetEditFocusIndex, setWidgetEditFocusIndex] = useState(0);
+  const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(() => loadWidgetVisibility());
+  const [widgetOrder, setWidgetOrder] = useState<string[]>(() => loadWidgetOrder());
+  const [isWidgetMoveMode, setIsWidgetMoveMode] = useState(false);
+  const [movingWidgetId, setMovingWidgetId] = useState<string | null>(null);
+  const [preMoveOrderBackup, setPreMoveOrderBackup] = useState<string[]>([]);
+
+  const startWidgetMove = useCallback((id: string) => {
+    setPreMoveOrderBackup([...widgetOrder]);
+    setMovingWidgetId(id);
+    setIsWidgetMoveMode(true);
+    setIsWidgetEditOpen(false);
+    setFocusArea('welcome_widgets');
+    const slot = widgetOrder.indexOf(id);
+    setFocusIndex(slot !== -1 ? slot : 0);
+    soundService.playActivation?.();
+  }, [widgetOrder]);
+
+  const row1Visible = useMemo(
+    () => [0, 1, 2, 3, 4].filter(slot => widgetVisibility[widgetOrder[slot]] !== false),
+    [widgetVisibility, widgetOrder]
+  );
+  const row2Visible = useMemo(
+    () => [5, 6, 7, 8, 9].filter(slot => widgetVisibility[widgetOrder[slot]] !== false),
+    [widgetVisibility, widgetOrder]
+  );
+
+  useEffect(() => {
+    if (focusArea === 'welcome_widgets') {
+      const currentWidgetId = widgetOrder[focusIndex];
+      if (currentWidgetId && widgetVisibility[currentWidgetId] === false) {
+        const allVis = [...row1Visible, ...row2Visible];
+        if (allVis.length > 0) {
+          let closest = allVis[0];
+          let minDiff = Math.abs(closest - focusIndex);
+          for (const idx of allVis) {
+            const d = Math.abs(idx - focusIndex);
+            if (d < minDiff) {
+              minDiff = d;
+              closest = idx;
+            }
+          }
+          setFocusIndex(closest);
+        }
+      }
+    }
+  }, [widgetVisibility, widgetOrder, focusArea, focusIndex, row1Visible, row2Visible]);
   const [isMediaGalleryVisible, setMediaGalleryVisible] = useState(false);
   const [isSlidesModalVisible, setIsSlidesModalVisible] = useState(false);
   // Presentation mode
@@ -2018,7 +2075,7 @@ export default function ConsoleHome() {
 
     if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
       soundService.playExitMenu();
-      if (!isContextMenuOpen && !(focusArea === 'header_user')) {
+      if (!isContextMenuOpen && !(focusArea === 'header_user') && !isWidgetMoveMode && !isWidgetEditOpen) {
         setFocusArea('main_carousel');
       }
     }
@@ -2116,7 +2173,9 @@ export default function ConsoleHome() {
     }
 
     // 3. Option Action Keys (Open Context Menu)
-    if (e.key === 'x' || e.key === 'X' || e.key === 'm' || e.key === 'M' || e.key === 's' || e.key === 'S') {
+    // (No interceptar mientras el panel de widgets o el modo mover están activos:
+    //  ahí □ / x significa "Mover", y lo gestionan los bloques de más abajo.)
+    if (!isWidgetEditOpen && !isWidgetMoveMode && (e.key === 'x' || e.key === 'X' || e.key === 'm' || e.key === 'M' || e.key === 's' || e.key === 'S')) {
       soundService.playContextMenu();
       if (focusArea === 'main_carousel') {
         const item = currentData[activeIndex];
@@ -2149,6 +2208,132 @@ export default function ConsoleHome() {
     if (isSearchVisible) return;
     if (isRandomSelectorVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setRandomSelectorVisible(false); return; }
     if (isFavoritesVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setFavoritesVisible(false); return; }
+
+    // Widget Move Mode Navigation (PS5 Style)
+    if (isWidgetMoveMode && movingWidgetId) {
+      const currentSlot = widgetOrder.indexOf(movingWidgetId);
+
+      if (e.key === 'ArrowLeft') {
+        if ((currentSlot >= 1 && currentSlot <= 4) || (currentSlot >= 6 && currentSlot <= 9)) {
+          const targetSlot = currentSlot - 1;
+          const nextOrder = [...widgetOrder];
+          const temp = nextOrder[currentSlot];
+          nextOrder[currentSlot] = nextOrder[targetSlot];
+          nextOrder[targetSlot] = temp;
+          setWidgetOrder(nextOrder);
+          setFocusIndex(targetSlot);
+          soundService.playNavigation();
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowRight') {
+        if ((currentSlot >= 0 && currentSlot <= 3) || (currentSlot >= 5 && currentSlot <= 8)) {
+          const targetSlot = currentSlot + 1;
+          const nextOrder = [...widgetOrder];
+          const temp = nextOrder[currentSlot];
+          nextOrder[currentSlot] = nextOrder[targetSlot];
+          nextOrder[targetSlot] = temp;
+          setWidgetOrder(nextOrder);
+          setFocusIndex(targetSlot);
+          soundService.playNavigation();
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        if (currentSlot >= 0 && currentSlot <= 4) {
+          const targetSlot = currentSlot + 5;
+          const nextOrder = [...widgetOrder];
+          const temp = nextOrder[currentSlot];
+          nextOrder[currentSlot] = nextOrder[targetSlot];
+          nextOrder[targetSlot] = temp;
+          setWidgetOrder(nextOrder);
+          setFocusIndex(targetSlot);
+          soundService.playNavigation();
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowUp') {
+        if (currentSlot >= 5 && currentSlot <= 9) {
+          const targetSlot = currentSlot - 5;
+          const nextOrder = [...widgetOrder];
+          const temp = nextOrder[currentSlot];
+          nextOrder[currentSlot] = nextOrder[targetSlot];
+          nextOrder[targetSlot] = temp;
+          setWidgetOrder(nextOrder);
+          setFocusIndex(targetSlot);
+          soundService.playNavigation();
+        }
+        return;
+      }
+
+      if (e.key === 'Enter' || e.key === ' ') {
+        saveWidgetOrder(widgetOrder);
+        setIsWidgetMoveMode(false);
+        setMovingWidgetId(null);
+        setIsWidgetEditOpen(true);
+        const panelIdx = PANEL_WIDGETS.findIndex(w => w.id === movingWidgetId);
+        if (panelIdx !== -1) setWidgetEditFocusIndex(panelIdx);
+        soundService.playActivation?.();
+        return;
+      }
+
+      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+        if (preMoveOrderBackup.length > 0) {
+          setWidgetOrder(preMoveOrderBackup);
+        }
+        setIsWidgetMoveMode(false);
+        setMovingWidgetId(null);
+        setIsWidgetEditOpen(true);
+        const panelIdx = PANEL_WIDGETS.findIndex(w => w.id === movingWidgetId);
+        if (panelIdx !== -1) setWidgetEditFocusIndex(panelIdx);
+        soundService.playNavigation();
+        return;
+      }
+
+      return;
+    }
+
+    // Widget Edit Panel Navigation
+    if (isWidgetEditOpen) {
+      if (e.key === 'ArrowDown') {
+        soundService.playNavigation();
+        setWidgetEditFocusIndex(prev => Math.min(prev + 1, PANEL_WIDGETS.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        soundService.playNavigation();
+        setWidgetEditFocusIndex(prev => Math.max(prev - 1, 0));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === ' ') {
+        soundService.playActivation?.();
+        const currentWidget = PANEL_WIDGETS[widgetEditFocusIndex];
+        if (currentWidget) {
+          setWidgetVisibility(prev => {
+            const next = { ...prev, [currentWidget.id]: prev[currentWidget.id] === false ? true : false };
+            saveWidgetVisibility(next);
+            return next;
+          });
+        }
+        return;
+      }
+      // Square button (x/X) enters Move Mode
+      if (e.key === 'x' || e.key === 'X') {
+        const currentWidget = PANEL_WIDGETS[widgetEditFocusIndex];
+        if (currentWidget) {
+          startWidgetMove(currentWidget.id);
+        }
+        return;
+      }
+      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+        setIsWidgetEditOpen(false);
+        return;
+      }
+      return;
+    }
 
     // --- SPATIAL NAVIGATION ---
     if (e.key === 'ArrowRight') {
@@ -2211,8 +2396,23 @@ export default function ConsoleHome() {
         }
       }
       else if (focusArea === 'welcome_widgets') {
-        if (focusIndex < 4) setFocusIndex(prev => prev + 1);
-        else if (focusIndex >= 5 && focusIndex < 9) setFocusIndex(prev => prev + 1);
+        if (focusIndex < 5) {
+          const pos = row1Visible.indexOf(focusIndex);
+          if (pos >= 0 && pos < row1Visible.length - 1) {
+            setFocusIndex(row1Visible[pos + 1]);
+          } else if (pos === -1 && row1Visible.length > 0) {
+            const next = row1Visible.find(idx => idx > focusIndex);
+            if (next !== undefined) setFocusIndex(next);
+          }
+        } else {
+          const pos = row2Visible.indexOf(focusIndex);
+          if (pos >= 0 && pos < row2Visible.length - 1) {
+            setFocusIndex(row2Visible[pos + 1]);
+          } else if (pos === -1 && row2Visible.length > 0) {
+            const next = row2Visible.find(idx => idx > focusIndex);
+            if (next !== undefined) setFocusIndex(next);
+          }
+        }
       }
       else if (focusArea === 'welcome_toolbar') {
         if (toolbarFocusIndex < 3) setToolbarFocusIndex(prev => prev + 1);
@@ -2284,8 +2484,23 @@ export default function ConsoleHome() {
         }
       }
       else if (focusArea === 'welcome_widgets') {
-        if (focusIndex > 0 && focusIndex <= 4) setFocusIndex(prev => prev - 1);
-        else if (focusIndex > 5 && focusIndex <= 9) setFocusIndex(prev => prev - 1);
+        if (focusIndex < 5) {
+          const pos = row1Visible.indexOf(focusIndex);
+          if (pos > 0) {
+            setFocusIndex(row1Visible[pos - 1]);
+          } else if (pos === -1 && row1Visible.length > 0) {
+            const prev = [...row1Visible].reverse().find(idx => idx < focusIndex);
+            if (prev !== undefined) setFocusIndex(prev);
+          }
+        } else {
+          const pos = row2Visible.indexOf(focusIndex);
+          if (pos > 0) {
+            setFocusIndex(row2Visible[pos - 1]);
+          } else if (pos === -1 && row2Visible.length > 0) {
+            const prev = [...row2Visible].reverse().find(idx => idx < focusIndex);
+            if (prev !== undefined) setFocusIndex(prev);
+          }
+        }
       }
       else if (focusArea === 'welcome_toolbar') {
         if (toolbarFocusIndex > 0) setToolbarFocusIndex(prev => prev - 1);
@@ -2321,7 +2536,8 @@ export default function ConsoleHome() {
           setLibraryGridFocusIndex(0);
         } else if (activeItem?.id === '1') {
           setFocusArea('welcome_widgets');
-          setFocusIndex(0);
+          const firstVisible = row1Visible[0] ?? row2Visible[0] ?? 0;
+          setFocusIndex(firstVisible);
         } else if (canPlay) {
           setFocusArea('game_panel');
           setGamePanelFocusIndex(0);
@@ -2374,11 +2590,26 @@ export default function ConsoleHome() {
         }
       }
       else if (focusArea === 'welcome_widgets') {
-        if (focusIndex < 5) setFocusIndex(prev => prev + 5);
+        if (focusIndex < 5) {
+          if (row2Visible.length > 0) {
+            const currentCol = focusIndex % 5;
+            let bestIdx = row2Visible[0];
+            let bestDiff = Math.abs((bestIdx % 5) - currentCol);
+            for (let i = 1; i < row2Visible.length; i++) {
+              const diff = Math.abs((row2Visible[i] % 5) - currentCol);
+              if (diff < bestDiff) {
+                bestDiff = diff;
+                bestIdx = row2Visible[i];
+              }
+            }
+            setFocusIndex(bestIdx);
+          }
+        }
       }
       else if (focusArea === 'welcome_toolbar') {
         setFocusArea('welcome_widgets');
-        setFocusIndex(0);
+        const firstVisible = row1Visible[0] ?? row2Visible[0] ?? 0;
+        setFocusIndex(firstVisible);
       }
       return;
     }
@@ -2447,13 +2678,29 @@ export default function ConsoleHome() {
       else if (focusArea === 'header_tabs') { setFocusArea('header_avatar'); setFocusIndex(0); }
       else if (focusArea === 'welcome_widgets') {
         if (focusIndex >= 5) {
-          setFocusIndex(prev => prev - 5);
+          if (row1Visible.length > 0) {
+            const currentCol = focusIndex % 5;
+            let bestIdx = row1Visible[0];
+            let bestDiff = Math.abs((bestIdx % 5) - currentCol);
+            for (let i = 1; i < row1Visible.length; i++) {
+              const diff = Math.abs((row1Visible[i] % 5) - currentCol);
+              if (diff < bestDiff) {
+                bestDiff = diff;
+                bestIdx = row1Visible[i];
+              }
+            }
+            setFocusIndex(bestIdx);
+          } else {
+            setFocusArea('welcome_toolbar');
+            setToolbarFocusIndex(2);
+          }
         } else {
           setFocusArea('welcome_toolbar');
           setToolbarFocusIndex(2);
         }
       }
       else if (focusArea === 'welcome_toolbar') {
+        setIsWidgetEditOpen(false);
         setFocusArea('main_carousel');
         setFocusIndex(activeIndex);
       }
@@ -2545,24 +2792,26 @@ export default function ConsoleHome() {
         return;
       }
       if (focusArea === 'welcome_toolbar') {
-        if (toolbarFocusIndex === 2) setHomeBgModalVisible(true);
+        if (toolbarFocusIndex === 0) {
+          setIsWidgetEditOpen(prev => !prev);
+          setWidgetEditFocusIndex(0);
+        } else if (toolbarFocusIndex === 2) setHomeBgModalVisible(true);
         else if (toolbarFocusIndex === 3) setWelcomeSettingsVisible(true);
         return;
       }
       if (focusArea === 'welcome_widgets') {
-        if (focusIndex === 2) {
+        const currentWidgetId = widgetOrder[focusIndex];
+        if (currentWidgetId === 'store') {
           Linking.openURL('https://store.playstation.com');
-        } else if (focusIndex === 4) {
+        } else if (currentWidgetId === 'add_game') {
           setAddModalVisible(true);
-        } else if (focusIndex === 5 && lastPlayedGame) {
+        } else if (currentWidgetId === 'recently_played' && lastPlayedGame) {
           handleLaunchApp(lastPlayedGame);
-        } else if (focusIndex === 6) {
-          // Dispara la misma acción que el clic del widget (lanzar el mismo
-          // juego que el amigo destacado está jugando, o abrir su perfil).
+        } else if (currentWidgetId === 'friends') {
           welcomeWidgetsRef.current?.triggerFriendAction();
-        } else if (focusIndex === 8) {
+        } else if (currentWidgetId === 'random_pick') {
           setRandomSelectorVisible(true);
-        } else if (focusIndex === 9) {
+        } else if (currentWidgetId === 'change_bg') {
           setHomeBgModalVisible(true);
         }
         return;
@@ -3422,7 +3671,10 @@ export default function ConsoleHome() {
                   onPress={() => {
                     setFocusArea('welcome_toolbar');
                     setToolbarFocusIndex(idx);
-                    if (idx === 2) setHomeBgModalVisible(true);
+                    if (idx === 0) {
+                      setIsWidgetEditOpen(prev => !prev);
+                      setWidgetEditFocusIndex(0);
+                    } else if (idx === 2) setHomeBgModalVisible(true);
                     else if (idx === 3) setWelcomeSettingsVisible(true);
                   }}
                 >
@@ -3586,7 +3838,7 @@ export default function ConsoleHome() {
       {/* === MAIN SCROLLABLE CONTENT === */}
       <Animated.ScrollView
         ref={mainScrollRef}
-        scrollEnabled={!isWelcomeSettingsVisible} // <--- Deshabilita el scroll del fondo cuando la configuración está abierta
+        scrollEnabled={!isWelcomeSettingsVisible && !isWidgetEditOpen} // <--- Deshabilita el scroll del fondo cuando la configuración o edición está abierta
         style={[styles.mainContent, animatedTabContentStyle]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={mainScrollContentStyle}
@@ -3671,6 +3923,10 @@ export default function ConsoleHome() {
                   widgetContainerStyle={widgetContainerStyle}
                   widgetContainerStyle2={widgetContainerStyle2}
                   wviewStyle={wviewStyle}
+                  widgetVisibility={widgetVisibility}
+                  widgetOrder={widgetOrder}
+                  isMoveMode={isWidgetMoveMode}
+                  movingWidgetId={movingWidgetId}
                 />
               </Animated.View>
             </Animated.View>
@@ -4007,6 +4263,45 @@ export default function ConsoleHome() {
         onSlidesSettingsChange={handleSlidesSettingsChange}
         isAlbumPickerOpen={isSlidesModalVisible}
       />
+
+      {/* WIDGET EDIT PANEL */}
+      <WidgetEditPanel
+        visible={isWidgetEditOpen}
+        focusedWidgetIndex={widgetEditFocusIndex}
+        visibility={widgetVisibility}
+        onToggle={(id) => {
+          setWidgetVisibility(prev => {
+            const next = { ...prev, [id]: prev[id] === false ? true : false };
+            saveWidgetVisibility(next);
+            return next;
+          });
+        }}
+        onClose={() => {
+          setIsWidgetEditOpen(false);
+          setFocusArea('welcome_toolbar');
+          setToolbarFocusIndex(0);
+        }}
+        onStartMove={(id) => startWidgetMove(id)}
+        windowHeight={windowHeight}
+      />
+
+      {/* PS5 MOVE MODE FOOTER HINTS */}
+      {isWidgetMoveMode && (
+        <Animated.View
+          style={styles.moveModeFooter}
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+        >
+          <View style={styles.moveHintItem}>
+            <View style={styles.moveHintBadge}><Text style={styles.moveHintBadgeText}>✕</Text></View>
+            <Text style={styles.moveHintText}>Confirmar</Text>
+          </View>
+          <View style={styles.moveHintItem}>
+            <View style={styles.moveHintBadge}><Text style={styles.moveHintBadgeText}>○</Text></View>
+            <Text style={styles.moveHintText}>Salir</Text>
+          </View>
+        </Animated.View>
+      )}
 
       {/* USER/POWER MODAL */}
       <Modal visible={isUserModalVisible} transparent animationType="fade">
@@ -4539,6 +4834,32 @@ const styles = StyleSheet.create({
   settingsSecondaryBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: 15, borderRadius: 15, gap: 12, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' },
   settingsSecondaryBtnText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
   defaultAvatarContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+
+  // === WIDGET MOVE MODE FOOTER ===
+  moveModeFooter: {
+    position: 'absolute' as const,
+    bottom: 30,
+    right: 48,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 20,
+    zIndex: 99999,
+    backgroundColor: 'rgba(10, 14, 24, 0.88)',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  moveHintItem: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
+  moveHintBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center' as const, justifyContent: 'center' as const },
+  moveHintBadgeText: { color: '#FFF', fontSize: 12, fontWeight: '700' as const },
+  moveHintText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontFamily: 'SSTMedium', fontWeight: '500' as const },
 
   // === USER MODAL ===
   userModalOverlay: { flex: 1, backgroundColor: 'rgba(10, 10, 15, 0.95)', justifyContent: 'center', alignItems: 'center' },
