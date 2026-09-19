@@ -2900,6 +2900,14 @@ export default function ConsoleHome() {
   const handleApplyHomeBg = (uri: string) => {
     setHomeBackground({ uri });
     localStorage.setItem('home_background', uri);
+    if (slideshowAlbumName) {
+      setSlideshowAlbumName(null);
+      setSlideshowImages([]);
+      setCurrentSlideIndex(0);
+      localStorage.removeItem('slideshow_album');
+      localStorage.setItem('slideshow_duration', slideshowDuration);
+      localStorage.setItem('slideshow_transition', slideshowTransition);
+    }
   };
 
   const handleSelectHomeBg = async () => {
