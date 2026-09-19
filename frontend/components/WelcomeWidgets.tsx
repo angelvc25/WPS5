@@ -1,5 +1,5 @@
 import { DEFAULT_WIDGET_IDS } from './WidgetEditPanel';
-﻿import React, { useMemo, useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useMemo, useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -321,8 +321,14 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
         marginBottom: s(10),
       },
       welcomeWidgetCard: {
-        flex: 1,
-        height: sH(88),
+        // Alto fijo e idéntico para TODOS los widgets (evita que el contenido lo cambie).
+        // Nota: en react-native-web `flex: 1` pone flex-basis 0 y anula `height`.
+        width: '100%',
+        height: sH(100),
+        minHeight: sH(100),
+        maxHeight: sH(100),
+        flexGrow: 0,
+        flexShrink: 0,
         borderRadius: s(12),
         padding: s(13),
         overflow: 'visible',
@@ -416,21 +422,21 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       case 'controller':
         return (
           <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.widgetTouchable}
-              onPress={() => {
-                setFocusArea('welcome_widgets');
-                setFocusIndex(slotIndex);
-              }}
-            >
-              <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
-                {/* SPINNING BORDER */}
-                {Platform.OS === 'web' &&
-                  focusArea === 'welcome_widgets' &&
-                  (focusIndex === slotIndex || isBeingMoved) && (
-                    <>
-                      <style>
-                        {`
+            activeOpacity={0.85}
+            style={styles.widgetTouchable}
+            onPress={() => {
+              setFocusArea('welcome_widgets');
+              setFocusIndex(slotIndex);
+            }}
+          >
+            <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
+              {/* SPINNING BORDER */}
+              {Platform.OS === 'web' &&
+                focusArea === 'welcome_widgets' &&
+                (focusIndex === slotIndex || isBeingMoved) && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -514,21 +520,21 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
   }
                       `}
-                      </style>
+                    </style>
 
-                      <div className="wc-spinning-container2">
-                        {/* El gradiente cÃ³nico gira aquÃ­ adentro, siendo recortado perfectamente por el padre */}
-                        <div className="wc-spinning-inner" />
-                      </div>
-                    </>
-                  )}
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `
+                    <div className="wc-spinning-container2">
+                      {/* El gradiente cÃ³nico gira aquÃ­ adentro, siendo recortado perfectamente por el padre */}
+                      <div className="wc-spinning-inner" />
+                    </div>
+                  </>
+                )}
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
                       linear-gradient(
                         90deg,
                         rgba(207, 241, 253, 0.14) 0%,
@@ -538,96 +544,96 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         rgba(0, 0, 0, 0) 100%
                       )
                     `,
-                      pointerEvents: 'none',
-                      borderRadius: 10,
-                      overflow: "hidden",
-                      zIndex: 1,
-                      opacity: focusArea === 'welcome_widgets' ? 1 : 0,
-                      transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
+                    pointerEvents: 'none',
+                    borderRadius: 10,
+                    overflow: "hidden",
+                    zIndex: 1,
+                    opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+              )}
 
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 1,
-                      right: 1,
-                      bottom: 0,
-                      borderRadius: 10,
-                      zIndex: 5,
-                      overflow: 'hidden',
-                    } as any}
-                    pointerEvents="none"
-                  >
-                    {/* @ts-ignore */}
-                    <div className="wc-shimmer-line2" />
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={{ width: 80, height: 80, justifyContent: 'center', alignItems: 'center' }}>
-                    {Platform.OS === 'web' && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          inset: 0,
-                          borderRadius: '50%',
-                          background: `conic-gradient(${batteryColor} ${batteryPct}%, rgba(255,255,255,0.1) 0)`,
-                          zIndex: 0,
-                        }}
-                      />
-                    )}
-                    {Platform.OS === 'web' && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          inset: 4,
-                          borderRadius: '50%',
-                          background: '#0d1015',
-                          zIndex: 1,
-                        }}
-                      />
-                    )}
-                    <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: "#FFF", fontSize: 14, fontFamily: 'SSTMedium', marginBottom: 2 }}>{gamepadInfo.connected ? "1" : "-"}</Text>
-                      <Image source={require('@/assets/images/controller2.png')} style={{ width: 35, height: 35, tintColor: "#FFF" }} contentFit="contain" />
-                      <Ionicons name={batteryIcon as any} size={16} color={gamepadInfo.connected ? batteryColor : "#fff"} />
-                    </View>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.textStack}>
-                      <Text style={[styles.widgetSubtitle, { color: '#FFF' }]}>
-                        {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : t('widgets.controller')}
-                      </Text>
-                      <Text style={styles.widgetSubtitle}>{gamepadInfo.connected ? `${batteryPct}%` : t('widgets.disconnected')}</Text>
-                    </View>
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 10,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
+                </View>
+              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ width: 80, height: 80, justifyContent: 'center', alignItems: 'center' }}>
+                  {Platform.OS === 'web' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '50%',
+                        background: `conic-gradient(${batteryColor} ${batteryPct}%, rgba(255,255,255,0.1) 0)`,
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
+                  {Platform.OS === 'web' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 4,
+                        borderRadius: '50%',
+                        background: '#0d1015',
+                        zIndex: 1,
+                      }}
+                    />
+                  )}
+                  <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: "#FFF", fontSize: 14, fontFamily: 'SSTMedium', marginBottom: 2 }}>{gamepadInfo.connected ? "1" : "-"}</Text>
+                    <Image source={require('@/assets/images/controller2.png')} style={{ width: 35, height: 35, tintColor: "#FFF" }} contentFit="contain" />
+                    <Ionicons name={batteryIcon as any} size={16} color={gamepadInfo.connected ? batteryColor : "#fff"} />
                   </View>
                 </View>
-                {isBeingMoved && <MoveModeArrows />}
+                <View style={{ flex: 1 }}>
+                  <View style={styles.textStack}>
+                    <Text style={[styles.widgetSubtitle, { color: '#FFF' }]}>
+                      {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : t('widgets.controller')}
+                    </Text>
+                    <Text style={styles.widgetSubtitle}>{gamepadInfo.connected ? `${batteryPct}%` : t('widgets.disconnected')}</Text>
+                  </View>
                 </View>
-            </TouchableOpacity>
+              </View>
+              {isBeingMoved && <MoveModeArrows />}
+            </View>
+          </TouchableOpacity>
         );
       case 'trophies':
         return (
           <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.widgetTouchable}
-              onPress={() => {
-                setFocusArea('welcome_widgets');
-                setFocusIndex(slotIndex);
-              }}
-            >
-              <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
-                {/* SPINNING BORDER */}
-                {Platform.OS === 'web' &&
-                  focusArea === 'welcome_widgets' &&
-                  (focusIndex === slotIndex || isBeingMoved) && (
-                    <>
-                      <style>
-                        {`
+            activeOpacity={0.85}
+            style={styles.widgetTouchable}
+            onPress={() => {
+              setFocusArea('welcome_widgets');
+              setFocusIndex(slotIndex);
+            }}
+          >
+            <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
+              {/* SPINNING BORDER */}
+              {Platform.OS === 'web' &&
+                focusArea === 'welcome_widgets' &&
+                (focusIndex === slotIndex || isBeingMoved) && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -711,21 +717,21 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                         }
                       `}
-                      </style>
+                    </style>
 
-                      <div className="wc-spinning-container2">
-                        {/* El gradiente cÃ³nico gira aquÃ­ adentro, siendo recortado perfectamente por el padre */}
-                        <div className="wc-spinning-inner" />
-                      </div>
-                    </>
-                  )}
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `
+                    <div className="wc-spinning-container2">
+                      {/* El gradiente cÃ³nico gira aquÃ­ adentro, siendo recortado perfectamente por el padre */}
+                      <div className="wc-spinning-inner" />
+                    </div>
+                  </>
+                )}
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
                       linear-gradient(
                         90deg,
                         rgba(207, 241, 253, 0.14) 0%,
@@ -735,90 +741,90 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         rgba(0, 0, 0, 0) 100%
                       )
                     `,
-                      pointerEvents: 'none',
-                      borderRadius: 10,
-                      overflow: "hidden",
-                      zIndex: 1,
-                      opacity: focusArea === 'welcome_widgets' ? 1 : 0,
-                      transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
+                    pointerEvents: 'none',
+                    borderRadius: 10,
+                    overflow: "hidden",
+                    zIndex: 1,
+                    opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+              )}
 
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 1,
-                      right: 1,
-                      bottom: 0,
-                      borderRadius: 10,
-                      zIndex: 5,
-                      overflow: 'hidden',
-                    } as any}
-                    pointerEvents="none"
-                  >
-                    {/* @ts-ignore */}
-                    <div className="wc-shimmer-line2" />
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <Image source={require('@/assets/images/logo-trophy.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
-                    <Text style={styles.widgetTitle}>{t('widgets.trophies')}</Text>
-                  </View>
-                  <Text style={styles.widgetBadge}>Total: 457</Text>
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 10,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  {/* PLATINO */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Image source={require('@/assets/images/platino.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>1</Text>
-                  </View>
-
-                  {/* ORO */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Image source={require('@/assets/images/oro.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>3</Text>
-                  </View>
-
-                  {/* PLATA */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Image source={require('@/assets/images/plata.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>16</Text>
-                  </View>
-
-                  {/* BRONCE */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Image source={require('@/assets/images/bronce.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                    <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>17</Text>
-                  </View>
+              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Image source={require('@/assets/images/logo-trophy.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
+                  <Text style={styles.widgetTitle}>{t('widgets.trophies')}</Text>
                 </View>
-                {isBeingMoved && <MoveModeArrows />}
+                <Text style={styles.widgetBadge}>Total: 457</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {/* PLATINO */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Image source={require('@/assets/images/platino.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
+                  <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>1</Text>
                 </View>
-            </TouchableOpacity>
+
+                {/* ORO */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Image source={require('@/assets/images/oro.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
+                  <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>3</Text>
+                </View>
+
+                {/* PLATA */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Image source={require('@/assets/images/plata.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
+                  <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>16</Text>
+                </View>
+
+                {/* BRONCE */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Image source={require('@/assets/images/bronce.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
+                  <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>17</Text>
+                </View>
+              </View>
+              {isBeingMoved && <MoveModeArrows />}
+            </View>
+          </TouchableOpacity>
         );
       case 'store':
         return (
           <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.widgetTouchable}
-              onPress={() => {
-                setFocusArea('welcome_widgets');
-                setFocusIndex(slotIndex);
-                Linking.openURL(activeOffer?.url || 'https://store.playstation.com');
-              }}
-            >
-              <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
-                {/* SPINNING BORDER */}
-                {Platform.OS === 'web' &&
-                  focusArea === 'welcome_widgets' &&
-                  (focusIndex === slotIndex || isBeingMoved) && (
-                    <>
-                      <style>
-                        {`
+            activeOpacity={0.85}
+            style={styles.widgetTouchable}
+            onPress={() => {
+              setFocusArea('welcome_widgets');
+              setFocusIndex(slotIndex);
+              Linking.openURL(activeOffer?.url || 'https://store.playstation.com');
+            }}
+          >
+            <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
+              {/* SPINNING BORDER */}
+              {Platform.OS === 'web' &&
+                focusArea === 'welcome_widgets' &&
+                (focusIndex === slotIndex || isBeingMoved) && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -902,119 +908,119 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                         }
                       `}
-                      </style>
+                    </style>
 
-                      <div className="wc-spinning-container2">
-                        <div className="wc-spinning-inner" />
-                      </div>
+                    <div className="wc-spinning-container2">
+                      <div className="wc-spinning-inner" />
+                    </div>
 
-                      <div
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: -5,
+                        borderRadius: 28,
+                        pointerEvents: 'none',
+                        overflow: 'hidden',
+                        zIndex: 0,
+                      }}
+                    >
+                      <Image
+                        source={{ uri: activeOffer?.image || 'https://clan.fastly.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
                         style={{
                           position: 'absolute',
-                          inset: -5,
-                          borderRadius: 28,
-                          pointerEvents: 'none',
+                          top: 7,
+                          left: 7,
+                          right: 7,
+                          bottom: 7,
+                          borderRadius: 12,
+                          width: 'auto',
+                          height: 'auto',
                           overflow: 'hidden',
-                          zIndex: 0,
+                          zIndex: 1,
                         }}
-                      >
-                        <Image
-                          source={{ uri: activeOffer?.image || 'https://clan.fastly.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
-                          style={{
-                            position: 'absolute',
-                            top: 7,
-                            left: 7,
-                            right: 7,
-                            bottom: 7,
-                            borderRadius: 12,
-                            width: 'auto',
-                            height: 'auto',
-                            overflow: 'hidden',
-                            zIndex: 1,
-                          }}
-                          transition={300}
-                        />
-                      </div>
-                    </>
-                  )}
-                {/* Background Image when NOT focused/hovered */}
-                {!(focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && (
-                  <>
-                    <Image
-                      source={{ uri: activeOffer?.image || 'https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        borderRadius: 12,
-                      }}
-                      contentFit="cover"
-                      transition={300}
-                    />
-                    <View
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        borderRadius: 10,
-                        backgroundColor: 'rgba(13, 16, 21, 0.45)',
-                      }}
-                    />
+                        transition={300}
+                      />
+                    </div>
                   </>
                 )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                  <Image source={require('@/assets/images/PlaystationStore_copi.png')} style={{ width: 18, height: 18, resizeMode: 'cover' }} />
-                  <View>
-                    <Text style={styles.widgetTitle}>{t('widgets.store')}</Text>
-                    <Text style={styles.widgetSubtitle} numberOfLines={1}>
-                      {activeOffer ? activeOffer.title : t('widgets.latestOffers')}
-                    </Text>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, zIndex: 10 }}>
-                  {activeOffer?.discountPercent && (
-                    <View style={{ backgroundColor: '#0070D1', paddingHorizontal: 3, paddingVertical: 1, borderRadius: 3 }}>
-                      <Text style={{ color: '#fff', fontSize: 10, fontFamily: 'SSTBold' }}>-{activeOffer.discountPercent}%</Text>
-                    </View>
-                  )}
-                  <Text style={{ fontSize: 12, fontFamily: 'SSTBold', color: "#fff" }} numberOfLines={1}>
-                    {activeOffer ? activeOffer.price : 'US$69.99'}
+              {/* Background Image when NOT focused/hovered */}
+              {!(focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && (
+                <>
+                  <Image
+                    source={{ uri: activeOffer?.image || 'https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      borderRadius: 12,
+                    }}
+                    contentFit="cover"
+                    transition={300}
+                  />
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      borderRadius: 10,
+                      backgroundColor: 'rgba(13, 16, 21, 0.45)',
+                    }}
+                  />
+                </>
+              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                <Image source={require('@/assets/images/PlaystationStore_copi.png')} style={{ width: 18, height: 18, resizeMode: 'cover' }} />
+                <View>
+                  <Text style={styles.widgetTitle}>{t('widgets.store')}</Text>
+                  <Text style={styles.widgetSubtitle} numberOfLines={1}>
+                    {activeOffer ? activeOffer.title : t('widgets.latestOffers')}
                   </Text>
-                  {activeOffer?.originalPrice && (
-                    <Text style={{ fontSize: 10, fontFamily: 'SSTLight', color: "rgba(255,255,255,0.5)", textDecorationLine: 'line-through' }} numberOfLines={1}>
-                      {activeOffer.originalPrice}
-                    </Text>
-                  )}
                 </View>
-                {isBeingMoved && <MoveModeArrows />}
-                </View>
-            </TouchableOpacity>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, zIndex: 10 }}>
+                {activeOffer?.discountPercent && (
+                  <View style={{ backgroundColor: '#0070D1', paddingHorizontal: 3, paddingVertical: 1, borderRadius: 3 }}>
+                    <Text style={{ color: '#fff', fontSize: 10, fontFamily: 'SSTBold' }}>-{activeOffer.discountPercent}%</Text>
+                  </View>
+                )}
+                <Text style={{ fontSize: 12, fontFamily: 'SSTBold', color: "#fff" }} numberOfLines={1}>
+                  {activeOffer ? activeOffer.price : 'US$69.99'}
+                </Text>
+                {activeOffer?.originalPrice && (
+                  <Text style={{ fontSize: 10, fontFamily: 'SSTLight', color: "rgba(255,255,255,0.5)", textDecorationLine: 'line-through' }} numberOfLines={1}>
+                    {activeOffer.originalPrice}
+                  </Text>
+                )}
+              </View>
+              {isBeingMoved && <MoveModeArrows />}
+            </View>
+          </TouchableOpacity>
         );
       case 'news':
         return (
           <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.widgetTouchable}
-              onPress={() => {
-                setFocusArea('welcome_widgets');
-                setFocusIndex(slotIndex);
-                if (realNews.length > 0 && realNews[0].url) {
-                  Linking.openURL(realNews[0].url);
-                }
-              }}
-            >
-              <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
-                {/* SPINNING BORDER */}
-                {Platform.OS === 'web' &&
-                  focusArea === 'welcome_widgets' &&
-                  (focusIndex === slotIndex || isBeingMoved) && (
-                    <>
-                      <style>
-                        {`
+            activeOpacity={0.85}
+            style={styles.widgetTouchable}
+            onPress={() => {
+              setFocusArea('welcome_widgets');
+              setFocusIndex(slotIndex);
+              if (realNews.length > 0 && realNews[0].url) {
+                Linking.openURL(realNews[0].url);
+              }
+            }}
+          >
+            <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
+              {/* SPINNING BORDER */}
+              {Platform.OS === 'web' &&
+                focusArea === 'welcome_widgets' &&
+                (focusIndex === slotIndex || isBeingMoved) && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -1098,40 +1104,40 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                         }
                       `}
-                      </style>
+                    </style>
 
-                      <div className="wc-spinning-container2">
-                        <div className="wc-spinning-inner" />
-                      </div>
+                    <div className="wc-spinning-container2">
+                      <div className="wc-spinning-inner" />
+                    </div>
 
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: -5,
+                        borderRadius: 28,
+                        pointerEvents: 'none',
+                        overflow: 'hidden',
+                        zIndex: 0,
+                      }}
+                    >
                       <div
                         style={{
                           position: 'absolute',
-                          inset: -5,
-                          borderRadius: 28,
-                          pointerEvents: 'none',
-                          overflow: 'hidden',
-                          zIndex: 0,
+                          inset: 7,
+                          borderRadius: 12,
+                          background: '#0d1015',
                         }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 7,
-                            borderRadius: 12,
-                            background: '#0d1015',
-                          }}
-                        />
-                      </div>
-                    </>
-                  )}
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `
+                      />
+                    </div>
+                  </>
+                )}
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
                       linear-gradient(
                         90deg,
                         rgba(207, 241, 253, 0.14) 0%,
@@ -1141,71 +1147,71 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         rgba(0, 0, 0, 0) 100%
                       )
                     `,
-                      pointerEvents: 'none',
-                      borderRadius: 10,
-                      zIndex: 1,
-                      opacity: focusArea === 'welcome_widgets' ? 1 : 0,
-                      transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
-
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 1,
-                      right: 1,
-                      bottom: 0,
-                      borderRadius: 10,
-                      zIndex: 5,
-                      overflow: 'hidden',
-                    } as any}
-                    pointerEvents="none"
-                  >
-                    {/* @ts-ignore */}
-                    <div className="wc-shimmer-line2" />
-                  </View>
-                )}
-                <View style={{ flex: 1, marginRight: 10 }}>
-                  <Text style={styles.widgetTitle}>{t('widgets.news')}</Text>
-                  <Text style={styles.widgetSubtitle} numberOfLines={1}>
-                    {realNews.length > 0 ? realNews[0].title : t('widgets.discoverGames')}
-                  </Text>
-                  <Text style={[styles.widgetSubtitle, { opacity: 0.6 }]} numberOfLines={1}>
-                    {realNews.length > 0 ? `Helldivers 2 â€” ${formatSteamDate(realNews[0].date)}` : 'Apex Legends | Ayer'}
-                  </Text>
-                </View>
-                <Image
-                  source={realNews.length > 0 && realNews[0].image_url ? { uri: realNews[0].image_url } : require("@/assets/images/Store.png")}
-                  style={{ width: 70, height: 70, borderRadius: 6 }}
-                  contentFit="cover"
+                    pointerEvents: 'none',
+                    borderRadius: 10,
+                    zIndex: 1,
+                    opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
                 />
-                {isBeingMoved && <MoveModeArrows />}
+              )}
+
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 10,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
                 </View>
-            </TouchableOpacity>
+              )}
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={styles.widgetTitle}>{t('widgets.news')}</Text>
+                <Text style={styles.widgetSubtitle} numberOfLines={1}>
+                  {realNews.length > 0 ? realNews[0].title : t('widgets.discoverGames')}
+                </Text>
+                <Text style={[styles.widgetSubtitle, { opacity: 0.6 }]} numberOfLines={1}>
+                  {realNews.length > 0 ? `Helldivers 2 â€” ${formatSteamDate(realNews[0].date)}` : 'Apex Legends | Ayer'}
+                </Text>
+              </View>
+              <Image
+                source={realNews.length > 0 && realNews[0].image_url ? { uri: realNews[0].image_url } : require("@/assets/images/Store.png")}
+                style={{ width: 70, height: 70, borderRadius: 6 }}
+                contentFit="cover"
+              />
+              {isBeingMoved && <MoveModeArrows />}
+            </View>
+          </TouchableOpacity>
         );
       case 'add_game':
         return (
           <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.widgetTouchable}
-              onPress={() => {
-                setFocusArea('welcome_widgets');
-                setFocusIndex(slotIndex);
-                setAddModalVisible(true);
-              }}
-            >
-              <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
-                {/* SPINNING BORDER */}
-                {Platform.OS === 'web' &&
-                  focusArea === 'welcome_widgets' &&
-                  (focusIndex === slotIndex || isBeingMoved) && (
-                    <>
-                      <style>
-                        {`
+            activeOpacity={0.85}
+            style={styles.widgetTouchable}
+            onPress={() => {
+              setFocusArea('welcome_widgets');
+              setFocusIndex(slotIndex);
+              setAddModalVisible(true);
+            }}
+          >
+            <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
+              {/* SPINNING BORDER */}
+              {Platform.OS === 'web' &&
+                focusArea === 'welcome_widgets' &&
+                (focusIndex === slotIndex || isBeingMoved) && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -1289,40 +1295,40 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                         }
                       `}
-                      </style>
+                    </style>
 
-                      <div className="wc-spinning-container2">
-                        <div className="wc-spinning-inner" />
-                      </div>
+                    <div className="wc-spinning-container2">
+                      <div className="wc-spinning-inner" />
+                    </div>
 
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: -5,
+                        borderRadius: 28,
+                        pointerEvents: 'none',
+                        overflow: 'hidden',
+                        zIndex: 0,
+                      }}
+                    >
                       <div
                         style={{
                           position: 'absolute',
-                          inset: -5,
-                          borderRadius: 28,
-                          pointerEvents: 'none',
-                          overflow: 'hidden',
-                          zIndex: 0,
+                          inset: 7,
+                          borderRadius: 12,
+                          background: '#0d1015',
                         }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 7,
-                            borderRadius: 12,
-                            background: '#0d1015',
-                          }}
-                        />
-                      </div>
-                    </>
-                  )}
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `
+                      />
+                    </div>
+                  </>
+                )}
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
                       linear-gradient(
                         90deg,
                         rgba(207, 241, 253, 0.14) 0%,
@@ -1332,66 +1338,66 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         rgba(0, 0, 0, 0) 100%
                       )
                     `,
-                      pointerEvents: 'none',
-                      borderRadius: 10,
-                      zIndex: 1,
-                      opacity: focusArea === 'welcome_widgets' ? 1 : 0,
-                      transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
+                    pointerEvents: 'none',
+                    borderRadius: 10,
+                    zIndex: 1,
+                    opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+              )}
 
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 1,
-                      right: 1,
-                      bottom: 0,
-                      borderRadius: 10,
-                      zIndex: 5,
-                      overflow: 'hidden',
-                    } as any}
-                    pointerEvents="none"
-                  >
-                    {/* @ts-ignore */}
-                    <div className="wc-shimmer-line2" />
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={styles.widgetIconWrap}>
-                    <Ionicons name="add" size={20} color="#FFF" />
-                  </View>
-                  <View>
-                    <Text style={styles.widgetTitle}>{t('widgets.addGame')}</Text>
-                    <Text style={styles.widgetSubtitle} numberOfLines={1}>{t('widgets.shortcuts')}</Text>
-                  </View>
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 10,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
                 </View>
-                {isBeingMoved && <MoveModeArrows />}
+              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={styles.widgetIconWrap}>
+                  <Ionicons name="add" size={20} color="#FFF" />
                 </View>
-            </TouchableOpacity>
+                <View>
+                  <Text style={styles.widgetTitle}>{t('widgets.addGame')}</Text>
+                  <Text style={styles.widgetSubtitle} numberOfLines={1}>{t('widgets.shortcuts')}</Text>
+                </View>
+              </View>
+              {isBeingMoved && <MoveModeArrows />}
+            </View>
+          </TouchableOpacity>
         );
       case 'recently_played':
         return (
           <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.widgetTouchable}
-              onPress={() => {
-                setFocusArea('welcome_widgets');
-                setFocusIndex(slotIndex);
-                if (lastPlayedGame) handleLaunchApp(lastPlayedGame);
-              }}
-            >
-              <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
-                {/* SPINNING BORDER */}
-                {Platform.OS === 'web' &&
-                  focusArea === 'welcome_widgets' &&
-                  (focusIndex === slotIndex || isBeingMoved) && (
-                    <>
-                      <style>
-                        {`
+            activeOpacity={0.85}
+            style={styles.widgetTouchable}
+            onPress={() => {
+              setFocusArea('welcome_widgets');
+              setFocusIndex(slotIndex);
+              if (lastPlayedGame) handleLaunchApp(lastPlayedGame);
+            }}
+          >
+            <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, { flexDirection: 'row', justifyContent: 'space-between' }, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
+              {/* SPINNING BORDER */}
+              {Platform.OS === 'web' &&
+                focusArea === 'welcome_widgets' &&
+                (focusIndex === slotIndex || isBeingMoved) && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -1475,40 +1481,40 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                         }
                       `}
-                      </style>
+                    </style>
 
-                      <div className="wc-spinning-container2">
-                        <div className="wc-spinning-inner" />
-                      </div>
+                    <div className="wc-spinning-container2">
+                      <div className="wc-spinning-inner" />
+                    </div>
 
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: -5,
+                        borderRadius: 28,
+                        pointerEvents: 'none',
+                        overflow: 'hidden',
+                        zIndex: 0,
+                      }}
+                    >
                       <div
                         style={{
                           position: 'absolute',
-                          inset: -5,
-                          borderRadius: 28,
-                          pointerEvents: 'none',
-                          overflow: 'hidden',
-                          zIndex: 0,
+                          inset: 7,
+                          borderRadius: 12,
+                          background: '#0d1015',
                         }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 7,
-                            borderRadius: 12,
-                            background: '#0d1015',
-                          }}
-                        />
-                      </div>
-                    </>
-                  )}
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `
+                      />
+                    </div>
+                  </>
+                )}
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
                       linear-gradient(
                         90deg,
                         rgba(207, 241, 253, 0.14) 0%,
@@ -1518,77 +1524,77 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         rgba(0, 0, 0, 0) 100%
                       )
                     `,
-                      pointerEvents: 'none',
-                      borderRadius: 10,
-                      zIndex: 1,
-                      opacity: focusArea === 'welcome_widgets' ? 1 : 0,
-                      transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
+                    pointerEvents: 'none',
+                    borderRadius: 10,
+                    zIndex: 1,
+                    opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+              )}
 
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 1,
-                      right: 1,
-                      bottom: 0,
-                      borderRadius: 10,
-                      zIndex: 5,
-                      overflow: 'hidden',
-                    } as any}
-                    pointerEvents="none"
-                  >
-                    {/* @ts-ignore */}
-                    <div className="wc-shimmer-line2" />
-                  </View>
-                )}
-                <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 5, marginBottom: 6, maxWidth: 180 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <Image source={require('@/assets/images/controller.png')} style={{ width: 13, height: 13, resizeMode: 'contain', tintColor: "#FFF" }} />
-                    <Text style={styles.widgetTitle}>{t('widgets.recentlyPlayed')}</Text>
-                  </View>
-                  <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : t('widgets.noRecent')}</Text>
-                  <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium', flex: 1 }}>
-                    <MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />
-                    {lastPlayedGame
-                      ? formatPlaytime(Number(lastPlayedGame.playtimeMinutes ?? lastPlayedGame.playtime_forever ?? 0), t)
-                      : t('lastPlayed.never')}
-                  </Text>
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 10,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
                 </View>
-                {lastPlayedGame ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Image source={lastPlayedGame.image} style={{ width: 70, height: 70, borderRadius: 0 }} contentFit="cover" />
-                  </View>
-                ) : (
-                  <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontFamily: 'SSTMediumIt' }}>{t('widgets.noRecent')}</Text>
-                )}
-                {isBeingMoved && <MoveModeArrows />}
+              )}
+              <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 5, marginBottom: 6, maxWidth: 180 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Image source={require('@/assets/images/controller.png')} style={{ width: 13, height: 13, resizeMode: 'contain', tintColor: "#FFF" }} />
+                  <Text style={styles.widgetTitle}>{t('widgets.recentlyPlayed')}</Text>
                 </View>
-            </TouchableOpacity>
+                <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : t('widgets.noRecent')}</Text>
+                <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium', flex: 1 }}>
+                  <MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />
+                  {lastPlayedGame
+                    ? formatPlaytime(Number(lastPlayedGame.playtimeMinutes ?? lastPlayedGame.playtime_forever ?? 0), t)
+                    : t('lastPlayed.never')}
+                </Text>
+              </View>
+              {lastPlayedGame ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Image source={lastPlayedGame.image} style={{ width: 70, height: 70, borderRadius: 0 }} contentFit="cover" />
+                </View>
+              ) : (
+                <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontFamily: 'SSTMediumIt' }}>{t('widgets.noRecent')}</Text>
+              )}
+              {isBeingMoved && <MoveModeArrows />}
+            </View>
+          </TouchableOpacity>
         );
       case 'friends':
         return (
           <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.widgetTouchable}
-              onPress={() => {
-                setFocusArea('welcome_widgets');
-                setFocusIndex(slotIndex);
-                handleFriendAction(topFriend);
-              }}
-            >
-              <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
-                {/* SPINNING BORDER */}
-                {Platform.OS === 'web' &&
-                  focusArea === 'welcome_widgets' &&
-                  (focusIndex === slotIndex || isBeingMoved) && (
-                    <>
-                      <style>
-                        {`
+            activeOpacity={0.85}
+            style={styles.widgetTouchable}
+            onPress={() => {
+              setFocusArea('welcome_widgets');
+              setFocusIndex(slotIndex);
+              handleFriendAction(topFriend);
+            }}
+          >
+            <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
+              {/* SPINNING BORDER */}
+              {Platform.OS === 'web' &&
+                focusArea === 'welcome_widgets' &&
+                (focusIndex === slotIndex || isBeingMoved) && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -1672,38 +1678,38 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                         }
                       `}
-                      </style>
-                      <div className="wc-spinning-container2">
-                        <div className="wc-spinning-inner" />
-                      </div>
+                    </style>
+                    <div className="wc-spinning-container2">
+                      <div className="wc-spinning-inner" />
+                    </div>
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: -5,
+                        borderRadius: 28,
+                        pointerEvents: 'none',
+                        overflow: 'hidden',
+                        zIndex: 0,
+                      }}
+                    >
                       <div
                         style={{
                           position: 'absolute',
-                          inset: -5,
-                          borderRadius: 28,
-                          pointerEvents: 'none',
-                          overflow: 'hidden',
-                          zIndex: 0,
+                          inset: 7,
+                          borderRadius: 12,
+                          background: '#0d1015',
                         }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 7,
-                            borderRadius: 12,
-                            background: '#0d1015',
-                          }}
-                        />
-                      </div>
-                    </>
-                  )}
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `
+                      />
+                    </div>
+                  </>
+                )}
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
                       linear-gradient(
                         90deg,
                         rgba(207, 241, 253, 0.14) 0%,
@@ -1713,122 +1719,122 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         rgba(0, 0, 0, 0) 100%
                       )
                     `,
-                      pointerEvents: 'none',
-                      borderRadius: 10,
-                      zIndex: 1,
-                      opacity: focusArea === 'welcome_widgets' ? 1 : 0,
-                      transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
+                    pointerEvents: 'none',
+                    borderRadius: 10,
+                    zIndex: 1,
+                    opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+              )}
 
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 10,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
+                </View>
+              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                <Image source={require('@/assets/images/amigos.png')} style={{ width: 30, height: 30, borderRadius: 5, resizeMode: 'contain' }} />
+                <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>{t('widgets.friends')}</Text>
+                {onlineFriendsCount > 0 && (
                   <View
                     style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 1,
-                      right: 1,
-                      bottom: 0,
-                      borderRadius: 10,
-                      zIndex: 5,
-                      overflow: 'hidden',
-                    } as any}
-                    pointerEvents="none"
+                      marginLeft: 'auto',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 5,
+                    }}
                   >
-                    {/* @ts-ignore */}
-                    <div className="wc-shimmer-line2" />
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                  <Image source={require('@/assets/images/amigos.png')} style={{ width: 30, height: 30, borderRadius: 5, resizeMode: 'contain' }} />
-                  <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>{t('widgets.friends')}</Text>
-                  {onlineFriendsCount > 0 && (
+                    {/* Punto verde */}
                     <View
                       style={{
-                        marginLeft: 'auto',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 5,
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: '#4CD964',
+                      }}
+                    />
+
+                    {/* NÃºmero */}
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 12,
+                        fontFamily: 'SSTBold',
                       }}
                     >
-                      {/* Punto verde */}
-                      <View
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: 4,
-                          backgroundColor: '#4CD964',
-                        }}
-                      />
-
-                      {/* NÃºmero */}
-                      <Text
-                        style={{
-                          color: '#FFFFFF',
-                          fontSize: 12,
-                          fontFamily: 'SSTBold',
-                        }}
-                      >
-                        {onlineFriendsCount}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                {topFriend ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 36, height: 36, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: (topFriend.gameextrainfo || topFriend.personastate > 0) ? '#4CD964' : 'rgba(255,255,255,0.1)' }}>
-                      {topFriend.avatar ? (
-                        <Image source={{ uri: topFriend.avatar }} style={styles.avatarMensajes} />
-                      ) : (
-                        <Image source={require('@/assets/images/amigos.png')} style={styles.avatarMensajes} />
-
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium' }} numberOfLines={1}>{topFriend.personaname}</Text>
-                      <Text style={styles.widgetSubtitle} numberOfLines={1}>
-                        {topFriend.gameextrainfo
-                          ? t('widgets.playing', { game: topFriend.gameextrainfo })
-                          : (topFriend.personastate > 0 ? t('widgets.online') : t('widgets.disconnected'))}
-                      </Text>
-                      <Image
-                        source={require('@/assets/images/consola.png')}
-                        style={{ width: 40, height: 40, position: 'absolute', bottom: 2, right: 15, tintColor: '#FFFFFF' }}
-                        resizeMode="contain"
-                      />
-                    </View>
+                      {onlineFriendsCount}
+                    </Text>
                   </View>
-                ) : (
-                  <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, fontFamily: 'SSTMediumIt' }} numberOfLines={2}>
-                    {!steamId
-                      ? t('widgets.connectSteamFriends')
-                      : (loadingFriends ? t('widgets.loadingFriends') : t('widgets.noFriends'))}
-                  </Text>
                 )}
-                {isBeingMoved && <MoveModeArrows />}
+              </View>
+              {topFriend ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: (topFriend.gameextrainfo || topFriend.personastate > 0) ? '#4CD964' : 'rgba(255,255,255,0.1)' }}>
+                    {topFriend.avatar ? (
+                      <Image source={{ uri: topFriend.avatar }} style={styles.avatarMensajes} />
+                    ) : (
+                      <Image source={require('@/assets/images/amigos.png')} style={styles.avatarMensajes} />
+
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium' }} numberOfLines={1}>{topFriend.personaname}</Text>
+                    <Text style={styles.widgetSubtitle} numberOfLines={1}>
+                      {topFriend.gameextrainfo
+                        ? t('widgets.playing', { game: topFriend.gameextrainfo })
+                        : (topFriend.personastate > 0 ? t('widgets.online') : t('widgets.disconnected'))}
+                    </Text>
+                    <Image
+                      source={require('@/assets/images/consola.png')}
+                      style={{ width: 40, height: 40, position: 'absolute', bottom: 2, right: 15, tintColor: '#FFFFFF' }}
+                      resizeMode="contain"
+                    />
+                  </View>
                 </View>
-            </TouchableOpacity>
+              ) : (
+                <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, fontFamily: 'SSTMediumIt' }} numberOfLines={2}>
+                  {!steamId
+                    ? t('widgets.connectSteamFriends')
+                    : (loadingFriends ? t('widgets.loadingFriends') : t('widgets.noFriends'))}
+                </Text>
+              )}
+              {isBeingMoved && <MoveModeArrows />}
+            </View>
+          </TouchableOpacity>
         );
       case 'storage':
         return (
           <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.widgetTouchable}
-              onPress={() => {
-                setFocusArea('welcome_widgets');
-                setFocusIndex(slotIndex);
-              }}
-            >
-              <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
-                {/* SPINNING BORDER */}
-                {Platform.OS === 'web' &&
-                  focusArea === 'welcome_widgets' &&
-                  (focusIndex === slotIndex || isBeingMoved) && (
-                    <>
-                      <style>
-                        {`
+            activeOpacity={0.85}
+            style={styles.widgetTouchable}
+            onPress={() => {
+              setFocusArea('welcome_widgets');
+              setFocusIndex(slotIndex);
+            }}
+          >
+            <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
+              {/* SPINNING BORDER */}
+              {Platform.OS === 'web' &&
+                focusArea === 'welcome_widgets' &&
+                (focusIndex === slotIndex || isBeingMoved) && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -1912,38 +1918,38 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                         }
                       `}
-                      </style>
-                      <div className="wc-spinning-container2">
-                        <div className="wc-spinning-inner" />
-                      </div>
+                    </style>
+                    <div className="wc-spinning-container2">
+                      <div className="wc-spinning-inner" />
+                    </div>
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: -5,
+                        borderRadius: 28,
+                        pointerEvents: 'none',
+                        overflow: 'hidden',
+                        zIndex: 0,
+                      }}
+                    >
                       <div
                         style={{
                           position: 'absolute',
-                          inset: -5,
-                          borderRadius: 28,
-                          pointerEvents: 'none',
-                          overflow: 'hidden',
-                          zIndex: 0,
+                          inset: 7,
+                          borderRadius: 12,
+                          background: '#0d1015',
                         }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 7,
-                            borderRadius: 12,
-                            background: '#0d1015',
-                          }}
-                        />
-                      </div>
-                    </>
-                  )}
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `
+                      />
+                    </div>
+                  </>
+                )}
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
                       linear-gradient(
                         90deg,
                         rgba(207, 241, 253, 0.14) 0%,
@@ -1953,103 +1959,103 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         rgba(0, 0, 0, 0) 100%
                       )
                     `,
-                      pointerEvents: 'none',
-                      borderRadius: 10,
-                      zIndex: 1,
-                      opacity: focusArea === 'welcome_widgets' ? 1 : 0,
-                      transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
+                    pointerEvents: 'none',
+                    borderRadius: 10,
+                    zIndex: 1,
+                    opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+              )}
 
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 1,
-                      right: 1,
-                      bottom: 0,
-                      borderRadius: 10,
-                      zIndex: 5,
-                      overflow: 'hidden',
-                    } as any}
-                    pointerEvents="none"
-                  >
-                    {/* @ts-ignore */}
-                    <div className="wc-shimmer-line2" />
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <MaterialCommunityIcons name="harddisk" size={13} color="rgba(255,255,255,0.8)" />
-                    <Text style={styles.widgetTitle}>{t('widgets.storage')}</Text>
-                  </View>
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 10,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
                 </View>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                  <Text style={styles.widgetSubtitle}>
-                    <MaterialCommunityIcons name="circle" size={13} color="rgba(255,255,255,0.4)" style={{ marginRight: 5 }} /> {t('widgets.freeSpace')}
-                  </Text>
-                  <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTBold' }}>
-                    {storageInfo.freeGB > 0 ? `${storageInfo.freeGB.toFixed(1)} GB` : '36.47 GB'}
-                  </Text>
+              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <MaterialCommunityIcons name="harddisk" size={13} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.widgetTitle}>{t('widgets.storage')}</Text>
                 </View>
+              </View>
 
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                <Text style={styles.widgetSubtitle}>
+                  <MaterialCommunityIcons name="circle" size={13} color="rgba(255,255,255,0.4)" style={{ marginRight: 5 }} /> {t('widgets.freeSpace')}
+                </Text>
+                <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTBold' }}>
+                  {storageInfo.freeGB > 0 ? `${storageInfo.freeGB.toFixed(1)} GB` : '36.47 GB'}
+                </Text>
+              </View>
+
+              <View style={{
+                height: 8,                 // mÃ¡s fina que tu 10 actual
+                borderRadius: 4,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                overflow: 'hidden',        // esto redondea automÃ¡ticamente el segmento izquierdo
+                flexDirection: 'row',
+              }}>
                 <View style={{
-                  height: 8,                 // mÃ¡s fina que tu 10 actual
-                  borderRadius: 4,
-                  backgroundColor: 'rgba(255,255,255,0.08)',
-                  overflow: 'hidden',        // esto redondea automÃ¡ticamente el segmento izquierdo
-                  flexDirection: 'row',
-                }}>
-                  <View style={{
-                    height: '100%',
-                    width: `${storageInfo.percent > 0 ? storageInfo.percent : 65}%`,
-                    backgroundColor: '#0070D1', // azul - ej: juegos
-                  }} />
-                  <View style={{
-                    height: '100%',
-                    width: `${seg2}%`,
-                    backgroundColor: '#9B5DE5', // morado - ej: apps
-                  }} />
-                  <View style={{
-                    height: '100%',
-                    width: `${seg3}%`,
-                    backgroundColor: '#FF8C42', // naranja - ej: multimedia
-                  }} />
-                  <View style={{
-                    height: '100%',
-                    width: `${seg4}%`,
-                    backgroundColor: '#C2C2C2', // gris - ej: sistema/otros
-                    borderTopRightRadius: 4,
-                    borderBottomRightRadius: 4, // SOLO el Ãºltimo segmento lleva el redondeo derecho
-                  }} />
-                </View>
-                {isBeingMoved && <MoveModeArrows />}
-                </View>
-            </TouchableOpacity>
+                  height: '100%',
+                  width: `${storageInfo.percent > 0 ? storageInfo.percent : 65}%`,
+                  backgroundColor: '#0070D1', // azul - ej: juegos
+                }} />
+                <View style={{
+                  height: '100%',
+                  width: `${seg2}%`,
+                  backgroundColor: '#9B5DE5', // morado - ej: apps
+                }} />
+                <View style={{
+                  height: '100%',
+                  width: `${seg3}%`,
+                  backgroundColor: '#FF8C42', // naranja - ej: multimedia
+                }} />
+                <View style={{
+                  height: '100%',
+                  width: `${seg4}%`,
+                  backgroundColor: '#C2C2C2', // gris - ej: sistema/otros
+                  borderTopRightRadius: 4,
+                  borderBottomRightRadius: 4, // SOLO el Ãºltimo segmento lleva el redondeo derecho
+                }} />
+              </View>
+              {isBeingMoved && <MoveModeArrows />}
+            </View>
+          </TouchableOpacity>
         );
       case 'random_pick':
         return (
           <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.widgetTouchable}
-              onPress={() => {
-                setFocusArea('welcome_widgets');
-                setFocusIndex(slotIndex);
-                setRandomSelectorVisible(true);
-              }}
-            >
-              <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
-                {/* SPINNING BORDER */}
-                {Platform.OS === 'web' &&
-                  focusArea === 'welcome_widgets' &&
-                  (focusIndex === slotIndex || isBeingMoved) && (
-                    <>
-                      <style>
-                        {`
+            activeOpacity={0.85}
+            style={styles.widgetTouchable}
+            onPress={() => {
+              setFocusArea('welcome_widgets');
+              setFocusIndex(slotIndex);
+              setRandomSelectorVisible(true);
+            }}
+          >
+            <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
+              {/* SPINNING BORDER */}
+              {Platform.OS === 'web' &&
+                focusArea === 'welcome_widgets' &&
+                (focusIndex === slotIndex || isBeingMoved) && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -2134,40 +2140,40 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         }
                       `}
 
-                      </style>
+                    </style>
 
-                      <div className="wc-spinning-container2">
-                        <div className="wc-spinning-inner" />
-                      </div>
+                    <div className="wc-spinning-container2">
+                      <div className="wc-spinning-inner" />
+                    </div>
 
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: -5,
+                        borderRadius: 28,
+                        pointerEvents: 'none',
+                        overflow: 'hidden',
+                        zIndex: 0,
+                      }}
+                    >
                       <div
                         style={{
                           position: 'absolute',
-                          inset: -5,
-                          borderRadius: 28,
-                          pointerEvents: 'none',
-                          overflow: 'hidden',
-                          zIndex: 0,
+                          inset: 7,
+                          borderRadius: 12,
+                          background: '#0d1015',
                         }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 7,
-                            borderRadius: 12,
-                            background: '#0d1015',
-                          }}
-                        />
-                      </div>
-                    </>
-                  )}
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `
+                      />
+                    </div>
+                  </>
+                )}
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
                       linear-gradient(
                         90deg,
                         rgba(207, 241, 253, 0.14) 0%,
@@ -2177,62 +2183,62 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         rgba(0, 0, 0, 0) 100%
                       )
                     `,
-                      pointerEvents: 'none',
-                      borderRadius: 10,
-                      zIndex: 1,
-                      opacity: focusArea === 'welcome_widgets' ? 1 : 0,
-                      transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
+                    pointerEvents: 'none',
+                    borderRadius: 10,
+                    zIndex: 1,
+                    opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+              )}
 
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 1,
-                      right: 1,
-                      bottom: 0,
-                      borderRadius: 10,
-                      zIndex: 5,
-                      overflow: 'hidden',
-                    } as any}
-                    pointerEvents="none"
-                  >
-                    {/* @ts-ignore */}
-                    <div className="wc-shimmer-line2" />
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-                  <Ionicons name="shuffle" size={17} color="#ffffff" />
-                  <Text style={styles.widgetTitle}>{t('widgets.surpriseMe')}</Text>
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 10,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
                 </View>
-                <Text style={styles.widgetSubtitle}>{t('widgets.surpriseMeDesc')}</Text>
-                {isBeingMoved && <MoveModeArrows />}
-                </View>
-            </TouchableOpacity>
+              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+                <Ionicons name="shuffle" size={17} color="#ffffff" />
+                <Text style={styles.widgetTitle}>{t('widgets.surpriseMe')}</Text>
+              </View>
+              <Text style={styles.widgetSubtitle}>{t('widgets.surpriseMeDesc')}</Text>
+              {isBeingMoved && <MoveModeArrows />}
+            </View>
+          </TouchableOpacity>
         );
       case 'change_bg':
         return (
           <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.widgetTouchable}
-              onPress={() => {
-                setFocusArea('welcome_widgets');
-                setFocusIndex(slotIndex);
-                setHomeBgModalVisible(true);
-              }}
-            >
-              <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
-                {/* SPINNING BORDER */}
-                {Platform.OS === 'web' &&
-                  focusArea === 'welcome_widgets' &&
-                  (focusIndex === slotIndex || isBeingMoved) && (
-                    <>
-                      <style>
-                        {`
+            activeOpacity={0.85}
+            style={styles.widgetTouchable}
+            onPress={() => {
+              setFocusArea('welcome_widgets');
+              setFocusIndex(slotIndex);
+              setHomeBgModalVisible(true);
+            }}
+          >
+            <View style={[styles.welcomeWidgetCard, isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
+              {/* SPINNING BORDER */}
+              {Platform.OS === 'web' &&
+                focusArea === 'welcome_widgets' &&
+                (focusIndex === slotIndex || isBeingMoved) && (
+                  <>
+                    <style>
+                      {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -2316,40 +2322,40 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
                         }
                       `}
-                      </style>
+                    </style>
 
-                      <div className="wc-spinning-container2">
-                        <div className="wc-spinning-inner" />
-                      </div>
+                    <div className="wc-spinning-container2">
+                      <div className="wc-spinning-inner" />
+                    </div>
 
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: -5,
+                        borderRadius: 28,
+                        pointerEvents: 'none',
+                        overflow: 'hidden',
+                        zIndex: 0,
+                      }}
+                    >
                       <div
                         style={{
                           position: 'absolute',
-                          inset: -5,
-                          borderRadius: 28,
-                          pointerEvents: 'none',
-                          overflow: 'hidden',
-                          zIndex: 0,
+                          inset: 7,
+                          borderRadius: 12,
+                          background: '#0d1015',
                         }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 7,
-                            borderRadius: 12,
-                            background: '#0d1015',
-                          }}
-                        />
-                      </div>
-                    </>
-                  )}
-                {/* DEGRADADO */}
-                {Platform.OS === 'web' && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `
+                      />
+                    </div>
+                  </>
+                )}
+              {/* DEGRADADO */}
+              {Platform.OS === 'web' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `
                       linear-gradient(
                         90deg,
                         rgba(207, 241, 253, 0.14) 0%,
@@ -2359,46 +2365,46 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         rgba(0, 0, 0, 0) 100%
                       )
                     `,
-                      pointerEvents: 'none',
-                      borderRadius: 10,
-                      zIndex: 1,
-                      opacity: focusArea === 'welcome_widgets' ? 1 : 0,
-                      transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    }}
-                  />
-                )}
+                    pointerEvents: 'none',
+                    borderRadius: 10,
+                    zIndex: 1,
+                    opacity: focusArea === 'welcome_widgets' ? 1 : 0,
+                    transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+              )}
 
-                {/* SHIMMER */}
-                {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 1,
-                      right: 1,
-                      bottom: 0,
-                      borderRadius: 10,
-                      zIndex: 5,
-                      overflow: 'hidden',
-                    } as any}
-                    pointerEvents="none"
-                  >
-                    {/* @ts-ignore */}
-                    <div className="wc-shimmer-line2" />
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={styles.widgetIconWrap}>
-                    <Image source={require('@/assets/images/cambioFondo.png')} style={{ width: 30, height: 30, resizeMode: 'contain' }} />
-                  </View>
-                  <View style={{ marginLeft: 12, flex: 1 }}>
-                    <Text style={styles.widgetTitle}>{t('widgets.changeBg')}</Text>
-                    <Text style={styles.widgetSubtitle} numberOfLines={1}>{t('widgets.customize')}</Text>
-                  </View>
+              {/* SHIMMER */}
+              {Platform.OS === 'web' && focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 1,
+                    right: 1,
+                    bottom: 0,
+                    borderRadius: 10,
+                    zIndex: 5,
+                    overflow: 'hidden',
+                  } as any}
+                  pointerEvents="none"
+                >
+                  {/* @ts-ignore */}
+                  <div className="wc-shimmer-line2" />
                 </View>
-                {isBeingMoved && <MoveModeArrows />}
+              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={styles.widgetIconWrap}>
+                  <Image source={require('@/assets/images/cambioFondo.png')} style={{ width: 30, height: 30, resizeMode: 'contain' }} />
                 </View>
-            </TouchableOpacity>
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={styles.widgetTitle}>{t('widgets.changeBg')}</Text>
+                  <Text style={styles.widgetSubtitle} numberOfLines={1}>{t('widgets.customize')}</Text>
+                </View>
+              </View>
+              {isBeingMoved && <MoveModeArrows />}
+            </View>
+          </TouchableOpacity>
         );
       default:
         return null;
