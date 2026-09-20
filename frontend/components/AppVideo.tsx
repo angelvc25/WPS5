@@ -17,6 +17,12 @@ interface AppVideoProps {
   isMuted?: boolean;
   useNativeControls?: boolean;
   onError?: (error: any) => void;
+  /**
+   * Se llama cuando el video termina de reproducirse naturalmente. No se
+   * dispara si isLooping es true, porque el player nunca "termina": vuelve
+   * al inicio y sigue reproduciendo.
+   */
+  onEnd?: () => void;
 }
 
 /** Compatibility surface for the former expo-av Video component. */
@@ -29,6 +35,7 @@ export function Video({
   isMuted = false,
   useNativeControls = false,
   onError,
+  onEnd,
 }: AppVideoProps) {
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = isLooping;
@@ -54,6 +61,18 @@ export function Video({
       subscription.remove();
     };
   }, [player, onError]);
+
+  useEffect(() => {
+    if (!onEnd) return;
+    // expo-video emite 'playToEnd' cuando el player llega al final de la
+    // fuente actual (no aplica con loop=true, ahí nunca "termina").
+    const subscription = player.addListener('playToEnd', () => {
+      onEnd();
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [player, onEnd]);
 
   return <VideoView player={player} style={style} contentFit={resizeMode} nativeControls={useNativeControls} />;
 }

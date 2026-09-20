@@ -976,9 +976,18 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
 
   const POLL_MS = 4000;
   const MAX_WAIT_FOR_START_MS = 90 * 1000; // margen para que Steam/Epic abra el juego
+  // Cuánto dejamos nuestro propio overlay de "Iniciando juego..." tapando la
+  // pantalla (por encima del diálogo nativo de Steam/Epic) antes de ceder el
+  // paso de todas formas, aunque todavía no hayamos detectado el proceso
+  // real corriendo. Cubre el caso normal (Steam valida la licencia, sincroniza
+  // la nube, muestra su propio diálogo — todo eso tarda unos segundos) sin
+  // dejar el launcher bloqueando la pantalla para siempre si la detección
+  // falla o el juego tarda mucho en arrancar.
+  const SUSPEND_FALLBACK_MS = 20 * 1000;
   const startedAt = Date.now();
   let seenRunning = false;
   let gameExited = false;
+  let launcherSuspended = false;
 
   // ── NUEVO: registrar juego activo + habilitar overlay ──
   activeGameInfo = {
@@ -993,6 +1002,18 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
   enableOverlayHotkey();
   startGamepadOverlayListener();
 
+  // Mientras Steam/Epic gestiona el arranque real (verificar la instalación,
+  // sincronizar la nube, mostrar su propio diálogo de "Iniciando juego"...),
+  // mantenemos NUESTRO launcher visible y por encima de todo. El renderer ya
+  // está mostrando el overlay de lanzamiento (imagen de fondo + logo del
+  // juego) desde que se pulsó "Jugar"; así tapa el diálogo nativo de Steam
+  // en vez de dejarlo ver sobre un escritorio en negro.
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    mainWindow.focus();
+  }
+
   const finish = () => {
     if (gameExited) return;
     gameExited = true;
@@ -1005,30 +1026,43 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
     activeGameInfo = null;
 
     if (mainWindow) {
+      mainWindow.setAlwaysOnTop(false);
       mainWindow.webContents.send('game-closed', id);
       refocusLauncherAfterGame(`juego de ${sourceLabel} finalizado`);
     }
   };
 
-  // Aplicar el comportamiento configurado (ocultar/minimizar/segundo plano)
-  // tras un breve delay.
-  setTimeout(() => {
-    if (!gameExited && mainWindow) {
-      suspendLauncherForGame(`juego de ${sourceLabel}`);
-    }
-  }, 1500);
+  // Cede la pantalla una sola vez: quita el "siempre encima" y aplica el
+  // comportamiento configurado por el usuario (ocultar/minimizar/segundo
+  // plano). Se dispara al confirmar que el juego ya está corriendo, o por
+  // el fallback de tiempo si no logramos confirmarlo.
+  const suspendOnce = () => {
+    if (launcherSuspended || gameExited) return;
+    launcherSuspended = true;
+    if (mainWindow) mainWindow.setAlwaysOnTop(false);
+    suspendLauncherForGame(`juego de ${sourceLabel}`);
+  };
 
   const timer = setInterval(async () => {
     try {
       const running = await isProcessRunningUnderDir(installDir);
       if (running) {
-        seenRunning = true;
+        if (!seenRunning) {
+          seenRunning = true;
+          // El juego ya está arriba: le cedemos la pantalla ahora mismo,
+          // sin esperar al fallback de tiempo.
+          suspendOnce();
+        }
         return;
       }
       if (seenRunning) {
         console.log(`[${sourceLabel}] Proceso del juego finalizado, restaurando launcher (` + appId + ')');
         finish();
         return;
+      }
+      if (!launcherSuspended && Date.now() - startedAt > SUSPEND_FALLBACK_MS) {
+        console.log(`[${sourceLabel}] No se confirmó el proceso tras ${SUSPEND_FALLBACK_MS / 1000}s, cediendo la pantalla igualmente (` + appId + ')');
+        suspendOnce();
       }
       if (Date.now() - startedAt > MAX_WAIT_FOR_START_MS) {
         console.warn(`[${sourceLabel}] No se detectó el proceso del juego tras`, MAX_WAIT_FOR_START_MS / 1000, 's — restaurando launcher');

@@ -1,4 +1,5 @@
 import { ResizeMode, Video } from '@/components/AppVideo';
+import BackgroundVideo from '@/components/BackgroundVideo';
 import FavoritesView from '@/components/FavoritesView';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import RandomSelectorView from '@/components/RandomSelectorView';
@@ -206,6 +207,47 @@ export default function ConsoleHome() {
     setLanguage(lang);
     updateUser({ settings: { ...activeUser?.settings, language: lang } });
   };
+  // ── Video de suspensión al cerrar la app ──────────────────────────────────
+  // Misma idea que el video de arranque en _layout.tsx: si el usuario activo
+  // configuró un video de suspensión (Settings -> Splash Videos -> "Usar en
+  // Suspend"), lo reproducimos entero (con audio) antes de cerrar realmente
+  // la aplicación, en vez de matarla de golpe con electronAPI.closeApp().
+  const [isShuttingDown, setIsShuttingDown] = useState(false);
+  const shutdownFinishedRef = useRef(false);
+  const suspendVideoPath = (activeUser?.settings as any)?.suspendVideoPath as string | undefined;
+
+  // Debe coincidir con `toLocalFileUri` en electron/main.js y en _layout.tsx.
+  const toLocalFileUri = (filePath: string) => `local-file:///${filePath.replace(/\\/g, '/')}`;
+
+  const finishShutdown = () => {
+    if (shutdownFinishedRef.current) return;
+    shutdownFinishedRef.current = true;
+    if (Platform.OS === 'web' && (window as any).electronAPI) {
+      (window as any).electronAPI.closeApp();
+    }
+  };
+
+  // Punto único de salida: reemplaza las llamadas directas a
+  // electronAPI.closeApp() en los menús de "Apagar"/"Salir". Si no hay video
+  // de suspensión configurado, cierra directo (comportamiento anterior).
+  const requestAppShutdown = () => {
+    if (Platform.OS !== 'web' || !(window as any).electronAPI) return;
+    if (!suspendVideoPath) {
+      (window as any).electronAPI.closeApp();
+      return;
+    }
+    shutdownFinishedRef.current = false;
+    setIsShuttingDown(true);
+  };
+
+  // Red de seguridad: si el video de suspensión nunca dispara "onEnd"
+  // (archivo corrupto, códec no soportado, etc.), cerramos igual a los 20s.
+  useEffect(() => {
+    if (!isShuttingDown) return;
+    const safetyTimer = setTimeout(finishShutdown, 20000);
+    return () => clearTimeout(safetyTimer);
+  }, [isShuttingDown]);
+
   const [activeTab, setActiveTab] = useState('Games');
   const [currentRenderedTab, setCurrentRenderedTab] = useState('Games');
   const [activeIndex, setActiveIndex] = useState(1);
@@ -1864,9 +1906,7 @@ export default function ConsoleHome() {
       changeUser();
     } else if (idx === 10) {
       // Alimentación (Apagar)
-      if (Platform.OS === 'web' && (window as any).electronAPI) {
-        (window as any).electronAPI.closeApp();
-      }
+      requestAppShutdown();
     } else {
       // Placeholder para otras opciones
       console.log('Acción no implementada aún para el índice:', idx);
@@ -1894,7 +1934,7 @@ export default function ConsoleHome() {
     } else if (idx === 4) {
       // Salir
       if (Platform.OS === 'web' && (window as any).electronAPI) {
-        (window as any).electronAPI.closeApp();
+        requestAppShutdown();
       } else {
         alert(t('alert.closingConsole'));
       }
@@ -4337,7 +4377,7 @@ export default function ConsoleHome() {
                 <TouchableOpacity style={[styles.powerButton, modalSelectedIndex === 2 && styles.powerButtonActive, modalSelectedIndex === 2 && styles.buttonFocused]} activeOpacity={0.8} onPress={() => { setModalSelectedIndex(2); setUserModalVisible(false); changeUser(); }}>
                   <Ionicons name="sync-outline" size={48} color={modalSelectedIndex === 2 ? styles.powerIconActive.color : styles.powerIcon.color} />
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.powerButton, modalSelectedIndex === 3 && styles.powerButtonActive, modalSelectedIndex === 3 && styles.buttonFocused]} activeOpacity={0.8} onPress={() => { setModalSelectedIndex(3); if (Platform.OS === 'web' && (window as any).electronAPI) (window as any).electronAPI.closeApp(); }}>
+                <TouchableOpacity style={[styles.powerButton, modalSelectedIndex === 3 && styles.powerButtonActive, modalSelectedIndex === 3 && styles.buttonFocused]} activeOpacity={0.8} onPress={() => { setModalSelectedIndex(3); setUserModalVisible(false); requestAppShutdown(); }}>
                   <Ionicons name="power-outline" size={48} color={modalSelectedIndex === 3 ? styles.powerIconActive.color : styles.powerIcon.color} />
                 </TouchableOpacity>
               </View>
@@ -4409,6 +4449,27 @@ export default function ConsoleHome() {
           <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill}>
           </BlurView>
         )}
+      </Modal>
+
+      {/* SHUTDOWN OVERLAY: reproduce el video de suspensión configurado por
+          el usuario (Settings -> Splash Videos) antes de cerrar la app. */}
+      <Modal visible={isShuttingDown} transparent animationType="fade">
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }]}>
+          {suspendVideoPath ? (
+            <BackgroundVideo
+              source={{ uri: toLocalFileUri(suspendVideoPath) }}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode="cover"
+              muted={false}
+              shouldPlay
+              isLooping={false}
+              onEnd={finishShutdown}
+              onError={finishShutdown}
+            />
+          ) : (
+            <Ionicons name="power-outline" size={64} color="#FFFFFF" />
+          )}
+        </View>
       </Modal>
 
       {/* PROFILE DROPDOWN MENU & BACKDROP */}

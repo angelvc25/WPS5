@@ -465,13 +465,13 @@ export default function SettingsView({
         });
         registerDownloadedSplash(post, target);
         toastService.show(
-          target === 'boot' ? 'Video de arranque actualizado.' : 'Video de suspensión actualizado.'
+          target === 'boot' ? t('settings.bootVideoUpdated') : t('settings.suspendVideoUpdated')
         );
       } else {
-        toastService.show(res?.error || 'No se pudo descargar el video.');
+        toastService.show(res?.error || t('settings.videoUpdateError'));
       }
     } catch (err: any) {
-      toastService.show(err?.message || 'No se pudo descargar el video.');
+      toastService.show(err?.message || t('settings.videoUpdateError'));
     } finally {
       setSplashDownloadingId(null);
     }
@@ -2076,8 +2076,8 @@ export default function SettingsView({
                   {!splashLoading && !splashError && displayedSplashItems.length === 0 && (
                     <Text style={[styles.pathDesc, { marginBottom: 12 }]}>
                       {isShowingDownloadedSplash
-                        ? 'Todavía no descargaste ningún video. Los que uses en Boot o Suspend aparecerán aquí.'
-                        : 'Sin resultados.'}
+                        ? t('settings.notDownloadedYet')
+                        : t('search.noResults')}
                     </Text>
                   )}
 
@@ -2123,7 +2123,7 @@ export default function SettingsView({
                           />
                           {isDownloadingThis && (
                             <View style={styles.mediaCardBusyOverlay}>
-                              <Text style={styles.platformBtnText}>Descargando...</Text>
+                              <Text style={styles.platformBtnText}>{t('settings.downloading')}</Text>
                             </View>
                           )}
                           <Text style={styles.mediaTitle} numberOfLines={1}>
@@ -2131,7 +2131,7 @@ export default function SettingsView({
                           </Text>
                           <Text style={[styles.pathDesc, { paddingHorizontal: s(10), marginTop: -6, marginBottom: 10 }]}>
                             {isShowingDownloadedSplash
-                              ? `Usado en ${(post as DownloadedSplashPost).lastTarget === 'boot' ? 'Boot' : 'Suspend'}`
+                              ? `${t('settings.videoUpdate')}${(post as DownloadedSplashPost).lastTarget === 'boot' ? t('settings.videoUpdateBoot') : t('settings.videoUpdateSuspend')}`
                               : `${post.author} · ❤ ${post.likes} · ⬇ ${post.downloads}`}
                           </Text>
                         </TouchableOpacity>
@@ -2242,9 +2242,9 @@ export default function SettingsView({
                               (action.id === 'suspend' && isDownloadingSuspend);
                             const label =
                               action.id === 'boot'
-                                ? (isDownloadingBoot ? 'Descargando...' : action.label)
+                                ? (isDownloadingBoot ? t('settings.downloading') : action.label)
                                 : action.id === 'suspend'
-                                  ? (isDownloadingSuspend ? 'Descargando...' : action.label)
+                                  ? (isDownloadingSuspend ? t('settings.downloading') : action.label)
                                   : action.label;
                             return (
                               <TouchableOpacity

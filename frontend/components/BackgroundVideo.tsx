@@ -92,9 +92,7 @@ export default function BackgroundVideo({
         setReloadKey((current) => current + 1);
         onError?.();
       }}
-      onPlaybackStatusUpdate={(status: any) => {
-        if (status?.didJustFinish) onEnd?.();
-      }}
+      onEnd={() => onEnd?.()}
     />
   );
 }
