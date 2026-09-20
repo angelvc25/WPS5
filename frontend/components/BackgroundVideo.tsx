@@ -9,6 +9,18 @@ interface BackgroundVideoProps {
   muted?: boolean;
   shouldPlay?: boolean;
   isLooping?: boolean;
+  /**
+   * Se llama cuando el video falla al cargar/reproducir, además del
+   * reintento interno (que cambia `reloadKey`). Útil para que quien use
+   * el componente pueda mostrar un fallback en vez de reintentar para
+   * siempre con una fuente rota (por ejemplo, un archivo local borrado).
+   */
+  onError?: () => void;
+  /**
+   * Se llama una sola vez cuando el video termina de reproducirse
+   * naturalmente (no aplica si isLooping es true, porque nunca termina).
+   */
+  onEnd?: () => void;
 }
 
 function resolveVideoSource(source: any) {
@@ -30,6 +42,8 @@ export default function BackgroundVideo({
   muted = true,
   shouldPlay = true,
   isLooping = true,
+  onError,
+  onEnd,
 }: BackgroundVideoProps) {
   const [reloadKey, setReloadKey] = useState(0);
   const uri = useMemo(() => resolveVideoSource(source), [source]);
@@ -55,7 +69,11 @@ export default function BackgroundVideo({
           objectFit: resizeMode,
           pointerEvents: 'none',
         }}
-        onError={() => setReloadKey((current) => current + 1)}
+        onError={() => {
+          setReloadKey((current) => current + 1);
+          onError?.();
+        }}
+        onEnded={() => onEnd?.()}
       />
     );
   }
@@ -72,6 +90,10 @@ export default function BackgroundVideo({
       onError={(error: any) => {
         console.warn('Background video failed to load, reloading it.', error);
         setReloadKey((current) => current + 1);
+        onError?.();
+      }}
+      onPlaybackStatusUpdate={(status: any) => {
+        if (status?.didJustFinish) onEnd?.();
       }}
     />
   );

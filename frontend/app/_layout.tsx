@@ -2,7 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Linking, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -19,6 +19,7 @@ import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
 import { isLanguage } from '@/i18n/translations';
 import { openWebLink } from '@/services/linkService';
 import ToastHost from '@/components/ToastHost';
+import BackgroundVideo from '@/components/BackgroundVideo';
 import OverlayScreen from './overlay';
 
 export const unstable_settings = {
@@ -32,6 +33,37 @@ function checkIsOverlay() {
   const path = window.location.pathname || '';
   const hash = window.location.hash || '';
   return path.includes('overlay') || hash.includes('overlay');
+}
+
+// Recordamos qué usuario usó el launcher por última vez para poder mostrar
+// SU splash de arranque (descargado desde SteamDeckRepo en Settings) antes
+// de que se elija un perfil, igual que hace una consola real.
+const LAST_USER_STORAGE_KEY = 'console_last_user_id';
+
+// Debe coincidir con `toLocalFileUri` en electron/main.js.
+function toLocalFileUri(filePath: string) {
+  return `local-file:///${filePath.replace(/\\/g, '/')}`;
+}
+
+function getLastBootVideoUri(): string | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined' || !(window as any).electronAPI) {
+    // Sin Electron no hay video descargado que reproducir (app puramente web/móvil).
+    return null;
+  }
+  try {
+    const lastUserId = localStorage.getItem(LAST_USER_STORAGE_KEY);
+    const savedUsers = localStorage.getItem('console_users');
+    if (!lastUserId || !savedUsers) return null;
+
+    const usersList: UserProfile[] = JSON.parse(savedUsers);
+    const lastUser = usersList.find((u) => u.id === lastUserId);
+    const bootVideoPath = (lastUser?.settings as any)?.bootVideoPath;
+
+    return typeof bootVideoPath === 'string' && bootVideoPath ? toLocalFileUri(bootVideoPath) : null;
+  } catch (err) {
+    console.warn('No se pudo leer el video de arranque personalizado:', err);
+    return null;
+  }
 }
 
 // expo-font registers fonts in the browser via the FontFace API using the exact key name.
@@ -93,11 +125,30 @@ function RootLayoutInner() {
   const { setLanguage } = useTranslation();
   const [activeUser, setActiveUser] = useState<UserProfile | null>(null);
   const [showSplash, setShowSplash] = useState(true);
+  const [bootVideoUri, setBootVideoUri] = useState<string | null>(null);
+  const [bootVideoFailed, setBootVideoFailed] = useState(false);
   const pathname = usePathname();
   const isOverlayMode = checkIsOverlay() || pathname === '/overlay' || pathname?.includes('overlay');
 
+  // Resuelve, una sola vez, el splash de arranque del último usuario activo.
+  useEffect(() => {
+    if (isOverlayMode) return;
+    setBootVideoUri(getLastBootVideoUri());
+  }, [isOverlayMode]);
+
   // Valores compartidos de Reanimated
   const splashOpacity = useSharedValue(1);
+  const splashFinishedRef = useRef(false);
+
+  const finishSplash = () => {
+    if (splashFinishedRef.current) return;
+    splashFinishedRef.current = true;
+    splashOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
+      if (finished) {
+        runOnJS(setShowSplash)(false);
+      }
+    });
+  };
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.openExternalUrl) return;
@@ -116,22 +167,31 @@ function RootLayoutInner() {
     };
   }, []);
 
-  // Animación de Entrada (solo para la app principal, no para el overlay)
+  // Animación de Entrada (solo para la app principal, no para el overlay).
+  //
+  // - Sin video de boot (o si falló): mantenemos el timing fijo de siempre.
+  // - Con video de boot: dejamos que se reproduzca ENTERO (con sonido) y
+  //   es el propio <video>/`onEnd` de BackgroundVideo quien llama a
+  //   finishSplash(). El timer de acá solo actúa como red de seguridad
+  //   por si el evento "ended" nunca llega (video corrupto, etc).
   useEffect(() => {
     if (isOverlayMode) {
       setShowSplash(false);
       return;
     }
-    const timer = setTimeout(() => {
-      splashOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
-        if (finished) {
-          runOnJS(setShowSplash)(false);
-        }
-      });
-    }, 1800);
 
-    return () => clearTimeout(timer);
-  }, [isOverlayMode]);
+    splashFinishedRef.current = false;
+    splashOpacity.value = 1;
+    setShowSplash(true);
+
+    if (!bootVideoUri || bootVideoFailed) {
+      const timer = setTimeout(finishSplash, 1800);
+      return () => clearTimeout(timer);
+    }
+
+    const safetyTimer = setTimeout(finishSplash, 20000);
+    return () => clearTimeout(safetyTimer);
+  }, [isOverlayMode, bootVideoUri, bootVideoFailed]);
 
   // Estilos animados
   const animatedSplashStyle = useAnimatedStyle(() => ({
@@ -166,6 +226,9 @@ function RootLayoutInner() {
 
         <UserSelectScreen onUserSelected={(user) => {
           setActiveUser(user);
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            localStorage.setItem(LAST_USER_STORAGE_KEY, user.id);
+          }
           if (isLanguage(user.settings?.language)) {
             setLanguage(user.settings.language);
           }
@@ -183,7 +246,20 @@ function RootLayoutInner() {
             styles.splashContainer,
             animatedSplashStyle
           ]}>
-            <MaterialCommunityIcons name="sony-playstation" size={110} color="#FFFFFF" />
+            {bootVideoUri && !bootVideoFailed ? (
+              <BackgroundVideo
+                source={{ uri: bootVideoUri }}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+                muted={false}
+                shouldPlay
+                isLooping={false}
+                onEnd={finishSplash}
+                onError={() => setBootVideoFailed(true)}
+              />
+            ) : (
+              <MaterialCommunityIcons name="sony-playstation" size={110} color="#FFFFFF" />
+            )}
           </Animated.View>
         )}
         <StatusBar style="light" />

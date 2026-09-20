@@ -163,8 +163,8 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
   const [slideshowSelectedAlbum, setSlideshowSelectedAlbum] = useState<string | null>(null);
 
   // Estados de álbumes y favoritos sincronizados con MediaGalleryView
-  const [albums] = useState<Album[]>(() => loadPersisted<Album[]>('mediaGallery_albums', []));
-  const [favorites] = useState<Set<string>>(() => new Set(loadPersisted<string[]>('mediaGallery_favorites', [])));
+  const [albums, setAlbums] = useState<Album[]>(() => loadPersisted<Album[]>('mediaGallery_albums', []));
+  const [favorites, setFavorites] = useState<Set<string>>(() => new Set(loadPersisted<string[]>('mediaGallery_favorites', [])));
   const [openAlbumIndex, setOpenAlbumIndex] = useState<number | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -244,6 +244,16 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
       setLoading(false);
     }
   }, [capturePath, wallpaperPath]);
+
+  // Releer álbumes y favoritos cada vez que el modal se abre: este componente puede
+  // permanecer montado y los álbumes se crean/editan en MediaGalleryView después del montaje.
+  useEffect(() => {
+    if (!visible) return;
+    const storedAlbums = loadPersisted<Album[]>('mediaGallery_albums', []);
+    setAlbums(Array.isArray(storedAlbums) ? storedAlbums : []);
+    const storedFavs = loadPersisted<string[]>('mediaGallery_favorites', []);
+    setFavorites(new Set(Array.isArray(storedFavs) ? storedFavs : []));
+  }, [visible]);
 
   useEffect(() => {
     if (visible) {
@@ -480,7 +490,7 @@ const BackgroundPickerModal: React.FC<BackgroundPickerModalProps> = ({
             )}
             <Text style={uiStyles.title}>
               {activeTab === 'albums' && openAlbumIndex !== null ? albums[openAlbumIndex]?.name || t('mediaGallery.albums') :
-               activeTab === 'slides' ? t('bg.slideshow') : t('bg.change')}
+                activeTab === 'slides' ? t('bg.slideshow') : t('bg.change')}
             </Text>
           </View>
 

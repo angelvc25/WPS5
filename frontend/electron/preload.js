@@ -89,6 +89,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('overlay-shown', listener);
     return () => ipcRenderer.removeListener('overlay-shown', listener);
   },
+  // ── Splash Videos (SteamDeckRepo) ─────────────────────────────────────────
+  // Descarga un video de boot/suspend desde SteamDeckRepo y lo guarda en
+  // userData/WConsole/splash/{boot|suspend}.webm. Devuelve
+  // { success, path } o { success: false, error }.
+  downloadSplashVideo: (url, target) => ipcRenderer.invoke('download-splash-video', url, target),
 });
 
 // ── Detección de ventana overlay ────────────────────────────────────────────

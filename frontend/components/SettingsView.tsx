@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -19,6 +20,12 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { toastService } from '../services/toastService';
+import {
+  searchSteamDeckRepo,
+  SteamDeckRepoPost,
+  SteamDeckRepoSort,
+  SteamDeckRepoVideoType,
+} from '../services/steamDeckRepoService';
 import BackgroundVideo from './BackgroundVideo';
 import PSIcon from './PSIcon';
 import { UserProfile } from './UserSelectScreen';
@@ -72,6 +79,40 @@ const OVERLAY_COMBO_OPTIONS = [
   { id: 'L1_R1', labelKey: 'settings.comboL1R1' },
   { id: 'L2_R2_START', labelKey: 'settings.comboL2R2Start' },
 ] as const;
+
+// Tipo de filtro de la sección Splash Videos: los tipos que soporta la API de
+// SteamDeckRepo, más un pseudo-tipo local 'downloaded' que no viaja a la API
+// y en su lugar muestra los videos que el usuario ya descargó anteriormente.
+type SplashFilterType = SteamDeckRepoVideoType | 'downloaded';
+
+// Post de SteamDeckRepo con metadata extra que agregamos al guardarlo en el
+// historial local de descargas (fecha y a qué target se aplicó por última vez).
+type DownloadedSplashPost = SteamDeckRepoPost & {
+  downloadedAt: number;
+  lastTarget: 'boot' | 'suspend';
+};
+
+// Acciones disponibles en el modal de preview de un Splash Video.
+type SplashModalAction = { id: 'boot' | 'suspend' | 'remove'; label: string };
+
+const SPLASH_DOWNLOADED_STORAGE_KEY = 'wps5_splash_downloaded_v1';
+
+// Filtros de la sección Splash Videos, aplanados en una sola lista para que
+// el mando pueda recorrerlos con Izquierda/Derecha en una sola fila lógica.
+const SPLASH_TYPE_FILTERS: { kind: 'type'; id: SplashFilterType; label: string }[] = [
+  { kind: 'type', id: 'all', label: 'Todos' },
+  { kind: 'type', id: 'boot', label: 'Boot Videos' },
+  { kind: 'type', id: 'suspend', label: 'Suspend Videos' },
+  { kind: 'type', id: 'downloaded', label: 'Descargados' },
+];
+const SPLASH_SORT_FILTERS: { kind: 'sort'; id: SteamDeckRepoSort; label: string }[] = [
+  { kind: 'sort', id: 'newest', label: 'Más nuevos' },
+  { kind: 'sort', id: 'oldest', label: 'Más antiguos' },
+  { kind: 'sort', id: 'likes', label: 'Más likes' },
+  { kind: 'sort', id: 'downloads', label: 'Más descargas' },
+  { kind: 'sort', id: 'title', label: 'Título' },
+];
+const SPLASH_FILTER_ITEMS = [...SPLASH_TYPE_FILTERS, ...SPLASH_SORT_FILTERS];
 
 function applyOverlaySettingsToElectron(enabled: boolean, combo: string) {
   if (Platform.OS === 'web' && (window as any).electronAPI?.setOverlaySettings) {
@@ -186,9 +227,120 @@ export default function SettingsView({
   const [hdmiDeviceLink, setHdmiDeviceLink] = useState(true);
   const [hdmiHdcp, setHdmiHdcp] = useState(false);
 
+  // Splash Videos (SteamDeckRepo) state
+  const [splashQuery, setSplashQuery] = useState('');
+  const [splashType, setSplashType] = useState<SplashFilterType>('all');
+  const [splashSort, setSplashSort] = useState<SteamDeckRepoSort>('newest');
+  const [splashPage, setSplashPage] = useState(1);
+  const [splashItems, setSplashItems] = useState<SteamDeckRepoPost[]>([]);
+  const [splashTotalPages, setSplashTotalPages] = useState(1);
+  const [splashLoading, setSplashLoading] = useState(false);
+  const [splashError, setSplashError] = useState<string | null>(null);
+  const [splashDownloadingId, setSplashDownloadingId] = useState<string | null>(null);
+  // Historial local de videos ya descargados ("Descargados" / "Propios").
+  // Se persiste en localStorage porque el archivo final en disco
+  // (userData/WConsole/splash/{boot|suspend}.webm) se sobreescribe en cada
+  // descarga y no guarda de qué post de SteamDeckRepo vino.
+  const [splashDownloadedItems, setSplashDownloadedItems] = useState<DownloadedSplashPost[]>(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const raw = window.localStorage.getItem(SPLASH_DOWNLOADED_STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {
+        // Ignora datos corruptos/inaccesibles y arranca con lista vacía.
+      }
+    }
+    return [];
+  });
+  // Navegación con mando/teclado dentro de la sección Splash Videos
+  const [splashFocusZone, setSplashFocusZone] = useState<'filters' | 'grid' | 'pager'>('filters');
+  const [splashFilterIndex, setSplashFilterIndex] = useState(0);
+  const [splashGridFlatIndex, setSplashGridFlatIndex] = useState(0); // índice de tarjeta enfocada
+  const [splashPagerIndex, setSplashPagerIndex] = useState(0); // 0=anterior, 1=siguiente
+  const [splashGridCols, setSplashGridCols] = useState(3);
+  // Modal de preview: tarjeta seleccionada (reproduce su video) e índice del
+  // botón enfocado dentro del modal (Usar en Boot / Usar en Suspend / Quitar).
+  const [splashPreviewPost, setSplashPreviewPost] = useState<SteamDeckRepoPost | null>(null);
+  const [splashModalFocusIndex, setSplashModalFocusIndex] = useState(0);
+
+  // Guarda (o actualiza) un post en el historial local de descargas y lo
+  // persiste en localStorage.
+  const registerDownloadedSplash = (post: SteamDeckRepoPost, target: 'boot' | 'suspend') => {
+    setSplashDownloadedItems((prev) => {
+      const next: DownloadedSplashPost[] = [
+        { ...post, downloadedAt: Date.now(), lastTarget: target },
+        ...prev.filter((p) => p.id !== post.id),
+      ];
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        try {
+          window.localStorage.setItem(SPLASH_DOWNLOADED_STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          // Si localStorage falla (cuota, modo privado, etc.) seguimos igual
+          // con el estado en memoria de esta sesión.
+        }
+      }
+      return next;
+    });
+  };
+
+  // Quita un post del historial local de descargas (no borra el archivo
+  // .webm ya usado, solo deja de listarlo en el filtro "Descargados").
+  const removeDownloadedSplash = (postId: string) => {
+    setSplashDownloadedItems((prev) => {
+      const next = prev.filter((p) => p.id !== postId);
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        try {
+          window.localStorage.setItem(SPLASH_DOWNLOADED_STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          // Ver comentario en registerDownloadedSplash.
+        }
+      }
+      return next;
+    });
+  };
+
+  // Lista de "Descargados" filtrada por el buscador y ordenada según el
+  // mismo selector de orden que se usa para los resultados de la API.
+  const filteredDownloadedSplashItems = useMemo(() => {
+    const q = splashQuery.trim().toLowerCase();
+    const filtered = q
+      ? splashDownloadedItems.filter(
+        (p) => p.title?.toLowerCase().includes(q) || p.author?.toLowerCase().includes(q)
+      )
+      : splashDownloadedItems;
+
+    return [...filtered].sort((a, b) => {
+      switch (splashSort) {
+        case 'oldest':
+          return a.downloadedAt - b.downloadedAt;
+        case 'likes':
+          return (b.likes || 0) - (a.likes || 0);
+        case 'downloads':
+          return (b.downloads || 0) - (a.downloads || 0);
+        case 'title':
+          return (a.title || '').localeCompare(b.title || '');
+        case 'newest':
+        default:
+          return b.downloadedAt - a.downloadedAt;
+      }
+    });
+  }, [splashDownloadedItems, splashQuery, splashSort]);
+
+  const isShowingDownloadedSplash = splashType === 'downloaded';
+  // Items que efectivamente se muestran en la grilla: los resultados de la
+  // API de SteamDeckRepo, o el historial local cuando el filtro activo es
+  // "Descargados".
+  const displayedSplashItems: SteamDeckRepoPost[] = isShowingDownloadedSplash
+    ? filteredDownloadedSplashItems
+    : splashItems;
+
   const nameInputRef = useRef<TextInput>(null);
   const onlineIdInputRef = useRef<TextInput>(null);
   const aboutInputRef = useRef<TextInput>(null);
+  // Refs a los nodos de cada tarjeta de Splash Videos (indexados por su
+  // posición en la grilla) para poder hacer scroll automático hacia la
+  // tarjeta enfocada por mando/teclado.
+  const splashCardRefs = useRef<Record<number, any>>({});
 
   useEffect(() => {
     if (visible) {
@@ -221,6 +373,159 @@ export default function SettingsView({
   }, [activeUser]);
 
 
+
+  // Busca en SteamDeckRepo cuando la sección "Splash Videos" está activa
+  // y cambian los filtros. Se debounce el texto de búsqueda para no
+  // disparar una petición por cada tecla.
+  useEffect(() => {
+    if (currentScreen !== 'accessibility' || accessibilityLeftIndex !== 7) return;
+    // "Descargados" es un filtro 100% local (historial en localStorage),
+    // no dispara ninguna búsqueda contra SteamDeckRepo.
+    if (splashType === 'downloaded') {
+      setSplashLoading(false);
+      setSplashError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setSplashLoading(true);
+    setSplashError(null);
+
+    const timeout = setTimeout(async () => {
+      try {
+        const result = await searchSteamDeckRepo({
+          query: splashQuery,
+          type: splashType as SteamDeckRepoVideoType,
+          sort: splashSort,
+          page: splashPage,
+          limit: 24,
+        });
+        if (!cancelled) {
+          setSplashItems(result.items);
+          setSplashTotalPages(result.totalPages || 1);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setSplashItems([]);
+          setSplashError(err?.message || 'No se pudo cargar SteamDeckRepo.');
+        }
+      } finally {
+        if (!cancelled) setSplashLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [currentScreen, accessibilityLeftIndex, splashQuery, splashType, splashSort, splashPage]);
+
+  // Vuelve a la página 1 cada vez que cambian los filtros (no en cada cambio de página).
+  useEffect(() => {
+    setSplashPage(1);
+  }, [splashQuery, splashType, splashSort]);
+
+  // Reinicia el foco de mando al entrar a la sección Splash Videos.
+  useEffect(() => {
+    if (accessibilityLeftIndex === 7) {
+      setSplashFocusZone('filters');
+      setSplashFilterIndex(0);
+      setSplashGridFlatIndex(0);
+      setSplashPagerIndex(0);
+      setSplashPreviewPost(null);
+    }
+  }, [accessibilityLeftIndex]);
+
+  // Mantiene el índice de la grilla dentro de rango cuando cambian los resultados
+  // (ya sean de la API o del historial local de "Descargados"). Un índice por
+  // tarjeta, ya que ahora se enfoca la tarjeta completa (no un botón por lado).
+  useEffect(() => {
+    const maxFlat = Math.max(0, displayedSplashItems.length - 1);
+    setSplashGridFlatIndex((prev) => Math.min(prev, maxFlat));
+  }, [displayedSplashItems.length]);
+
+  // Hace scroll automático hacia la tarjeta enfocada por mando/teclado, ya
+  // que el ScrollView no la sigue solo (el foco es lógico, no de teclado
+  // real del navegador).
+  useEffect(() => {
+    if (accessibilityLeftIndex !== 7 || splashFocusZone !== 'grid') return;
+    const node = splashCardRefs.current[splashGridFlatIndex];
+    if (node && typeof node.scrollIntoView === 'function') {
+      node.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+  }, [accessibilityLeftIndex, splashFocusZone, splashGridFlatIndex, displayedSplashItems]);
+
+  /**
+   * Descarga un video de SteamDeckRepo vía Electron IPC y lo asigna
+   * como splash de boot o de suspend para el usuario activo.
+   *
+   * Requiere que electron/main.js exponga un handler
+   * `downloadSplashVideo(url, target)` que descargue el .webm a
+   * userData/WConsole/splash/{boot|suspend}.webm y devuelva la ruta final.
+   */
+  const handleSetSplashVideo = async (post: SteamDeckRepoPost, target: 'boot' | 'suspend') => {
+    if (Platform.OS !== 'web' || !(window as any).electronAPI?.downloadSplashVideo) {
+      toastService.show('La descarga de splash requiere la app de escritorio.');
+      return;
+    }
+    setSplashDownloadingId(`${post.id}:${target}`);
+    try {
+      const res = await (window as any).electronAPI.downloadSplashVideo(post.downloadUrl, target);
+      if (res?.success && res.path) {
+        updateUser({
+          settings: {
+            ...activeUser?.settings,
+            [target === 'boot' ? 'bootVideoPath' : 'suspendVideoPath']: res.path,
+          } as any,
+        });
+        registerDownloadedSplash(post, target);
+        toastService.show(
+          target === 'boot' ? 'Video de arranque actualizado.' : 'Video de suspensión actualizado.'
+        );
+      } else {
+        toastService.show(res?.error || 'No se pudo descargar el video.');
+      }
+    } catch (err: any) {
+      toastService.show(err?.message || 'No se pudo descargar el video.');
+    } finally {
+      setSplashDownloadingId(null);
+    }
+  };
+
+  // Acciones disponibles en el modal de preview, según si el post viene de
+  // la búsqueda o del historial local de "Descargados".
+  const splashModalActions: SplashModalAction[] = useMemo(() => {
+    if (!splashPreviewPost) return [];
+    const actions: SplashModalAction[] = [
+      { id: 'boot', label: 'Usar en Boot' },
+      { id: 'suspend', label: 'Usar en Suspend' },
+    ];
+    if (isShowingDownloadedSplash) {
+      actions.push({ id: 'remove', label: 'Quitar de Descargados' });
+    }
+    return actions;
+  }, [splashPreviewPost, isShowingDownloadedSplash]);
+
+  // Ejecuta una acción del modal de preview. Si se pasa explícitamente
+  // (click/touch), se usa esa; si no, se usa la que está enfocada por
+  // teclado/mando (evita depender del estado recién actualizado).
+  const runSplashModalAction = async (action?: SplashModalAction) => {
+    const post = splashPreviewPost;
+    const targetAction = action || splashModalActions[splashModalFocusIndex];
+    if (!post || !targetAction || splashDownloadingId) return;
+    if (targetAction.id === 'remove') {
+      removeDownloadedSplash(post.id);
+      setSplashPreviewPost(null);
+      return;
+    }
+    await handleSetSplashVideo(post, targetAction.id);
+    setSplashPreviewPost(null);
+  };
+
+  const openSplashPreview = (post: SteamDeckRepoPost) => {
+    setSplashPreviewPost(post);
+    setSplashModalFocusIndex(0);
+  };
 
   const navigateToScreen = (screen: SettingsScreenType) => {
     soundService.playActivation?.();
@@ -330,6 +635,7 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 4) return 1; // RetroAchievements: 2 inputs
     if (accessibilityLeftIndex === 5) return 3; // Smart Sync
     if (accessibilityLeftIndex === 6) return 1; // Overlay: toggle + combo
+    if (accessibilityLeftIndex === 7) return 0; // Splash Videos: navegación por mouse/touch en la grilla
     return 0;
   };
 
@@ -518,6 +824,13 @@ export default function SettingsView({
         const next = OVERLAY_COMBO_OPTIONS[(curIdx + 1) % OVERLAY_COMBO_OPTIONS.length];
         persistOverlaySettings({ overlayCombo: next.id });
       }
+      return;
+    }
+
+    if (accessibilityLeftIndex === 7) {
+      // Splash Videos — la búsqueda, filtros y tarjetas se manejan con
+      // mouse/touch directamente (onPress de cada control).
+      return;
     }
   };
 
@@ -551,6 +864,33 @@ export default function SettingsView({
       const target = e.target as HTMLElement | null;
       const isInput = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
 
+      // Modal de preview de Splash Video: mientras está abierto, captura el
+      // teclado por completo (no se mezcla con la navegación de la grilla).
+      if (splashPreviewPost) {
+        if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+          if (!isInput) {
+            e.preventDefault();
+            setSplashPreviewPost(null);
+          }
+          return;
+        }
+        if (isInput) return;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSplashModalFocusIndex((prev) => Math.max(0, prev - 1));
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSplashModalFocusIndex((prev) => Math.min(splashModalActions.length - 1, prev + 1));
+          soundService.playNavigation();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          runSplashModalAction();
+          soundService.playActivation?.();
+        }
+        return;
+      }
+
       if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
         if (!isInput) {
           e.preventDefault();
@@ -581,7 +921,7 @@ export default function SettingsView({
         if (accessibilityFocusArea === 'left') {
           if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 6));
+            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 7));
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
@@ -592,6 +932,113 @@ export default function SettingsView({
             setAccessibilityFocusArea('right');
             setSubFocusIndex(0);
             soundService.playNavigation();
+          }
+        } else if (accessibilityLeftIndex === 7) {
+          // Splash Videos: navegación en zonas (filtros -> grilla -> paginación)
+          const cols = Math.max(1, splashGridCols);
+          const maxFlat = Math.max(0, displayedSplashItems.length - 1);
+
+          // L1/R1 (mapeados a Q/E) pasan de página en los resultados,
+          // igual que los botones "Anterior"/"Siguiente" de la paginación,
+          // sin importar en qué zona esté el foco (filtros, grilla o
+          // paginación). No aplica al filtro "Descargados" (no pagina).
+          if (e.key === 'q' || e.key === 'e') {
+            e.preventDefault();
+            if (isShowingDownloadedSplash) return;
+            if (e.key === 'q') {
+              if (splashPage > 1) {
+                setSplashFocusZone('pager');
+                setSplashPagerIndex(0);
+                setSplashPage((p) => Math.max(1, p - 1));
+                soundService.playNavigation();
+              }
+            } else {
+              if (splashPage < splashTotalPages) {
+                setSplashFocusZone('pager');
+                setSplashPagerIndex(1);
+                setSplashPage((p) => Math.min(splashTotalPages, p + 1));
+                soundService.playNavigation();
+              }
+            }
+            return;
+          }
+
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            if (splashFocusZone === 'filters') {
+              if (splashFilterIndex === 0) {
+                setAccessibilityFocusArea('left');
+              } else {
+                setSplashFilterIndex((prev) => Math.max(0, prev - 1));
+              }
+              soundService.playNavigation();
+            } else if (splashFocusZone === 'grid') {
+              setSplashGridFlatIndex((prev) => Math.max(0, prev - 1));
+              soundService.playNavigation();
+            } else if (splashFocusZone === 'pager') {
+              setSplashPagerIndex(0);
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (splashFocusZone === 'filters') {
+              setSplashFilterIndex((prev) => Math.min(SPLASH_FILTER_ITEMS.length - 1, prev + 1));
+              soundService.playNavigation();
+            } else if (splashFocusZone === 'grid') {
+              setSplashGridFlatIndex((prev) => Math.min(maxFlat, prev + 1));
+              soundService.playNavigation();
+            } else if (splashFocusZone === 'pager') {
+              setSplashPagerIndex(1);
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (splashFocusZone === 'filters') {
+              if (displayedSplashItems.length > 0) {
+                setSplashFocusZone('grid');
+                setSplashGridFlatIndex(0);
+              }
+              soundService.playNavigation();
+            } else if (splashFocusZone === 'grid') {
+              const next = splashGridFlatIndex + cols;
+              if (next > maxFlat) {
+                if (!isShowingDownloadedSplash && splashTotalPages > 1) {
+                  setSplashFocusZone('pager');
+                }
+              } else {
+                setSplashGridFlatIndex(next);
+              }
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (splashFocusZone === 'grid') {
+              const prev = splashGridFlatIndex - cols;
+              if (prev < 0) {
+                setSplashFocusZone('filters');
+              } else {
+                setSplashGridFlatIndex(prev);
+              }
+              soundService.playNavigation();
+            } else if (splashFocusZone === 'pager') {
+              setSplashFocusZone('grid');
+              setSplashGridFlatIndex(maxFlat);
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (splashFocusZone === 'filters') {
+              const item = SPLASH_FILTER_ITEMS[splashFilterIndex];
+              if (item?.kind === 'type') setSplashType(item.id as SplashFilterType);
+              else if (item?.kind === 'sort') setSplashSort(item.id as SteamDeckRepoSort);
+            } else if (splashFocusZone === 'grid') {
+              const post = displayedSplashItems[splashGridFlatIndex];
+              if (post) openSplashPreview(post);
+            } else if (splashFocusZone === 'pager') {
+              if (splashPagerIndex === 0) setSplashPage((p) => Math.max(1, p - 1));
+              else setSplashPage((p) => Math.min(splashTotalPages, p + 1));
+            }
+            soundService.playActivation?.();
           }
         } else {
           if (e.key === 'ArrowLeft') {
@@ -731,6 +1178,20 @@ export default function SettingsView({
     subFocusIndex,
     accessibilityLeftIndex,
     accessibilityFocusArea,
+    splashFocusZone,
+    splashFilterIndex,
+    splashGridFlatIndex,
+    splashGridCols,
+    splashPagerIndex,
+    splashPage,
+    splashType,
+    displayedSplashItems,
+    isShowingDownloadedSplash,
+    splashTotalPages,
+    splashDownloadingId,
+    splashPreviewPost,
+    splashModalFocusIndex,
+    splashModalActions,
     systemLeftIndex,
     systemFocusArea,
     profileActiveTab,
@@ -916,6 +1377,7 @@ export default function SettingsView({
       { id: 'retroachievements', title: 'RetroAchievements' },
       { id: 'sync', title: t('settings.smartSync') },
       { id: 'overlay', title: t('settings.overlay') },
+      { id: 'splash', title: 'Splash Videos' },
     ];
 
     return (
@@ -1505,6 +1967,317 @@ export default function SettingsView({
                     </View>
                   </View>
                 </ScrollView>
+              );
+            })()}
+
+            {accessibilityLeftIndex === 7 && (() => {
+              const currentBoot = (activeUser?.settings as any)?.bootVideoPath;
+              const currentSuspend = (activeUser?.settings as any)?.suspendVideoPath;
+              const isRightFocused = accessibilityFocusArea === 'right';
+              const isFiltersFocused = isRightFocused && splashFocusZone === 'filters';
+              const isGridFocused = isRightFocused && splashFocusZone === 'grid';
+              const isPagerFocused = isRightFocused && splashFocusZone === 'pager';
+
+              return (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.rightSectionTitle}>Splash Videos</Text>
+                  <Text style={[styles.pathDesc, { marginBottom: 16 }]}>
+                    Busca videos de arranque (boot) y suspensión (suspend) en SteamDeckRepo
+                    y descárgalos para usarlos como splash de tu launcher, o revisa el
+                    filtro &quot;Descargados&quot; para volver a usar uno que ya bajaste antes.
+                  </Text>
+
+                  {/* Estado actual */}
+                  <View style={[styles.cardSection, { flexDirection: 'row', gap: 24 }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sectionLabel}>Boot actual</Text>
+                      <Text style={[styles.pathDesc, { opacity: 0.7 }]} numberOfLines={1}>
+                        {currentBoot || 'Por defecto'}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sectionLabel}>Suspend actual</Text>
+                      <Text style={[styles.pathDesc, { opacity: 0.7 }]} numberOfLines={1}>
+                        {currentSuspend || 'Por defecto'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Buscador (solo mouse/teclado físico; el mando no lo enfoca) */}
+                  <View style={styles.cardSection}>
+                    <TextInput
+                      style={styles.raInput}
+                      placeholder="Buscar por título, autor o descripción..."
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={splashQuery}
+                      onChangeText={setSplashQuery}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+
+                    {/* Filtro por tipo + orden, aplanados para navegación con mando */}
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                      {SPLASH_TYPE_FILTERS.map((opt, i) => {
+                        const isActive = splashType === opt.id;
+                        const isFocused = isFiltersFocused && splashFilterIndex === i;
+                        return (
+                          <TouchableOpacity
+                            key={opt.id}
+                            style={[styles.platformBtn, isActive && styles.platformBtnActive, isFocused && styles.rightItemFocused]}
+                            onPress={() => {
+                              setSplashType(opt.id);
+                              setSplashFocusZone('filters');
+                              setSplashFilterIndex(i);
+                            }}
+                          >
+                            {isFocused && <SpinningBorderSearch size={s(140)} spread={0.5} borderRadius={8} />}
+                            <Text style={[styles.platformBtnText, isActive && styles.platformBtnTextActive]}>
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                      {SPLASH_SORT_FILTERS.map((opt, i) => {
+                        const flatIdx = SPLASH_TYPE_FILTERS.length + i;
+                        const isActive = splashSort === opt.id;
+                        const isFocused = isFiltersFocused && splashFilterIndex === flatIdx;
+                        return (
+                          <TouchableOpacity
+                            key={opt.id}
+                            style={[styles.platformBtn, isActive && styles.platformBtnActive, isFocused && styles.rightItemFocused]}
+                            onPress={() => {
+                              setSplashSort(opt.id);
+                              setSplashFocusZone('filters');
+                              setSplashFilterIndex(flatIdx);
+                            }}
+                          >
+                            {isFocused && <SpinningBorderSearch size={s(140)} spread={0.5} borderRadius={8} />}
+                            <Text style={[styles.platformBtnText, isActive && styles.platformBtnTextActive]}>
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Estado de carga / error */}
+                  {splashLoading && (
+                    <Text style={[styles.pathDesc, { marginBottom: 12 }]}>Cargando...</Text>
+                  )}
+                  {!splashLoading && splashError && (
+                    <Text style={[styles.pathDesc, { color: '#FF5566', marginBottom: 12 }]}>
+                      {splashError}
+                    </Text>
+                  )}
+                  {!splashLoading && !splashError && displayedSplashItems.length === 0 && (
+                    <Text style={[styles.pathDesc, { marginBottom: 12 }]}>
+                      {isShowingDownloadedSplash
+                        ? 'Todavía no descargaste ningún video. Los que uses en Boot o Suspend aparecerán aquí.'
+                        : 'Sin resultados.'}
+                    </Text>
+                  )}
+
+                  {/* Resultados */}
+                  <View
+                    style={styles.mediaGrid}
+                    onLayout={(e) => {
+                      const cardW = s(320);
+                      const gap = s(14);
+                      const width = e.nativeEvent.layout.width;
+                      const cols = Math.max(1, Math.floor((width + gap) / (cardW + gap)));
+                      setSplashGridCols(cols);
+                    }}
+                  >
+                    {displayedSplashItems.map((post, cardIdx) => {
+                      const isCardFocused = isGridFocused && splashGridFlatIndex === cardIdx;
+                      const isDownloadingThis =
+                        splashDownloadingId === `${post.id}:boot` || splashDownloadingId === `${post.id}:suspend`;
+                      return (
+                        <TouchableOpacity
+                          key={post.id}
+                          ref={(el: any) => {
+                            if (el) splashCardRefs.current[cardIdx] = el;
+                          }}
+                          activeOpacity={0.85}
+                          style={[
+                            styles.mediaCard,
+                            styles.mediaCardLarge,
+                            { width: s(320) },
+                            isCardFocused && styles.mediaCardFocused,
+                          ]}
+                          onPress={() => {
+                            setSplashFocusZone('grid');
+                            setSplashGridFlatIndex(cardIdx);
+                            openSplashPreview(post);
+                          }}
+                        >
+                          {isCardFocused && <SpinningBorderSearch size={s(220)} spread={0.6} borderRadius={12} />}
+                          <Image
+                            source={resolveImageSource(post.previewImage)}
+                            style={styles.mediaThumbLarge}
+                            contentFit="cover"
+                          />
+                          {isDownloadingThis && (
+                            <View style={styles.mediaCardBusyOverlay}>
+                              <Text style={styles.platformBtnText}>Descargando...</Text>
+                            </View>
+                          )}
+                          <Text style={styles.mediaTitle} numberOfLines={1}>
+                            {post.title}
+                          </Text>
+                          <Text style={[styles.pathDesc, { paddingHorizontal: s(10), marginTop: -6, marginBottom: 10 }]}>
+                            {isShowingDownloadedSplash
+                              ? `Usado en ${(post as DownloadedSplashPost).lastTarget === 'boot' ? 'Boot' : 'Suspend'}`
+                              : `${post.author} · ❤ ${post.likes} · ⬇ ${post.downloads}`}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Paginación (solo aplica a resultados de la API; el
+                      historial local de "Descargados" no pagina). */}
+                  {!isShowingDownloadedSplash && splashTotalPages > 1 && (
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 16, alignItems: 'center' }}>
+                      <TouchableOpacity
+                        style={[
+                          styles.actionBtnSecondary,
+                          splashPage <= 1 && { opacity: 0.4 },
+                          isPagerFocused && splashPagerIndex === 0 && styles.rightItemFocused,
+                        ]}
+                        disabled={splashPage <= 1}
+                        onPress={() => {
+                          setSplashFocusZone('pager');
+                          setSplashPagerIndex(0);
+                          setSplashPage((p) => Math.max(1, p - 1));
+                        }}
+                      >
+                        {isPagerFocused && splashPagerIndex === 0 && <SpinningBorderSearch size={s(140)} spread={0.5} borderRadius={8} />}
+                        <Ionicons name="chevron-back" size={s(18)} color="#FFF" />
+                        <Text style={styles.actionBtnSecondaryText}>Anterior</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.pathDesc}>
+                        Página {splashPage} de {splashTotalPages}
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.actionBtnSecondary,
+                          splashPage >= splashTotalPages && { opacity: 0.4 },
+                          isPagerFocused && splashPagerIndex === 1 && styles.rightItemFocused,
+                        ]}
+                        disabled={splashPage >= splashTotalPages}
+                        onPress={() => {
+                          setSplashFocusZone('pager');
+                          setSplashPagerIndex(1);
+                          setSplashPage((p) => Math.min(splashTotalPages, p + 1));
+                        }}
+                      >
+                        {isPagerFocused && splashPagerIndex === 1 && <SpinningBorderSearch size={s(140)} spread={0.5} borderRadius={8} />}
+                        <Text style={styles.actionBtnSecondaryText}>Siguiente</Text>
+                        <Ionicons name="chevron-forward" size={s(18)} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </ScrollView>
+              );
+            })()}
+
+            {/* Modal de preview de Splash Video: reproduce el video de la
+                tarjeta seleccionada y muestra ahí las acciones (Usar en
+                Boot / Usar en Suspend / Quitar de Descargados). */}
+            {splashPreviewPost && (() => {
+              const post = splashPreviewPost;
+              const isDownloadingBoot = splashDownloadingId === `${post.id}:boot`;
+              const isDownloadingSuspend = splashDownloadingId === `${post.id}:suspend`;
+              return (
+                <Modal
+                  visible
+                  transparent
+                  animationType="fade"
+                  onRequestClose={() => setSplashPreviewPost(null)}
+                >
+                  <TouchableOpacity
+                    style={styles.splashModalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setSplashPreviewPost(null)}
+                  >
+                    <TouchableOpacity activeOpacity={1} style={styles.splashModalCard} onPress={() => { }}>
+                      <View style={styles.splashModalVideoWrap}>
+                        <BackgroundVideo
+                          source={{ uri: post.downloadUrl }}
+                          style={StyleSheet.absoluteFillObject}
+                          resizeMode="contain"
+                          shouldPlay
+                          isLooping
+                          muted={false}
+                        />
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.splashModalCloseBtn}
+                        onPress={() => setSplashPreviewPost(null)}
+                      >
+                        <Ionicons name="close" size={s(20)} color="#FFF" />
+                      </TouchableOpacity>
+
+                      <View style={styles.splashModalInfo}>
+                        <Text style={styles.mediaTitle} numberOfLines={1}>
+                          {post.title}
+                        </Text>
+                        <Text style={[styles.pathDesc, { marginBottom: 4 }]}>
+                          {isShowingDownloadedSplash
+                            ? `Usado en ${(post as DownloadedSplashPost).lastTarget === 'boot' ? 'Boot' : 'Suspend'}`
+                            : `${post.author} · ❤ ${post.likes} · ⬇ ${post.downloads}`}
+                        </Text>
+
+                        <View style={styles.splashModalActions}>
+                          {splashModalActions.map((action, i) => {
+                            const isFocused = splashModalFocusIndex === i;
+                            const isBusy =
+                              (action.id === 'boot' && isDownloadingBoot) ||
+                              (action.id === 'suspend' && isDownloadingSuspend);
+                            const label =
+                              action.id === 'boot'
+                                ? (isDownloadingBoot ? 'Descargando...' : action.label)
+                                : action.id === 'suspend'
+                                  ? (isDownloadingSuspend ? 'Descargando...' : action.label)
+                                  : action.label;
+                            return (
+                              <TouchableOpacity
+                                key={action.id}
+                                style={[
+                                  action.id === 'remove' ? styles.actionBtnSecondary : styles.platformBtn,
+                                  { opacity: isBusy ? 0.6 : 1 },
+                                  isFocused && styles.rightItemFocused,
+                                ]}
+                                disabled={!!splashDownloadingId}
+                                onPress={() => {
+                                  setSplashModalFocusIndex(i);
+                                  runSplashModalAction(action);
+                                }}
+                              >
+                                {isFocused && <SpinningBorderSearch size={s(140)} spread={0.5} borderRadius={8} />}
+                                <Text
+                                  style={
+                                    action.id === 'remove'
+                                      ? [styles.actionBtnSecondaryText, { color: '#FF8899' }]
+                                      : styles.platformBtnText
+                                  }
+                                >
+                                  {label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                </Modal>
               );
             })()}
 
@@ -2978,15 +3751,86 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
+  // Tarjetas grandes de Splash Videos: toda la tarjeta es el elemento
+  // enfocable/pulsable (abre el modal de preview), sin botones debajo.
+  mediaCardLarge: {
+    borderRadius: s(14),
+    borderWidth: 2,
+    borderColor: 'transparent',
+    position: 'relative',
+  },
+  mediaCardFocused: {
+    borderColor: '#00d5ff98',
+    backgroundColor: 'rgba(0, 212, 255, 0.08)',
+    transform: [{ scale: 1.02 }],
+  },
+  mediaCardBusyOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: s(180),
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   mediaThumb: {
     width: '100%',
     height: s(100),
+  },
+  mediaThumbLarge: {
+    width: '100%',
+    height: s(180),
   },
   mediaTitle: {
     color: '#FFF',
     fontSize: s(13),
     padding: s(8),
     fontFamily: 'SSTLight',
+  },
+
+  // Modal de preview de Splash Video
+  splashModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: s(24),
+  },
+  splashModalCard: {
+    width: '100%',
+    maxWidth: s(760),
+    borderRadius: s(16),
+    overflow: 'hidden',
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  splashModalVideoWrap: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+    position: 'relative',
+  },
+  splashModalCloseBtn: {
+    position: 'absolute',
+    top: s(12),
+    right: s(12),
+    width: s(36),
+    height: s(36),
+    borderRadius: s(18),
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  splashModalInfo: {
+    padding: s(18),
+  },
+  splashModalActions: {
+    flexDirection: 'row',
+    gap: s(10),
+    marginTop: s(12),
+    flexWrap: 'wrap',
   },
 
   // Edit Profile Screen

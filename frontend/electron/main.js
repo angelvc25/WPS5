@@ -18,6 +18,12 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'local-file', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
 ]);
 
+// Por defecto Chromium bloquea el autoplay de <video> con sonido si no hubo
+// gesto del usuario. El splash de arranque (video de boot con audio) se
+// reproduce apenas abre el launcher, sin ninguna interacción previa, así
+// que sin este switch el navegador simplemente lo silenciaría.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 // ── Single-instance lock ──
 // Evita instancias duplicadas del launcher. Esto es especialmente importante
 // con front-ends tipo "Xbox Game Bar replacement" (ej. Omniconsola): al
@@ -2654,6 +2660,44 @@ app.whenReady().then(() => {
       fs.mkdirSync(folder, { recursive: true });
     }
     return folder;
+  });
+
+  // IPC: Descarga un video de splash (boot/suspend) desde SteamDeckRepo
+  // y lo guarda en userData/WConsole/splash/{boot|suspend}.webm.
+  // `target` debe ser 'boot' o 'suspend'; cualquier otro valor se rechaza.
+  ipcMain.handle('download-splash-video', async (event, url, target) => {
+    try {
+      if (target !== 'boot' && target !== 'suspend') {
+        return { success: false, error: `Target inválido: ${target}` };
+      }
+      if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+        return { success: false, error: 'URL de descarga inválida.' };
+      }
+
+      const splashDir = path.join(app.getPath('userData'), 'WConsole', 'splash');
+      if (!fs.existsSync(splashDir)) {
+        fs.mkdirSync(splashDir, { recursive: true });
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        return { success: false, error: `SteamDeckRepo respondió ${response.status} ${response.statusText}` };
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const destPath = path.join(splashDir, `${target}.webm`);
+
+      // Escribe primero a un archivo temporal y luego renombra, para no
+      // dejar un .webm a medio escribir si algo falla en el medio.
+      const tmpPath = `${destPath}.tmp`;
+      fs.writeFileSync(tmpPath, Buffer.from(arrayBuffer));
+      fs.renameSync(tmpPath, destPath);
+
+      return { success: true, path: destPath };
+    } catch (error) {
+      console.error('Error downloading splash video:', error);
+      return { success: false, error: error?.message || String(error) };
+    }
   });
 
   // IPC: Obtener última captura de un directorio
