@@ -32,6 +32,86 @@ export type WidgetVisibility = Record<string, boolean>;
 const STORAGE_KEY = 'welcome_widget_visibility';
 const ORDER_STORAGE_KEY = 'welcome_widget_order';
 
+/** Tamaño de un widget: 0 = normal, 1 = ampliado (1ª vez), 2 = ampliado (2ª vez, máximo). */
+export type WidgetSize = 0 | 1 | 2;
+export type WidgetSizes = Record<string, WidgetSize>;
+
+const SIZE_STORAGE_KEY = 'welcome_widget_sizes';
+
+/**
+ * Tamaño máximo permitido por widget. Los que no aparecen aquí NO se pueden ampliar (0).
+ * Sube el número (máx. 2) a medida que diseñes el layout ampliado de cada widget.
+ */
+export const WIDGET_MAX_SIZE: Record<string, WidgetSize> = {
+  trophies: 2,
+  store: 2,
+  news: 2,
+  recently_played: 2,
+  controller: 2,
+  storage: 2,
+  friends: 2,
+};
+export const getWidgetMaxSize = (id: string): WidgetSize => WIDGET_MAX_SIZE[id] ?? 0;
+export const clampWidgetSize = (id: string, value: number): WidgetSize =>
+  Math.max(0, Math.min(getWidgetMaxSize(id), Math.round(value))) as WidgetSize;
+
+/** Cada columna del grid admite 3 "espacios": 3 widgets normales, o 1 normal + 1 de 2 espacios, o 1 de 3. */
+export const WIDGET_COLUMN_CAPACITY = 3;
+
+export interface WidgetLayoutItem {
+  id: string;
+  /** Slot original (0-4 fila 1, 5-9 fila 2). Se usa para foco y modo mover. */
+  slot: number;
+  /** Espacios que ocupa: tamaño + 1 (1, 2 o 3). */
+  rows: number;
+}
+
+/**
+ * Reparte los widgets visibles en columnas de capacidad 3.
+ *
+ * Punto de partida: el n-ésimo widget visible de la fila 1 queda sobre el n-ésimo de la fila 2
+ * (igual que antes). Si una columna se pasa de 3 espacios, se queda el widget más grande y los
+ * demás "ruedan" a la columna de la derecha (arriba del todo), pudiendo encadenarse.
+ * Dentro de cada columna el orden es de arriba hacia abajo.
+ */
+export function computeWidgetColumns(
+  order: string[],
+  isVisible: (id: string) => boolean,
+  sizeOf: (id: string) => number,
+  capacity: number = WIDGET_COLUMN_CAPACITY
+): WidgetLayoutItem[][] {
+  const toItem = (id: string, slot: number): WidgetLayoutItem => ({ id, slot, rows: Math.min(capacity, sizeOf(id) + 1) });
+  const row1 = order.slice(0, 5).map((id, i) => toItem(id, i)).filter((x) => isVisible(x.id));
+  const row2 = order.slice(5, 10).map((id, i) => toItem(id, 5 + i)).filter((x) => isVisible(x.id));
+  const n = Math.max(row1.length, row2.length);
+
+  const columns: WidgetLayoutItem[][] = [];
+  let carry: WidgetLayoutItem[] = [];
+  let k = 0;
+  while (k < n || carry.length > 0) {
+    const incoming = [...carry, row1[k], row2[k]].filter(Boolean) as WidgetLayoutItem[];
+    carry = [];
+    const total = incoming.reduce((sum, x) => sum + x.rows, 0);
+    if (total <= capacity) {
+      columns.push(incoming);
+    } else {
+      // Se queda el más grande (a igualdad, el que ya venía desplazado / el de arriba)
+      let anchor = incoming[0];
+      for (const x of incoming) if (x.rows > anchor.rows) anchor = x;
+      const kept = new Set<WidgetLayoutItem>([anchor]);
+      let used = anchor.rows;
+      for (const x of incoming) {
+        if (kept.has(x)) continue;
+        if (used + x.rows <= capacity) { kept.add(x); used += x.rows; }
+        else carry.push(x);
+      }
+      columns.push(incoming.filter((x) => kept.has(x)));
+    }
+    k++;
+  }
+  return columns;
+}
+
 export const DEFAULT_WIDGET_IDS = [
   'controller', 'trophies', 'store', 'news', 'add_game',
   'recently_played', 'friends', 'storage', 'random_pick', 'change_bg',
@@ -53,6 +133,25 @@ export function loadWidgetVisibility(): WidgetVisibility {
 export function saveWidgetVisibility(v: WidgetVisibility) {
   if (typeof window === 'undefined') return;
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(v)); } catch { /* noop */ }
+}
+
+export function loadWidgetSizes(): WidgetSizes {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(SIZE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) || {};
+    const out: WidgetSizes = {};
+    DEFAULT_WIDGET_IDS.forEach((id) => {
+      if (typeof parsed[id] === 'number') out[id] = clampWidgetSize(id, parsed[id]);
+    });
+    return out;
+  } catch { return {}; }
+}
+
+export function saveWidgetSizes(v: WidgetSizes) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(SIZE_STORAGE_KEY, JSON.stringify(v)); } catch { /* noop */ }
 }
 
 export function loadWidgetOrder(): string[] {
@@ -101,10 +200,12 @@ interface WidgetRowProps {
   widget: WidgetDef;
   enabled: boolean;
   isFocused: boolean;
+  size: WidgetSize;
   onToggle: () => void;
 }
 
-const WidgetRow: React.FC<WidgetRowProps> = ({ widget, enabled, isFocused, onToggle }) => {
+const WidgetRow: React.FC<WidgetRowProps> = ({ widget, enabled, isFocused, size, onToggle }) => {
+  const maxSize = getWidgetMaxSize(widget.id);
   const { t } = useTranslation();
   const focusAnim = useRef(new RNAnimated.Value(isFocused ? 1 : 0)).current;
   useEffect(() => {
@@ -137,6 +238,14 @@ const WidgetRow: React.FC<WidgetRowProps> = ({ widget, enabled, isFocused, onTog
             <Text style={rowStyles.description} numberOfLines={2}>
               {t(widget.descriptionKey)}
             </Text>
+          ) : null}
+          {/* Indicador de tamaño (solo widgets ampliables) */}
+          {isFocused && maxSize > 0 ? (
+            <View style={rowStyles.sizePips}>
+              {Array.from({ length: maxSize + 1 }).map((_, i) => (
+                <View key={i} style={[rowStyles.pip, i <= size && rowStyles.pipActive]} />
+              ))}
+            </View>
           ) : null}
         </View>
         <Switch
@@ -183,6 +292,9 @@ const rowStyles = StyleSheet.create({
   label: { color: '#FFFFFF', fontSize: 15, fontFamily: 'SSTLight', fontWeight: '500' },
   labelDisabled: { color: 'rgba(255,255,255,0.5)' },
   description: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontFamily: 'SSTRg', marginTop: 8, lineHeight: 15 },
+  sizePips: { flexDirection: 'row', gap: 5, marginTop: 8 },
+  pip: { width: 18, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' },
+  pipActive: { backgroundColor: '#FFFFFF' },
 });
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
@@ -191,7 +303,11 @@ export interface WidgetEditPanelProps {
   /** Index inside PANEL_WIDGETS with keyboard/gamepad focus. -1 = none */
   focusedWidgetIndex: number;
   visibility: WidgetVisibility;
+  /** Tamaño actual de cada widget (faltante = 0). */
+  sizes?: WidgetSizes;
   onToggle: (id: string) => void;
+  /** delta: +1 = ampliar (R1), -1 = reducir (L1) */
+  onResize?: (widgetId: string, delta: 1 | -1) => void;
   onClose: () => void;
   onStartMove?: (widgetId: string) => void;
   windowHeight: number;
@@ -201,7 +317,9 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
   visible,
   focusedWidgetIndex,
   visibility,
+  sizes,
   onToggle,
+  onResize,
   onClose,
   onStartMove,
   windowHeight,
@@ -271,6 +389,7 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
             widget={w}
             enabled={visibility[w.id] !== false}
             isFocused={idx === focusedWidgetIndex}
+            size={sizes?.[w.id] ?? 0}
             onToggle={() => onToggle(w.id)}
           />
         ))}
@@ -296,6 +415,28 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
         >
           <PSIcon char={PSIcons.square} size={20} style={panelStyles.hintBadge} color="#d3d3d3ff" />
           <Text style={panelStyles.hintLabel}>{t('widgetEdit.hintMove')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={panelStyles.hintItem}
+          activeOpacity={0.7}
+          onPress={() => {
+            const w = PANEL_WIDGETS[focusedWidgetIndex];
+            if (w) onResize?.(w.id, -1);
+          }}
+        >
+          <View style={panelStyles.keyBadge}><Text style={panelStyles.hintBadgeText}>L1</Text></View>
+          <Text style={panelStyles.hintLabel}>{t('widgetEdit.hintShrink')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={panelStyles.hintItem}
+          activeOpacity={0.7}
+          onPress={() => {
+            const w = PANEL_WIDGETS[focusedWidgetIndex];
+            if (w) onResize?.(w.id, 1);
+          }}
+        >
+          <View style={panelStyles.keyBadge}><Text style={panelStyles.hintBadgeText}>R1</Text></View>
+          <Text style={panelStyles.hintLabel}>{t('widgetEdit.hintExpand')}</Text>
         </TouchableOpacity>
       </View>
     </RNAnimated.View>
@@ -354,6 +495,8 @@ const panelStyles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.07)',
     zIndex: 1,
     gap: 16,
+    rowGap: 8,
+    flexWrap: 'wrap',
   },
   hintItem: {
     flexDirection: 'row',
@@ -366,8 +509,15 @@ const panelStyles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
+  keyBadge: {
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#d3d3d3ff',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
   hintBadgeText: {
-    color: '#FFF',
+    color: '#d3d3d3ff',
     fontSize: 12.5,
     fontFamily: 'SSTMedium',
   },

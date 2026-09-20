@@ -145,6 +145,13 @@ const es = {
   'settings.downloading': 'Descargando...',
   'settings.notDownloadedYet': 'Todavía no descargaste ningún video. Los que uses en Boot o Suspend aparecerán aquí.',
 
+  'settings.rpcs3Folder': 'Carpeta de RPCS3',
+  'settings.rpcs3FolderDesc': 'Carpeta raíz de RPCS3 (donde está rpcs3.exe). Necesaria para leer trofeos de juegos de PS3.',
+  'settings.rpcs3Path': 'Ruta actual: {path}',
+  'settings.selectRpcs3Folder': 'Seleccionar Carpeta de RPCS3',
+  'settings.removeRpcs3Folder': 'Eliminar carpeta de RPCS3',
+  'settings.rpcs3NotConfigured': 'No configurada',
+
 
 
   'profile.overview': 'Información general',
@@ -662,6 +669,18 @@ const es = {
   'widgetEdit.randomPick.desc': 'Elige un juego aleatorio de tu colección.',
   'widgetEdit.changeBg.label': 'Cambiar fondo',
   'widgetEdit.changeBg.desc': 'Personaliza el fondo de pantalla de tu consola.',
+  'widgetEdit.hintShrink': 'Reducir',
+  'widgetEdit.hintExpand': 'Ampliar',
+  'widgetEdit.trophyLevel': 'Nivel',
+  'widgetEdit.playtime': 'Tiempo jugado',
+  'widgetEdit.sessionsPlayed': 'Sesiones jugadas',
+  'widgetEdit.storageGames': 'Juegos y aplicaciones',
+  'widgetEdit.storageMedia': 'Galería multimedia',
+  'widgetEdit.storageSaves': 'Datos guardados',
+  'widgetEdit.storageOthers': 'Otros',
+  'widgetEdit.storageHint': 'Puedes liberar espacio para asegurarte de tener todo listo para nuevos juegos, aplicaciones y actualizaciones.',
+
+
 } as const;
 
 export type TranslationKey = keyof typeof es;
@@ -798,6 +817,13 @@ const en: Record<TranslationKey, string> = {
   'settings.videoUpdateSuspend': 'Suspend',
   'settings.downloading': 'Downloading...',
   'settings.notDownloadedYet': 'You haven\'t downloaded any videos yet. The ones you use in Boot or Suspend will appear here.',
+
+  'settings.rpcs3Folder': 'RPCS3 Folder',
+  'settings.rpcs3FolderDesc': 'RPCS3 root folder (where rpcs3.exe is). Required to read trophies from PS3 games.',
+  'settings.rpcs3Path': 'Current path: {path}',
+  'settings.selectRpcs3Folder': 'Select RPCS3 Folder',
+  'settings.removeRpcs3Folder': 'Remove RPCS3 Folder',
+  'settings.rpcs3NotConfigured': 'Not configured',
 
   'profile.overview': 'Overview',
   'profile.games': 'Games',
@@ -1311,6 +1337,18 @@ const en: Record<TranslationKey, string> = {
   'widgetEdit.randomPick.desc': 'Picks a random game from your collection.',
   'widgetEdit.changeBg.label': 'Change background',
   'widgetEdit.changeBg.desc': 'Customize your console wallpaper.',
+  'widgetEdit.hintShrink': 'Shrink',
+  'widgetEdit.hintExpand': 'Expand',
+  'widgetEdit.trophyLevel': 'Level',
+  'widgetEdit.playtime': 'Playtime',
+  'widgetEdit.sessionsPlayed': 'Sessions played',
+  'widgetEdit.storageGames': 'Games and apps',
+  'widgetEdit.storageMedia': 'Media gallery',
+  'widgetEdit.storageSaves': 'Saved data',
+  'widgetEdit.storageOthers': 'Other',
+  'widgetEdit.storageHint': 'You can free up space to make sure you have everything ready for new games, apps, and updates.',
+
+
 };
 
 const pt: Record<TranslationKey, string> = {
@@ -1445,6 +1483,13 @@ const pt: Record<TranslationKey, string> = {
   'settings.videoUpdateSuspend': 'Suspensão',
   'settings.downloading': 'A descarregar...',
   'settings.notDownloadedYet': 'Você ainda não baixou nenhum vídeo. Os que você usar em Boot ou Suspend aparecerão aqui.',
+
+  'settings.rpcs3Folder': 'Pasta do RPCS3',
+  'settings.rpcs3FolderDesc': 'Pasta raiz do RPCS3 (onde está o rpcs3.exe). Necessária para ler troféus de jogos de PS3.',
+  'settings.rpcs3Path': 'Caminho atual: {path}',
+  'settings.selectRpcs3Folder': 'Selecionar Pasta do RPCS3',
+  'settings.removeRpcs3Folder': 'Remover pasta do RPCS3',
+  'settings.rpcs3NotConfigured': 'Não configurada',
 
   'profile.overview': 'Visão Geral',
   'profile.games': 'Jogos',
@@ -1960,6 +2005,16 @@ const pt: Record<TranslationKey, string> = {
   'widgetEdit.randomPick.desc': 'Escolhe um jogo aleatório da sua coleção.',
   'widgetEdit.changeBg.label': 'Mudar fundo',
   'widgetEdit.changeBg.desc': 'Personalize o papel de parede do seu console.',
+  'widgetEdit.hintShrink': 'Reduzir',
+  'widgetEdit.hintExpand': 'Ampliar',
+  'widgetEdit.trophyLevel': 'Nível',
+  'widgetEdit.playtime': 'Tempo jogado',
+  'widgetEdit.sessionsPlayed': 'Sessões jogadas',
+  'widgetEdit.storageGames': 'Jogos e aplicativos',
+  'widgetEdit.storageMedia': 'Galeria multimídia',
+  'widgetEdit.storageSaves': 'Dados guardados',
+  'widgetEdit.storageOthers': 'Outros',
+  'widgetEdit.storageHint': 'Você pode liberar espaço para garantir que tenha tudo pronto para novos jogos, aplicativos e atualizações.',
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {

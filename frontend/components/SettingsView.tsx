@@ -1657,12 +1657,14 @@ export default function SettingsView({
 
                   {/* RPCS3 Folder */}
                   <View style={styles.cardSection}>
-                    <Text style={styles.sectionLabel}>RPCS3</Text>
+                    <Text style={styles.sectionLabel}>{t('settings.rpcs3Folder')}</Text>
                     <Text style={styles.pathDesc}>
-                      Carpeta raíz de RPCS3 (donde está rpcs3.exe). Necesaria para leer trofeos de juegos de PS3.
+                      {t('settings.rpcs3FolderDesc')}
                     </Text>
                     <Text style={[styles.pathDesc, { marginTop: 4, opacity: 0.6 }]}>
-                      {(activeUser?.settings as any)?.rpcs3Path || 'No configurada'}
+                      {t('settings.rpcs3Path', {
+                        path: (activeUser?.settings as any)?.rpcs3Path || t('settings.rpcs3NotConfigured'),
+                      })}
                     </Text>
                     <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
                       <TouchableOpacity

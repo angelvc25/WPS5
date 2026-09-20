@@ -52,7 +52,13 @@ import WidgetEditPanel, {
   saveWidgetOrder,
   PANEL_WIDGETS,
   DEFAULT_WIDGET_IDS,
+  computeWidgetColumns,
+  WIDGET_COLUMN_CAPACITY,
   WidgetVisibility,
+  WidgetSizes,
+  loadWidgetSizes,
+  saveWidgetSizes,
+  clampWidgetSize,
 } from '@/components/WidgetEditPanel';
 import WelcomeSettingsView from '@/components/WelcomeSettingsView';
 import MediaGalleryView from '@/components/MediaGalleryView';
@@ -239,7 +245,6 @@ export default function ConsoleHome() {
     shutdownFinishedRef.current = false;
     setIsShuttingDown(true);
   };
-
   // Red de seguridad: si el video de suspensión nunca dispara "onEnd"
   // (archivo corrupto, códec no soportado, etc.), cerramos igual a los 20s.
   useEffect(() => {
@@ -337,9 +342,21 @@ export default function ConsoleHome() {
   const [widgetEditFocusIndex, setWidgetEditFocusIndex] = useState(0);
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(() => loadWidgetVisibility());
   const [widgetOrder, setWidgetOrder] = useState<string[]>(() => loadWidgetOrder());
+  const [widgetSizes, setWidgetSizes] = useState<WidgetSizes>(() => loadWidgetSizes());
   const [isWidgetMoveMode, setIsWidgetMoveMode] = useState(false);
   const [movingWidgetId, setMovingWidgetId] = useState<string | null>(null);
   const [preMoveOrderBackup, setPreMoveOrderBackup] = useState<string[]>([]);
+
+  // R1 (+1) amplía, L1 (-1) reduce. Tamaños: 0 → 1 → 2 (máximo por widget en WIDGET_MAX_SIZE).
+  const resizeWidget = useCallback((id: string, delta: 1 | -1) => {
+    const current = widgetSizes[id] ?? 0;
+    const next = clampWidgetSize(id, current + delta);
+    if (next === current) return; // ya está en el mínimo / máximo
+    const updated: WidgetSizes = { ...widgetSizes, [id]: next };
+    setWidgetSizes(updated);
+    saveWidgetSizes(updated);
+    soundService.playNavigation();
+  }, [widgetSizes]);
 
   const startWidgetMove = useCallback((id: string) => {
     setPreMoveOrderBackup([...widgetOrder]);
@@ -360,6 +377,42 @@ export default function ConsoleHome() {
     () => [5, 6, 7, 8, 9].filter(slot => widgetVisibility[widgetOrder[slot]] !== false),
     [widgetVisibility, widgetOrder]
   );
+
+  // Layout real del grid (columnas de 3 espacios; los widgets desplazados ruedan a la derecha)
+  const widgetColumns = useMemo(
+    () => computeWidgetColumns(
+      widgetOrder,
+      (id) => widgetVisibility[id] !== false,
+      (id) => clampWidgetSize(id, widgetSizes[id] ?? 0)
+    ),
+    [widgetOrder, widgetVisibility, widgetSizes]
+  );
+
+  /** Vecino de un slot según el layout visual. 'toolbar' = salir hacia arriba a la barra superior. */
+  const getWidgetNeighbor = (slot: number, dir: 'left' | 'right' | 'up' | 'down'): number | 'toolbar' | null => {
+    const cap = WIDGET_COLUMN_CAPACITY;
+    let c = -1, r = -1;
+    widgetColumns.forEach((col, ci) => col.forEach((it, ri) => { if (it.slot === slot) { c = ci; r = ri; } }));
+    if (c < 0) return null;
+    // Las columnas están alineadas abajo: centro vertical en "espacios"
+    const centerOf = (ci: number, ri: number) => {
+      const col = widgetColumns[ci];
+      const total = col.reduce((sum, it) => sum + it.rows, 0);
+      const before = col.slice(0, ri).reduce((sum, it) => sum + it.rows, 0);
+      return (cap - total) + before + col[ri].rows / 2;
+    };
+    if (dir === 'down') return r < widgetColumns[c].length - 1 ? widgetColumns[c][r + 1].slot : null;
+    if (dir === 'up') return r > 0 ? widgetColumns[c][r - 1].slot : 'toolbar';
+    const tc = dir === 'right' ? c + 1 : c - 1;
+    if (tc < 0 || tc >= widgetColumns.length) return null;
+    const cy = centerOf(c, r);
+    let best = 0, bestDiff = Infinity;
+    widgetColumns[tc].forEach((_, ri) => {
+      const d = Math.abs(centerOf(tc, ri) - cy);
+      if (d < bestDiff) { bestDiff = d; best = ri; }
+    });
+    return widgetColumns[tc][best].slot;
+  };
 
   useEffect(() => {
     if (focusArea === 'welcome_widgets') {
@@ -674,6 +727,31 @@ export default function ConsoleHome() {
       false
     );
   }, []);
+
+  // Actualiza el icono/nombre del tile del Store según la fuente elegida
+  useEffect(() => {
+    const source = activeUser?.settings?.storeSource || 'ps5';
+
+    setGames((prev) =>
+      prev.map((item) =>
+        item.id === '5'
+          ? source === 'steam'
+            ? {
+              ...item,
+              title: 'Steam Store',
+              image: require('@/assets/images/SteamStore.png'),
+              backgroundImage: require('@/assets/images/StoreFondoSteam.png'),
+            }
+            : {
+              ...item,
+              title: 'PlayStation Store',
+              image: require('@/assets/images/Store.png'),
+              backgroundImage: require('@/assets/images/StoreFondo.jpg'),
+            }
+          : item
+      )
+    );
+  }, [activeUser?.settings?.storeSource]);
 
   // Fetch PlayStation Storefront offers
   useEffect(() => {
@@ -1191,7 +1269,7 @@ export default function ConsoleHome() {
         }
         return freshIds;
       });
-    }, 5000); // cada 15s
+    }, 5000); // cada 5s
 
     return () => clearInterval(interval);
   }, [steamGames, games]);
@@ -1297,7 +1375,7 @@ export default function ConsoleHome() {
                 }
               );
             });
-          }, 5000);
+          }, 15000);
 
           knownWishlistDealIdsRef.current = new Set(deals.map(d => d.appid));
         }
@@ -2370,6 +2448,14 @@ export default function ConsoleHome() {
         }
         return;
       }
+      // L1 (q) = Reducir · R1 (e) = Ampliar
+      if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
+        const currentWidget = PANEL_WIDGETS[widgetEditFocusIndex];
+        if (currentWidget) {
+          resizeWidget(currentWidget.id, (e.key === 'q' || e.key === 'Q') ? -1 : 1);
+        }
+        return;
+      }
       if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
         setIsWidgetEditOpen(false);
         return;
@@ -2438,23 +2524,8 @@ export default function ConsoleHome() {
         }
       }
       else if (focusArea === 'welcome_widgets') {
-        if (focusIndex < 5) {
-          const pos = row1Visible.indexOf(focusIndex);
-          if (pos >= 0 && pos < row1Visible.length - 1) {
-            setFocusIndex(row1Visible[pos + 1]);
-          } else if (pos === -1 && row1Visible.length > 0) {
-            const next = row1Visible.find(idx => idx > focusIndex);
-            if (next !== undefined) setFocusIndex(next);
-          }
-        } else {
-          const pos = row2Visible.indexOf(focusIndex);
-          if (pos >= 0 && pos < row2Visible.length - 1) {
-            setFocusIndex(row2Visible[pos + 1]);
-          } else if (pos === -1 && row2Visible.length > 0) {
-            const next = row2Visible.find(idx => idx > focusIndex);
-            if (next !== undefined) setFocusIndex(next);
-          }
-        }
+        const nxt = getWidgetNeighbor(focusIndex, 'right');
+        if (typeof nxt === 'number') setFocusIndex(nxt);
       }
       else if (focusArea === 'welcome_toolbar') {
         if (toolbarFocusIndex < 3) setToolbarFocusIndex(prev => prev + 1);
@@ -2526,23 +2597,8 @@ export default function ConsoleHome() {
         }
       }
       else if (focusArea === 'welcome_widgets') {
-        if (focusIndex < 5) {
-          const pos = row1Visible.indexOf(focusIndex);
-          if (pos > 0) {
-            setFocusIndex(row1Visible[pos - 1]);
-          } else if (pos === -1 && row1Visible.length > 0) {
-            const prev = [...row1Visible].reverse().find(idx => idx < focusIndex);
-            if (prev !== undefined) setFocusIndex(prev);
-          }
-        } else {
-          const pos = row2Visible.indexOf(focusIndex);
-          if (pos > 0) {
-            setFocusIndex(row2Visible[pos - 1]);
-          } else if (pos === -1 && row2Visible.length > 0) {
-            const prev = [...row2Visible].reverse().find(idx => idx < focusIndex);
-            if (prev !== undefined) setFocusIndex(prev);
-          }
-        }
+        const nxt = getWidgetNeighbor(focusIndex, 'left');
+        if (typeof nxt === 'number') setFocusIndex(nxt);
       }
       else if (focusArea === 'welcome_toolbar') {
         if (toolbarFocusIndex > 0) setToolbarFocusIndex(prev => prev - 1);
@@ -2632,21 +2688,8 @@ export default function ConsoleHome() {
         }
       }
       else if (focusArea === 'welcome_widgets') {
-        if (focusIndex < 5) {
-          if (row2Visible.length > 0) {
-            const currentCol = focusIndex % 5;
-            let bestIdx = row2Visible[0];
-            let bestDiff = Math.abs((bestIdx % 5) - currentCol);
-            for (let i = 1; i < row2Visible.length; i++) {
-              const diff = Math.abs((row2Visible[i] % 5) - currentCol);
-              if (diff < bestDiff) {
-                bestDiff = diff;
-                bestIdx = row2Visible[i];
-              }
-            }
-            setFocusIndex(bestIdx);
-          }
-        }
+        const nxt = getWidgetNeighbor(focusIndex, 'down');
+        if (typeof nxt === 'number') setFocusIndex(nxt);
       }
       else if (focusArea === 'welcome_toolbar') {
         setFocusArea('welcome_widgets');
@@ -2719,24 +2762,10 @@ export default function ConsoleHome() {
       else if (focusArea === 'main_carousel') { setFocusArea('header_tabs'); setFocusIndex(TABS.findIndex(tab => tab.id === activeTab)); }
       else if (focusArea === 'header_tabs') { setFocusArea('header_avatar'); setFocusIndex(0); }
       else if (focusArea === 'welcome_widgets') {
-        if (focusIndex >= 5) {
-          if (row1Visible.length > 0) {
-            const currentCol = focusIndex % 5;
-            let bestIdx = row1Visible[0];
-            let bestDiff = Math.abs((bestIdx % 5) - currentCol);
-            for (let i = 1; i < row1Visible.length; i++) {
-              const diff = Math.abs((row1Visible[i] % 5) - currentCol);
-              if (diff < bestDiff) {
-                bestDiff = diff;
-                bestIdx = row1Visible[i];
-              }
-            }
-            setFocusIndex(bestIdx);
-          } else {
-            setFocusArea('welcome_toolbar');
-            setToolbarFocusIndex(2);
-          }
-        } else {
+        const nxt = getWidgetNeighbor(focusIndex, 'up');
+        if (typeof nxt === 'number') {
+          setFocusIndex(nxt);
+        } else if (nxt === 'toolbar') {
           setFocusArea('welcome_toolbar');
           setToolbarFocusIndex(2);
         }
@@ -3967,6 +3996,7 @@ export default function ConsoleHome() {
                   wviewStyle={wviewStyle}
                   widgetVisibility={widgetVisibility}
                   widgetOrder={widgetOrder}
+                  widgetSizes={widgetSizes}
                   isMoveMode={isWidgetMoveMode}
                   movingWidgetId={movingWidgetId}
                 />
@@ -4311,6 +4341,8 @@ export default function ConsoleHome() {
         visible={isWidgetEditOpen}
         focusedWidgetIndex={widgetEditFocusIndex}
         visibility={widgetVisibility}
+        sizes={widgetSizes}
+        onResize={resizeWidget}
         onToggle={(id) => {
           setWidgetVisibility(prev => {
             const next = { ...prev, [id]: prev[id] === false ? true : false };
