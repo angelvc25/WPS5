@@ -424,7 +424,7 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
             if (w) onResize?.(w.id, -1);
           }}
         >
-          <View style={panelStyles.keyBadge}><Text style={panelStyles.hintBadgeText}>L1</Text></View>
+          <PSIcon char={PSIcons.r1} size={20} style={panelStyles.hintBadge} color="#d3d3d3ff" />
           <Text style={panelStyles.hintLabel}>{t('widgetEdit.hintShrink')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -435,7 +435,7 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
             if (w) onResize?.(w.id, 1);
           }}
         >
-          <View style={panelStyles.keyBadge}><Text style={panelStyles.hintBadgeText}>R1</Text></View>
+          <PSIcon char={PSIcons.l1} size={20} style={panelStyles.hintBadge} color="#d3d3d3ff" />
           <Text style={panelStyles.hintLabel}>{t('widgetEdit.hintExpand')}</Text>
         </TouchableOpacity>
       </View>
