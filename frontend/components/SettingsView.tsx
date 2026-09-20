@@ -97,22 +97,7 @@ type SplashModalAction = { id: 'boot' | 'suspend' | 'remove'; label: string };
 
 const SPLASH_DOWNLOADED_STORAGE_KEY = 'wps5_splash_downloaded_v1';
 
-// Filtros de la sección Splash Videos, aplanados en una sola lista para que
-// el mando pueda recorrerlos con Izquierda/Derecha en una sola fila lógica.
-const SPLASH_TYPE_FILTERS: { kind: 'type'; id: SplashFilterType; label: string }[] = [
-  { kind: 'type', id: 'all', label: 'Todos' },
-  { kind: 'type', id: 'boot', label: 'Boot Videos' },
-  { kind: 'type', id: 'suspend', label: 'Suspend Videos' },
-  { kind: 'type', id: 'downloaded', label: 'Descargados' },
-];
-const SPLASH_SORT_FILTERS: { kind: 'sort'; id: SteamDeckRepoSort; label: string }[] = [
-  { kind: 'sort', id: 'newest', label: 'Más nuevos' },
-  { kind: 'sort', id: 'oldest', label: 'Más antiguos' },
-  { kind: 'sort', id: 'likes', label: 'Más likes' },
-  { kind: 'sort', id: 'downloads', label: 'Más descargas' },
-  { kind: 'sort', id: 'title', label: 'Título' },
-];
-const SPLASH_FILTER_ITEMS = [...SPLASH_TYPE_FILTERS, ...SPLASH_SORT_FILTERS];
+
 
 function applyOverlaySettingsToElectron(enabled: boolean, combo: string) {
   if (Platform.OS === 'web' && (window as any).electronAPI?.setOverlaySettings) {
@@ -497,11 +482,11 @@ export default function SettingsView({
   const splashModalActions: SplashModalAction[] = useMemo(() => {
     if (!splashPreviewPost) return [];
     const actions: SplashModalAction[] = [
-      { id: 'boot', label: 'Usar en Boot' },
-      { id: 'suspend', label: 'Usar en Suspend' },
+      { id: 'boot', label: t('settings.chooseBootVideo') },
+      { id: 'suspend', label: t('settings.chooseSuspendVideo') },
     ];
     if (isShowingDownloadedSplash) {
-      actions.push({ id: 'remove', label: 'Quitar de Descargados' });
+      actions.push({ id: 'remove', label: t('settings.removeDownloaded') });
     }
     return actions;
   }, [splashPreviewPost, isShowingDownloadedSplash]);
@@ -1365,6 +1350,23 @@ export default function SettingsView({
     );
   };
 
+  // Filtros de la sección Splash Videos, aplanados en una sola lista para que
+  // el mando pueda recorrerlos con Izquierda/Derecha en una sola fila lógica.
+  const SPLASH_TYPE_FILTERS: { kind: 'type'; id: SplashFilterType; label: string }[] = [
+    { kind: 'type', id: 'all', label: t('settings.filterAll') },
+    { kind: 'type', id: 'boot', label: t('settings.filterBootVideos') },
+    { kind: 'type', id: 'suspend', label: t('settings.filterSuspendVideos') },
+    { kind: 'type', id: 'downloaded', label: t('settings.filterDownloaded') },
+  ];
+  const SPLASH_SORT_FILTERS: { kind: 'sort'; id: SteamDeckRepoSort; label: string }[] = [
+    { kind: 'sort', id: 'newest', label: t('settings.filterNewest') },
+    { kind: 'sort', id: 'oldest', label: t('settings.filterOldest') },
+    { kind: 'sort', id: 'likes', label: t('settings.filterLikes') },
+    { kind: 'sort', id: 'downloads', label: t('settings.filterDownloads') },
+    { kind: 'sort', id: 'title', label: t('settings.filterTitle') },
+  ];
+  const SPLASH_FILTER_ITEMS = [...SPLASH_TYPE_FILTERS, ...SPLASH_SORT_FILTERS];
+
   // ==========================================
   // SCREEN: ACCESSIBILITY (Two Columns: Visual & Animations, Wallpapers & Captures, Smart Sync)
   // ==========================================
@@ -1377,7 +1379,7 @@ export default function SettingsView({
       { id: 'retroachievements', title: 'RetroAchievements' },
       { id: 'sync', title: t('settings.smartSync') },
       { id: 'overlay', title: t('settings.overlay') },
-      { id: 'splash', title: 'Splash Videos' },
+      { id: 'splash', title: t('settings.steamDeckRepo') },
     ];
 
     return (
@@ -1980,25 +1982,23 @@ export default function SettingsView({
 
               return (
                 <ScrollView showsVerticalScrollIndicator={false}>
-                  <Text style={styles.rightSectionTitle}>Splash Videos</Text>
+                  <Text style={styles.rightSectionTitle}>{t('settings.steamDeckRepo')}</Text>
                   <Text style={[styles.pathDesc, { marginBottom: 16 }]}>
-                    Busca videos de arranque (boot) y suspensión (suspend) en SteamDeckRepo
-                    y descárgalos para usarlos como splash de tu launcher, o revisa el
-                    filtro &quot;Descargados&quot; para volver a usar uno que ya bajaste antes.
+                    {t('settings.steamDeckRepoDesc')}
                   </Text>
 
                   {/* Estado actual */}
                   <View style={[styles.cardSection, { flexDirection: 'row', gap: 24 }]}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.sectionLabel}>Boot actual</Text>
+                      <Text style={styles.sectionLabel}>{t('settings.bootCurrent')}</Text>
                       <Text style={[styles.pathDesc, { opacity: 0.7 }]} numberOfLines={1}>
-                        {currentBoot || 'Por defecto'}
+                        {currentBoot || t('settings.default')}
                       </Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.sectionLabel}>Suspend actual</Text>
+                      <Text style={styles.sectionLabel}>{t('settings.suspendCurrent')}</Text>
                       <Text style={[styles.pathDesc, { opacity: 0.7 }]} numberOfLines={1}>
-                        {currentSuspend || 'Por defecto'}
+                        {currentSuspend || t('settings.default')}
                       </Text>
                     </View>
                   </View>
@@ -2007,7 +2007,7 @@ export default function SettingsView({
                   <View style={styles.cardSection}>
                     <TextInput
                       style={styles.raInput}
-                      placeholder="Buscar por título, autor o descripción..."
+                      placeholder={t('settings.bootPlaceholder')}
                       placeholderTextColor="rgba(255,255,255,0.3)"
                       value={splashQuery}
                       onChangeText={setSplashQuery}
@@ -2156,9 +2156,9 @@ export default function SettingsView({
                           setSplashPage((p) => Math.max(1, p - 1));
                         }}
                       >
-                        {isPagerFocused && splashPagerIndex === 0 && <SpinningBorderSearch size={s(140)} spread={0.5} borderRadius={8} />}
+                        {isPagerFocused && splashPagerIndex === 0 && <SpinningBorderSearch size={s(140)} spread={0.5} borderRadius={0} />}
                         <Ionicons name="chevron-back" size={s(18)} color="#FFF" />
-                        <Text style={styles.actionBtnSecondaryText}>Anterior</Text>
+                        <Text style={styles.actionBtnSecondaryText}>{t('musicExpanded.previous')}</Text>
                       </TouchableOpacity>
                       <Text style={styles.pathDesc}>
                         Página {splashPage} de {splashTotalPages}
@@ -2176,8 +2176,8 @@ export default function SettingsView({
                           setSplashPage((p) => Math.min(splashTotalPages, p + 1));
                         }}
                       >
-                        {isPagerFocused && splashPagerIndex === 1 && <SpinningBorderSearch size={s(140)} spread={0.5} borderRadius={8} />}
-                        <Text style={styles.actionBtnSecondaryText}>Siguiente</Text>
+                        {isPagerFocused && splashPagerIndex === 1 && <SpinningBorderSearch size={s(140)} spread={0.5} borderRadius={0} />}
+                        <Text style={styles.actionBtnSecondaryText}>{t('musicExpanded.next')}</Text>
                         <Ionicons name="chevron-forward" size={s(18)} color="#FFF" />
                       </TouchableOpacity>
                     </View>
@@ -3092,6 +3092,28 @@ export default function SettingsView({
         {currentScreen === 'profile_edit_detail' && renderProfileEditDetailScreen()}
         {currentScreen === 'system' && renderSystemScreen()}
       </View>
+      {/* Control Prompt Bar at Bottom */}
+      {currentScreen === 'accessibility' && accessibilityLeftIndex === 7 && (
+        <View style={styles.bottomControlBarContainer2}>
+          <View style={[styles.bottomControlBar, {}]}>
+            <PSIcon
+              char={PSIcons.r1}
+              size={s(26)}
+              color={'#fff'}
+            />
+            <Text style={styles.bottomBarText}>/</Text>
+            <PSIcon
+              char={PSIcons.l1}
+              size={s(26)}
+              color={'#fff'}
+            />
+            <Text style={styles.bottomBarText}>{t('search.changeTabs')}</Text>
+          </View>
+        </View>
+      )
+      }
+
+
 
       {/* Control Prompt Bar at Bottom */}
       <View style={styles.bottomControlBarContainer}>
@@ -3152,6 +3174,21 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     //maxWidth: 340,
     position: 'fixed',
     right: s(20),
+    bottom: s(20),
+    paddingHorizontal: s(22),
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    gap: s(20),
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  bottomControlBarContainer2: {
+    //width: 340,
+    minWidth: s(270),
+
+    height: s(37),
+    //maxWidth: 340,
+    position: 'fixed',
+    left: s(20),
     bottom: s(20),
     paddingHorizontal: s(22),
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -3275,7 +3312,7 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     paddingVertical: s(12),
     paddingHorizontal: s(20),
-    borderRadius: s(10),
+    borderRadius: 0,
     gap: s(10),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
@@ -3351,8 +3388,6 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     paddingHorizontal: s(16),
     borderRadius: s(8),
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   platformBtnActive: {
     backgroundColor: '#FFFFFF',
