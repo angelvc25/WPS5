@@ -135,6 +135,8 @@ const es = {
   'settings.filterTitle': 'Título',
   'settings.default': 'Por defecto',
   'settings.removeDownloaded': 'Eliminar de Descargados',
+  'settings.loading': 'Cargando...',
+
 
 
   'profile.overview': 'Información general',
@@ -774,11 +776,12 @@ const en: Record<TranslationKey, string> = {
   'settings.filterAll': 'All',
   'settings.filterNewest': 'Newest',
   'settings.filterOldest': 'Oldest',
-  'settings.filterLikes': 'Likes',
-  'settings.filterDownloads': 'Downloads',
+  'settings.filterLikes': 'More likes',
+  'settings.filterDownloads': 'More downloads',
   'settings.filterTitle': 'Title',
   'settings.default': 'Default',
   'settings.removeDownloaded': 'Remove from Downloads',
+  'settings.loading': 'Loading...',
 
   'profile.overview': 'Overview',
   'profile.games': 'Games',
@@ -1417,6 +1420,7 @@ const pt: Record<TranslationKey, string> = {
   'settings.filterTitle': 'Título',
   'settings.default': 'Por predefinição',
   'settings.removeDownloaded': 'Remover de Descarregados',
+  'settings.loading': 'A carregar...',
 
   'profile.overview': 'Visão Geral',
   'profile.games': 'Jogos',

@@ -2066,7 +2066,7 @@ export default function SettingsView({
 
                   {/* Estado de carga / error */}
                   {splashLoading && (
-                    <Text style={[styles.pathDesc, { marginBottom: 12 }]}>Cargando...</Text>
+                    <Text style={[styles.pathDesc, { marginBottom: 12 }]}>{t('settings.loading')}</Text>
                   )}
                   {!splashLoading && splashError && (
                     <Text style={[styles.pathDesc, { color: '#FF5566', marginBottom: 12 }]}>
@@ -3294,7 +3294,7 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   },
   sectionLabel: {
     color: '#9c9b96ff',
-    fontSize: s(13),
+    fontSize: s(15),
     fontWeight: '700',
     fontFamily: 'SSTMedium',
     letterSpacing: 1.2,
@@ -3302,7 +3302,7 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   },
   pathDesc: {
     color: 'rgba(255,255,255,0.6)',
-    fontSize: s(14),
+    fontSize: s(15),
     fontFamily: 'SSTLight',
     lineHeight: s(20),
   },
@@ -3342,7 +3342,7 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   },
   toggleRowDesc: {
     color: 'rgba(255,255,255,0.5)',
-    fontSize: s(13),
+    fontSize: s(15),
     fontFamily: 'SSTLight',
     lineHeight: s(18),
   },
@@ -3394,7 +3394,7 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   },
   platformBtnText: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: s(13),
+    fontSize: s(15),
     fontFamily: 'SSTMedium',
     //fontWeight: '600',
   },
@@ -3688,7 +3688,7 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   },
   aboutCardTitle: {
     color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: s(13),
+    fontSize: s(15),
     fontFamily: 'SSTBold',
     //fontWeight: '700',
     //textTransform: 'uppercase',
@@ -3730,7 +3730,7 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   },
   gameListSub: {
     color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: s(13),
+    fontSize: s(15),
     fontFamily: 'SSTLight',
   },
   friendsListContainer: {
@@ -3819,7 +3819,7 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   },
   mediaTitle: {
     color: '#FFF',
-    fontSize: s(13),
+    fontSize: s(15),
     padding: s(8),
     fontFamily: 'SSTLight',
   },
@@ -3998,7 +3998,7 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   },
   rightItemFocused: {
     //borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0)',
+    //backgroundColor: 'rgba(255, 255, 255, 0)',
     //borderWidth: 2,
     //borderRadius: 8,
   },
