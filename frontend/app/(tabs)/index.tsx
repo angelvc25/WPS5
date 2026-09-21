@@ -351,6 +351,9 @@ export default function ConsoleHome() {
   const [movingWidgetId, setMovingWidgetId] = useState<string | null>(null);
   const [preMoveOrderBackup, setPreMoveOrderBackup] = useState<string[]>([]);
 
+  // Widget con foco en WidgetEditPanel (null si el panel está cerrado). WelcomeWidgets atenúa el resto.
+  const editingWidgetId = isWidgetEditOpen ? (PANEL_WIDGETS[widgetEditFocusIndex]?.id ?? null) : null;
+
   // R1 (+1) amplía, L1 (-1) reduce. Tamaños: 0 → 1 → 2 (máximo por widget en WIDGET_MAX_SIZE).
   const resizeWidget = useCallback((id: string, delta: 1 | -1) => {
     const current = widgetSizes[id] ?? 0;
@@ -4007,6 +4010,7 @@ export default function ConsoleHome() {
                   widgetSizes={widgetSizes}
                   isMoveMode={isWidgetMoveMode}
                   movingWidgetId={movingWidgetId}
+                  editingWidgetId={editingWidgetId}
                 />
               </Animated.View>
             </Animated.View>

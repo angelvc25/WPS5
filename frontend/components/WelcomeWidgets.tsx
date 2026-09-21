@@ -56,11 +56,21 @@ interface WelcomeWidgetsProps {
   widgetSizes?: Record<string, number>;
   isMoveMode?: boolean;
   movingWidgetId?: string | null;
+  /** Id del widget que se está editando en WidgetEditPanel (con foco). Si viene definido y está
+   *  visible en el grid, el resto de widgets se atenúan para resaltarlo. null = sin atenuar. */
+  editingWidgetId?: string | null;
 }
 
 /** Si es true, los widgets ampliados crecen HACIA ARRIBA (la base del grid no se mueve, como en PS5).
  *  Si es false, el grid crece hacia abajo empujando el contenido. */
 const GROW_UPWARD = false;
+
+/** Opacidad de los widgets NO enfocados mientras el panel de edición está abierto. */
+const EDIT_DIM_OPACITY = 0.25;
+/** Duración (ms) y curva de las transiciones: atenuado y cambio de tamaño (alto de la tarjeta). */
+const EDIT_FADE_MS = 280;
+const RESIZE_MS = 380;
+const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 /** Margen (px) que se deja alrededor de los widgets para que el ScrollView no recorte bordes/brillos/flechas. */
 const SCROLL_BLEED = 24;
@@ -168,6 +178,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   widgetSizes,
   isMoveMode = false,
   movingWidgetId = null,
+  editingWidgetId = null,
 }: WelcomeWidgetsProps, ref) => {
   const isWidgetVisible = (id: string) => widgetVisibility?.[id] !== false;
   const activeOrder = widgetOrder && widgetOrder.length === 10 ? widgetOrder : DEFAULT_WIDGET_IDS;
@@ -377,6 +388,14 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
         position: 'relative',
         justifyContent: 'center',
         backgroundColor: '#0d1015',
+        // Animación suave al ampliar / reducir (los 3 tamaños). El alto real llega inline desde cardSizeStyle.
+        ...(Platform.OS === 'web'
+          ? {
+            transitionProperty: 'height, min-height, max-height',
+            transitionDuration: `${RESIZE_MS}ms`,
+            transitionTimingFunction: EASING,
+          }
+          : null),
       } as any,
       welcomeWidgetCard2: {
         flex: 1,
@@ -482,6 +501,35 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     return { height: h, minHeight: h, maxHeight: h } as any;
   };
 
+  // ─── Atenuado al editar desde WidgetEditPanel ──────────────────────────────
+  // Solo se atenúa si el widget enfocado del panel está visible en el grid
+  // (si está oculto no hay nada que resaltar y no se toca la opacidad).
+  const isEditingActive =
+    editingWidgetId != null && columns.some((col) => col.some((c) => c.id === editingWidgetId));
+  const editDimStyle = (dimmed: boolean): any => ({
+    opacity: dimmed ? EDIT_DIM_OPACITY : 1,
+    ...(Platform.OS === 'web'
+      ? {
+        transitionProperty: 'opacity',
+        transitionDuration: `${EDIT_FADE_MS}ms`,
+        transitionTimingFunction: EASING,
+      }
+      : null),
+  });
+
+  // Fade-in del contenido ampliado. Cada raíz lleva key={id-tamaño}, así que al cambiar de nivel
+  // se remonta y reproduce la animación mientras la tarjeta crece / se encoge.
+  const expandedIn: any =
+    Platform.OS === 'web'
+      ? {
+        animationName: 'wc-expand-in',
+        animationDuration: `${RESIZE_MS}ms`,
+        animationDelay: '70ms',
+        animationTimingFunction: EASING,
+        animationFillMode: 'backwards',
+      }
+      : null;
+
   // Trofeos ampliado (tamaños 1 y 2): trofeos grandes + nivel con barra de progreso
   const renderTrophiesExpanded = () => {
     const { s } = metrics;
@@ -492,7 +540,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       { img: require('@/assets/images/bronce.png'), n: TROPHY_DATA.bronze },
     ];
     return (
-      <View style={{ flex: 1, zIndex: 10, position: 'relative' }}>
+      <View key={`trophies-${getSize('trophies')}`} style={[{ flex: 1, zIndex: 10, position: 'relative' }, expandedIn]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             <Image source={require('@/assets/images/logo-trophy.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
@@ -534,7 +582,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   const renderStoreExpanded = () => {
     const { s } = metrics;
     return (
-      <View style={{ flex: 1, justifyContent: 'space-between', zIndex: 10, position: 'relative' }}>
+      <View key={`store-${getSize('store')}`} style={[{ flex: 1, justifyContent: 'space-between', zIndex: 10, position: 'relative' }, expandedIn]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Image source={require('@/assets/images/PlaystationStore_copi.png')} style={{ width: 18, height: 18, resizeMode: 'cover' }} />
           <Text style={styles.widgetTitle}>{t('widgets.store')}</Text>
@@ -628,7 +676,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     };
 
     return (
-      <View style={{ flex: 1, zIndex: 10, position: 'relative', justifyContent: 'center', gap: gapV }}>
+      <View key={`controller-${getSize('controller')}`} style={[{ flex: 1, zIndex: 10, position: 'relative', justifyContent: 'center', gap: gapV }, expandedIn]}>
         {Array.from({ length: nRows }).map((_, r) => (
           <View key={r} style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
             {Array.from({ length: perRow }).map((__, c) => renderRing(r * perRow + c))}
@@ -648,12 +696,12 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
     // ── SIZE 1: layout original (un solo disco, estilo PS5) ──────────────────
     if (size === 1) {
-      const free    = storageInfo.freeGB > 0 ? storageInfo.freeGB : 36.47;
+      const free = storageInfo.freeGB > 0 ? storageInfo.freeGB : 36.47;
       const usedPct = storageInfo.percent > 0 && storageInfo.percent < 100 ? storageInfo.percent : 65;
-      const total   = storageInfo.totalGB && storageInfo.totalGB > 0
+      const total = storageInfo.totalGB && storageInfo.totalGB > 0
         ? storageInfo.totalGB
         : free / (1 - usedPct / 100);
-      const used  = Math.max(0, total - free);
+      const used = Math.max(0, total - free);
       const games = storageInfo.gamesGB ?? used * 0.78;
       const media = storageInfo.mediaGB ?? used * 0.04;
       const saves = storageInfo.savesGB ?? used * 0.03;
@@ -665,7 +713,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
         { key: 'other', label: t('widgetEdit.storageOthers'), gb: other, color: '#d9d9d9' },
       ];
       return (
-        <View style={{ flex: 1, zIndex: 10, position: 'relative' }}>
+        <View key={`storage-${getSize('storage')}`} style={[{ flex: 1, zIndex: 10, position: 'relative' }, expandedIn]}>
           {/* Cabecera */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: s(12) }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -708,16 +756,16 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     const disks = storageInfo.disks && storageInfo.disks.length > 0
       ? storageInfo.disks
       : [{
-          name: 'C:',
-          percent: storageInfo.percent > 0 ? storageInfo.percent : 65,
-          freeGB: storageInfo.freeGB > 0 ? storageInfo.freeGB : 36.47,
-          totalGB: storageInfo.totalGB ?? (storageInfo.freeGB > 0
-            ? storageInfo.freeGB / (1 - (storageInfo.percent > 0 ? storageInfo.percent : 65) / 100)
-            : 100),
-        }];
+        name: 'C:',
+        percent: storageInfo.percent > 0 ? storageInfo.percent : 65,
+        freeGB: storageInfo.freeGB > 0 ? storageInfo.freeGB : 36.47,
+        totalGB: storageInfo.totalGB ?? (storageInfo.freeGB > 0
+          ? storageInfo.freeGB / (1 - (storageInfo.percent > 0 ? storageInfo.percent : 65) / 100)
+          : 100),
+      }];
 
     return (
-      <View style={{ flex: 1, zIndex: 10, position: 'relative' }}>
+      <View key={`storage-${getSize('storage')}`} style={[{ flex: 1, zIndex: 10, position: 'relative' }, expandedIn]}>
         {/* Cabecera */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: s(12) }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -791,7 +839,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
     if (sorted.length === 0) {
       return (
-        <View style={{ flex: 1, zIndex: 10, position: 'relative' }}>
+        <View key={`friends-${getSize('friends')}`} style={[{ flex: 1, zIndex: 10, position: 'relative' }, expandedIn]}>
           {header}
           <View style={{ flex: 1, justifyContent: 'center' }}>
             <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontFamily: 'SSTMediumIt' }} numberOfLines={2}>
@@ -807,7 +855,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       const gap = s(10);
       const diam = Math.max(24, Math.min(s(52), Math.floor((innerW - (list.length - 1) * gap) / list.length)));
       return (
-        <View style={{ flex: 1, zIndex: 10, position: 'relative' }}>
+        <View key={`friends-${getSize('friends')}`} style={[{ flex: 1, zIndex: 10, position: 'relative' }, expandedIn]}>
           {header}
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap }}>
             {list.map((f) => (
@@ -837,7 +885,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     const maxRows = Math.max(1, Math.floor((availH - headerH) / rowH));
     const list = sorted.slice(0, maxRows);
     return (
-      <View style={{ flex: 1, zIndex: 10, position: 'relative' }}>
+      <View key={`friends-${getSize('friends')}`} style={[{ flex: 1, zIndex: 10, position: 'relative' }, expandedIn]}>
         {header}
         <View style={{ flex: 1, justifyContent: 'center', gap: s(8) }}>
           {list.map((f) => (
@@ -895,7 +943,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
           transition={300}
         />
         {renderScrim()}
-        <View style={{ flex: 1, justifyContent: 'space-between', zIndex: 10, position: 'relative' }}>
+        <View key={`news-${getSize('news')}`} style={[{ flex: 1, justifyContent: 'space-between', zIndex: 10, position: 'relative' }, expandedIn]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Ionicons name="megaphone" size={s(17)} color="#FFF" />
             <Text style={styles.widgetTitle}>{t('widgets.news')}</Text>
@@ -947,7 +995,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
           />
         ) : null}
         {renderScrim()}
-        <View style={{ flex: 1, justifyContent: 'space-between', zIndex: 10, position: 'relative' }}>
+        <View key={`recently_played-${getSize('recently_played')}`} style={[{ flex: 1, justifyContent: 'space-between', zIndex: 10, position: 'relative' }, expandedIn]}>
           {/* Cabecera */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -3060,6 +3108,10 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     >
       <View style={{ width: 'auto' }}>
         <style>{`
+        @keyframes wc-expand-in {
+          from { opacity: 0; transform: translateY(8px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
         @keyframes widget-shimmer {
           0% {
             transform: translate(-160%, 120%) rotate(-45deg);
@@ -3102,7 +3154,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       `}</style>
 
         {/* === EA SPORTS WIDGET (BANNER) === */}
-        <View style={{ width: '100%' }}>
+        <View style={[{ width: '100%' }, editDimStyle(isEditingActive)]}>
           <TouchableOpacity
             activeOpacity={0.85}
             style={{ width: '100%' }}
@@ -3196,7 +3248,13 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
           {columns.map((col, k) => (
             <View key={`col-${k}`} style={{ flexDirection: 'column', gap: metrics.vGap }}>
               {col.map(({ id, slot }) => (
-                <View key={id} style={{ position: 'relative', overflow: 'visible' }}>
+                <View
+                  key={id}
+                  style={[
+                    { position: 'relative', overflow: 'visible' },
+                    editDimStyle(isEditingActive && id !== editingWidgetId),
+                  ]}
+                >
                   {renderWidget(id, slot, Boolean(isMoveMode && movingWidgetId === id))}
                 </View>
               ))}
