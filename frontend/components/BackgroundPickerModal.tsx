@@ -10,21 +10,12 @@ const HEALTH_CHECK_INTERVAL_MS = 4000;
 const STALL_THRESHOLD_MS = 6000;
 
 interface BackgroundVideoProps {
-  source?: any;
+  source: any;
   style?: any;
   resizeMode?: 'cover' | 'contain';
   muted?: boolean;
   shouldPlay?: boolean;
   isLooping?: boolean;
-  visible?: boolean;
-  onClose?: () => void;
-  onSelectBackground?: (uri: string) => void;
-  currentBackgroundUri?: any;
-  backdropUri?: any;
-  wallpaperPath?: string;
-  capturePath?: string;
-  initialTab?: string;
-  onSelectAlbum?: (albumName: string, items: string[]) => void;
   /**
    * Se llama cuando el video falla al cargar/reproducir, además del
    * reintento interno (que cambia `reloadKey`). Útil para que quien use
