@@ -976,18 +976,29 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
 
   const POLL_MS = 4000;
   const MAX_WAIT_FOR_START_MS = 90 * 1000; // margen para que Steam/Epic abra el juego
-  // Cuánto dejamos nuestro propio overlay de "Iniciando juego..." tapando la
-  // pantalla (por encima del diálogo nativo de Steam/Epic) antes de ceder el
-  // paso de todas formas, aunque todavía no hayamos detectado el proceso
-  // real corriendo. Cubre el caso normal (Steam valida la licencia, sincroniza
-  // la nube, muestra su propio diálogo — todo eso tarda unos segundos) sin
-  // dejar el launcher bloqueando la pantalla para siempre si la detección
-  // falla o el juego tarda mucho en arrancar.
-  const SUSPEND_FALLBACK_MS = 20 * 1000;
+  // ── Debounce de "juego cerrado" ──
+  // isProcessRunningUnderDir() detecta CUALQUIER proceso cuyo ejecutable
+  // viva dentro de la carpeta del juego, no solo el .exe principal. Muchos
+  // juegos lanzan procesos auxiliares de vida muy corta al arrancar
+  // (crash handlers de Unity/Unreal, instaladores de vc_redist, EAC/
+  // BattlEye, sub-launchers...). Si uno de esos procesos es el primero en
+  // detectarse y termina antes de que el .exe real del juego llegue a
+  // correr, el poll siguiente ve "nada corriendo" y finish() interpretaba
+  // eso como que el juego se cerró — recuperando el foco del launcher justo
+  // cuando el juego real recién está abriendo en pantalla completa, lo que
+  // hace que Windows lo minimice por perder el foco. Para evitarlo, SOLO
+  // dentro de los primeros MIN_RUNNING_MS_BEFORE_EXIT desde la primera
+  // detección exigimos varios polls seguidos sin proceso antes de confirmar
+  // el cierre; pasada esa ventana de arranque, un solo poll sin proceso ya
+  // es suficiente (así cerrar un juego que llevaba rato jugándose vuelve a
+  // ser instantáneo, sin la demora artificial de esperar 3 polls siempre).
+  const MISSES_TO_CONFIRM_EXIT = 3; // solo durante la ventana de arranque
+  const MIN_RUNNING_MS_BEFORE_EXIT = 8 * 1000; // ventana de arranque
+  let consecutiveMisses = 0;
   const startedAt = Date.now();
   let seenRunning = false;
+  let firstSeenRunningAt = null;
   let gameExited = false;
-  let launcherSuspended = false;
 
   // ── NUEVO: registrar juego activo + habilitar overlay ──
   activeGameInfo = {
@@ -1002,17 +1013,10 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
   enableOverlayHotkey();
   startGamepadOverlayListener();
 
-  // Mientras Steam/Epic gestiona el arranque real (verificar la instalación,
-  // sincronizar la nube, mostrar su propio diálogo de "Iniciando juego"...),
-  // mantenemos NUESTRO launcher visible y por encima de todo. El renderer ya
-  // está mostrando el overlay de lanzamiento (imagen de fondo + logo del
-  // juego) desde que se pulsó "Jugar"; así tapa el diálogo nativo de Steam
-  // en vez de dejarlo ver sobre un escritorio en negro.
-  if (mainWindow) {
-    mainWindow.show();
-    mainWindow.setAlwaysOnTop(true, 'screen-saver');
-    mainWindow.focus();
-  }
+  // Ya no tapamos la pantalla con el launcher mientras Steam/Epic arranca:
+  // aplicamos directamente el comportamiento configurado por el usuario
+  // (ocultar/minimizar/segundo plano) apenas se pide lanzar el juego.
+  suspendLauncherForGame(`juego de ${sourceLabel}`);
 
   const finish = () => {
     if (gameExited) return;
@@ -1032,37 +1036,37 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
     }
   };
 
-  // Cede la pantalla una sola vez: quita el "siempre encima" y aplica el
-  // comportamiento configurado por el usuario (ocultar/minimizar/segundo
-  // plano). Se dispara al confirmar que el juego ya está corriendo, o por
-  // el fallback de tiempo si no logramos confirmarlo.
-  const suspendOnce = () => {
-    if (launcherSuspended || gameExited) return;
-    launcherSuspended = true;
-    if (mainWindow) mainWindow.setAlwaysOnTop(false);
-    suspendLauncherForGame(`juego de ${sourceLabel}`);
-  };
-
   const timer = setInterval(async () => {
     try {
       const running = await isProcessRunningUnderDir(installDir);
       if (running) {
+        consecutiveMisses = 0;
         if (!seenRunning) {
           seenRunning = true;
-          // El juego ya está arriba: le cedemos la pantalla ahora mismo,
-          // sin esperar al fallback de tiempo.
-          suspendOnce();
+          firstSeenRunningAt = Date.now();
         }
         return;
       }
       if (seenRunning) {
-        console.log(`[${sourceLabel}] Proceso del juego finalizado, restaurando launcher (` + appId + ')');
-        finish();
+        // No contamos un solo poll sin proceso como "cerrado" INMEDIATAMENTE
+        // DESPUÉS DE ARRANCAR (puede ser un proceso auxiliar corto: crash
+        // handler, vc_redist, EAC/BattlEye...). Pero una vez que el juego ya
+        // lleva corriendo más de MIN_RUNNING_MS_BEFORE_EXIT de forma estable,
+        // esa duda ya no aplica: un solo poll sin proceso es señal confiable
+        // de que el juego cerró de verdad, así que confirmamos al toque en
+        // vez de esperar varios polls (eso era lo que hacía tardar mucho en
+        // volver al carrusel al cerrar un juego que llevaba rato corriendo).
+        consecutiveMisses++;
+        const runningForMs = firstSeenRunningAt ? Date.now() - firstSeenRunningAt : 0;
+        const withinStartupGrace = runningForMs < MIN_RUNNING_MS_BEFORE_EXIT;
+        const missesNeeded = withinStartupGrace ? MISSES_TO_CONFIRM_EXIT : 1;
+        if (consecutiveMisses >= missesNeeded) {
+          console.log(`[${sourceLabel}] Proceso del juego finalizado, restaurando launcher (` + appId + ')');
+          finish();
+          return;
+        }
+        console.log(`[${sourceLabel}] Proceso no detectado tras ${runningForMs}ms de arranque (posible proceso auxiliar corto) — esperando confirmación (` + appId + ')');
         return;
-      }
-      if (!launcherSuspended && Date.now() - startedAt > SUSPEND_FALLBACK_MS) {
-        console.log(`[${sourceLabel}] No se confirmó el proceso tras ${SUSPEND_FALLBACK_MS / 1000}s, cediendo la pantalla igualmente (` + appId + ')');
-        suspendOnce();
       }
       if (Date.now() - startedAt > MAX_WAIT_FOR_START_MS) {
         console.warn(`[${sourceLabel}] No se detectó el proceso del juego tras`, MAX_WAIT_FOR_START_MS / 1000, 's — restaurando launcher');
@@ -1075,6 +1079,7 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
 
   activeGameWatchers.set(id, timer);
 }
+
 
 // Función para inyectar Base64 de imágenes locales
 function injectMediaToBase64(item) {
@@ -2977,29 +2982,41 @@ app.whenReady().then(() => {
     app.quit();
   });
 
-  // IPC: Obtener info de almacenamiento (Windows)
+  // IPC: Obtener info de almacenamiento (Windows) — devuelve hasta 3 discos locales
   ipcMain.handle('get-storage-info', async () => {
     return new Promise((resolve) => {
       if (process.platform !== 'win32') {
         resolve({ success: false, error: 'Plataforma no soportada' });
         return;
       }
-      exec('powershell "Get-CimInstance Win32_LogicalDisk | Where-Object DeviceID -eq \'C:\' | Select-Object Size, FreeSpace"', (error, stdout) => {
+      // DriveType=3 → disco local fijo; excluimos CD-ROMs, unidades de red, etc.
+      const cmd = 'powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | Select-Object DeviceID, Size, FreeSpace | ConvertTo-Json -Compress"';
+      exec(cmd, (error, stdout) => {
         if (error) {
           resolve({ success: false, error: error.message });
           return;
         }
-        const lines = stdout.trim().split('\n').filter(l => l.trim() !== '' && !l.includes('---') && !l.includes('Size'));
-        if (lines.length > 0) {
-          const parts = lines[0].trim().split(/\s+/);
-          const size = parseInt(parts[0]);
-          const free = parseInt(parts[1]);
-          const used = size - free;
-          const percent = Math.round((used / size) * 100);
-          const freeGB = Math.round(free / (1024 * 1024 * 1024));
-          resolve({ success: true, percent, freeGB });
-        } else {
-          resolve({ success: false, error: 'No se pudo leer la info del disco' });
+        try {
+          let raw = JSON.parse(stdout.trim());
+          // PowerShell devuelve un objeto (no array) si solo hay 1 disco
+          if (!Array.isArray(raw)) raw = [raw];
+
+          const MAX_DISKS = 3;
+          const disks = raw.slice(0, MAX_DISKS).map((d) => {
+            const size = Number(d.Size) || 0;
+            const free = Number(d.FreeSpace) || 0;
+            const used = size - free;
+            const percent = size > 0 ? Math.round((used / size) * 100) : 0;
+            const freeGB  = Math.round(free / (1024 * 1024 * 1024) * 10) / 10;
+            const totalGB = Math.round(size / (1024 * 1024 * 1024) * 10) / 10;
+            return { name: d.DeviceID, percent, freeGB, totalGB };
+          });
+
+          // Compatibilidad hacia atrás: campos del primer disco en el nivel raíz
+          const first = disks[0] || { percent: 0, freeGB: 0 };
+          resolve({ success: true, percent: first.percent, freeGB: first.freeGB, disks });
+        } catch (parseErr) {
+          resolve({ success: false, error: 'No se pudo parsear la info del disco' });
         }
       });
     });
@@ -3027,6 +3044,28 @@ app.whenReady().then(() => {
     }
     shell.openPath(screenshotsPath);
     return { success: true };
+  });
+
+  // IPC: Eliminar imagen del sistema de archivos (mueve a Papelera de reciclaje)
+  ipcMain.handle('delete-image-file', async (event, filePath) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        return { success: false, error: 'Ruta inválida' };
+      }
+      // Normalizar: quitar prefijo file:// si viene como URI
+      const normalizedPath = filePath.startsWith('file://')
+        ? decodeURIComponent(filePath.replace(/^file:\/\/\/?/, '').replace(/\//g, path.sep))
+        : filePath;
+
+      if (!fs.existsSync(normalizedPath)) {
+        return { success: false, error: 'Archivo no encontrado' };
+      }
+      // shell.trashItem mueve a la papelera — seguro y recuperable
+      await shell.trashItem(normalizedPath);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 
   // IPC: Abrir ubicación del juego

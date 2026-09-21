@@ -308,7 +308,11 @@ export default function ConsoleHome() {
   const [lastPlayedGame, setLastPlayedGame] = useState<ConsoleItem | null>(null);
   const [currentTime, setCurrentTime] = useState('');
   const [gamepadInfo, setGamepadInfo] = useState({ connected: false, name: '', battery: 0 });
-  const [storageInfo, setStorageInfo] = useState({ percent: 0, freeGB: 0 });
+  const [storageInfo, setStorageInfo] = useState<{
+    percent: number;
+    freeGB: number;
+    disks: { name: string; percent: number; freeGB: number; totalGB: number }[];
+  }>({ percent: 0, freeGB: 0, disks: [] });
 
   // States for Add App Modal
   const [isAddModalVisible, setAddModalVisible] = useState(false);
@@ -1843,7 +1847,11 @@ export default function ConsoleHome() {
     soundService.playStartHome();
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       (window as any).electronAPI.getStorageInfo().then((res: any) => {
-        if (res.success) setStorageInfo({ percent: res.percent, freeGB: res.freeGB });
+        if (res.success) setStorageInfo({
+          percent: res.percent,
+          freeGB: res.freeGB,
+          disks: Array.isArray(res.disks) ? res.disks : [],
+        });
       });
     }
   }, []);

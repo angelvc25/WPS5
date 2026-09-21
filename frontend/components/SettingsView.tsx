@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { toastService } from '../services/toastService';
+import { formatPlaytime } from '../services/playtimeService';
 import {
   searchSteamDeckRepo,
   SteamDeckRepoPost,
@@ -130,6 +131,92 @@ export function resolveImageSource(img: any) {
   return img;
 }
 
+// ── Perfil: pestañas, secciones navegables y helpers ─────────────────────
+const PROFILE_TABS = ['overview', 'friends'] as const;
+type ProfileTab = (typeof PROFILE_TABS)[number];
+
+// Cada pestaña se compone de "secciones" navegables con el mando/teclado.
+// Las secciones verticales (recent, friends, about) se recorren con ↑/↓ item
+// por item; las horizontales (library) se recorren con ←/→ y ↑/↓ cambia de
+// sección.
+type ProfileSectionId = 'recent' | 'library' | 'about' | 'friends';
+type ProfileSection = { id: ProfileSectionId; count: number; horizontal?: boolean };
+
+const PROFILE_RECENT_LIMIT = 3;
+
+// Valores por defecto estables: un `[]` nuevo en cada render invalidaría los
+// useMemo del perfil.
+const NO_GAMES: any[] = [];
+const NO_USERS: UserProfile[] = [];
+
+const gameMinutes = (g: any): number =>
+  Number(g?.playtimeMinutes) || Number(g?.playtime_forever) || 0;
+
+// "17h" / "22m": formato compacto para los números grandes de las estadísticas.
+const formatCompactMinutes = (minutes: number): string =>
+  minutes >= 60 ? `${Math.floor(minutes / 60)}h` : `${Math.max(0, Math.round(minutes))}m`;
+
+type WindowRect = { x: number; y: number; w: number; h: number };
+
+// Mide un nodo en coordenadas de ventana. Usa measureInWindow (API de React
+// Native, también disponible en RN Web) y cae a getBoundingClientRect.
+const measureNode = (node: any): Promise<WindowRect | null> =>
+  new Promise((resolve) => {
+    if (node && typeof node.measureInWindow === 'function') {
+      node.measureInWindow((x: number, y: number, w: number, h: number) => resolve({ x, y, w, h }));
+    } else if (node && typeof node.getBoundingClientRect === 'function') {
+      const r = node.getBoundingClientRect();
+      resolve({ x: r.left, y: r.top, w: r.width, h: r.height });
+    } else {
+      resolve(null);
+    }
+  });
+
+// Portada con fondo difuminado de la misma imagen: se ve bien sin importar la
+// proporción del arte original (cuadrado, vertical o apaisado).
+function BlurredArt({
+  source,
+  style,
+  radius = 8,
+  placeholderSize = 28,
+}: {
+  source: any;
+  style?: any;
+  radius?: number;
+  placeholderSize?: number;
+}) {
+  const resolved = resolveImageSource(source);
+  return (
+    <View
+      style={[
+        { overflow: 'hidden', borderRadius: radius, backgroundColor: 'rgba(255,255,255,0.06)' },
+        style,
+      ]}
+    >
+      {resolved ? (
+        <>
+          <Image
+            source={resolved}
+            blurRadius={24}
+            contentFit="cover"
+            style={StyleSheet.absoluteFillObject}
+          />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.25)' }]} />
+          <Image
+            source={resolved}
+            contentFit="contain"
+            style={StyleSheet.absoluteFillObject}
+          />
+        </>
+      ) : (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="game-controller-outline" size={placeholderSize} color="rgba(255,255,255,0.3)" />
+        </View>
+      )}
+    </View>
+  );
+}
+
 interface SettingsViewProps {
   visible: boolean;
   onClose: () => void;
@@ -148,6 +235,9 @@ interface SettingsViewProps {
   onOpenAvatarModal?: () => void;
   onSelectAvatarFolder?: () => void;
   initialScreen?: SettingsScreenType;
+  // Se dispara al presionar Enter / tocar un juego en el perfil (Actividad
+  // reciente o Biblioteca). Opcional: si no se pasa, esos items solo se enfocan.
+  onGamePress?: (game: any) => void;
 }
 
 export default function SettingsView({
@@ -155,9 +245,9 @@ export default function SettingsView({
   onClose,
   activeUser,
   updateUser,
-  allUsers = [],
+  allUsers = NO_USERS,
   onSwitchUser,
-  libraryGames = [],
+  libraryGames = NO_GAMES,
   media = [],
   language,
   changeLanguage,
@@ -168,8 +258,16 @@ export default function SettingsView({
   onOpenAvatarModal,
   onSelectAvatarFolder,
   initialScreen = 'main',
+  onGamePress,
 }: SettingsViewProps) {
   const { t } = useTranslation();
+
+  // Traduce con respaldo: si la clave aún no existe en translations.ts, t()
+  // devuelve la clave tal cual y se muestra el texto de respaldo en su lugar.
+  const tr = (key: string, fallback: string): string => {
+    const value = (t as any)(key);
+    return !value || value === key ? fallback : value;
+  };
 
   // Escala de UI en función de la resolución real de la ventana.
   // Usa el eje MAS grande (no el mas chico) respecto a 1920x1080, para que
@@ -197,10 +295,18 @@ export default function SettingsView({
   const [accessibilityFocusArea, setAccessibilityFocusArea] = useState<'left' | 'right'>('left');
   const [systemLeftIndex, setSystemLeftIndex] = useState(0);
   const [systemFocusArea, setSystemFocusArea] = useState<'left' | 'right'>('left');
-  const [profileActiveTab, setProfileActiveTab] = useState<'overview' | 'friends'>('overview');
+  const [profileActiveTab, setProfileActiveTab] = useState<ProfileTab>('overview');
   const [profileFocusArea, setProfileFocusArea] = useState<'header_actions' | 'tabs' | 'content'>('header_actions');
   const [profileActionIndex, setProfileActionIndex] = useState(0);
   const [profileEditSection, setProfileEditSection] = useState<ProfileEditSection>('name');
+  // Foco dentro del contenido del perfil: sección (índice en profileSections)
+  // e item dentro de esa sección (fila en listas verticales, columna en la
+  // biblioteca horizontal).
+  const [profileSectionIndex, setProfileSectionIndex] = useState(0);
+  const [profileItemIndex, setProfileItemIndex] = useState(0);
+  // true cuando la página del perfil ya se desplazó lo suficiente como para
+  // mostrar la barra superior fija ("← Perfil").
+  const [profileScrolled, setProfileScrolled] = useState(false);
 
   // Profile edit fields
   const [editName, setEditName] = useState(activeUser?.name || '');
@@ -319,6 +425,71 @@ export default function SettingsView({
     ? filteredDownloadedSplashItems
     : splashItems;
 
+  // ── Perfil: datos derivados ──────────────────────────────────────────────
+  // Excluye Welcome (id='1'), PlayStation Store (id='5') y el tile Last Played
+  // (isLastPlayed): son entradas del menú, no juegos reales.
+  const profileLibraryGames = useMemo(
+    () => libraryGames.filter((g: any) => g.id !== '1' && g.id !== '5' && !g.isLastPlayed),
+    [libraryGames],
+  );
+
+  // Últimos juegos jugados (más reciente primero), según su timestamp lastPlayed.
+  const profileRecentGames = useMemo(
+    () =>
+      profileLibraryGames
+        .filter((g: any) => Number(g.lastPlayed) > 0)
+        .sort((a: any, b: any) => Number(b.lastPlayed) - Number(a.lastPlayed))
+        .slice(0, PROFILE_RECENT_LIMIT),
+    [profileLibraryGames],
+  );
+
+  const profileStats = useMemo(() => {
+    const totalMinutes = profileLibraryGames.reduce((acc: number, g: any) => acc + gameMinutes(g), 0);
+    const played = profileLibraryGames.filter((g: any) => gameMinutes(g) > 0);
+    const topGame = played.reduce(
+      (best: any, g: any) => (!best || gameMinutes(g) > gameMinutes(best) ? g : best),
+      null as any,
+    );
+    return {
+      gamesCount: profileLibraryGames.length,
+      totalMinutes,
+      averageMinutes: played.length ? Math.round(totalMinutes / played.length) : 0,
+      topGame,
+      topGameMinutes: topGame ? gameMinutes(topGame) : 0,
+      favoritesCount: profileLibraryGames.filter((g: any) => g.isFavorite).length,
+    };
+  }, [profileLibraryGames]);
+
+  const profileFriends = useMemo(
+    () => (allUsers.length > 0 ? allUsers : activeUser ? [activeUser] : []),
+    [allUsers, activeUser],
+  );
+
+  // Secciones navegables de la pestaña activa. Solo entran las que tienen
+  // contenido, así el foco nunca cae en una sección vacía o inexistente.
+  const profileSections = useMemo<ProfileSection[]>(() => {
+    if (profileActiveTab === 'friends') {
+      return profileFriends.length > 0 ? [{ id: 'friends', count: profileFriends.length }] : [];
+    }
+    const list: ProfileSection[] = [];
+    if (profileRecentGames.length > 0) list.push({ id: 'recent', count: profileRecentGames.length });
+    if (profileLibraryGames.length > 0) {
+      list.push({ id: 'library', count: profileLibraryGames.length, horizontal: true });
+    }
+    if (activeUser?.about) list.push({ id: 'about', count: 1 });
+    return list;
+  }, [profileActiveTab, profileFriends, profileRecentGames, profileLibraryGames, activeUser?.about]);
+
+  // Refs de cada item enfocable ("seccion:indice") y del ScrollView de la
+  // página, para seguir el foco lógico con scroll automático.
+  const profileItemRefs = useRef<Record<string, any>>({});
+  const profileScrollRef = useRef<ScrollView>(null);
+  const profileWrapperRef = useRef<View>(null); // visor de la página (para medir)
+  const profileScrollY = useRef(0);
+  const profileLibraryRef = useRef<ScrollView>(null);
+  const profileLibraryViewportRef = useRef<View>(null);
+  const profileLibraryScrollX = useRef(0);
+
   const nameInputRef = useRef<TextInput>(null);
   const onlineIdInputRef = useRef<TextInput>(null);
   const aboutInputRef = useRef<TextInput>(null);
@@ -339,6 +510,10 @@ export default function SettingsView({
       setSystemFocusArea('left');
       setProfileActiveTab('overview');
       setProfileEditSection('name');
+      setProfileFocusArea('header_actions');
+      setProfileSectionIndex(0);
+      setProfileItemIndex(0);
+      setProfileScrolled(false);
     }
   }, [visible, initialScreen]);
 
@@ -420,6 +595,56 @@ export default function SettingsView({
       setSplashPreviewPost(null);
     }
   }, [accessibilityLeftIndex]);
+
+  // Mantiene el foco del perfil dentro de rango cuando cambian los datos, y si
+  // no queda nada enfocable en el contenido devuelve el foco a las pestañas.
+  useEffect(() => {
+    if (profileSections.length === 0) {
+      setProfileSectionIndex(0);
+      setProfileItemIndex(0);
+      setProfileFocusArea((prev) => (prev === 'content' ? 'tabs' : prev));
+      return;
+    }
+    const sectionIdx = Math.min(profileSectionIndex, profileSections.length - 1);
+    if (sectionIdx !== profileSectionIndex) setProfileSectionIndex(sectionIdx);
+    const maxItem = profileSections[sectionIdx].count - 1;
+    if (profileItemIndex > maxItem) setProfileItemIndex(maxItem);
+  }, [profileSections, profileSectionIndex, profileItemIndex]);
+
+  // El ScrollView no sigue solo al foco lógico: al mover el foco por el
+  // contenido centramos el item enfocado; al volver a header/pestañas
+  // regresamos arriba del todo.
+  const focusedProfileSectionId = profileSections[profileSectionIndex]?.id;
+  useEffect(() => {
+    if (currentScreen !== 'users_and_accounts') return;
+    if (profileFocusArea !== 'content') {
+      profileScrollRef.current?.scrollTo({ y: 0, animated: true });
+      return;
+    }
+    if (!focusedProfileSectionId) return;
+
+    let cancelled = false;
+    (async () => {
+      const item = await measureNode(profileItemRefs.current[`${focusedProfileSectionId}:${profileItemIndex}`]);
+      const viewport = await measureNode(profileWrapperRef.current);
+      if (cancelled || !item || !viewport) return;
+
+      // Vertical: centra el item en el visor de la página.
+      const y = profileScrollY.current + (item.y - viewport.y) - (viewport.h - item.h) / 2;
+      profileScrollRef.current?.scrollTo({ y: Math.max(0, y), animated: true });
+
+      // Horizontal: la biblioteca tiene su propio ScrollView.
+      if (focusedProfileSectionId === 'library') {
+        const lib = await measureNode(profileLibraryViewportRef.current);
+        if (cancelled || !lib) return;
+        const x = profileLibraryScrollX.current + (item.x - lib.x) - (lib.w - item.w) / 2;
+        profileLibraryRef.current?.scrollTo({ x: Math.max(0, x), animated: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentScreen, profileActiveTab, profileFocusArea, focusedProfileSectionId, profileItemIndex]);
 
   // Mantiene el índice de la grilla dentro de rango cuando cambian los resultados
   // (ya sean de la API o del historial local de "Descargados"). Un índice por
@@ -527,6 +752,9 @@ export default function SettingsView({
       setProfileFocusArea('header_actions');
       setProfileActionIndex(0);
       setProfileActiveTab('overview');
+      setProfileSectionIndex(0);
+      setProfileItemIndex(0);
+      setProfileScrolled(false);
     }
   };
 
@@ -1100,34 +1328,117 @@ export default function SettingsView({
           }
         }
       } else if (currentScreen === 'users_and_accounts') {
-        if (e.key === 'ArrowDown') {
+        // Cambia de pestaña (Overview / Friends) y reinicia el foco del contenido.
+        const switchProfileTab = (dir: 1 | -1) => {
+          const idx = PROFILE_TABS.indexOf(profileActiveTab);
+          const next = PROFILE_TABS[(idx + dir + PROFILE_TABS.length) % PROFILE_TABS.length];
+          setProfileActiveTab(next);
+          setProfileSectionIndex(0);
+          setProfileItemIndex(0);
+          soundService.playTab();
+        };
+
+        // L1/R1 (mapeados a Q/E) cambian de pestaña estés donde estés.
+        if (e.key === 'q' || e.key === 'e') {
           e.preventDefault();
-          if (profileFocusArea === 'header_actions') setProfileFocusArea('tabs');
-          else if (profileFocusArea === 'tabs') setProfileFocusArea('content');
-          soundService.playNavigation();
+          switchProfileTab(e.key === 'e' ? 1 : -1);
+          return;
+        }
+
+        if (profileFocusArea === 'content') {
+          const section = profileSections[profileSectionIndex];
+          if (!section) {
+            // Nada enfocable en esta pestaña: solo se puede volver arriba.
+            if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setProfileFocusArea('tabs');
+              soundService.playNavigation();
+            }
+            return;
+          }
+
+          // Al entrar a una sección desde arriba se empieza por su primer item;
+          // desde abajo, por el último (el más cercano a donde veníamos) salvo
+          // que sea horizontal, que siempre arranca en el primero.
+          const itemOnEnter = (target: ProfileSection, from: 'above' | 'below') =>
+            target.horizontal || from === 'above' ? 0 : target.count - 1;
+
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (!section.horizontal && profileItemIndex < section.count - 1) {
+              setProfileItemIndex(profileItemIndex + 1);
+              soundService.playNavigation();
+            } else if (profileSectionIndex < profileSections.length - 1) {
+              setProfileSectionIndex(profileSectionIndex + 1);
+              setProfileItemIndex(itemOnEnter(profileSections[profileSectionIndex + 1], 'above'));
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (!section.horizontal && profileItemIndex > 0) {
+              setProfileItemIndex(profileItemIndex - 1);
+              soundService.playNavigation();
+            } else if (profileSectionIndex > 0) {
+              setProfileSectionIndex(profileSectionIndex - 1);
+              setProfileItemIndex(itemOnEnter(profileSections[profileSectionIndex - 1], 'below'));
+              soundService.playNavigation();
+            } else {
+              setProfileFocusArea('tabs');
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (section.horizontal && profileItemIndex < section.count - 1) {
+              setProfileItemIndex(profileItemIndex + 1);
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            if (section.horizontal && profileItemIndex > 0) {
+              setProfileItemIndex(profileItemIndex - 1);
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            const game =
+              section.id === 'recent'
+                ? profileRecentGames[profileItemIndex]
+                : section.id === 'library'
+                  ? profileLibraryGames[profileItemIndex]
+                  : null;
+            if (game && onGamePress) {
+              soundService.playActivation?.();
+              onGamePress(game);
+            }
+          }
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (profileFocusArea === 'header_actions') {
+            setProfileFocusArea('tabs');
+            soundService.playNavigation();
+          } else if (profileFocusArea === 'tabs' && profileSections.length > 0) {
+            setProfileFocusArea('content');
+            setProfileSectionIndex(0);
+            setProfileItemIndex(0);
+            soundService.playNavigation();
+          }
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
-          if (profileFocusArea === 'content') setProfileFocusArea('tabs');
-          else if (profileFocusArea === 'tabs') setProfileFocusArea('header_actions');
+          if (profileFocusArea === 'tabs') setProfileFocusArea('header_actions');
           soundService.playNavigation();
         } else if (e.key === 'ArrowRight') {
           e.preventDefault();
           if (profileFocusArea === 'tabs') {
-            const tabs: ('overview' | 'friends')[] = ['overview', 'friends'];
-            const nextIdx = (tabs.indexOf(profileActiveTab) + 1) % tabs.length;
-            setProfileActiveTab(tabs[nextIdx]);
-            soundService.playTab();
+            switchProfileTab(1);
           } else if (profileFocusArea === 'header_actions') {
-            setProfileActionIndex((prev) => Math.min(prev + 1, 1));
+            const maxAction = allUsers.length > 1 ? 1 : 0;
+            setProfileActionIndex((prev) => Math.min(prev + 1, maxAction));
             soundService.playNavigation();
           }
         } else if (e.key === 'ArrowLeft') {
           e.preventDefault();
           if (profileFocusArea === 'tabs') {
-            const tabs: ('overview' | 'friends')[] = ['overview', 'friends'];
-            const prevIdx = (tabs.indexOf(profileActiveTab) - 1 + tabs.length) % tabs.length;
-            setProfileActiveTab(tabs[prevIdx]);
-            soundService.playTab();
+            switchProfileTab(-1);
           } else if (profileFocusArea === 'header_actions') {
             setProfileActionIndex((prev) => Math.max(prev - 1, 0));
             soundService.playNavigation();
@@ -1137,6 +1448,9 @@ export default function SettingsView({
           if (profileFocusArea === 'header_actions') {
             if (profileActionIndex === 0) {
               navigateToScreen('profile_edit');
+            } else if (profileActionIndex === 1) {
+              const nextUser = allUsers.find((u) => u.id !== activeUser?.id);
+              if (nextUser && onSwitchUser) onSwitchUser(nextUser);
             }
           }
         }
@@ -1182,6 +1496,14 @@ export default function SettingsView({
     profileActiveTab,
     profileFocusArea,
     profileActionIndex,
+    profileSections,
+    profileSectionIndex,
+    profileItemIndex,
+    profileRecentGames,
+    profileLibraryGames,
+    allUsers,
+    onSwitchUser,
+    onGamePress,
     profileEditSection,
     screenHistory,
     activeUser,
@@ -2381,151 +2703,335 @@ export default function SettingsView({
     );
   };
 
+  // ── Helper: formatear tiempo relativo ("hace X min/horas") ──
+  const formatTimeAgo = (timestamp: number): string => {
+    if (!timestamp || !isFinite(timestamp)) return '';
+    try {
+      const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+      const diffSec = Math.round((ms - Date.now()) / 1000);
+      const absSec = Math.abs(diffSec);
+      if (absSec < 60) return t('common.justNow');
+      if (absSec < 3600) return `${Math.floor(absSec / 60)} ${t('common.minutesAgo')}`;
+      if (absSec < 86400) return `${Math.floor(absSec / 3600)} ${t('common.hoursAgo')}`;
+      return `${Math.floor(absSec / 86400)} ${t('common.daysAgo')}`;
+    } catch { return ''; }
+  };
+
   // =========================================================================
   // SCREEN: USERS AND ACCOUNTS -> PROFILE SCREEN (Image 2 + Foto Portada)
   // =========================================================================
   const renderProfileViewScreen = () => {
     const coverUri = activeUser?.coverImage || null;
     const userColor = activeUser?.color || '#00D4FF';
+    const { gamesCount, totalMinutes, averageMinutes, topGame, topGameMinutes, favoritesCount } = profileStats;
 
-    const tabs: ('overview' | 'friends')[] = [
-      'overview',
-      'friends',
-    ];
+    // ¿Este item tiene el foco de mando/teclado?
+    const isFocused = (id: ProfileSectionId, index: number) => {
+      if (profileFocusArea !== 'content') return false;
+      const section = profileSections[profileSectionIndex];
+      return !!section && section.id === id && profileItemIndex === index;
+    };
+    const setItemRef = (id: ProfileSectionId, index: number) => (el: any) => {
+      profileItemRefs.current[`${id}:${index}`] = el;
+    };
+    // Con mouse/touch: tocar un item lo enfoca para que teclado y puntero
+    // compartan el mismo estado.
+    const focusItem = (id: ProfileSectionId, index: number) => {
+      const sectionIdx = profileSections.findIndex((sec) => sec.id === id);
+      if (sectionIdx < 0) return;
+      setProfileFocusArea('content');
+      setProfileSectionIndex(sectionIdx);
+      setProfileItemIndex(index);
+    };
+    const pressGame = (id: ProfileSectionId, index: number, game: any) => {
+      focusItem(id, index);
+      onGamePress?.(game);
+    };
 
     return (
-      <View style={styles.contentWrapper}>
-        {/* Cover Photo Banner (Foto Portada) */}
-        <View style={styles.profileBannerContainer}>
-          {coverUri ? (
-            <Image source={resolveImageSource(coverUri)} style={styles.profileBannerImage} contentFit="cover" />
-          ) : (
-            <View
-              style={[
-                styles.profileBannerGradient,
-                {
-                  background: `linear-gradient(135deg, ${userColor}33 0%, rgba(20, 20, 30, 0.8) 100%)`,
-                } as any,
-              ]}
-            >
-              <View style={styles.profileBannerOverlay} />
-            </View>
-          )}
-
-          {/* Back button in top-left */}
-          <TouchableOpacity style={styles.profileBackButton} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={s(22)} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Profile Header Info */}
-        <View style={styles.profileHeaderContent}>
-          <View style={styles.profileAvatarWrapper}>
-            <View style={[styles.profileAvatarCircle, { borderColor: userColor }]}>
-              {userAvatarUri ? (
-                <Image source={resolveImageSource(userAvatarUri)} style={styles.profileAvatarImg} />
-              ) : (
-                <Ionicons name="person" size={s(54)} color="rgba(255,255,255,0.6)" />
-              )}
-              {/* Online indicator dot */}
-              <View style={styles.profileOnlineDot} />
-            </View>
-
-            <View style={styles.profileInfoDetails}>
-              <View style={styles.profileNameRow}>
-                <Text style={styles.profileDisplayName}>{activeUser?.name || 'Player'}</Text>
-                <View style={styles.profilePlusBadge}>
-                  <Ionicons name="add" size={s(14)} color="#000" />
-                </View>
+      <View ref={profileWrapperRef} style={styles.contentWrapper}>
+        {/* Toda la página (banner + cabecera + pestañas + contenido) hace
+            scroll junta, como en el perfil de referencia. */}
+        <ScrollView
+          ref={profileScrollRef}
+          contentContainerStyle={styles.profilePageContent}
+          showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            const y = e.nativeEvent.contentOffset.y;
+            profileScrollY.current = y;
+            setProfileScrolled(y > s(380));
+          }}
+        >
+          {/* Cover Photo Banner (Foto Portada) */}
+          <View style={styles.profileBannerContainer}>
+            {coverUri ? (
+              <Image source={resolveImageSource(coverUri)} style={styles.profileBannerImage} contentFit="cover" />
+            ) : (
+              <View
+                style={[
+                  styles.profileBannerGradient,
+                  {
+                    background: `linear-gradient(135deg, ${userColor}33 0%, rgba(20, 20, 30, 0.8) 100%)`,
+                  } as any,
+                ]}
+              >
+                <View style={styles.profileBannerOverlay} />
               </View>
-              <View style={styles.profileHandleRow}>
-                <Text style={styles.profileHandleText}>
-                  {activeUser?.onlineId || activeUser?.name?.toLowerCase().replace(/\s+/g, '_') || 'player_1'}
-                </Text>
-                <Text style={styles.profileHandleSep}>|</Text>
-                <Ionicons name="game-controller" size={s(14)} color="rgba(255,255,255,0.6)" />
-              </View>
-            </View>
+            )}
+
+            {/* Back button in top-left */}
+            <TouchableOpacity style={styles.profileBackButton} onPress={handleBack}>
+              <Ionicons name="arrow-back" size={s(22)} color="#FFF" />
+            </TouchableOpacity>
           </View>
 
-          {/* Header Action Buttons on Right (Edit Profile, etc.) */}
-          <View style={styles.profileHeaderActions}>
-            <TouchableOpacity
-              style={[
-                styles.profileActionButtonRound,
-                profileFocusArea === 'header_actions' && profileActionIndex === 0 && styles.profileActionButtonFocused,
-              ]}
-              onPress={() => navigateToScreen('profile_edit')}
-            >
-              {profileFocusArea === 'header_actions' && profileActionIndex === 0 && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
-              <Ionicons name="pencil" size={s(20)} color="#FFF" />
-              <Text style={styles.profileActionButtonLabel}>{t('profile.editProfile')}</Text>
-            </TouchableOpacity>
+          {/* Profile Header Info */}
+          <View style={styles.profileHeaderContent}>
+            <View style={styles.profileAvatarWrapper}>
+              <View style={[styles.profileAvatarCircle, { borderColor: userColor }]}>
+                {userAvatarUri ? (
+                  <Image source={resolveImageSource(userAvatarUri)} style={styles.profileAvatarImg} />
+                ) : (
+                  <Ionicons name="person" size={s(54)} color="rgba(255,255,255,0.6)" />
+                )}
+                {/* Online indicator dot */}
+                <View style={styles.profileOnlineDot} />
+              </View>
 
-            {allUsers.length > 1 && (
+              <View style={styles.profileInfoDetails}>
+                <View style={styles.profileNameRow}>
+                  <Text style={styles.profileDisplayName}>{activeUser?.name || 'Player'}</Text>
+                  <View style={styles.profilePlusBadge}>
+                    <Ionicons name="add" size={s(14)} color="#000" />
+                  </View>
+                </View>
+                <View style={styles.profileHandleRow}>
+                  <Text style={styles.profileHandleText}>
+                    {activeUser?.onlineId || activeUser?.name?.toLowerCase().replace(/\s+/g, '_') || 'player_1'}
+                  </Text>
+                  <Text style={styles.profileHandleSep}>|</Text>
+                  <Ionicons name="game-controller" size={s(14)} color="rgba(255,255,255,0.6)" />
+                </View>
+              </View>
+            </View>
+
+            {/* Header Action Buttons on Right (Edit Profile, etc.) */}
+            <View style={styles.profileHeaderActions}>
               <TouchableOpacity
                 style={[
-                  styles.profileActionButtonRoundSmall,
-                  profileFocusArea === 'header_actions' && profileActionIndex === 1 && styles.profileActionButtonFocused,
+                  styles.profileActionButtonRound,
+                  profileFocusArea === 'header_actions' && profileActionIndex === 0 && styles.profileActionButtonFocused,
                 ]}
-                onPress={() => {
-                  const nextUser = allUsers.find((u) => u.id !== activeUser?.id);
-                  if (nextUser && onSwitchUser) onSwitchUser(nextUser);
-                }}
+                onPress={() => navigateToScreen('profile_edit')}
               >
-                {profileFocusArea === 'header_actions' && profileActionIndex === 1 && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
-                <Ionicons name="people-outline" size={s(20)} color="#FFF" />
+                {profileFocusArea === 'header_actions' && profileActionIndex === 0 && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
+                <Ionicons name="pencil" size={s(20)} color="#FFF" />
+                <Text style={styles.profileActionButtonLabel}>{t('profile.editProfile')}</Text>
               </TouchableOpacity>
-            )}
+
+              {allUsers.length > 1 && (
+                <TouchableOpacity
+                  style={[
+                    styles.profileActionButtonRoundSmall,
+                    profileFocusArea === 'header_actions' && profileActionIndex === 1 && styles.profileActionButtonFocused,
+                  ]}
+                  onPress={() => {
+                    const nextUser = allUsers.find((u) => u.id !== activeUser?.id);
+                    if (nextUser && onSwitchUser) onSwitchUser(nextUser);
+                  }}
+                >
+                  {profileFocusArea === 'header_actions' && profileActionIndex === 1 && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
+                  <Ionicons name="people-outline" size={s(20)} color="#FFF" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
 
-        {/* Profile Tabs (Overview, Friends) */}
-        <View style={styles.profileTabsBar}>
-          {tabs.map((tabKey) => {
-            const isActive = profileActiveTab === tabKey;
-            return (
-              <TouchableOpacity
-                key={tabKey}
-                style={[styles.profileTabItem, isActive && styles.profileTabItemActive]}
-                onPress={() => {
-                  setProfileActiveTab(tabKey);
-                  soundService.playTab();
-                }}
-              >
-                {profileFocusArea === 'tabs' && isActive && <SpinningBorderSearch size={s(180)} spread={0} borderRadius={1} />}
-                <Text style={[styles.profileTabText, isActive && styles.profileTabTextActive]}>
-                  {t(`profile.${tabKey}` as any)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+          {/* Profile Tabs (Overview, Friends) */}
+          <View style={styles.profileTabsBar}>
+            {PROFILE_TABS.map((tabKey) => {
+              const isActive = profileActiveTab === tabKey;
+              return (
+                <TouchableOpacity
+                  key={tabKey}
+                  style={[styles.profileTabItem, isActive && styles.profileTabItemActive]}
+                  onPress={() => {
+                    setProfileActiveTab(tabKey);
+                    setProfileSectionIndex(0);
+                    setProfileItemIndex(0);
+                    soundService.playTab();
+                  }}
+                >
+                  {profileFocusArea === 'tabs' && isActive && <SpinningBorderSearch size={s(180)} spread={0} borderRadius={1} />}
+                  <Text style={[styles.profileTabText, isActive && styles.profileTabTextActive]}>
+                    {t(`profile.${tabKey}` as any)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-        {/* Tab Content */}
-        <ScrollView contentContainerStyle={styles.profileTabScrollBody} showsVerticalScrollIndicator={false}>
+          {/* ── Overview ── */}
           {profileActiveTab === 'overview' && (
             <View style={styles.overviewContainer}>
-              <View style={styles.overviewStatsRow}>
-                <View style={styles.statCard}>
-                  <Ionicons name="game-controller-outline" size={s(28)} color="#00D4FF" />
-                  <Text style={styles.statNumber}>{libraryGames.length || 12}</Text>
-                  <Text style={styles.statLabel}>{t('profile.gamesCount')}</Text>
+              {/* Barra de estadísticas: valor arriba, etiqueta abajo */}
+              <View style={styles.statsBar}>
+                <View style={[styles.statCell, { flex: 1 }]}>
+                  <View style={styles.statCellBody}>
+                    <Ionicons name="time-outline" size={s(28)} color="#FFCC00" />
+                    <Text style={styles.statNumber}>{formatCompactMinutes(totalMinutes)}</Text>
+                  </View>
+                  <View style={styles.statCellFooter}>
+                    <Text style={styles.statLabel}>{t('profile.totalPlaytime')}</Text>
+                  </View>
                 </View>
-                <View style={styles.statCard}>
-                  <Ionicons name="time-outline" size={s(28)} color="#FFCC00" />
-                  <Text style={styles.statNumber}>148h</Text>
-                  <Text style={styles.statLabel}>{t('profile.totalPlaytime')}</Text>
+
+                <View style={[styles.statCell, { flex: 1 }]}>
+                  <View style={styles.statCellBody}>
+                    <Ionicons name="game-controller-outline" size={s(28)} color="#00D4FF" />
+                    <Text style={styles.statNumber}>{gamesCount}</Text>
+                  </View>
+                  <View style={styles.statCellFooter}>
+                    <Text style={styles.statLabel}>{t('profile.gamesCount')}</Text>
+                  </View>
                 </View>
-                <View style={styles.statCard}>
-                  <Ionicons name="heart-outline" size={s(28)} color="#FF3B30" />
-                  <Text style={styles.statNumber}>5</Text>
-                  <Text style={styles.statLabel}>{t('profile.favoriteGames')}</Text>
+
+                <View style={[styles.statCell, { flex: 1 }]}>
+                  <View style={styles.statCellBody}>
+                    <Ionicons name="hourglass-outline" size={s(28)} color="#B388FF" />
+                    <Text style={styles.statNumber}>{formatCompactMinutes(averageMinutes)}</Text>
+                  </View>
+                  <View style={styles.statCellFooter}>
+                    <Text style={styles.statLabel}>{tr('profile.averagePlaytime', 'Average playtime')}</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.statCell, { flex: 2 }]}>
+                  <View style={[styles.statCellBody, styles.statCellBodyTopGame]}>
+                    {topGame ? (
+                      <>
+                        <BlurredArt source={topGame.image} style={styles.topGameThumb} radius={s(8)} placeholderSize={s(22)} />
+                        <View style={styles.topGameInfo}>
+                          <Text style={styles.topGameTitle} numberOfLines={2}>{topGame.title}</Text>
+                          <Text style={styles.topGamePlaytime}>{formatPlaytime(topGameMinutes, t)}</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <Text style={styles.statNumber}>--</Text>
+                    )}
+                  </View>
+                  <View style={styles.statCellFooter}>
+                    <Text style={styles.statLabel}>{tr('profile.topGame', 'Most played')}</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.statCell, { flex: 1 }]}>
+                  <View style={styles.statCellBody}>
+                    <Ionicons name="heart-outline" size={s(28)} color="#FF3B30" />
+                    <Text style={styles.statNumber}>{favoritesCount}</Text>
+                  </View>
+                  <View style={styles.statCellFooter}>
+                    <Text style={styles.statLabel}>{t('profile.favoriteGames')}</Text>
+                  </View>
                 </View>
               </View>
 
+              {/* Actividad reciente: últimos juegos jugados */}
+              <View style={styles.profileSection}>
+                <View style={styles.profileSectionHeader}>
+                  <Text style={styles.profileSectionTitle}>{t('lastPlayed.title')}</Text>
+                </View>
+                {profileRecentGames.length > 0 ? (
+                  <View style={styles.recentList}>
+                    {profileRecentGames.map((game: any, idx: number) => {
+                      const minutes = gameMinutes(game);
+                      return (
+                        <TouchableOpacity
+                          key={game.id || idx}
+                          ref={setItemRef('recent', idx)}
+                          activeOpacity={0.85}
+                          style={[styles.recentRow, isFocused('recent', idx) && styles.profileItemFocused]}
+                          onPress={() => pressGame('recent', idx, game)}
+                        >
+                          <BlurredArt source={game.image} style={styles.recentThumb} radius={0} placeholderSize={s(30)} />
+                          <View style={styles.recentInfo}>
+                            <Text style={styles.recentTitle} numberOfLines={1}>{game.title}</Text>
+                            <Text style={styles.recentSub}>{formatTimeAgo(game.lastPlayed)}</Text>
+                          </View>
+                          <Text style={styles.recentPlaytime}>
+                            {minutes > 0 ? formatPlaytime(minutes, t) : t('lastPlayed.never')}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={styles.libraryEmpty}>
+                    <Text style={styles.libraryEmptyText}>{t('lastPlayed.noGamesYet')}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Biblioteca (sin Welcome, PlayStation Store ni Last Played) */}
+              <View style={styles.profileSection}>
+                <View style={styles.profileSectionHeader}>
+                  <Text style={styles.profileSectionTitle}>{t('library.title')}</Text>
+                  {gamesCount > 0 && <Text style={styles.profileSectionCount}>{gamesCount}</Text>}
+                </View>
+                {profileLibraryGames.length > 0 ? (
+                  <View ref={profileLibraryViewportRef}>
+                    <ScrollView
+                      ref={profileLibraryRef}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      scrollEventThrottle={16}
+                      onScroll={(e) => {
+                        profileLibraryScrollX.current = e.nativeEvent.contentOffset.x;
+                      }}
+                      contentContainerStyle={styles.libraryScrollContent}
+                    >
+                      {profileLibraryGames.map((game: any, idx: number) => {
+                        const focused = isFocused('library', idx);
+                        const minutes = gameMinutes(game);
+                        return (
+                          <TouchableOpacity
+                            key={game.id || idx}
+                            ref={setItemRef('library', idx)}
+                            activeOpacity={0.85}
+                            style={[styles.libraryCard, focused && styles.libraryCardFocused]}
+                            onPress={() => pressGame('library', idx, game)}
+                          >
+                            <BlurredArt
+                              source={game.image}
+                              style={[styles.libraryCardArt, focused && styles.libraryCardArtFocused]}
+                              radius={s(12)}
+                              placeholderSize={s(30)}
+                            />
+                            <View style={styles.libraryCardText}>
+                              <Text style={styles.libraryCardTitle} numberOfLines={1}>{game.title}</Text>
+                              <Text style={styles.libraryCardSub} numberOfLines={1}>
+                                {minutes > 0 ? formatPlaytime(minutes, t) : t('lastPlayed.never')}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                ) : (
+                  <View style={styles.libraryEmpty}>
+                    <Text style={styles.libraryEmptyText}>{t('library.empty')}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Acerca de */}
               {activeUser?.about ? (
-                <View style={styles.aboutCard}>
+                <View
+                  ref={setItemRef('about', 0) as any}
+                  style={[styles.aboutCard, isFocused('about', 0) && styles.profileItemFocused]}
+                >
                   <Text style={styles.aboutCardTitle}>{t('profile.about')}</Text>
                   <Text style={styles.aboutCardText}>{activeUser.about}</Text>
                 </View>
@@ -2533,10 +3039,15 @@ export default function SettingsView({
             </View>
           )}
 
+          {/* ── Friends ── */}
           {profileActiveTab === 'friends' && (
             <View style={styles.friendsListContainer}>
-              {(allUsers.length > 0 ? allUsers : [activeUser]).map((u, idx) => (
-                <View key={u?.id || idx} style={styles.friendCard}>
+              {profileFriends.map((u: any, idx: number) => (
+                <View
+                  key={u?.id || idx}
+                  ref={setItemRef('friends', idx) as any}
+                  style={[styles.friendCard, isFocused('friends', idx) && styles.profileItemFocused]}
+                >
                   <Image
                     source={resolveImageSource(u?.avatar || require('@/assets/images/userDefault.jpeg'))}
                     style={styles.friendAvatar}
@@ -2550,6 +3061,20 @@ export default function SettingsView({
             </View>
           )}
         </ScrollView>
+
+        {/* Barra fija que aparece al bajar, para poder volver sin subir */}
+        {profileScrolled && (
+          <Animated.View
+            entering={FadeIn.duration(150)}
+            exiting={FadeOut.duration(150)}
+            style={styles.profileStickyBar}
+          >
+            <TouchableOpacity style={styles.profileStickyBack} onPress={handleBack}>
+              <Ionicons name="arrow-back" size={s(20)} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.profileStickyTitle}>{t('settings.profile')}</Text>
+          </Animated.View>
+        )}
       </View>
     );
   };
@@ -3598,12 +4123,12 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: s(8),
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    //backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingVertical: s(10),
     paddingHorizontal: s(18),
-    borderRadius: s(24),
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    //borderRadius: s(24),
+    //borderWidth: 1,
+    //borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   profileActionButtonRoundSmall: {
     width: s(44),
@@ -3649,38 +4174,186 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     color: '#FFF',
     fontFamily: 'SSTMedium',
   },
-  profileTabScrollBody: {
-    paddingBottom: s(40),
+  profilePageContent: {
+    paddingBottom: s(48),
   },
   overviewContainer: {
-    gap: s(20),
+    gap: s(32),
   },
-  overviewStatsRow: {
+
+  // ── Barra de estadísticas ──
+  statsBar: {
     flexDirection: 'row',
-    gap: s(16),
+    gap: s(12),
   },
-  statCard: {
-    flex: 1,
+  statCell: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: s(14),
-    padding: s(18),
+    borderRadius: s(12),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
+    overflow: 'hidden',
+  },
+  statCellBody: {
+    minHeight: s(96),
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: s(12),
+    paddingHorizontal: s(16),
+    paddingVertical: s(14),
+  },
+  statCellBodyTopGame: {
+    justifyContent: 'flex-start',
+  },
+  statCellFooter: {
+    paddingVertical: s(10),
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   statNumber: {
     color: '#FFF',
-    fontSize: s(22),
+    fontSize: s(30),
     fontFamily: 'SSTBold',
-    //fontWeight: 'bold',
-    marginVertical: s(4),
   },
   statLabel: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: s(14),
+    fontFamily: 'SSTLight',
+  },
+  topGameThumb: {
+    width: s(64),
+    height: s(64),
+  },
+  topGameInfo: {
+    flex: 1,
+  },
+  topGameTitle: {
+    color: '#FFF',
+    fontSize: s(15),
+    fontFamily: 'SSTMedium',
+  },
+  topGamePlaytime: {
+    color: 'rgba(255, 255, 255, 0.55)',
+    fontSize: s(13),
+    fontFamily: 'SSTLight',
+    marginTop: s(2),
+  },
+
+  // ── Secciones (título + contenido) ──
+  profileSection: {
+    gap: s(14),
+  },
+  profileSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  profileSectionTitle: {
+    color: '#FFF',
+    fontSize: s(22),
+    fontFamily: 'SSTBold',
+  },
+  profileSectionCount: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: s(15),
     fontFamily: 'SSTLight',
-    //textTransform: 'uppercase',
   },
+  // Foco compartido por filas, tarjeta "Acerca de" y amigos.
+  profileItemFocused: {
+    borderColor: '#00D4FF',
+    backgroundColor: 'rgba(0, 212, 255, 0.08)',
+  },
+
+  // ── Actividad reciente ──
+  recentList: {
+    gap: s(12),
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(20),
+    paddingRight: s(24),
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: s(12),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    overflow: 'hidden',
+  },
+  recentThumb: {
+    width: s(220),
+    height: s(112),
+  },
+  recentInfo: {
+    flex: 1,
+  },
+  recentTitle: {
+    color: '#FFF',
+    fontSize: s(17),
+    fontFamily: 'SSTMedium',
+  },
+  recentSub: {
+    color: 'rgba(255, 255, 255, 0.55)',
+    fontSize: s(14),
+    fontFamily: 'SSTLight',
+    marginTop: s(4),
+  },
+  recentPlaytime: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: s(14),
+    fontFamily: 'SSTLight',
+  },
+
+  // ── Biblioteca ──
+  libraryScrollContent: {
+    gap: s(16),
+    paddingVertical: s(10),
+    paddingHorizontal: s(6),
+  },
+  libraryCard: {
+    width: s(210),
+    gap: s(10),
+  },
+  libraryCardFocused: {
+    transform: [{ scale: 1.03 }],
+  },
+  libraryCardArt: {
+    width: '100%',
+    height: s(280),
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  libraryCardArtFocused: {
+    borderColor: '#00D4FF',
+  },
+  libraryCardText: {
+    paddingHorizontal: s(2),
+  },
+  libraryCardTitle: {
+    color: '#FFF',
+    fontSize: s(15),
+    fontFamily: 'SSTMedium',
+  },
+  libraryCardSub: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: s(13),
+    fontFamily: 'SSTLight',
+    marginTop: s(2),
+  },
+  libraryEmpty: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: s(14),
+    padding: s(20),
+    alignItems: 'center',
+  },
+  libraryEmptyText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: s(14),
+    fontFamily: 'SSTLight',
+  },
+
+  // ── Acerca de ──
   aboutCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: s(14),
@@ -3692,8 +4365,6 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: s(15),
     fontFamily: 'SSTBold',
-    //fontWeight: '700',
-    //textTransform: 'uppercase',
     marginBottom: s(8),
   },
   aboutCardText: {
@@ -3701,6 +4372,37 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     fontSize: s(15),
     fontFamily: 'SSTLight',
   },
+
+  // ── Barra fija superior del perfil ──
+  profileStickyBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: s(52),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(12),
+    paddingHorizontal: s(14),
+    backgroundColor: '#0D0D12',
+    borderBottomLeftRadius: s(14),
+    borderBottomRightRadius: s(14),
+    zIndex: 10,
+  },
+  profileStickyBack: {
+    width: s(34),
+    height: s(34),
+    borderRadius: s(17),
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileStickyTitle: {
+    color: '#FFF',
+    fontSize: s(16),
+    fontFamily: 'SSTMedium',
+  },
+
   gamesGridList: {
     gap: s(12),
   },

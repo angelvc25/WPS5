@@ -31,6 +31,8 @@ interface WelcomeWidgetsProps {
   storageInfo: {
     percent: number;
     freeGB: number;
+    /** Lista de discos locales detectados (máx. 3). Si está vacía, se usa percent/freeGB como fallback. */
+    disks?: { name: string; percent: number; freeGB: number; totalGB: number }[];
     /** Opcionales: si los tienes, el widget ampliado los usa en vez de estimarlos. */
     totalGB?: number;
     gamesGB?: number;
@@ -214,11 +216,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   const [realNews, setRealNews] = useState<SteamNewsItem[]>([]);
   const [storeOffers, setStoreOffers] = useState<StoreOffer[]>([]);
   const [activeOfferIndex, setActiveOfferIndex] = useState(0);
-  const total = storageInfo.percent > 0 ? storageInfo.percent : 65;
-  const seg1 = total * 0.14;   // 40% del uso = juegos
-  const seg2 = total * 0.03;  // apps
-  const seg3 = total * 0.01;  // multimedia
-  const seg4 = total * 0.11;  // sistema
+
 
   useEffect(() => {
     fetchSteamNewsByName('Helldivers 2').then(data => {
@@ -640,31 +638,35 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     );
   };
 
-  // Almacenamiento ampliado (tamaño 1: desglose · tamaño 2: desglose + consejo)
+  // Almacenamiento ampliado
+  // · Size 1 → layout original PS5: 1 disco, barra multicolor + categorías
+  // · Size 2/3 → multi-disco (hasta 3), elementos pegados arriba + consejo en size 2
   const renderStorageExpanded = () => {
     const { s } = metrics;
     const size = getSize('storage');
-    const free = storageInfo.freeGB > 0 ? storageInfo.freeGB : 36.47; // mismos valores por defecto que el tamaño 0
-    const usedPct = storageInfo.percent > 0 && storageInfo.percent < 100 ? storageInfo.percent : 65;
-    const total = storageInfo.totalGB && storageInfo.totalGB > 0 ? storageInfo.totalGB : free / (1 - usedPct / 100);
-    const used = Math.max(0, total - free);
-    // Si no pasas el desglose real, se reparte lo usado con estos porcentajes de ejemplo
-    const games = storageInfo.gamesGB ?? used * 0.78;
-    const media = storageInfo.mediaGB ?? used * 0.04;
-    const saves = storageInfo.savesGB ?? used * 0.03;
-    const other = storageInfo.otherGB ?? used * 0.15;
-    const parts = [
-      { key: 'games', label: t('widgetEdit.storageGames'), gb: games, color: '#3aa0ff' },
-      { key: 'media', label: t('widgetEdit.storageMedia'), gb: media, color: '#5b1fd1' },
-      { key: 'saves', label: t('widgetEdit.storageSaves'), gb: saves, color: '#e8720c' },
-      { key: 'other', label: t('widgetEdit.storageOthers'), gb: other, color: '#d9d9d9' },
-    ];
     const fmt = (gb: number) => `${gb >= 100 ? gb.toFixed(1) : gb.toFixed(2)} GB`;
 
-    return (
-      <View style={{ flex: 1, zIndex: 10, position: 'relative' }}>
-        {/* Cabecera + espacio libre + barra */}
-        <View>
+    // ── SIZE 1: layout original (un solo disco, estilo PS5) ──────────────────
+    if (size === 1) {
+      const free    = storageInfo.freeGB > 0 ? storageInfo.freeGB : 36.47;
+      const usedPct = storageInfo.percent > 0 && storageInfo.percent < 100 ? storageInfo.percent : 65;
+      const total   = storageInfo.totalGB && storageInfo.totalGB > 0
+        ? storageInfo.totalGB
+        : free / (1 - usedPct / 100);
+      const used  = Math.max(0, total - free);
+      const games = storageInfo.gamesGB ?? used * 0.78;
+      const media = storageInfo.mediaGB ?? used * 0.04;
+      const saves = storageInfo.savesGB ?? used * 0.03;
+      const other = storageInfo.otherGB ?? used * 0.15;
+      const parts = [
+        { key: 'games', label: t('widgetEdit.storageGames'), gb: games, color: '#3aa0ff' },
+        { key: 'media', label: t('widgetEdit.storageMedia'), gb: media, color: '#5b1fd1' },
+        { key: 'saves', label: t('widgetEdit.storageSaves'), gb: saves, color: '#e8720c' },
+        { key: 'other', label: t('widgetEdit.storageOthers'), gb: other, color: '#d9d9d9' },
+      ];
+      return (
+        <View style={{ flex: 1, zIndex: 10, position: 'relative' }}>
+          {/* Cabecera */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: s(12) }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <MaterialCommunityIcons name="harddisk" size={s(16)} color="#FFF" />
@@ -672,6 +674,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
             </View>
             <Ionicons name="information-circle" size={s(20)} color="#FFF" />
           </View>
+          {/* Espacio libre + barra */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.35)' }} />
@@ -679,31 +682,78 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
             </View>
             <Text style={{ color: '#FFF', fontSize: s(15), fontFamily: 'SSTBold' }}>{fmt(free)}</Text>
           </View>
-          <View style={{ height: s(10), borderRadius: s(5), backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden', flexDirection: 'row' }}>
+          <View style={{ height: s(10), borderRadius: s(5), backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden', flexDirection: 'row', marginBottom: s(10) }}>
             {parts.map((p) => (
               <View key={p.key} style={{ height: '100%', width: `${Math.max(0, Math.min(100, (p.gb / total) * 100))}%`, backgroundColor: p.color }} />
             ))}
           </View>
-        </View>
-
-        {/* Desglose por categoría */}
-        <View style={{ flex: 1, justifyContent: 'center', gap: s(6) }}>
-          {parts.map((p) => (
-            <View key={p.key} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: p.color }} />
-                <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTLight' }}>{p.label}</Text>
+          {/* Categorías */}
+          <View style={{ gap: s(6) }}>
+            {parts.map((p) => (
+              <View key={p.key} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: p.color }} />
+                  <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTLight' }}>{p.label}</Text>
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: s(14), fontFamily: 'SSTLight' }}>{fmt(p.gb)}</Text>
               </View>
-              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: s(14), fontFamily: 'SSTLight' }}>{fmt(p.gb)}</Text>
-            </View>
-          ))}
+            ))}
+          </View>
+        </View>
+      );
+    }
+
+    // ── SIZE 2 / 3: multi-disco, pegado arriba ───────────────────────────────
+    const DISK_COLORS = ['#3aa0ff', '#5b1fd1', '#e8720c'];
+    const disks = storageInfo.disks && storageInfo.disks.length > 0
+      ? storageInfo.disks
+      : [{
+          name: 'C:',
+          percent: storageInfo.percent > 0 ? storageInfo.percent : 65,
+          freeGB: storageInfo.freeGB > 0 ? storageInfo.freeGB : 36.47,
+          totalGB: storageInfo.totalGB ?? (storageInfo.freeGB > 0
+            ? storageInfo.freeGB / (1 - (storageInfo.percent > 0 ? storageInfo.percent : 65) / 100)
+            : 100),
+        }];
+
+    return (
+      <View style={{ flex: 1, zIndex: 10, position: 'relative' }}>
+        {/* Cabecera */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: s(12) }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MaterialCommunityIcons name="harddisk" size={s(16)} color="#FFF" />
+            <Text style={styles.widgetTitle}>{t('widgets.storage')}</Text>
+          </View>
+          <Ionicons name="information-circle" size={s(20)} color="#FFF" />
         </View>
 
-        {/* Solo tamaño 2: separador + consejo */}
+        {/* Bloques de discos — pegados arriba, sin flex:1/center */}
+        <View style={{ gap: s(14) }}>
+          {disks.map((disk, idx) => {
+            const diskColor = DISK_COLORS[idx % DISK_COLORS.length];
+            return (
+              <View key={disk.name}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: diskColor }} />
+                    <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold' }}>{disk.name}</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: s(13), fontFamily: 'SSTLight' }}>— {t('widgets.freeSpace')}</Text>
+                  </View>
+                  <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTBold' }}>{fmt(disk.freeGB)}</Text>
+                </View>
+                <View style={{ height: s(10), borderRadius: s(5), backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden' }}>
+                  <View style={{ height: '100%', width: (Math.min(100, disk.percent) + '%') as any, backgroundColor: diskColor, borderRadius: s(5) }} />
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Solo size 2: separador + consejo */}
         {size === 2 && (
-          <View>
-            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: s(12) }} />
-            <Text style={{ color: '#FFF', fontSize: s(14), fontFamily: 'SSTLight', lineHeight: s(20) }} numberOfLines={3}>
+          <View style={{ marginTop: 'auto' as any }}>
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: s(10) }} />
+            <Text style={{ color: '#FFF', fontSize: s(13), fontFamily: 'SSTLight', lineHeight: s(20) }} numberOfLines={3}>
               {t('widgetEdit.storageHint')}
             </Text>
           </View>
@@ -711,6 +761,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       </View>
     );
   };
+
 
   // Amigos ampliado. Tamaño 1: fila de avatares + nombres (estilo PS5). Tamaño 2: lista con lo que juega cada uno.
   // Orden: jugando > en línea > desconectado.
@@ -2569,45 +2620,32 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                     </View>
                   </View>
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <Text style={styles.widgetSubtitle}>
-                      <MaterialCommunityIcons name="circle" size={13} color="rgba(255,255,255,0.4)" style={{ marginRight: 5 }} /> {t('widgets.freeSpace')}
-                    </Text>
-                    <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTBold' }}>
-                      {storageInfo.freeGB > 0 ? `${storageInfo.freeGB.toFixed(1)} GB` : '36.47 GB'}
-                    </Text>
-                  </View>
-
-                  <View style={{
-                    height: 8,                 // mÃ¡s fina que tu 10 actual
-                    borderRadius: 4,
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                    overflow: 'hidden',        // esto redondea automÃ¡ticamente el segmento izquierdo
-                    flexDirection: 'row',
-                  }}>
-                    <View style={{
-                      height: '100%',
-                      width: `${storageInfo.percent > 0 ? storageInfo.percent : 65}%`,
-                      backgroundColor: '#0070D1', // azul - ej: juegos
-                    }} />
-                    <View style={{
-                      height: '100%',
-                      width: `${seg2}%`,
-                      backgroundColor: '#9B5DE5', // morado - ej: apps
-                    }} />
-                    <View style={{
-                      height: '100%',
-                      width: `${seg3}%`,
-                      backgroundColor: '#FF8C42', // naranja - ej: multimedia
-                    }} />
-                    <View style={{
-                      height: '100%',
-                      width: `${seg4}%`,
-                      backgroundColor: '#C2C2C2', // gris - ej: sistema/otros
-                      borderTopRightRadius: 4,
-                      borderBottomRightRadius: 4, // SOLO el Ãºltimo segmento lleva el redondeo derecho
-                    }} />
-                  </View>
+                  {/* Solo primer disco (C:) con el layout original */}
+                  {(() => {
+                    const firstDisk = storageInfo.disks && storageInfo.disks.length > 0
+                      ? storageInfo.disks[0]
+                      : { percent: storageInfo.percent > 0 ? storageInfo.percent : 65, freeGB: storageInfo.freeGB > 0 ? storageInfo.freeGB : 36.47 };
+                    const pct = firstDisk.percent;
+                    return (
+                      <>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                            <MaterialCommunityIcons name="circle" size={13} color="rgba(255,255,255,0.4)" />
+                            <Text style={styles.widgetSubtitle}>{t('widgets.freeSpace')}</Text>
+                          </View>
+                          <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTBold' }}>
+                            {firstDisk.freeGB.toFixed(1) + ' GB'}
+                          </Text>
+                        </View>
+                        <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', flexDirection: 'row' }}>
+                          <View style={{ height: '100%', width: (pct * 0.14 + '%') as any, backgroundColor: '#0070D1' }} />
+                          <View style={{ height: '100%', width: (pct * 0.03 + '%') as any, backgroundColor: '#9B5DE5' }} />
+                          <View style={{ height: '100%', width: (pct * 0.01 + '%') as any, backgroundColor: '#FF8C42' }} />
+                          <View style={{ height: '100%', width: (pct * 0.11 + '%') as any, backgroundColor: '#C2C2C2', borderTopRightRadius: 4, borderBottomRightRadius: 4 }} />
+                        </View>
+                      </>
+                    );
+                  })()}
                 </>
               ) : renderStorageExpanded()}
               {isBeingMoved && <MoveModeArrows />}

@@ -387,11 +387,12 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     soundService.playActivation();
   }, []);
 
-  const confirmRemoveOrDelete = useCallback(() => {
+  const confirmRemoveOrDelete = useCallback(async () => {
     const imageUri = filteredImages[lightboxIndex]?.uri;
     if (!imageUri) return;
 
     if (activeTabRef.current === 'albums' && openAlbumIndexRef.current !== null) {
+      // ── Contexto de álbum: solo quita la imagen del álbum, NO borra el archivo ──
       const currentAlbumIdx = openAlbumIndexRef.current;
 
       setAlbums(prev => prev.map((album, idx) => {
@@ -413,6 +414,14 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
         setLightboxIndex(prev => Math.min(prev, remainingItems.length - 1));
       }
     } else {
+      // ── Imagen individual: eliminar el archivo físico del disco ──
+      if (Platform.OS === 'web' && (window as any).electronAPI?.deleteImageFile) {
+        try {
+          await (window as any).electronAPI.deleteImageFile(imageUri);
+        } catch (e) {
+          // Si falla el borrado físico, igualmente lo quitamos de la vista
+        }
+      }
       setImages(prev => prev.filter(img => img.uri !== imageUri));
       closeLightbox();
     }
@@ -420,6 +429,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     setConfirmDeleteVisible(false);
     soundService.playActivation();
   }, [filteredImages, lightboxIndex, closeLightbox]);
+
 
   const confirmCreateAlbum = useCallback(() => {
     if (selectedItems.size > 0) {
@@ -1000,7 +1010,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: s(14), marginBottom: s(20), fontFamily: 'SSTLight' }}>
                 {activeTab === 'albums' && openAlbumIndex !== null
                   ? t('mediaGallery.confirmRemoveFromAlbumDesc') || 'Esta acción quitará la imagen del álbum, pero no se eliminará del sistema.'
-                  : t('mediaGallery.confirmDeleteDesc2') || 'Esta acción quitará la imagen de la vista.'}
+                  : t('mediaGallery.confirmDeleteDesc') || 'Esta acción eliminará permanentemente la imagen del disco.'}
               </Text>
               <View style={uiStyles.albumModalActions}>
                 {/* Botón Cancelar */}

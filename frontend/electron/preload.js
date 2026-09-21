@@ -94,6 +94,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // userData/WConsole/splash/{boot|suspend}.webm. Devuelve
   // { success, path } o { success: false, error }.
   downloadSplashVideo: (url, target) => ipcRenderer.invoke('download-splash-video', url, target),
+  // ── Galería de medios ────────────────────────────────────────────────────
+  deleteImageFile: (filePath) => ipcRenderer.invoke('delete-image-file', filePath),
 });
 
 // ── Detección de ventana overlay ────────────────────────────────────────────
