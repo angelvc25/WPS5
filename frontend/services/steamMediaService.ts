@@ -1,3 +1,6 @@
+import type { Language } from '@/i18n/translations';
+import { STEAM_API_LANG } from './steamLanguage';
+
 export interface SteamMediaItem {
   id: string;
   type: 'screenshot' | 'movie';
@@ -15,10 +18,10 @@ export interface SteamMediaItem {
  * Obtiene las capturas de pantalla y trailers de un juego en Steam
  * usando el endpoint público de appdetails.
  */
-export const fetchSteamMedia = async (appid: number): Promise<SteamMediaItem[]> => {
+export const fetchSteamMedia = async (appid: number, language: Language = 'es') => {
   try {
     const response = await fetch(
-      `https://store.steampowered.com/api/appdetails?appids=${appid}&filters=screenshots,movies&l=spanish`
+      `https://store.steampowered.com/api/appdetails?appids=${appid}&filters=screenshots,movies&l=${STEAM_API_LANG[language]}`
     );
     if (!response.ok) return [];
     const json = await response.json();
@@ -66,18 +69,18 @@ export const fetchSteamMedia = async (appid: number): Promise<SteamMediaItem[]> 
 /**
  * Busca el appid de un juego por nombre y luego obtiene sus capturas/trailers.
  */
-export const fetchSteamMediaByName = async (gameName: string): Promise<{ items: SteamMediaItem[]; appid: number | null }> => {
+export const fetchSteamMediaByName = async (gameName: string, language: Language = 'es') => {
   try {
     const encoded = encodeURIComponent(gameName);
     const searchRes = await fetch(
-      `https://store.steampowered.com/api/storesearch/?term=${encoded}&l=spanish&cc=US`
+      `https://store.steampowered.com/api/storesearch/?term=${encoded}&l=${STEAM_API_LANG[language]}&cc=US`
     );
     if (!searchRes.ok) return { items: [], appid: null };
     const searchData = await searchRes.json();
     const appid: number | null = searchData?.items?.[0]?.id ?? null;
     if (!appid) return { items: [], appid: null };
 
-    const items = await fetchSteamMedia(appid);
+    const items = await fetchSteamMedia(appid, language);
     return { items, appid };
   } catch (error) {
     console.error('[SteamMedia] Error:', error);

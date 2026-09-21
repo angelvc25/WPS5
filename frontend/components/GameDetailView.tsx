@@ -15,7 +15,8 @@ import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsServic
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
 import { soundService } from '../services/soundService';
-import { getSteamLaunchPath, isSteamGame, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
+import { fetchSteamDescription, isPlaytimePlaceholder, fetchSteamInfo } from '../services/steamDescriptionService';
+import { getSteamLaunchPath, isSteamGame, getSteamAppId, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import { PLATFORMS, PLATFORM_IDS } from '@/constants/platforms';
@@ -122,7 +123,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setCurrentPage(0);
   };
 
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const getActiveTabList = () => {
     if (!assetsData) return [];
@@ -672,18 +673,18 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
     setSteamMedia([]);
     setMediaLoading(true);
-    fetchSteamMediaByName(title).then(({ items }) => {
+    fetchSteamMediaByName(title, language).then(({ items }) => {
       if (!cancelled) { setSteamMedia(items); setMediaLoading(false); }
     });
 
     setSteamNews([]);
     setNewsLoading(true);
-    fetchSteamNewsByName(title).then(news => {
+    fetchSteamNewsByName(title, language).then(news => {
       if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
     });
 
     return () => { cancelled = true; };
-  }, [item?.id, isVisible]);
+  }, [item?.id, isVisible, language]);
 
 
   useEffect(() => {
@@ -693,7 +694,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       const initialData: any = {
         id: item.id,
         title: item.title,
-        description: item.description,
+        description: isSteamGame(item) && isPlaytimePlaceholder(item.description) ? '' : item.description,
         rating: item.rating,
         image: item.image?.uri?.startsWith('local-file://') ? item.image.uri.replace(/^local-file:\/+/, '') : (item.image?.uri?.startsWith('http') ? item.image.uri : undefined),
         logo: item.logo?.uri?.startsWith('local-file://') ? item.logo.uri.replace(/^local-file:\/+/, '') : (item.logo?.uri?.startsWith('http') ? item.logo.uri : undefined),
@@ -710,6 +711,19 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       setEditData(initialData);
     }
   }, [item, isVisible]);
+
+  // Steam: si la descripción es el placeholder de tiempo jugado (o está vacía),
+  // traer la descripción real en el idioma del usuario
+  useEffect(() => {
+    if (!item || !isVisible || !isSteamGame(item)) return;
+    if (!isPlaytimePlaceholder(item.description)) return;
+
+    let cancelled = false;
+    fetchSteamDescription(getSteamAppId(item as any) ?? item.title, language).then((desc) => {
+      if (!cancelled && desc) setEditData((prev) => ({ ...prev, description: desc }));
+    });
+    return () => { cancelled = true; };
+  }, [item?.id, isVisible, language]);
 
   useEffect(() => {
     if (isEditModalVisible) {
@@ -1089,7 +1103,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
     setIsSyncing(true);
     const syncPrefs = activeUser?.settings?.syncPreferences || {
-      ratingAndSummary: 'igdb',
+      ratingAndSummary: 'steam',
       cover: 'steamgrid',
       background: 'steamgrid',
       logo: 'steamgrid'
@@ -1120,6 +1134,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       } else {
         console.log('IGDB Sync failed:', resultIGDB.error);
       }
+    }
+
+    // Steam: descripción localizada + rating
+    if (syncPrefs.ratingAndSummary === 'steam') {
+      const steamAppId = item ? getSteamAppId(item as any) : null;
+      const info = await fetchSteamInfo(steamAppId ?? editData.title ?? null, language);
+      if (info.description) newEditData.description = info.description;
+      if (info.rating != null) newEditData.rating = info.rating;
     }
 
     // Fetch SteamGridDB if needed
@@ -1594,6 +1616,31 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             onChangeText={(text) => setEditData({ ...editData, description: text })}
                             onFocus={() => setEditModalFocusIndex(14)}
                           />
+
+                          {(() => {
+                            const raw = Number(editData.rating ?? 0);
+                            const rating = raw > 5 ? raw / 20 : raw; // compatibilidad con valores viejos en escala 0-100
+                            return (
+                              <View>
+                                <Text style={styles.editLabel}>{t('edit.rating')}</Text>
+                                {rating > 0 ? (
+                                  <View style={styles.editRatingRow}>
+                                    {[1, 2, 3, 4, 5].map((n) => (
+                                      <Ionicons
+                                        key={n}
+                                        name={rating >= n - 0.25 ? 'star' : rating >= n - 0.75 ? 'star-half' : 'star-outline'}
+                                        size={s(22)}
+                                        color="#FFD54A"
+                                      />
+                                    ))}
+                                    <Text style={styles.editRatingValue}>{rating.toFixed(1)}</Text>
+                                  </View>
+                                ) : (
+                                  <Text style={styles.editRatingEmpty}>{t('edit.noRating')}</Text>
+                                )}
+                              </View>
+                            );
+                          })()}
                         </ScrollView>
                       </>
                     )}
@@ -2621,6 +2668,22 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     fontWeight: '300',
     fontFamily: 'SSTLight',
     marginBottom: s(30),
+  },
+  editRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(4),
+  },
+  editRatingValue: {
+    color: '#FFF',
+    fontSize: s(16),
+    fontFamily: 'SSTMedium',
+    marginLeft: s(10),
+  },
+  editRatingEmpty: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: s(14),
+    fontFamily: 'SSTLight',
   },
   editLabel: {
     color: '#8E8E93',

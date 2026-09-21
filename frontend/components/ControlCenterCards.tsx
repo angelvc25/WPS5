@@ -47,6 +47,7 @@ import { TranslationKey } from '@/i18n/translations';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import { PLATFORMS } from '@/constants/platforms';
+import { enrichAppWithSteamInfo } from '@/services/steamDescriptionService';
 
 interface CardData {
   id: string;
@@ -200,7 +201,7 @@ function AnimatedCard({
   const scrollRef = React.useRef<ScrollView>(null);
   const [realNews, setRealNews] = React.useState<SteamNewsItem[]>([]);
   const [mediaControlFocus, setMediaControlFocus] = React.useState(1);
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const DISCOVER_CATEGORIES = React.useMemo(() => getDiscoverCategories(t), [t]);
 
   const openDiscoverLightbox = () => {
@@ -302,6 +303,7 @@ function AnimatedCard({
       }
 
       if ((window as any).electronAPI?.saveApp) {
+        appToSave = await enrichAppWithSteamInfo(appToSave, activeUser?.settings?.syncPreferences, language);
         await (window as any).electronAPI.saveApp(appToSave);
       }
 
@@ -349,13 +351,13 @@ function AnimatedCard({
 
   useEffect(() => {
     if (card.type === 'news') {
-      fetchSteamNewsByName('Helldivers 2').then(data => {
+      fetchSteamNewsByName('Helldivers 2', language).then(data => {
         if (data && data.length > 0) {
           setRealNews(data.slice(0, 6));
         }
       });
     }
-  }, [card.type]);
+  }, [card.type, language]);
 
   const maxIndex = realNews.length > 0 ? realNews.length - 1 : NEWS_ITEMS.length - 1;
 
@@ -1278,7 +1280,7 @@ function AnimatedCard({
                             title={article.title}
                             desc={(article.contents || '').replace(/<[^>]*>?/gm, '').replace(/\[\/?(b|i|u|url|img|h1|h2|h3)[^\]]*\]/gi, '').slice(0, 120) + '...'}
                             tag={article.feedlabel.toUpperCase()}
-                            date={formatSteamDate(article.date)}
+                            date={formatSteamDate(article.date, language)}
                             imageUri={article.image_url}
                             enterDelay={i * 50}
                             isFocused={i === focusedNewsIndex}
@@ -1587,7 +1589,7 @@ function NowPlayingCardBody({
       ? Math.min(1, session.positionMs / session.durationMs)
       : 0;
   const isPlaying = session.playbackStatus === 'playing';
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const mediaTarget = getMediaControlTarget(session);
 
@@ -1767,7 +1769,7 @@ export default function ControlCenterCards({
   const cardStep = COLLAPSED_SIZE + 14;
 
   const { nowPlaying } = useSystemMedia();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   // ── Notificar cambio de canción desde la tarjeta Now Playing del Centro de Control ──
   useEffect(() => {

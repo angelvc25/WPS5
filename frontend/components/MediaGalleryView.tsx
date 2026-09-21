@@ -12,13 +12,14 @@ import {
   TextInput,
 } from 'react-native';
 import { Image } from 'expo-image';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import SpinningBorderSearch from './SpinningBorderSearch';
+
 
 interface FolderImage {
   uri: string;
@@ -107,6 +108,35 @@ const MediaGalleryTile = React.memo<{
         )}
       </TouchableOpacity>
     </View>
+  );
+});
+
+const LightboxImage = React.memo(({ uri }: { uri: string }) => {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.96);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handleReady = useCallback(() => {
+    opacity.value = withTiming(1, { duration: 380, easing: Easing.out(Easing.cubic) });
+    scale.value = withTiming(1, { duration: 480, easing: Easing.out(Easing.cubic) });
+  }, []);
+
+  return (
+    <Animated.View style={[lightboxStyles.imageContainer, animatedStyle]}>
+      <Image
+        source={{ uri }}
+        style={lightboxStyles.image}
+        contentFit="contain"
+        cachePolicy="memory-disk"
+        recyclingKey={uri}
+        onLoad={handleReady}
+        onError={handleReady}
+      />
+    </Animated.View>
   );
 });
 MediaGalleryTile.displayName = 'MediaGalleryTile';
@@ -282,6 +312,14 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     }
     return images;
   }, [images, activeTab, favorites, albums, openAlbumIndex]);
+
+  useEffect(() => {
+    if (!lightboxVisible) return;
+    [lightboxIndex - 1, lightboxIndex + 1].forEach((i) => {
+      const uri = filteredImages[i]?.uri;
+      if (uri) Image.prefetch(uri);
+    });
+  }, [lightboxVisible, lightboxIndex, filteredImages]);
 
   const scrollToFocusedTile = useCallback((index: number) => {
     const row = Math.floor(index / columns);
@@ -940,9 +978,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
         {/* Lightbox */}
         {lightboxVisible && lightboxImage && (
           <Animated.View style={lightboxStyles.overlay} entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
-            <Animated.View key={lightboxIndex} style={lightboxStyles.imageContainer} entering={FadeIn.duration(200)}>
-              <Image source={{ uri: lightboxImage.uri }} style={lightboxStyles.image} contentFit="contain" cachePolicy="memory-disk" recyclingKey={lightboxImage.uri} />
-            </Animated.View>
+            <LightboxImage key={lightboxImage.uri} uri={lightboxImage.uri} />
             <Text style={lightboxStyles.counter}>{lightboxIndex + 1}/{filteredImages.length}</Text>
             <View style={lightboxStyles.l1r1}>
               <View style={lightboxStyles.lrBadge}><Text style={lightboxStyles.lrText}>L1</Text></View>
@@ -1102,7 +1138,7 @@ const rootStyles = StyleSheet.create({
 });
 
 const lightboxStyles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.14)', zIndex: 50, justifyContent: 'center', alignItems: 'center' },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.94)', zIndex: 50, justifyContent: 'center', alignItems: 'center' },
   imageContainer: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', padding: 40 },
   image: { width: '100%', height: '100%' },
   counter: { position: 'absolute', top: 40, left: 0, right: 0, textAlign: 'center', color: 'rgba(255,255,255,0.8)', fontSize: 18, fontFamily: 'SSTLight', zIndex: 51 },

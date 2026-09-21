@@ -191,7 +191,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   // Columnas de capacidad 3: si un widget ampliado no cabe, los demás ruedan a la derecha
   const columns = computeWidgetColumns(activeOrder, isWidgetVisible, getSize);
   const focusedColumn = columns.findIndex((col) => col.some((c) => c.slot === focusIndex));
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const horizontalScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -230,12 +230,12 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
 
   useEffect(() => {
-    fetchSteamNewsByName('Helldivers 2').then(data => {
+    fetchSteamNewsByName('Helldivers 2', language).then(data => {
       if (data && data.length > 0) {
         setRealNews(data.slice(0, 3));
       }
     });
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     fetchStoreOffers().then(data => {
@@ -953,7 +953,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
               {item ? item.title : t('widgets.discoverGames')}
             </Text>
             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: s(14), fontFamily: 'SSTLight', marginTop: 4 }} numberOfLines={1}>
-              {item ? `Helldivers 2 | ${formatSteamDate(item.date)}` : 'Apex Legends | Ayer'}
+              {item ? `Helldivers 2 | ${formatSteamDate(item.date, language)}` : 'Apex Legends | Ayer'}
             </Text>
           </View>
         </View>
@@ -1843,7 +1843,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {realNews.length > 0 ? realNews[0].title : t('widgets.discoverGames')}
                     </Text>
                     <Text style={[styles.widgetSubtitle, { opacity: 0.6 }]} numberOfLines={1}>
-                      {realNews.length > 0 ? `Helldivers 2 â€” ${formatSteamDate(realNews[0].date)}` : 'Apex Legends | Ayer'}
+                      {realNews.length > 0 ? `Helldivers 2 â€” ${formatSteamDate(realNews[0].date, language)}` : 'Apex Legends | Ayer'}
                     </Text>
                   </View>
                   <Image

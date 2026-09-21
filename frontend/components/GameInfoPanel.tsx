@@ -16,11 +16,13 @@ import {
   getRpcs3AppId,
 } from '../services/achievementWatcherService';
 import { formatPlaytime } from '../services/playtimeService';
-import { getGameActionLabel, getSteamAppId } from '../services/steamLaunchService';
+import { fetchSteamDescription, isPlaytimePlaceholder } from '../services/steamDescriptionService';
+import { getGameActionLabel, getSteamAppId, isSteamGame } from '../services/steamLaunchService';
 import { fetchSteamGameAchievements, getCachedSteamGameAchievements, SteamGameAchievementsSummary } from '../services/steamUserService';
 import MusicPlayerCard from './MusicPlayerCard';
 import SpinningBorderNoticias from './SpinningborderNoticias';
 import { toastService } from '@/services/toastService';
+
 
 // ─── Shimmer skeleton placeholder (usado mientras cargan capturas/noticias) ──
 // Evita que las filas de "Capturas y trailers" / "Últimas noticias" aparezcan
@@ -142,7 +144,7 @@ export const GameInfoPanel = ({
   onAchievementCountChange,
   onOpenMediaGallery,
 }: GameInfoPanelProps) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : t('lastPlayed.title')) : activeItem?.title;
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
   const playtimeItem = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
@@ -150,6 +152,30 @@ export const GameInfoPanel = ({
   const isSpotify = activeItem?.title?.toLowerCase()?.includes('spotify');
   const isMediaSection = (activeItem?.type === 'media' || activeItem?.type === 'web' || isSpotify) && activeItem?.id !== 'media_gallery';
   const isMediaGallery = activeItem?.id === 'media_gallery';
+
+  const descGame = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
+  const descAppId = descGame && isSteamGame(descGame) ? getSteamAppId(descGame as any) : null;
+  const baseDesc = descGame?.description;
+  const hasOwnDesc = !isPlaytimePlaceholder(baseDesc);
+  const descKey = descAppId ? `${descAppId}_${language}` : null;
+  const [fetchedDesc, setFetchedDesc] = React.useState<{ key: string; text: string } | null>(null);
+
+  React.useEffect(() => {
+    if (hasOwnDesc || !descAppId || !descKey || !canPlay || isMediaSection || isMediaGallery) return;
+    let cancelled = false;
+    // debounce: evita pedir descripciones mientras se recorre el carrusel
+    const timer = setTimeout(() => {
+      fetchSteamDescription(descAppId, language).then((text) => {
+        if (!cancelled && text) setFetchedDesc({ key: descKey, text });
+      });
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [descKey, hasOwnDesc, canPlay, isMediaSection, isMediaGallery]);
+
+  const shortDescription = hasOwnDesc
+    ? (baseDesc ?? '').replace(/\s+/g, ' ').trim()
+    : (fetchedDesc?.key === descKey ? fetchedDesc.text : '');
+
   // Scale factor: 1.0 at 1080p, shrinks proportionally for smaller screens.
   const scale = Math.min(
     Math.max(Math.max(windowWidth / 1920, windowHeight / 1080), 0.6),
@@ -664,6 +690,31 @@ export const GameInfoPanel = ({
             </Animated.View>
           )}
 
+          {/* Descripción corta (máx. 2 líneas con "...") */}
+          {canPlay && !isMediaGallery && !isMediaSection && !activeItem?.isLastPlayed && !!shortDescription && (
+            <Animated.View key={`desc-${activeIndex}`} entering={FadeInDown.duration(400).delay(30)}>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{
+                  color: 'rgba(255, 255, 255, 0.86)',
+                  fontSize: s(25),
+                  lineHeight: s(32),
+                  fontFamily: 'SSTLight',
+                  fontWeight: '600',
+                  letterSpacing: -0.5,
+                  maxWidth: s(520),
+                  marginBottom: s(55),
+                  textShadowColor: 'rgba(0,0,0,0.8)',
+                  textShadowOffset: { width: 0, height: 1 },
+                  textShadowRadius: 4,
+                }}
+              >
+                {shortDescription}
+              </Text>
+            </Animated.View>
+          )}
+
           {/* Action Buttons */}
           {canPlay && (
             <Animated.View
@@ -1131,7 +1182,7 @@ export const GameInfoPanel = ({
                     {t('game.trophies')}
                   </Text>
                   {/* Source badge */}
-                  {achievementsSource === 'retro' && (
+                  {/* {achievementsSource === 'retro' && (
                     <View style={{
                       backgroundColor: 'rgba(255, 160, 0, 0.18)',
                       borderWidth: 1,
@@ -1186,7 +1237,7 @@ export const GameInfoPanel = ({
                         Steam
                       </Text>
                     </View>
-                  )}
+                  )} */}
                 </View>
 
                 <Text style={{ color: '#ddddddff', fontFamily: 'SSTLight', fontSize: s(17) }}>

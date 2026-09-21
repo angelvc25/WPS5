@@ -1,3 +1,6 @@
+import type { Language } from '@/i18n/translations';
+import { STEAM_API_LANG, STEAM_LANG_ID, STEAM_LOCALE } from './steamLanguage';
+
 export interface SteamNewsItem {
   gid: string;
   title: string;
@@ -93,17 +96,15 @@ const buildThumbnailUrl = (body: PartnerEventBody | undefined): string | undefin
 /**
  * Searches Steam's store for a game by name and returns its numeric appid.
  */
-export const searchSteamAppId = async (gameName: string): Promise<number | null> => {
+export const searchSteamAppId = async (gameName: string, language: Language = 'es'): Promise<number | null> => {
   try {
     const encoded = encodeURIComponent(gameName);
     const response = await fetch(
-      `https://store.steampowered.com/api/storesearch/?term=${encoded}&l=spanish&cc=US`
+      `https://store.steampowered.com/api/storesearch/?term=${encoded}&l=${STEAM_API_LANG[language]}&cc=US`
     );
     if (!response.ok) return null;
     const data = await response.json();
-    if (data.items && data.items.length > 0) {
-      return data.items[0].id as number;
-    }
+    if (data.items && data.items.length > 0) return data.items[0].id as number;
     return null;
   } catch (error) {
     console.error('[SteamNews] Error searching Steam App ID:', error);
@@ -115,11 +116,11 @@ export const searchSteamAppId = async (gameName: string): Promise<number | null>
  * Fetches news via the Steam Partner Events endpoint.
  * Thumbnail: announcement_body.clanid + announcement_body.posterid
  */
-const fetchSteamEventsForApp = async (appid: number): Promise<SteamNewsItem[]> => {
+const fetchSteamEventsForApp = async (appid: number, langId: number): Promise<SteamNewsItem[]> => {
   try {
     const url =
       `https://store.steampowered.com/events/ajaxgetadjacentpartnerevents/` +
-      `?appid=${appid}&count_before=0&count_after=10&lang_list=0`;
+      `?appid=${appid}&count_before=0&count_after=10&lang_list=${langId}`;
 
     const response = await fetch(url);
     if (!response.ok) return [];
@@ -190,8 +191,12 @@ const extractImageFromContents = (contents: string): string | undefined => {
  * Estrategia 1: Partner Events (thumbnails reales por clanid+posterid).
  * Estrategia 2: ISteamNews RSS clásico con parseo de imágenes.
  */
-export const fetchSteamNewsForApp = async (appid: number): Promise<SteamNewsItem[]> => {
-  const events = await fetchSteamEventsForApp(appid);
+export const fetchSteamNewsForApp = async (appid: number, language: Language = 'es'): Promise<SteamNewsItem[]> => {
+  let events = await fetchSteamEventsForApp(appid, STEAM_LANG_ID[language]);
+  if (events.length === 0 && language !== 'en') {
+    events = await fetchSteamEventsForApp(appid, STEAM_LANG_ID.en);
+  }
+
   if (events.length > 0) return events;
 
   try {
@@ -216,21 +221,21 @@ export const fetchSteamNewsForApp = async (appid: number): Promise<SteamNewsItem
 /**
  * High-level helper: search for a game by name on Steam, then fetch its news.
  */
-export const fetchSteamNewsByName = async (gameName: string): Promise<SteamNewsItem[]> => {
-  const appid = await searchSteamAppId(gameName);
+export const fetchSteamNewsByName = async (gameName: string, language: Language = 'es'): Promise<SteamNewsItem[]> => {
+  const appid = await searchSteamAppId(gameName, language);
   if (!appid) return [];
-  return fetchSteamNewsForApp(appid);
+  return fetchSteamNewsForApp(appid, language);
 };
 
 /**
  * Formats a Unix timestamp into a human-readable relative string.
  */
-export const formatSteamDate = (timestamp: number): string => {
-  const now = Date.now() / 1000;
-  const diff = now - timestamp;
-  if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`;
-  if (diff < 604800) return `hace ${Math.floor(diff / 86400)} días`;
-  const d = new Date(timestamp * 1000);
-  return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
+export const formatSteamDate = (timestamp: number, language: Language = 'es'): string => {
+  const locale = STEAM_LOCALE[language];
+  const diff = Date.now() / 1000 - timestamp;
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  if (diff < 3600) return rtf.format(-Math.max(1, Math.floor(diff / 60)), 'minute');
+  if (diff < 86400) return rtf.format(-Math.floor(diff / 3600), 'hour');
+  if (diff < 604800) return rtf.format(-Math.floor(diff / 86400), 'day');
+  return new Date(timestamp * 1000).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 };

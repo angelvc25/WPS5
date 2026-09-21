@@ -1001,7 +1001,7 @@ export default function SettingsView({
 
     if (accessibilityLeftIndex === 5) {
       const prefs: { key: 'ratingAndSummary' | 'cover' | 'background' | 'logo'; options: string[] }[] = [
-        { key: 'ratingAndSummary', options: ['igdb', 'none'] },
+        { key: 'ratingAndSummary', options: ['steam', 'igdb', 'none'] },
         { key: 'cover', options: ['steamgrid', 'igdb', 'none'] },
         { key: 'background', options: ['steamgrid', 'igdb', 'none'] },
         { key: 'logo', options: ['steamgrid', 'none'] },
@@ -1009,7 +1009,7 @@ export default function SettingsView({
       const pref = prefs[subFocusIndex];
       if (pref) {
         const currentSync = activeUser?.settings?.syncPreferences || {
-          ratingAndSummary: 'igdb',
+          ratingAndSummary: 'steam',
           cover: 'steamgrid',
           background: 'steamgrid',
           logo: 'steamgrid',
@@ -2615,6 +2615,7 @@ export default function SettingsView({
                     key: 'ratingAndSummary',
                     label: t('settings.ratingAndSummary'),
                     options: [
+                      { id: 'steam', label: 'Steam' },
                       { id: 'igdb', label: 'IGDB' },
                       { id: 'none', label: t('settings.none') },
                     ],

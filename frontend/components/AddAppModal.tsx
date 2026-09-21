@@ -6,17 +6,19 @@ import { toastService } from '@/services/toastService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useUser } from '@/contexts/UserContext';
+import { fetchSteamInfo } from '@/services/steamDescriptionService';
 import {
-    ActivityIndicator,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 
 export interface InstalledProgram {
@@ -51,7 +53,9 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
   onClose,
   onAppsAdded,
 }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const { activeUser } = useUser();
+  const summarySource: string = activeUser?.settings?.syncPreferences?.ratingAndSummary ?? 'steam';
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const [programs, setPrograms] = useState<InstalledProgram[]>([]);
@@ -175,7 +179,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
   const [savingStatusText, setSavingStatusText] = useState<string>('');
 
   // Función para obtener todos los metadatos y arte del juego (SteamGridDB + IGDB)
-  const fetchFullGameMetadata = async (title: string) => {
+  const fetchFullGameMetadata = async (title: string, source: string = 'steam', allowSteam: boolean = true) => {
     let metadata: {
       image?: string;
       backgroundImage?: string;
@@ -205,9 +209,11 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
         const igdbRes = await (window as any).electronAPI.fetchGameData(title);
         if (igdbRes?.success && igdbRes.data) {
           const d = igdbRes.data;
-          if (d.summary) metadata.description = d.summary;
-          if (d.rating || d.aggregated_rating) {
-            metadata.rating = Math.round(d.rating || d.aggregated_rating);
+          if (source === 'igdb') {
+            if (d.summary) metadata.description = d.summary;
+            if (d.rating || d.aggregated_rating) {
+              metadata.rating = Math.round(((d.rating || d.aggregated_rating) / 20) * 10) / 10;
+            }
           }
 
           if (!metadata.image && d.cover?.url) {
@@ -227,6 +233,17 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
       }
     } catch (e) {
       console.error('[AddAppModal] Error en IGDB para:', title, e);
+    }
+
+    // 3. Steam: descripción localizada + rating
+    if (source === 'steam' && allowSteam) {
+      try {
+        const info = await fetchSteamInfo(title, language);
+        if (info.description) metadata.description = info.description;
+        if (info.rating != null) metadata.rating = info.rating;
+      } catch (e) {
+        console.error('[AddAppModal] Error en Steam para:', title, e);
+      }
     }
 
     return metadata;
@@ -269,7 +286,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
         };
 
         if (selectedType === 'game') {
-          const meta = await fetchFullGameMetadata(prog.name);
+          const meta = await fetchFullGameMetadata(prog.name, summarySource, selectedPlatform !== 'Retro');
           if (meta.image) appToSave.image = meta.image;
           if (meta.backgroundImage) appToSave.backgroundImage = meta.backgroundImage;
           if (meta.logo) appToSave.logo = meta.logo;

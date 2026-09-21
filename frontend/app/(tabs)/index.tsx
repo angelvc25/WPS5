@@ -73,6 +73,7 @@ import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer, enrichOffersWithHeroes } from '@/services/storeService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { enrichAppWithSteamInfo } from '@/services/steamDescriptionService';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -1190,7 +1191,7 @@ export default function ConsoleHome() {
             title: g.name,
             time: 'Steam',
             image: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900_2x.jpg`,
-            description: t('game.playedTime', { hours: Math.round((g.playtime_forever || 0) / 60) }),
+            description: '',
             playtime_forever: Number(g.playtime_forever || 0),
             playtimeMinutes: Number(g.playtime_forever || 0),
             platform: 'Steam',
@@ -2962,7 +2963,7 @@ export default function ConsoleHome() {
     setSteamNews([]);
     let cancelled = false;
     const timer = setTimeout(() => {
-      fetchSteamNewsByName(title).then(news => {
+      fetchSteamNewsByName(title, language).then(news => {
         if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
       });
     }, 400); // 400ms debounce
@@ -2970,7 +2971,7 @@ export default function ConsoleHome() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id]);
+  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language]);
 
   // Fetch Steam screenshots & trailers when the active item changes (debounced)
   useEffect(() => {
@@ -2983,7 +2984,7 @@ export default function ConsoleHome() {
     setSteamMedia([]);
     let cancelled = false;
     const timer = setTimeout(() => {
-      fetchSteamMediaByName(title).then(({ items }) => {
+      fetchSteamMediaByName(title, language).then(({ items }) => {
         if (!cancelled) { setSteamMedia(items); setMediaLoading(false); }
       });
     }, 400); // 400ms debounce
@@ -2991,7 +2992,7 @@ export default function ConsoleHome() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id]);
+  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language]);
 
   // Auto-scroll main vertical scrollview when focus moves to lower sections
   useEffect(() => {
@@ -3220,6 +3221,7 @@ export default function ConsoleHome() {
           }
         } catch (error) { console.error('Error fetching SteamGrid data:', error); }
       }
+      appToSave = await enrichAppWithSteamInfo(appToSave, activeUser?.settings?.syncPreferences, language);
       await (window as any).electronAPI.saveApp(appToSave);
       setIsSaving(false);
       setAddModalVisible(false);
