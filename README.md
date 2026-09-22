@@ -1,31 +1,43 @@
 
 # WPS5
 
-<img width="7000" height="3020" alt="Agregar un título" src="https://github.com/user-attachments/assets/74ca4c43-3730-46b4-b5c4-dc37595fdafe" />
+<img width="1918" height="821" alt="image" src="https://github.com/user-attachments/assets/2c550745-e102-46bf-959b-85869047adbc" />
 
+# v1.1.4 AVAILABLE NOW!
 
 # Custom your Home
 
 <img width="1918" height="826" alt="Captura de pantalla 2026-09-06 234427" src="https://github.com/user-attachments/assets/7c8b0e29-6dfa-4f0f-8ba4-cae08399e01e" />
+
+# Customize your Widgets
+
+<img width="1917" height="823" alt="image" src="https://github.com/user-attachments/assets/93f42040-98d1-44b9-bb41-9720a055f402" />
+
+# Game preview
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/e35b75c0-7d32-4cb0-90ee-140c884651b3" />
 
 
 # Profile
 <img width="1918" height="1078" alt="image" src="https://github.com/user-attachments/assets/d04ed85a-2b9f-45d6-8a18-1f7c465d04e9" />
 
 # Media
-<img width="1227" height="728" alt="Captura de pantalla 2026-08-13 151133" src="https://github.com/user-attachments/assets/ef804b17-f7d0-464f-a364-5efa23121de2" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/260e444a-b3bf-44b4-823c-70502bb4ab59" />
+
 
 # Floating Menu
 
-<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/c1d4d9b0-58ba-4565-b65f-d8049e461613" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/756f059b-2fad-41ff-abd8-9dd283f2bc15" />
+
 
 # Wallpaper selector
 
-<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/b6be74e0-10ec-4e45-b5f2-0f616b68e62c" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/dda444eb-04bb-46d9-b305-54c2b009a234" />
+
 
 # Search
 
-<img width="1919" height="1079" alt="SearchGuide" src="https://github.com/user-attachments/assets/b4cb842a-aaa8-4cd5-acb3-4568d1108c89" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/5d33e1eb-e769-426b-bdd6-3a30bf54aeda" />
+
 
 
 
@@ -34,9 +46,11 @@
 
 # Library & Steam
 
-<img width="1913" height="1079" alt="image" src="https://github.com/user-attachments/assets/077837a6-9120-416c-ad0a-d70392b4ef91" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/d816f2cf-7fb8-49d8-aa92-905d06a9840c" />
 
-<img width="1908" height="1079" alt="image" src="https://github.com/user-attachments/assets/4bcff8e0-dcdc-4253-9138-c09d17ae8683" />
+
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/297a4c7f-44fb-4914-9990-71698d8ab72e" />
+
 
 
 
