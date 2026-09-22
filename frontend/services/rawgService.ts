@@ -154,3 +154,59 @@ export function mapRawgScreenshotsToMedia(
         source: 'rawg',
     }));
 }
+
+export interface RawgMovie {
+    id: number;
+    name: string;
+    preview: string;
+    mp4_max: string;
+    mp4_480: string;
+}
+
+/**
+ * Obtiene los trailers de gameplay de un juego desde RAWG.
+ * Se usan como reemplazo de los trailers de Steam, cuyo mp4 muchas veces
+ * no reproduce (URL rota o bloqueada por CORS) aunque la miniatura sí cargue.
+ */
+export async function fetchRawgVideosByName(
+    title: string
+): Promise<RawgResult<RawgMovie[]>> {
+    if (!title?.trim()) {
+        return {
+            success: false,
+            error: 'Título no proporcionado',
+        };
+    }
+
+    try {
+        if (
+            typeof window !== 'undefined' &&
+            (window as any).electronAPI?.fetchRawgVideos
+        ) {
+            return await (window as any).electronAPI.fetchRawgVideos(title);
+        }
+
+        return {
+            success: false,
+            error: 'API de videos RAWG no disponible',
+        };
+    } catch (error: any) {
+        console.error('[RAWG Videos] Error:', error);
+
+        return {
+            success: false,
+            error: error?.message || 'Error al obtener videos de RAWG',
+        };
+    }
+}
+
+export function mapRawgMoviesToMedia(movies: RawgMovie[]) {
+    return movies.map((movie) => ({
+        id: `rawg_movie_${movie.id}`,
+        type: 'movie' as const,
+        thumbnail: movie.preview,
+        full: movie.preview,
+        mp4_url: movie.mp4_max || movie.mp4_480,
+        source: 'rawg',
+    }));
+}

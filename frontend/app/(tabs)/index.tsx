@@ -13,7 +13,7 @@ import { soundService } from '@/services/soundService';
 import { fetchSteamInstalledAppIds, fetchSteamInstalledGamesDetailed } from '@/services/steamInstallService';
 import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
-import { fetchRawgMediaByName, mapRawgScreenshotsToMedia } from '@/services/rawgService';
+import { fetchRawgMediaByName, mapRawgScreenshotsToMedia, fetchRawgVideosByName, mapRawgMoviesToMedia } from '@/services/rawgService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
 import { fetchWishlistDeals, WishlistDeal } from '@/services/steamWishlistService';
@@ -2986,28 +2986,38 @@ export default function ConsoleHome() {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const steamResult = await fetchSteamMediaByName(title, language);
+        // Steam y RAWG se consultan en paralelo: los trailers de Steam suelen
+        // traer solo la miniatura (el mp4 no reproduce), así que preferimos
+        // el mp4 directo de RAWG para los videos.
+        const [steamResult, rawgVideosResult] = await Promise.all([
+          fetchSteamMediaByName(title, language),
+          fetchRawgVideosByName(title),
+        ]);
 
         if (cancelled) return;
 
-        // Steam tiene prioridad.
-        if (steamResult.items?.length > 0) {
-          setSteamMedia(steamResult.items);
-          setMediaLoading(false);
-          return;
+        const steamImages = (steamResult.items || []).filter((m) => m.type === 'screenshot');
+        const steamMovies = (steamResult.items || []).filter((m) => m.type === 'movie');
+
+        // Trailers: RAWG tiene prioridad (mp4 confiable). Si RAWG no tiene,
+        // se usan los de Steam aunque puedan no reproducir, mejor que nada.
+        const videos: SteamMediaItem[] =
+          rawgVideosResult.success && rawgVideosResult.data?.length
+            ? mapRawgMoviesToMedia(rawgVideosResult.data)
+            : steamMovies;
+
+        // Capturas: Steam tiene prioridad; RAWG solo si Steam no encontró.
+        let images: SteamMediaItem[] = steamImages;
+        if (images.length === 0) {
+          const rawgImagesResult = await fetchRawgMediaByName(title);
+          if (cancelled) return;
+          if (rawgImagesResult.success && rawgImagesResult.data?.length) {
+            images = mapRawgScreenshotsToMedia(rawgImagesResult.data);
+          }
         }
 
-        // Solo se consulta RAWG si Steam no encontró capturas.
-        const rawgResult = await fetchRawgMediaByName(title);
-
-        if (cancelled) return;
-
-        if (rawgResult.success && rawgResult.data?.length) {
-          const rawgItems = mapRawgScreenshotsToMedia(rawgResult.data);
-
-          setSteamMedia(rawgItems);
-        } else {
-          setSteamMedia([]);
+        if (!cancelled) {
+          setSteamMedia([...videos, ...images]);
         }
       } catch (error) {
         console.error('[Media] Error obteniendo capturas:', error);

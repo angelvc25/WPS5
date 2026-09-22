@@ -2171,6 +2171,99 @@ app.whenReady().then(() => {
     }
   });
 
+  // IPC: Obtener videos/trailers de gameplay desde RAWG
+  // Steam a veces solo entrega la miniatura del trailer (el mp4 no reproduce
+  // por CORS o por URLs rotas). RAWG expone mp4 directos que sí funcionan.
+  ipcMain.handle('fetch-rawg-videos', async (_event, title) => {
+    if (!RAWG_API_KEY || RAWG_API_KEY.includes('TU_')) {
+      return {
+        success: false,
+        error: 'API Key de RAWG no configurada',
+      };
+    }
+
+    if (typeof title !== 'string' || !title.trim()) {
+      return {
+        success: false,
+        error: 'Título no proporcionado',
+      };
+    }
+
+    try {
+      console.log('[RAWG Videos] Buscando juego:', title);
+
+      // 1. Buscar el juego por nombre
+      const searchUrl =
+        `https://api.rawg.io/api/games` +
+        `?key=${encodeURIComponent(RAWG_API_KEY)}` +
+        `&search=${encodeURIComponent(title.trim())}` +
+        `&page_size=1`;
+
+      const searchResponse = await fetch(searchUrl);
+
+      if (!searchResponse.ok) {
+        return {
+          success: false,
+          error: `RAWG search respondió ${searchResponse.status}`,
+        };
+      }
+
+      const searchData = await searchResponse.json();
+      const game = searchData?.results?.[0];
+
+      if (!game?.id) {
+        return {
+          success: false,
+          error: 'Juego no encontrado en RAWG',
+        };
+      }
+
+      // 2. Obtener los trailers del juego
+      const moviesUrl =
+        `https://api.rawg.io/api/games/${game.id}/movies` +
+        `?key=${encodeURIComponent(RAWG_API_KEY)}`;
+
+      const moviesResponse = await fetch(moviesUrl);
+
+      if (!moviesResponse.ok) {
+        return {
+          success: false,
+          error: `RAWG movies respondió ${moviesResponse.status}`,
+        };
+      }
+
+      const moviesData = await moviesResponse.json();
+
+      const movies = Array.isArray(moviesData?.results)
+        ? moviesData.results
+          .filter((movie) => movie?.data?.max || movie?.data?.['480'])
+          .map((movie) => ({
+            id: movie.id,
+            name: movie.name || '',
+            preview: movie.preview || '',
+            mp4_max: movie.data?.max || '',
+            mp4_480: movie.data?.['480'] || '',
+          }))
+        : [];
+
+      console.log(
+        `[RAWG Videos] ${title}: ${movies.length} trailers encontrados`
+      );
+
+      return {
+        success: true,
+        data: movies,
+      };
+    } catch (error) {
+      console.error('[RAWG Videos] Error:', error);
+
+      return {
+        success: false,
+        error: error?.message || 'Error al consultar videos de RAWG',
+      };
+    }
+  });
+
   // IPC: Obtener noticias (desde el Proceso Principal para evitar bloqueos de red en el renderer)
   ipcMain.handle('fetch-news', async () => {
     const API_KEY = '84b43625d92547c89d24fab37f0543af';

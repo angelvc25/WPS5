@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchSteamGridAssets: (title) => ipcRenderer.invoke('fetch-steamgrid-assets', title),
   fetchRawgGameData: (title) => ipcRenderer.invoke('fetch-rawg-game-data', title),
   fetchRawgScreenshots: (title) => ipcRenderer.invoke('fetch-rawg-screenshots', title),
+  fetchRawgVideos: (title) => ipcRenderer.invoke('fetch-rawg-videos', title),
   getStorageInfo: () => ipcRenderer.invoke('get-storage-info'),
   openScreenshots: () => ipcRenderer.invoke('open-screenshots'),
   openGameLocation: (path) => ipcRenderer.invoke('open-game-location', path),
