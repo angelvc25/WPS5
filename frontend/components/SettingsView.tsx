@@ -2651,7 +2651,7 @@ export default function SettingsView({
                   },
                 ].map((pref, prefIdx) => {
                   const currentSync = activeUser?.settings?.syncPreferences || {
-                    ratingAndSummary: 'igdb',
+                    ratingAndSummary: 'steam',
                     cover: 'steamgrid',
                     background: 'steamgrid',
                     logo: 'steamgrid',

@@ -1152,7 +1152,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       logo: 'steamgrid' | 'none';
     };
     const syncPrefs = (activeUser?.settings?.syncPreferences || {
-      ratingAndSummary: 'igdb',
+      ratingAndSummary: 'steam',
       cover: 'steamgrid',
       background: 'steamgrid',
       logo: 'steamgrid'
@@ -1207,6 +1207,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       } else {
         console.log('RAWG Sync failed:', resultRawg.error);
       }
+    }
+
+    // Steam: descripción localizada + rating
+    if (syncPrefs.ratingAndSummary === 'steam') {
+      const steamAppId = item ? getSteamAppId(item as any) : null;
+      const info = await fetchSteamInfo(steamAppId ?? editData.title ?? null, language);
+      if (info.description) newEditData.description = info.description;
+      if (info.rating != null) newEditData.rating = info.rating;
     }
 
     // Fetch SteamGridDB if needed
