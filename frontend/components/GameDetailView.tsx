@@ -676,9 +676,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setMediaLoading(true);
     (async () => {
       try {
-        // Steam y RAWG se consultan en paralelo: los trailers de Steam suelen
-        // traer solo la miniatura (el mp4 no reproduce), así que preferimos
-        // el mp4 directo de RAWG para los videos.
+        // Solo usamos RAWG para videos (mp4 directo confiable).
+        // Steam se usa solo para capturas de pantalla.
         const [steamResult, rawgVideosResult] = await Promise.all([
           fetchSteamMediaByName(title, language),
           fetchRawgVideosByName(title),
@@ -687,14 +686,12 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         if (cancelled) return;
 
         const steamImages = (steamResult.items || []).filter((m) => m.type === 'screenshot');
-        const steamMovies = (steamResult.items || []).filter((m) => m.type === 'movie');
 
-        // Trailers: RAWG tiene prioridad (mp4 confiable). Si RAWG no tiene,
-        // se usan los de Steam aunque puedan no reproducir, mejor que nada.
+        // Videos: SOLO RAWG. Ignoramos completamente los videos de Steam.
         const videos: SteamMediaItem[] =
           rawgVideosResult.success && rawgVideosResult.data?.length
             ? mapRawgMoviesToMedia(rawgVideosResult.data)
-            : steamMovies;
+            : [];
 
         // Capturas: Steam tiene prioridad; RAWG solo si Steam no encontró.
         let images: SteamMediaItem[] = steamImages;
