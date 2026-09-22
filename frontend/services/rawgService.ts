@@ -1,5 +1,32 @@
 const BASE = 'https://api.rawg.io/api';
 
+// ─── Caché en memoria para RAWG Media ──────────────────────────────────────────
+
+interface RawgCacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const RAWG_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
+
+const rawgScreenshotsCache = new Map<string, RawgCacheEntry<RawgScreenshot[]>>();
+const rawgVideosCache = new Map<string, RawgCacheEntry<RawgMovie[]>>();
+const rawgInFlight = new Map<string, Promise<RawgResult<any>>>();
+
+function getCacheKey(title: string, type: 'screenshots' | 'videos'): string {
+  return `rawg_${type}_${title.toLowerCase().trim()}`;
+}
+
+function getCachedRawgData<T>(cache: Map<string, RawgCacheEntry<T>>, key: string): T | undefined {
+  const entry = cache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.timestamp > RAWG_CACHE_TTL_MS) {
+    cache.delete(key);
+    return undefined;
+  }
+  return entry.data;
+}
+
 export interface RawgPlatform {
     id: number;
     name: string;
@@ -108,6 +135,7 @@ export interface RawgScreenshotsResult {
 /**
  * Obtiene las capturas de pantalla de un juego desde RAWG.
  * La API Key se mantiene en el proceso principal de Electron.
+ * Usa caché en memoria (10 min) y deduplicación de peticiones.
  */
 export async function fetchRawgMediaByName(
     title: string
@@ -119,28 +147,50 @@ export async function fetchRawgMediaByName(
         };
     }
 
-    try {
-        if (
-            typeof window !== 'undefined' &&
-            (window as any).electronAPI?.fetchRawgScreenshots
-        ) {
-            return await (window as any).electronAPI.fetchRawgScreenshots(title);
-        }
+    const cacheKey = getCacheKey(title, 'screenshots');
 
-        return {
-            success: false,
-            error: 'API de capturas RAWG no disponible',
-        };
-    } catch (error: any) {
-        console.error('[RAWG Screenshots] Error:', error);
-
-        return {
-            success: false,
-            error:
-                error?.message ||
-                'Error al obtener capturas desde RAWG',
-        };
+    // 1. Caché en memoria
+    const cached = getCachedRawgData(rawgScreenshotsCache, cacheKey);
+    if (cached !== undefined) {
+        return { success: true, data: cached };
     }
+
+    // 2. Deduplicación de peticiones concurrentes
+    const inFlight = rawgInFlight.get(cacheKey);
+    if (inFlight) return inFlight as Promise<RawgResult<RawgScreenshot[]>>;
+
+    const promise = (async (): Promise<RawgResult<RawgScreenshot[]>> => {
+        try {
+            let result: RawgResult<RawgScreenshot[]>;
+            if (
+                typeof window !== 'undefined' &&
+                (window as any).electronAPI?.fetchRawgScreenshots
+            ) {
+                result = await (window as any).electronAPI.fetchRawgScreenshots(title);
+            } else {
+                result = {
+                    success: false,
+                    error: 'API de capturas RAWG no disponible',
+                };
+            }
+
+            if (result.success && result.data) {
+                rawgScreenshotsCache.set(cacheKey, { data: result.data, timestamp: Date.now() });
+            }
+            return result;
+        } catch (error: any) {
+            console.error('[RAWG Screenshots] Error:', error);
+            return {
+                success: false,
+                error: error?.message || 'Error al obtener capturas desde RAWG',
+            };
+        } finally {
+            rawgInFlight.delete(cacheKey);
+        }
+    })();
+
+    rawgInFlight.set(cacheKey, promise);
+    return promise;
 }
 
 export function mapRawgScreenshotsToMedia(
@@ -167,6 +217,7 @@ export interface RawgMovie {
  * Obtiene los trailers de gameplay de un juego desde RAWG.
  * Se usan como reemplazo de los trailers de Steam, cuyo mp4 muchas veces
  * no reproduce (URL rota o bloqueada por CORS) aunque la miniatura sí cargue.
+ * Usa caché en memoria (10 min) y deduplicación de peticiones.
  */
 export async function fetchRawgVideosByName(
     title: string
@@ -178,26 +229,50 @@ export async function fetchRawgVideosByName(
         };
     }
 
-    try {
-        if (
-            typeof window !== 'undefined' &&
-            (window as any).electronAPI?.fetchRawgVideos
-        ) {
-            return await (window as any).electronAPI.fetchRawgVideos(title);
-        }
+    const cacheKey = getCacheKey(title, 'videos');
 
-        return {
-            success: false,
-            error: 'API de videos RAWG no disponible',
-        };
-    } catch (error: any) {
-        console.error('[RAWG Videos] Error:', error);
-
-        return {
-            success: false,
-            error: error?.message || 'Error al obtener videos de RAWG',
-        };
+    // 1. Caché en memoria
+    const cached = getCachedRawgData(rawgVideosCache, cacheKey);
+    if (cached !== undefined) {
+        return { success: true, data: cached };
     }
+
+    // 2. Deduplicación de peticiones concurrentes
+    const inFlight = rawgInFlight.get(cacheKey);
+    if (inFlight) return inFlight as Promise<RawgResult<RawgMovie[]>>;
+
+    const promise = (async (): Promise<RawgResult<RawgMovie[]>> => {
+        try {
+            let result: RawgResult<RawgMovie[]>;
+            if (
+                typeof window !== 'undefined' &&
+                (window as any).electronAPI?.fetchRawgVideos
+            ) {
+                result = await (window as any).electronAPI.fetchRawgVideos(title);
+            } else {
+                result = {
+                    success: false,
+                    error: 'API de videos RAWG no disponible',
+                };
+            }
+
+            if (result.success && result.data) {
+                rawgVideosCache.set(cacheKey, { data: result.data, timestamp: Date.now() });
+            }
+            return result;
+        } catch (error: any) {
+            console.error('[RAWG Videos] Error:', error);
+            return {
+                success: false,
+                error: error?.message || 'Error al obtener videos de RAWG',
+            };
+        } finally {
+            rawgInFlight.delete(cacheKey);
+        }
+    })();
+
+    rawgInFlight.set(cacheKey, promise);
+    return promise;
 }
 
 export function mapRawgMoviesToMedia(movies: RawgMovie[]) {
