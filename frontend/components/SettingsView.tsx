@@ -1001,9 +1001,9 @@ export default function SettingsView({
 
     if (accessibilityLeftIndex === 5) {
       const prefs: { key: 'ratingAndSummary' | 'cover' | 'background' | 'logo'; options: string[] }[] = [
-        { key: 'ratingAndSummary', options: ['steam', 'igdb', 'none'] },
-        { key: 'cover', options: ['steamgrid', 'igdb', 'none'] },
-        { key: 'background', options: ['steamgrid', 'igdb', 'none'] },
+        { key: 'ratingAndSummary', options: ['steam', 'igdb', 'rawg', 'none'] },
+        { key: 'cover', options: ['steamgrid', 'igdb', 'rawg', 'none'] },
+        { key: 'background', options: ['steamgrid', 'igdb', 'rawg', 'none'] },
         { key: 'logo', options: ['steamgrid', 'none'] },
       ];
       const pref = prefs[subFocusIndex];
@@ -2617,6 +2617,7 @@ export default function SettingsView({
                     options: [
                       { id: 'steam', label: 'Steam' },
                       { id: 'igdb', label: 'IGDB' },
+                      { id: 'rawg', label: 'RAWG' },
                       { id: 'none', label: t('settings.none') },
                     ],
                   },
@@ -2626,6 +2627,7 @@ export default function SettingsView({
                     options: [
                       { id: 'steamgrid', label: 'SteamGrid' },
                       { id: 'igdb', label: 'IGDB' },
+                      { id: 'rawg', label: 'RAWG' },
                       { id: 'none', label: t('settings.none') },
                     ],
                   },
@@ -2635,6 +2637,7 @@ export default function SettingsView({
                     options: [
                       { id: 'steamgrid', label: 'SteamGrid' },
                       { id: 'igdb', label: 'IGDB' },
+                      { id: 'rawg', label: 'RAWG' },
                       { id: 'none', label: t('settings.none') },
                     ],
                   },

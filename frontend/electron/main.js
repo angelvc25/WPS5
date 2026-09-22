@@ -1989,6 +1989,188 @@ app.whenReady().then(() => {
     }
   });
 
+  // RAWG API
+  const RAWG_API_KEY = process.env.RAWG_API_KEY || 'e99dab2c9f5e4a1b9866c7984a232399';
+  ipcMain.handle('fetch-rawg-game-data', async (_event, title) => {
+    console.log('[RAWG][main] Petición recibida para:', title);
+
+    if (!RAWG_API_KEY) {
+      console.warn('[RAWG][main] Sin API key configurada');
+      return {
+        success: false,
+        error: 'RAWG_API_KEY no está configurada',
+      };
+    }
+
+    if (!title || typeof title !== 'string') {
+      console.warn('[RAWG][main] Título inválido:', title);
+      return {
+        success: false,
+        error: 'Título no proporcionado',
+      };
+    }
+
+    try {
+      const searchUrl = new URL('https://api.rawg.io/api/games');
+
+      searchUrl.searchParams.set('key', RAWG_API_KEY);
+      searchUrl.searchParams.set('search', title.trim());
+      searchUrl.searchParams.set('search_precise', 'true');
+      searchUrl.searchParams.set('page_size', '5');
+
+      console.log('[RAWG][main] Buscando:', searchUrl.toString().replace(RAWG_API_KEY, '***'));
+      const searchRes = await fetch(searchUrl);
+
+      if (!searchRes.ok) {
+        console.warn('[RAWG][main] Búsqueda falló, HTTP', searchRes.status);
+        return {
+          success: false,
+          error: `RAWG search HTTP ${searchRes.status}`,
+        };
+      }
+
+      const searchData = await searchRes.json();
+      console.log('[RAWG][main] Resultados de búsqueda:', searchData?.results?.length ?? 0);
+
+      if (!Array.isArray(searchData.results) || searchData.results.length === 0) {
+        console.warn('[RAWG][main] Sin coincidencias para:', title);
+        return {
+          success: false,
+          error: 'Juego no encontrado en RAWG',
+        };
+      }
+
+      // Primera coincidencia como estrategia inicial.
+      // Más adelante podemos implementar una selección más precisa.
+      const game = searchData.results[0];
+      console.log('[RAWG][main] Coincidencia elegida:', game.name, '(id:', game.id, ')');
+
+      const detailsUrl = new URL(
+        `https://api.rawg.io/api/games/${game.id}`
+      );
+
+      detailsUrl.searchParams.set('key', RAWG_API_KEY);
+
+      const detailsRes = await fetch(detailsUrl);
+
+      if (!detailsRes.ok) {
+        console.warn('[RAWG][main] Detalle falló, HTTP', detailsRes.status);
+        return {
+          success: false,
+          error: `RAWG details HTTP ${detailsRes.status}`,
+        };
+      }
+
+      const details = await detailsRes.json();
+      console.log('[RAWG][main] OK. background_image:', !!details.background_image, 'rating:', details.rating);
+
+      return {
+        success: true,
+        data: details,
+      };
+    } catch (error) {
+      console.error('[RAWG][main] Error buscando juego:', error);
+
+      return {
+        success: false,
+        error: error?.message || 'Error al consultar RAWG',
+      };
+    }
+  });
+
+
+  // IPC: Obtener capturas de pantalla desde RAWG
+  ipcMain.handle('fetch-rawg-screenshots', async (_event, title) => {
+    if (!RAWG_API_KEY || RAWG_API_KEY.includes('TU_')) {
+      return {
+        success: false,
+        error: 'API Key de RAWG no configurada',
+      };
+    }
+
+    if (typeof title !== 'string' || !title.trim()) {
+      return {
+        success: false,
+        error: 'Título no proporcionado',
+      };
+    }
+
+    try {
+      console.log('[RAWG Screenshots] Buscando juego:', title);
+
+      // 1. Buscar el juego por nombre
+      const searchUrl =
+        `https://api.rawg.io/api/games` +
+        `?key=${encodeURIComponent(RAWG_API_KEY)}` +
+        `&search=${encodeURIComponent(title.trim())}` +
+        `&page_size=1`;
+
+      const searchResponse = await fetch(searchUrl);
+
+      if (!searchResponse.ok) {
+        return {
+          success: false,
+          error: `RAWG search respondió ${searchResponse.status}`,
+        };
+      }
+
+      const searchData = await searchResponse.json();
+      const game = searchData?.results?.[0];
+
+      if (!game?.id) {
+        return {
+          success: false,
+          error: 'Juego no encontrado en RAWG',
+        };
+      }
+
+      // 2. Obtener las capturas del juego
+      const screenshotsUrl =
+        `https://api.rawg.io/api/games/${game.id}/screenshots` +
+        `?key=${encodeURIComponent(RAWG_API_KEY)}` +
+        `&page_size=20`;
+
+      const screenshotsResponse = await fetch(screenshotsUrl);
+
+      if (!screenshotsResponse.ok) {
+        return {
+          success: false,
+          error: `RAWG screenshots respondió ${screenshotsResponse.status}`,
+        };
+      }
+
+      const screenshotsData = await screenshotsResponse.json();
+
+      const screenshots = Array.isArray(screenshotsData?.results)
+        ? screenshotsData.results
+          .filter((screenshot) => screenshot?.image)
+          .map((screenshot) => ({
+            id: screenshot.id,
+            image: screenshot.image,
+            width: screenshot.width || 0,
+            height: screenshot.height || 0,
+            is_deleted: Boolean(screenshot.is_deleted),
+          }))
+        : [];
+
+      console.log(
+        `[RAWG Screenshots] ${title}: ${screenshots.length} capturas encontradas`
+      );
+
+      return {
+        success: true,
+        data: screenshots,
+      };
+    } catch (error) {
+      console.error('[RAWG Screenshots] Error:', error);
+
+      return {
+        success: false,
+        error: error?.message || 'Error al consultar capturas de RAWG',
+      };
+    }
+  });
+
   // IPC: Obtener noticias (desde el Proceso Principal para evitar bloqueos de red en el renderer)
   ipcMain.handle('fetch-news', async () => {
     const API_KEY = '84b43625d92547c89d24fab37f0543af';
@@ -3007,7 +3189,7 @@ app.whenReady().then(() => {
             const free = Number(d.FreeSpace) || 0;
             const used = size - free;
             const percent = size > 0 ? Math.round((used / size) * 100) : 0;
-            const freeGB  = Math.round(free / (1024 * 1024 * 1024) * 10) / 10;
+            const freeGB = Math.round(free / (1024 * 1024 * 1024) * 10) / 10;
             const totalGB = Math.round(size / (1024 * 1024 * 1024) * 10) / 10;
             return { name: d.DeviceID, percent, freeGB, totalGB };
           });

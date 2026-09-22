@@ -14,6 +14,7 @@ import { useUser } from '../contexts/UserContext';
 import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
+import { fetchRawgGameData, fetchRawgMediaByName, mapRawgScreenshotsToMedia } from '../services/rawgService';
 import { soundService } from '../services/soundService';
 import { fetchSteamDescription, isPlaytimePlaceholder, fetchSteamInfo } from '../services/steamDescriptionService';
 import { getSteamLaunchPath, isSteamGame, getSteamAppId, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
@@ -673,8 +674,32 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
     setSteamMedia([]);
     setMediaLoading(true);
-    fetchSteamMediaByName(title, language).then(({ items }) => {
-      if (!cancelled) { setSteamMedia(items); setMediaLoading(false); }
+    fetchSteamMediaByName(title, language).then(async ({ items }) => {
+      if (cancelled) return;
+
+      // Steam tiene prioridad.
+      if (items?.length > 0) {
+        setSteamMedia(items);
+        setMediaLoading(false);
+        return;
+      }
+
+      // Solo se consulta RAWG si Steam no encontró capturas.
+      try {
+        const rawgResult = await fetchRawgMediaByName(title);
+        if (cancelled) return;
+
+        if (rawgResult.success && rawgResult.data?.length) {
+          setSteamMedia(mapRawgScreenshotsToMedia(rawgResult.data));
+        } else {
+          setSteamMedia([]);
+        }
+      } catch (error) {
+        console.error('[Media] Error obteniendo capturas RAWG:', error);
+        if (!cancelled) setSteamMedia([]);
+      } finally {
+        if (!cancelled) setMediaLoading(false);
+      }
     });
 
     setSteamNews([]);
@@ -1099,15 +1124,28 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   };
 
   const handleUnifiedSync = async () => {
-    if (!(window as any).electronAPI || !editData.title) return;
+    if (!(window as any).electronAPI || !editData.title) {
+      console.warn('[Sync] Abortado: electronAPI o editData.title faltante', {
+        hasElectronAPI: !!(window as any).electronAPI,
+        title: editData.title,
+      });
+      return;
+    }
 
     setIsSyncing(true);
-    const syncPrefs = activeUser?.settings?.syncPreferences || {
-      ratingAndSummary: 'steam',
+    type SyncPrefs = {
+      ratingAndSummary: 'steam' | 'igdb' | 'rawg' | 'none';
+      cover: 'steamgrid' | 'igdb' | 'rawg' | 'none';
+      background: 'steamgrid' | 'igdb' | 'rawg' | 'none';
+      logo: 'steamgrid' | 'none';
+    };
+    const syncPrefs = (activeUser?.settings?.syncPreferences || {
+      ratingAndSummary: 'igdb',
       cover: 'steamgrid',
       background: 'steamgrid',
       logo: 'steamgrid'
-    };
+    }) as SyncPrefs;
+    console.log('[Sync] Iniciando con preferencias:', syncPrefs, 'título:', editData.title);
 
     let newEditData = { ...editData };
 
@@ -1136,12 +1174,27 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       }
     }
 
-    // Steam: descripción localizada + rating
-    if (syncPrefs.ratingAndSummary === 'steam') {
-      const steamAppId = item ? getSteamAppId(item as any) : null;
-      const info = await fetchSteamInfo(steamAppId ?? editData.title ?? null, language);
-      if (info.description) newEditData.description = info.description;
-      if (info.rating != null) newEditData.rating = info.rating;
+    // Fetch RAWG if needed
+    if (syncPrefs.ratingAndSummary === 'rawg' || syncPrefs.cover === 'rawg' || syncPrefs.background === 'rawg') {
+      console.log('[Sync][RAWG] Buscando:', editData.title);
+      const resultRawg = await fetchRawgGameData(editData.title);
+      console.log('[Sync][RAWG] Resultado:', resultRawg);
+      if (resultRawg.success && resultRawg.data) {
+        const game = resultRawg.data;
+        if (syncPrefs.ratingAndSummary === 'rawg') {
+          // RAWG rating va de 0 a 5, lo dejamos tal cual (misma escala que usa el resto de la UI)
+          newEditData.rating = game.rating || newEditData.rating;
+          newEditData.description = game.description_raw || game.description || newEditData.description;
+        }
+        if (syncPrefs.cover === 'rawg' && game.background_image) {
+          newEditData.image = game.background_image;
+        }
+        if (syncPrefs.background === 'rawg') {
+          newEditData.backgroundImage = game.background_image_additional || game.background_image || newEditData.backgroundImage;
+        }
+      } else {
+        console.log('RAWG Sync failed:', resultRawg.error);
+      }
     }
 
     // Fetch SteamGridDB if needed

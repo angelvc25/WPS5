@@ -13,6 +13,7 @@ import { soundService } from '@/services/soundService';
 import { fetchSteamInstalledAppIds, fetchSteamInstalledGamesDetailed } from '@/services/steamInstallService';
 import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
+import { fetchRawgMediaByName, mapRawgScreenshotsToMedia } from '@/services/rawgService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
 import { fetchWishlistDeals, WishlistDeal } from '@/services/steamWishlistService';
@@ -2983,11 +2984,43 @@ export default function ConsoleHome() {
     setMediaLoading(true);
     setSteamMedia([]);
     let cancelled = false;
-    const timer = setTimeout(() => {
-      fetchSteamMediaByName(title, language).then(({ items }) => {
-        if (!cancelled) { setSteamMedia(items); setMediaLoading(false); }
-      });
-    }, 400); // 400ms debounce
+    const timer = setTimeout(async () => {
+      try {
+        const steamResult = await fetchSteamMediaByName(title, language);
+
+        if (cancelled) return;
+
+        // Steam tiene prioridad.
+        if (steamResult.items?.length > 0) {
+          setSteamMedia(steamResult.items);
+          setMediaLoading(false);
+          return;
+        }
+
+        // Solo se consulta RAWG si Steam no encontró capturas.
+        const rawgResult = await fetchRawgMediaByName(title);
+
+        if (cancelled) return;
+
+        if (rawgResult.success && rawgResult.data?.length) {
+          const rawgItems = mapRawgScreenshotsToMedia(rawgResult.data);
+
+          setSteamMedia(rawgItems);
+        } else {
+          setSteamMedia([]);
+        }
+      } catch (error) {
+        console.error('[Media] Error obteniendo capturas:', error);
+
+        if (!cancelled) {
+          setSteamMedia([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setMediaLoading(false);
+        }
+      }
+    }, 400);
     return () => {
       cancelled = true;
       clearTimeout(timer);
