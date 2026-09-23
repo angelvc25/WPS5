@@ -9,12 +9,12 @@ interface YoutubePlayerProps {
   mute?: boolean;
 }
 
-const YoutubePlayer: React.FC<YoutubePlayerProps> = ({ 
-  videoId, 
-  height, 
-  width = '100%', 
-  play = false, 
-  mute = false 
+const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
+  videoId,
+  height,
+  width = '100%',
+  play = false,
+  mute = false
 }) => {
   return (
     <YoutubeIframe
@@ -23,11 +23,22 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
       play={play}
       videoId={videoId}
       mute={mute}
+      // 1. Configurar parámetros de YouTube
       initialPlayerParams={{
         loop: true,
         controls: false,
         modestbranding: true,
         rel: false,
+        preventFullScreen: false,
+      }}
+      // 2. Inyectar encabezados y políticas al iframe/webview subyacente
+      webViewProps={{
+        allowsInlineMediaPlayback: true,
+        mediaPlaybackRequiresUserAction: false,
+        // Atributos directos si corre en entorno Web / Electron
+        html: undefined,
+        androidLayerType: 'hardware',
+        referrerPolicy: 'strict-origin-when-cross-origin',
       }}
     />
   );

@@ -9,15 +9,17 @@ interface YoutubePlayerProps {
   mute?: boolean;
 }
 
-const YoutubePlayer: React.FC<YoutubePlayerProps> = ({ 
-  videoId, 
-  height, 
-  width = '100%', 
-  play = false, 
-  mute = false 
+const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
+  videoId,
+  height,
+  width = '100%',
+  play = false,
+  mute = false
 }) => {
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=${play ? 1 : 0}&mute=${mute ? 1 : 0}&controls=0&modestbranding=1&rel=0&loop=1&playlist=${videoId}`;
-  
+  // 1. Cambiar a youtube-nocookie.com
+  // 2. Agregar enablejsapi=1 para evitar errores de inicialización
+  const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=${play ? 1 : 0}&mute=${mute ? 1 : 0}&controls=0&modestbranding=1&rel=0&loop=1&playlist=${videoId}&enablejsapi=1`;
+
   return (
     <View style={{ height, width: width as any }}>
       {/* @ts-ignore */}
@@ -26,7 +28,8 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
         height="100%"
         src={embedUrl}
         frameBorder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        // Asegúrate de permitir las características necesarias
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowFullScreen
         referrerPolicy="strict-origin-when-cross-origin"
         style={{ border: 'none', borderRadius: 12 }}

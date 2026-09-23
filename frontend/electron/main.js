@@ -465,7 +465,9 @@ function createWindow() {
     icon: path.join(__dirname, '../assets/icons/logo.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      webSecurity: false, // Permitir carga de assets locales y externos sin restricciones de CORS/CSP en este entorno de consola
+      webSecurity: false, // Ya lo tienes desactivado para assets locales
+      allowRunningInsecureContent: true,
+      experimentalFeatures: true,
     },
   });
 
@@ -2310,7 +2312,8 @@ app.whenReady().then(() => {
           full: `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
           youtube_id: v.video_id,
           youtube_url: `https://www.youtube.com/watch?v=${v.video_id}`,
-          embed_url: `https://www.youtube.com/embed/${v.video_id}`,
+          // Usar youtube-nocookie.com y habilitar JS API + origen
+          embed_url: `https://www.youtube-nocookie.com/embed/${v.video_id}?enablejsapi=1&autoplay=1`,
           source: 'igdb',
         }));
 
