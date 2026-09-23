@@ -3,8 +3,8 @@ const BASE = 'https://api.rawg.io/api';
 // ─── Caché en memoria para RAWG Media ──────────────────────────────────────────
 
 interface RawgCacheEntry<T> {
-  data: T;
-  timestamp: number;
+    data: T;
+    timestamp: number;
 }
 
 const RAWG_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
@@ -14,17 +14,17 @@ const rawgVideosCache = new Map<string, RawgCacheEntry<RawgMovie[]>>();
 const rawgInFlight = new Map<string, Promise<RawgResult<any>>>();
 
 function getCacheKey(title: string, type: 'screenshots' | 'videos'): string {
-  return `rawg_${type}_${title.toLowerCase().trim()}`;
+    return `rawg_${type}_${title.toLowerCase().trim()}`;
 }
 
 function getCachedRawgData<T>(cache: Map<string, RawgCacheEntry<T>>, key: string): T | undefined {
-  const entry = cache.get(key);
-  if (!entry) return undefined;
-  if (Date.now() - entry.timestamp > RAWG_CACHE_TTL_MS) {
-    cache.delete(key);
-    return undefined;
-  }
-  return entry.data;
+    const entry = cache.get(key);
+    if (!entry) return undefined;
+    if (Date.now() - entry.timestamp > RAWG_CACHE_TTL_MS) {
+        cache.delete(key);
+        return undefined;
+    }
+    return entry.data;
 }
 
 export interface RawgPlatform {
@@ -39,6 +39,7 @@ export interface RawgGameSummary {
     name: string;
     released: string | null;
     background_image: string | null;
+    background_image_additional?: string | null;
     rating: number;
     metacritic: number | null;
     platforms?: {

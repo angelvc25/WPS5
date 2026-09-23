@@ -2264,6 +2264,127 @@ app.whenReady().then(() => {
     }
   });
 
+
+  // IPC: Buscar videos/trailers desde IGDB
+  // Nota importante: a diferencia de RAWG (que da un .mp4 directo), IGDB solo
+  // guarda el `video_id` de YouTube. No hay archivo de video servible; el
+  // front tiene que reproducirlo como embed/iframe de YouTube, no como <video src=mp4>.
+  ipcMain.handle('fetch-igdb-videos', async (_event, title) => {
+    const token = await getIGDBAccessToken();
+    if (!token) return { success: false, error: 'No se pudo obtener el token de IGDB' };
+
+    try {
+      // El endpoint `game_videos` no tiene índice de búsqueda por texto, así
+      // que buscamos en `games` y pedimos la relación `videos` (esto sí
+      // soporta `search`).
+      const response = await fetch('https://api.igdb.com/v4/games', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Client-ID': IGDB_CLIENT_ID,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'text/plain'
+        },
+        body: `fields name, videos.name, videos.video_id; search "${title}"; limit 1;`
+      });
+
+      if (!response.ok) {
+        return { success: false, error: `IGDB videos respondió ${response.status}` };
+      }
+
+      const data = await response.json();
+      console.log('[IGDB Videos] Respuesta cruda:', JSON.stringify(data));
+
+      const game = data && data[0];
+      const rawVideos = (game && game.videos) || [];
+
+      // Mapear a formato compatible con la app (mismo shape que
+      // mapRawgMoviesToMedia en rawgService.ts, adaptado a YouTube).
+      const videos = rawVideos
+        .filter(v => v.video_id)
+        .map(v => ({
+          id: `igdb_video_${v.id}`,
+          type: 'movie',
+          name: v.name || '',
+          thumbnail: `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
+          full: `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
+          youtube_id: v.video_id,
+          youtube_url: `https://www.youtube.com/watch?v=${v.video_id}`,
+          embed_url: `https://www.youtube.com/embed/${v.video_id}`,
+          source: 'igdb',
+        }));
+
+      console.log(`[IGDB Videos] ${title}: ${videos.length} trailers encontrados`);
+      return { success: true, data: videos };
+
+    } catch (error) {
+      console.error('[IGDB Videos] Error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // IPC: Buscar assets (cover, screenshots, artworks) de un juego en IGDB
+  ipcMain.handle('fetch-igdb-assets', async (event, title) => {
+    const token = await getIGDBAccessToken();
+    if (!token) return { success: false, error: 'No se pudo obtener el token de IGDB' };
+
+    // IGDB solo entrega un image_id; el tamaño de la imagen se arma con el
+    // segmento t_<size> en la URL. Usamos tamaños grandes para el asset
+    // seleccionable y t_thumb para la miniatura del grid.
+    const buildUrl = (imageId, size) => `https://images.igdb.com/igdb/image/upload/t_${size}/${imageId}.jpg`;
+
+    try {
+      const response = await fetch('https://api.igdb.com/v4/games', {
+        method: 'POST',
+        headers: {
+          'Client-ID': IGDB_CLIENT_ID,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'text/plain'
+        },
+        body: `fields name, cover.image_id, screenshots.image_id, artworks.image_id; search "${title}"; limit 1;`
+      });
+
+      const data = await response.json();
+      if (!data || data.length === 0) {
+        return { success: false, error: 'No se encontró el juego en IGDB' };
+      }
+
+      const game = data[0];
+
+      const covers = (game.cover ? [game.cover] : []).map(c => ({
+        id: `igdb_cover_${c.id}`,
+        url: buildUrl(c.image_id, 'cover_big'),
+        thumb: buildUrl(c.image_id, 'thumb'),
+        width: 264,
+        height: 374,
+        author: null
+      }));
+
+      const artworks = (game.artworks || []).map(a => ({
+        id: `igdb_artwork_${a.id}`,
+        url: buildUrl(a.image_id, '1080p'),
+        thumb: buildUrl(a.image_id, 'thumb'),
+        width: 1920,
+        height: 1080,
+        author: null
+      }));
+
+      const screenshots = (game.screenshots || []).map(s => ({
+        id: `igdb_screenshot_${s.id}`,
+        url: buildUrl(s.image_id, 'screenshot_huge'),
+        thumb: buildUrl(s.image_id, 'thumb'),
+        width: 1280,
+        height: 720,
+        author: null
+      }));
+
+      return { success: true, data: { covers, artworks, screenshots } };
+    } catch (error) {
+      console.error('Error buscando assets en IGDB:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // IPC: Obtener noticias (desde el Proceso Principal para evitar bloqueos de red en el renderer)
   ipcMain.handle('fetch-news', async () => {
     const API_KEY = '84b43625d92547c89d24fab37f0543af';

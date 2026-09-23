@@ -583,7 +583,7 @@ export const GameInfoPanel = ({
         clearTimeout(scrollDebounceRef.current);
       }
     };
-  }, [gamePanelFocusIndex, focusArea, scale]);
+  }, [gamePanelFocusIndex, focusArea, scale, steamMedia.length, mediaLoading]);
 
   React.useEffect(() => {
     if (!canPlay || isMediaSection) {
@@ -1474,41 +1474,47 @@ export const GameInfoPanel = ({
         <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(50) }]}>
           <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.capturesAndTrailers')}</Text>
 
-          {steamMedia.length === 0 ? (
-            <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
-              <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
-              <Text style={styles.newsEmptyText}>{t('game.noCaptures')}</Text>
-            </View>
-          ) : (
-            <ScrollView
-              ref={mediaScrollRef}
-              horizontal
-              showsHorizontalScrollIndicator
-              scrollEnabled
-              nestedScrollEnabled
-              directionalLockEnabled
-              persistentScrollbar
-              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
-            >
-              {steamMedia.map((item, idx) => {
+          <ScrollView
+            ref={mediaScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={steamMedia.length > 0}
+            scrollEnabled={steamMedia.length > 0}
+            nestedScrollEnabled
+            directionalLockEnabled
+            persistentScrollbar
+            contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
+          >
+            {steamMedia.length === 0 && mediaLoading ? (
+              [0, 1, 2, 3].map((i) => (
+                <Animated.View key={`media-skeleton-${i}`} entering={FadeInDown.duration(350).delay(i * 60)}>
+                  <ShimmerSkeletonCard width={s(500)} height={s(281)} borderRadius={8} />
+                </Animated.View>
+              ))
+            ) : steamMedia.length === 0 ? (
+              <View style={styles.newsLoadingRow}>
+                <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
+                <Text style={styles.newsEmptyText}>{t('game.noCaptures')}</Text>
+              </View>
+            ) : (
+              steamMedia.map((item, idx) => {
                 const isMediaFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx;
                 return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[styles.newsCard, { width: s(500), height: s(281) }, isMediaFocused && styles.newsCardFocused]}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      setGamePanelFocusIndex(100 + idx);
-                      setSelectedMediaIndex(idx);
-                    }}
-                  >
+                  <Animated.View key={item.id} entering={FadeInDown.duration(380).delay(Math.min(idx, 8) * 45)}>
+                    <TouchableOpacity
+                      style={[styles.newsCard, { width: s(500), height: s(281) }, isMediaFocused && styles.newsCardFocused]}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setGamePanelFocusIndex(100 + idx);
+                        setSelectedMediaIndex(idx);
+                      }}
+                    >
 
-                    {Platform.OS === 'web' &&
-                      focusArea === 'game_panel' &&
-                      gamePanelFocusIndex === 100 + idx && (
-                        <>
-                          <style>
-                            {`
+                      {Platform.OS === 'web' &&
+                        focusArea === 'game_panel' &&
+                        gamePanelFocusIndex === 100 + idx && (
+                          <>
+                            <style>
+                              {`
                           /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
                           0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -1592,67 +1598,68 @@ export const GameInfoPanel = ({
     animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
   }
                       `}
-                          </style>
+                            </style>
 
-                          <div className="wc-spinning-container2">
-                            {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
-                            <div className="wc-spinning-inner" />
-                          </div>
-                        </>
-                      )}
+                            <div className="wc-spinning-container2">
+                              {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
+                              <div className="wc-spinning-inner" />
+                            </div>
+                          </>
+                        )}
 
-                    {/* SHIMMER */}
-                    {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx && (
-                      <View
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 1,
-                          right: 1,
-                          bottom: 0,
-                          borderRadius: 8,
-                          zIndex: 5,
-                          overflow: 'hidden',
-                        } as any}
-                        pointerEvents="none"
-                      >
-                        {/* @ts-ignore */}
-                        <div className="wc-shimmer-line2" />
-                      </View>
-                    )}
-                    {/* DEGRADADO NEGRO (al estar enfocadas) */}
-                    {Platform.OS === 'web' && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          inset: 0,
-                          background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
-                          pointerEvents: 'none',
-                          zIndex: 1,
-                          opacity: isMediaFocused ? 1 : 0,
-                          transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                        }}
-                      />
-                    )}
-                    {/* Thumbnail */}
-                    <View style={[styles.newsCardThumbnail, { height: s(281) }]}>
-                      <Image
-                        source={{ uri: item.thumbnail }}
-                        style={{ width: '100%', height: '100%' }}
-                        contentFit="cover"
-                      />
-                      {/* Play badge para trailers */}
-                      {item.type === 'movie' && (
-                        <View style={styles.mediaPlayBadge}>
-                          <Ionicons name="play-circle" size={s(32)} color="rgba(255,255,255,0.92)" />
+                      {/* SHIMMER */}
+                      {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx && (
+                        <View
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 1,
+                            right: 1,
+                            bottom: 0,
+                            borderRadius: 8,
+                            zIndex: 5,
+                            overflow: 'hidden',
+                          } as any}
+                          pointerEvents="none"
+                        >
+                          {/* @ts-ignore */}
+                          <div className="wc-shimmer-line2" />
                         </View>
                       )}
-                    </View>
-                  </TouchableOpacity>
+                      {/* DEGRADADO NEGRO (al estar enfocadas) */}
+                      {Platform.OS === 'web' && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
+                            pointerEvents: 'none',
+                            zIndex: 1,
+                            opacity: isMediaFocused ? 1 : 0,
+                            transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                          }}
+                        />
+                      )}
+                      {/* Thumbnail */}
+                      <View style={[styles.newsCardThumbnail, { height: s(281) }]}>
+                        <Image
+                          source={{ uri: item.thumbnail }}
+                          style={{ width: '100%', height: '100%' }}
+                          contentFit="cover"
+                        />
+                        {/* Play badge para trailers */}
+                        {item.type === 'movie' && (
+                          <View style={styles.mediaPlayBadge}>
+                            <Ionicons name="play-circle" size={s(32)} color="rgba(255,255,255,0.92)" />
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  </Animated.View>
                 );
-              })}
-            </ScrollView>
-          )}
+              })
+            )}
+          </ScrollView>
         </View>
       )}
 

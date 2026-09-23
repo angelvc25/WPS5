@@ -72,6 +72,17 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   }>({ grids: [], heroes: [], logos: [], icons: [] });
   const [selectedDimensionFilter, setSelectedDimensionFilter] = useState<'all' | '2:3' | '22:31' | '1:1' | '92:43'>('all');
   const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+  // Fuente de imágenes: SteamGridDB (portadas/logos/iconos con dimensiones precisas),
+  // RAWG (fondo principal + fondo adicional + capturas) o IGDB (cover + artworks +
+  // screenshots). RAWG e IGDB solo aplican a cápsula, cápsula ancha e imagen
+  // principal — no tienen logos ni iconos.
+  const [assetSource, setAssetSource] = useState<'steamgrid' | 'rawg' | 'igdb'>('steamgrid');
+  const [rawgAssetsData, setRawgAssetsData] = useState<{ background: any[]; screenshots: any[] }>({ background: [], screenshots: [] });
+  const [isLoadingRawgAssets, setIsLoadingRawgAssets] = useState(false);
+  const rawgAssetsLoadedForTitleRef = useRef<string | null>(null);
+  const [igdbAssetsData, setIgdbAssetsData] = useState<{ covers: any[]; artworks: any[]; screenshots: any[] }>({ covers: [], artworks: [], screenshots: [] });
+  const [isLoadingIgdbAssets, setIsLoadingIgdbAssets] = useState(false);
+  const igdbAssetsLoadedForTitleRef = useRef<string | null>(null);
   const [sliderValue, setSliderValue] = useState(5);
   const [assetSelectorFocusArea, setAssetSelectorFocusArea] = useState<'tabs' | 'filters' | 'grid'>('tabs');
   const [gridFocusIndex, setGridFocusIndex] = useState(0);
@@ -126,7 +137,35 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
   const { t, language } = useTranslation();
 
+  // Pestañas donde RAWG/IGDB pueden aportar imágenes (no tienen logos ni iconos).
+  const isRawgEligibleTab = (tab: string) => tab === 'capsule' || tab === 'capsule_wide' || tab === 'hero';
+  const isIgdbEligibleTab = (tab: string) => tab === 'capsule' || tab === 'capsule_wide' || tab === 'hero';
+
   const getActiveTabList = () => {
+    if (assetSource === 'rawg' && isRawgEligibleTab(assetSelectorTab)) {
+      const combined = assetSelectorTab === 'capsule'
+        ? [...rawgAssetsData.background]
+        : [...rawgAssetsData.background, ...rawgAssetsData.screenshots];
+      const seenUrls = new Set<string>();
+      return combined.filter((a: any) => {
+        if (!a?.url || seenUrls.has(a.url)) return false;
+        seenUrls.add(a.url);
+        return true;
+      });
+    }
+
+    if (assetSource === 'igdb' && isIgdbEligibleTab(assetSelectorTab)) {
+      const combined = assetSelectorTab === 'capsule'
+        ? [...igdbAssetsData.covers]
+        : [...igdbAssetsData.artworks, ...igdbAssetsData.screenshots];
+      const seenUrls = new Set<string>();
+      return combined.filter((a: any) => {
+        if (!a?.url || seenUrls.has(a.url)) return false;
+        seenUrls.add(a.url);
+        return true;
+      });
+    }
+
     if (!assetsData) return [];
 
     const debugGrids = (assetsData.grids || []).map(g => ({
@@ -239,6 +278,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setGridFocusIndex(0);
     setFilterFocusIndex(0);
     setCurrentPage(0);
+    setAssetSource('steamgrid');
+    rawgAssetsLoadedForTitleRef.current = null;
+    setRawgAssetsData({ background: [], screenshots: [] });
+    igdbAssetsLoadedForTitleRef.current = null;
+    setIgdbAssetsData({ covers: [], artworks: [], screenshots: [] });
 
     setIsLoadingAssets(true);
     try {
@@ -251,6 +295,134 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       setIsLoadingAssets(false);
     }
   };
+
+  // Carga bajo demanda las imágenes de RAWG (fondo principal, fondo adicional
+  // y capturas) al elegir esa fuente en el selector de assets. Se cachea por
+  // título dentro de la sesión del selector para no repetir la petición al
+  // cambiar de pestaña o alternar la fuente varias veces.
+  const loadRawgAssets = async () => {
+    const title = editData.title || '';
+    if (!title) {
+      setRawgAssetsData({ background: [], screenshots: [] });
+      return;
+    }
+    if (rawgAssetsLoadedForTitleRef.current === title) return;
+
+    setIsLoadingRawgAssets(true);
+    try {
+      const [gameRes, shotsRes] = await Promise.all([
+        fetchRawgGameData(title),
+        fetchRawgMediaByName(title),
+      ]);
+
+      const background: any[] = [];
+      if (gameRes.success && gameRes.data) {
+        const gameId = gameRes.data.id;
+        if (gameRes.data.background_image) {
+          background.push({
+            id: `rawg_bg_${gameId}`,
+            url: gameRes.data.background_image,
+            thumb: gameRes.data.background_image,
+            width: 0,
+            height: 0,
+            author: null,
+          });
+        }
+        if (gameRes.data.background_image_additional) {
+          background.push({
+            id: `rawg_bg2_${gameId}`,
+            url: gameRes.data.background_image_additional,
+            thumb: gameRes.data.background_image_additional,
+            width: 0,
+            height: 0,
+            author: null,
+          });
+        }
+      }
+
+      const screenshots = (shotsRes.success && shotsRes.data)
+        ? shotsRes.data.map((shot) => ({
+          id: `rawg_shot_${shot.id}`,
+          url: shot.image,
+          thumb: shot.image,
+          width: shot.width || 0,
+          height: shot.height || 0,
+          author: null,
+        }))
+        : [];
+
+      setRawgAssetsData({ background, screenshots });
+      rawgAssetsLoadedForTitleRef.current = title;
+    } catch (err) {
+      console.error('Failed to load RAWG assets', err);
+      setRawgAssetsData({ background: [], screenshots: [] });
+    } finally {
+      setIsLoadingRawgAssets(false);
+    }
+  };
+
+  // Carga bajo demanda las imágenes de IGDB (cover, artworks y capturas) al
+  // elegir esa fuente en el selector de assets. Se cachea por título dentro
+  // de la sesión del selector, igual que RAWG.
+  const loadIgdbAssets = async () => {
+    const title = editData.title || '';
+    if (!title) {
+      setIgdbAssetsData({ covers: [], artworks: [], screenshots: [] });
+      return;
+    }
+    if (igdbAssetsLoadedForTitleRef.current === title) return;
+
+    setIsLoadingIgdbAssets(true);
+    try {
+      const result = await (window as any).electronAPI.fetchIgdbAssets(title);
+      if (result?.success && result.data) {
+        setIgdbAssetsData({
+          covers: result.data.covers || [],
+          artworks: result.data.artworks || [],
+          screenshots: result.data.screenshots || [],
+        });
+      } else {
+        setIgdbAssetsData({ covers: [], artworks: [], screenshots: [] });
+      }
+      igdbAssetsLoadedForTitleRef.current = title;
+    } catch (err) {
+      console.error('Failed to load IGDB assets', err);
+      setIgdbAssetsData({ covers: [], artworks: [], screenshots: [] });
+    } finally {
+      setIsLoadingIgdbAssets(false);
+    }
+  };
+
+  // Al elegir RAWG como fuente (mientras el selector está abierto), dispara la carga.
+  useEffect(() => {
+    if (!isAssetSelectorVisible) return;
+    if (assetSource !== 'rawg') return;
+    if (!isRawgEligibleTab(assetSelectorTab)) return;
+    loadRawgAssets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetSource, isAssetSelectorVisible, assetSelectorTab]);
+
+  // Al elegir IGDB como fuente (mientras el selector está abierto), dispara la carga.
+  useEffect(() => {
+    if (!isAssetSelectorVisible) return;
+    if (assetSource !== 'igdb') return;
+    if (!isIgdbEligibleTab(assetSelectorTab)) return;
+    loadIgdbAssets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetSource, isAssetSelectorVisible, assetSelectorTab]);
+
+  // Logo/icono no tienen equivalente en RAWG ni IGDB: si el usuario cambia a
+  // esas pestañas mientras una de esas fuentes está activa, volvemos
+  // automáticamente a SteamGridDB.
+  useEffect(() => {
+    if (assetSource === 'rawg' && !isRawgEligibleTab(assetSelectorTab)) {
+      setAssetSource('steamgrid');
+    }
+    if (assetSource === 'igdb' && !isIgdbEligibleTab(assetSelectorTab)) {
+      setAssetSource('steamgrid');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetSelectorTab]);
 
   const applySelectedAsset = async (url: string) => {
     const tab = assetSelectorTab;
@@ -542,7 +714,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   };
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const isSmallScreen = windowWidth < 1100;
+
+  // Dimensiones en píxeles reales del lightbox de medios (16:9), calculadas a
+  // partir del ancho de ventana. YoutubePlayer (WebView por debajo) necesita
+  // height/width numéricos — no acepta '100%' como styles.lightboxVideo.
+
 
   // Escala de UI en función de la resolución real de la ventana.
   // Usa el eje MAS grande (no el mas chico) respecto a 1920x1080, para que
@@ -558,6 +734,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     };
   }, [windowWidth, windowHeight]);
   const styles = useMemo(() => createStyles(s), [s]);
+
+  const lightboxPlayerWidth = Math.min(windowWidth * 0.82, s(1060));
+  const lightboxPlayerHeight = lightboxPlayerWidth * (9 / 16);
+  const isSmallScreen = windowWidth < 1100;
 
   // focusIndex >= 2 → ocultar logo+botones (topPanel)
   // focusIndex >= 4 → ocultar cards trofeos/amigos
@@ -678,9 +858,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       try {
         // Solo usamos RAWG para videos (mp4 directo confiable).
         // Steam se usa solo para capturas de pantalla.
-        const [steamResult, rawgVideosResult] = await Promise.all([
+        const [steamResult, rawgVideosResult, igdbVideosResult] = await Promise.all([
           fetchSteamMediaByName(title, language),
           fetchRawgVideosByName(title),
+          (window as any).electronAPI.fetchIgdbVideos(title)
         ]);
 
         if (cancelled) return;
@@ -691,7 +872,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         const videos: SteamMediaItem[] =
           rawgVideosResult.success && rawgVideosResult.data?.length
             ? mapRawgMoviesToMedia(rawgVideosResult.data)
-            : [];
+            : igdbVideosResult.data || [];
 
         // Capturas: Steam tiene prioridad; RAWG solo si Steam no encontró.
         let images: SteamMediaItem[] = steamImages;
@@ -1476,6 +1657,16 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   shouldPlay
                   useNativeControls
                 />
+              ) : selectedMedia?.type === 'movie' && (selectedMedia as any).youtube_id ? (
+                // Videos de IGDB: no hay archivo .mp4, solo un video_id de
+                // YouTube. Se reproduce con el wrapper de react-native-youtube-iframe.
+                <YoutubePlayer
+                  key={(selectedMedia as any).youtube_id}
+                  height={lightboxPlayerHeight}
+                  width={lightboxPlayerWidth}
+                  videoId={(selectedMedia as any).youtube_id}
+                  play
+                />
               ) : selectedMedia?.full ? (
                 <Image
                   source={{ uri: selectedMedia.full }}
@@ -1951,16 +2142,62 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   {/* Filter and slider bar */}
                   <View style={styles.filterBar}>
                     <View style={styles.filterActions}>
-                      <TouchableOpacity
-                        style={[
-                          styles.filterBtn,
-                          assetSelectorFocusArea === 'filters' && filterFocusIndex === 0 && styles.filterBtnFocused
-                        ]}
-                        onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(0); cycleDimensionFilter(); }}
-                      >
-                        <Ionicons name="funnel-outline" size={s(16)} color="#FFF" />
-                        <Text style={styles.filterBtnText}>{getDimensionFilterLabel(selectedDimensionFilter)}</Text>
-                      </TouchableOpacity>
+                      {(isRawgEligibleTab(assetSelectorTab) || isIgdbEligibleTab(assetSelectorTab)) && (
+                        <View style={styles.sourceToggleRow}>
+                          <TouchableOpacity
+                            style={[styles.sourceToggleBtn, assetSource === 'steamgrid' && styles.sourceToggleBtnActive]}
+                            onPress={() => {
+                              setAssetSource('steamgrid');
+                              setAssetSelectorFocusArea('filters');
+                              setGridFocusIndex(0);
+                              setCurrentPage(0);
+                            }}
+                          >
+                            <Text style={[styles.sourceToggleText, assetSource === 'steamgrid' && styles.sourceToggleTextActive]}>
+                              SteamGridDB
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.sourceToggleBtn, assetSource === 'rawg' && styles.sourceToggleBtnActive]}
+                            onPress={() => {
+                              setAssetSource('rawg');
+                              setAssetSelectorFocusArea('filters');
+                              setGridFocusIndex(0);
+                              setCurrentPage(0);
+                            }}
+                          >
+                            <Text style={[styles.sourceToggleText, assetSource === 'rawg' && styles.sourceToggleTextActive]}>
+                              RAWG
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.sourceToggleBtn, assetSource === 'igdb' && styles.sourceToggleBtnActive]}
+                            onPress={() => {
+                              setAssetSource('igdb');
+                              setAssetSelectorFocusArea('filters');
+                              setGridFocusIndex(0);
+                              setCurrentPage(0);
+                            }}
+                          >
+                            <Text style={[styles.sourceToggleText, assetSource === 'igdb' && styles.sourceToggleTextActive]}>
+                              IGDB
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      {assetSource !== 'rawg' && assetSource !== 'igdb' && (
+                        <TouchableOpacity
+                          style={[
+                            styles.filterBtn,
+                            assetSelectorFocusArea === 'filters' && filterFocusIndex === 0 && styles.filterBtnFocused
+                          ]}
+                          onPress={() => { setAssetSelectorFocusArea('filters'); setFilterFocusIndex(0); cycleDimensionFilter(); }}
+                        >
+                          <Ionicons name="funnel-outline" size={s(16)} color="#FFF" />
+                          <Text style={styles.filterBtnText}>{getDimensionFilterLabel(selectedDimensionFilter)}</Text>
+                        </TouchableOpacity>
+                      )}
 
                       <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginLeft: 10, alignSelf: 'center' }}>v1.0.2</Text>
 
@@ -2024,10 +2261,16 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       assetGridVisibleHeightRef.current = e.nativeEvent.layout.height;
                     }}
                   >
-                    {isLoadingAssets ? (
+                    {(isLoadingAssets || (assetSource === 'rawg' && isLoadingRawgAssets) || (assetSource === 'igdb' && isLoadingIgdbAssets)) ? (
                       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
                         <MaterialCommunityIcons name="loading" size={s(40)} color="#FFF" style={{ marginBottom: 12 }} />
-                        <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>Buscando assets en SteamGridDB...</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>
+                          {assetSource === 'rawg'
+                            ? 'Buscando assets en RAWG...'
+                            : assetSource === 'igdb'
+                              ? 'Buscando assets en IGDB...'
+                              : 'Buscando assets en SteamGridDB...'}
+                        </Text>
                       </View>
                     ) : assetSelectorTab === 'manage' ? (
                       <View style={{ flex: 1 }}>
@@ -2145,7 +2388,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                   </>
                                 ) : (
                                   <Text style={styles.authorName} numberOfLines={1}>
-                                    SteamGridDB
+                                    {assetSource === 'rawg' ? 'RAWG' : assetSource === 'igdb' ? 'IGDB' : 'SteamGridDB'}
                                   </Text>
                                 )}
                               </View>
@@ -3077,6 +3320,32 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     color: '#FFF',
     fontSize: s(14),
     fontFamily: 'SSTMedium',
+  },
+  sourceToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: s(10),
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 3,
+    gap: 2,
+  },
+  sourceToggleBtn: {
+    paddingVertical: s(8),
+    paddingHorizontal: s(14),
+    borderRadius: s(8),
+  },
+  sourceToggleBtnActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  sourceToggleText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: s(13),
+    fontFamily: 'SSTMedium',
+  },
+  sourceToggleTextActive: {
+    color: '#000',
+    fontFamily: 'SSTBold',
   },
   sliderWrapper: {
     flexDirection: 'row',

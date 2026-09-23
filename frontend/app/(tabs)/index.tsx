@@ -297,6 +297,13 @@ export default function ConsoleHome() {
   const lastNavTime = useRef<number>(0);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
+  // Dimensiones en píxeles reales del lightbox de medios (16:9), calculadas a
+  // partir del ancho de ventana. Coincide con styles.lightboxContent
+  // ('82%', maxWidth 1060). YoutubePlayer (WebView por debajo) necesita
+  // height/width numéricos — no acepta '100%' como styles.lightboxVideo.
+  const lightboxPlayerWidth = Math.min(windowWidth * 0.82, 1060);
+  const lightboxPlayerHeight = lightboxPlayerWidth * (9 / 16);
+
   // PS5-style card sizing: responsive based on window dimensions
   const CARD_SIZE = Math.round(Math.min(Math.max(windowHeight * 0.12, 90), 120));
   const CARD_GAP = Math.round(Math.max(windowHeight * 0.006, 4));
@@ -2986,12 +2993,15 @@ export default function ConsoleHome() {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        // Steam y RAWG se consultan en paralelo: los trailers de Steam suelen
-        // traer solo la miniatura (el mp4 no reproduce), así que preferimos
-        // el mp4 directo de RAWG para los videos.
-        const [steamResult, rawgVideosResult] = await Promise.all([
+        // Steam, RAWG e IGDB se consultan en paralelo. Prioridad de trailers:
+        // RAWG (mp4 directo) > IGDB (embed de YouTube, siempre reproduce)
+        // > Steam (el mp4 suele venir roto/bloqueado; último recurso).
+        const [steamResult, rawgVideosResult, igdbVideosResult] = await Promise.all([
           fetchSteamMediaByName(title, language),
           fetchRawgVideosByName(title),
+          (window as any).electronAPI?.fetchIgdbVideos
+            ? (window as any).electronAPI.fetchIgdbVideos(title)
+            : Promise.resolve({ success: false, data: [] }),
         ]);
 
         if (cancelled) return;
@@ -2999,12 +3009,14 @@ export default function ConsoleHome() {
         const steamImages = (steamResult.items || []).filter((m) => m.type === 'screenshot');
         const steamMovies = (steamResult.items || []).filter((m) => m.type === 'movie');
 
-        // Trailers: RAWG tiene prioridad (mp4 confiable). Si RAWG no tiene,
-        // se usan los de Steam aunque puedan no reproducir, mejor que nada.
+        // Trailers: RAWG primero (mp4 confiable). Si no hay, IGDB (YouTube,
+        // siempre reproduce aunque no tenga mp4 directo). Si tampoco, Steam.
         const videos: SteamMediaItem[] =
           rawgVideosResult.success && rawgVideosResult.data?.length
             ? mapRawgMoviesToMedia(rawgVideosResult.data)
-            : steamMovies;
+            : igdbVideosResult?.success && igdbVideosResult.data?.length
+              ? igdbVideosResult.data
+              : steamMovies;
 
         // Capturas: Steam tiene prioridad; RAWG solo si Steam no encontró.
         let images: SteamMediaItem[] = steamImages;
@@ -4204,6 +4216,16 @@ export default function ConsoleHome() {
                 resizeMode={ResizeMode.CONTAIN}
                 shouldPlay
                 useNativeControls
+              />
+            ) : selectedLightboxMedia?.type === 'movie' && (selectedLightboxMedia as any).youtube_id ? (
+              // Videos de IGDB: no hay archivo .mp4, solo un video_id de
+              // YouTube. Se reproduce con el wrapper YoutubePlayer.
+              <YoutubePlayer
+                key={(selectedLightboxMedia as any).youtube_id}
+                height={lightboxPlayerHeight}
+                width={lightboxPlayerWidth}
+                videoId={(selectedLightboxMedia as any).youtube_id}
+                play
               />
             ) : selectedLightboxMedia?.full ? (
               <Image
