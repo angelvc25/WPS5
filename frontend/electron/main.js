@@ -4,14 +4,117 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { exec, spawn, fork } = require('child_process');
 const { pathToFileURL } = require('url');
-const serve = require('electron-serve').default || require('electron-serve');
+const http = require('http');
 
 
 const distPath = app.isPackaged
   ? path.join(process.resourcesPath, 'dist')
   : path.join(__dirname, '../dist');
 
-const loadURL = serve({ directory: distPath });
+// ── Servidor HTTP local para la build de producción ──────────────────────
+// Antes usábamos electron-serve, que sirve los archivos bajo un esquema
+// custom (app://-) en vez de http(s). Eso funcionaba bien para la app en
+// general, pero desde el cambio de política de YouTube de fines de 2025,
+// el embed de YouTube (usado para los trailers de IGDB) exige que el
+// frame que lo aloja tenga un origen http(s) real; con app://- YouTube no
+// puede validarlo y devuelve "Error 153: Video player configuration
+// error", sin importar los parámetros que le pasemos en la URL del embed.
+// La solución es servir el build empaquetado desde http://127.0.0.1 igual
+// que en desarrollo (que carga http://localhost:8081 y ahí SÍ funciona),
+// usando un servidor estático mínimo con el módulo 'http' nativo.
+const LOCAL_SERVER_MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.wasm': 'application/wasm',
+  '.map': 'application/json; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+};
+
+let localServerPort = null;
+
+function createLocalStaticServer(rootDir) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      try {
+        const parsedUrl = new URL(req.url, 'http://localhost');
+        const decodedPath = decodeURIComponent(parsedUrl.pathname);
+        let filePath = path.normalize(path.join(rootDir, decodedPath));
+
+        // Evitar path traversal fuera de la carpeta servida
+        if (!filePath.startsWith(path.normalize(rootDir))) {
+          res.writeHead(403);
+          res.end('Forbidden');
+          return;
+        }
+
+        fs.stat(filePath, (err, stats) => {
+          if (err || !stats.isFile()) {
+            // SPA fallback: cualquier ruta no encontrada -> index.html
+            // (necesario para el enrutado por historial de expo-router)
+            filePath = path.join(rootDir, 'index.html');
+          }
+
+          const ext = path.extname(filePath).toLowerCase();
+          const contentType = LOCAL_SERVER_MIME_TYPES[ext] || 'application/octet-stream';
+
+          fs.readFile(filePath, (readErr, data) => {
+            if (readErr) {
+              res.writeHead(404);
+              res.end('Not found');
+              return;
+            }
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(data);
+          });
+        });
+      } catch (err) {
+        console.error('[LocalServer] Error sirviendo', req.url, err);
+        res.writeHead(500);
+        res.end('Internal error');
+      }
+    });
+
+    server.on('error', reject);
+
+    // Puerto fijo (más predecible para logs/depuración); si algún día
+    // choca con otro proceso, se puede cambiar a 0 para que el SO asigne
+    // uno libre automáticamente.
+    const PREFERRED_PORT = 47821;
+    server.listen(PREFERRED_PORT, '127.0.0.1', () => {
+      resolve(server.address().port);
+    });
+  });
+}
+
+// Reemplaza al loadURL que antes devolvía electron-serve: navega a la copia
+// servida por http local del dist de producción.
+function loadURL(win) {
+  if (!localServerPort) {
+    // Fallback de emergencia: si el servidor local no pudo iniciar, al
+    // menos que la app cargue (los embeds de YouTube fallarán con
+    // Error 153 en este modo, pero el resto de la app sigue funcionando).
+    console.error('[LocalServer] Servidor local no disponible, usando file:// como respaldo');
+    win.loadURL(pathToFileURL(path.join(distPath, 'index.html')).toString());
+    return;
+  }
+  win.loadURL(`http://127.0.0.1:${localServerPort}/`);
+}
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -465,9 +568,7 @@ function createWindow() {
     icon: path.join(__dirname, '../assets/icons/logo.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      webSecurity: false, // Ya lo tienes desactivado para assets locales
-      allowRunningInsecureContent: true,
-      experimentalFeatures: true,
+      webSecurity: false, // Permitir carga de assets locales y externos sin restricciones de CORS/CSP en este entorno de consola
     },
   });
 
@@ -490,7 +591,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:8081');
     mainWindow.webContents.openDevTools();
   } else {
-    // En producción, usa electron-serve para servir la carpeta dist de Expo
+    // En producción, sirve la carpeta dist de Expo vía el servidor http local
     loadURL(mainWindow);
   }
 }
@@ -591,7 +692,7 @@ function loadOverlayContent(win) {
     // En dev no importa qué ruta pidamos: el flag WPS5_OVERLAY decide la UI.
     win.loadURL('http://localhost:8081');
   } else {
-    // Mismo electron-serve que usa mainWindow: garantiza que los assets
+    // Mismo servidor http local que usa mainWindow: garantiza que los assets
     // con rutas absolutas (/_expo/...) resuelvan igual que en la ventana
     // principal. Cargar file:// directo rompía el bundle en producción.
     loadURL(win);
@@ -1957,11 +2058,23 @@ app.on('second-instance', () => {
   hideTrayIcon();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   initDB();
   startStoreBackend();
   startMediaSessionsBridge();
   setupDownloadWatchers();
+
+  // Servidor http local para el build de producción (ver comentario junto
+  // a createLocalStaticServer más arriba). En dev no hace falta: se usa
+  // http://localhost:8081 servido por Expo.
+  if (app.isPackaged) {
+    try {
+      localServerPort = await createLocalStaticServer(distPath);
+      console.log('[LocalServer] Build de producción servida en http://127.0.0.1:' + localServerPort);
+    } catch (err) {
+      console.error('[LocalServer] No se pudo iniciar el servidor local, cayendo de vuelta a file:// (los embeds de YouTube probablemente fallarán):', err.message);
+    }
+  }
 
   // Backup timer: re-parse content_log.txt every 2 seconds for smooth progress
   downloadParseInterval = setInterval(() => {
@@ -2312,8 +2425,7 @@ app.whenReady().then(() => {
           full: `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
           youtube_id: v.video_id,
           youtube_url: `https://www.youtube.com/watch?v=${v.video_id}`,
-          // Usar youtube-nocookie.com y habilitar JS API + origen
-          embed_url: `https://www.youtube-nocookie.com/embed/${v.video_id}?enablejsapi=1&autoplay=1`,
+          embed_url: `https://www.youtube.com/embed/${v.video_id}`,
           source: 'igdb',
         }));
 
