@@ -28,6 +28,7 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
         frameBorder="0"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
+        referrerPolicy="strict-origin-when-cross-origin"
         style={{ border: 'none', borderRadius: 12 }}
       />
     </View>
