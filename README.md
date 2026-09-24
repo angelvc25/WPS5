@@ -56,32 +56,23 @@
 
 
 # RELEASES
-En el apartado de Release podras encontrar la version portable y el instalador para obtener el programa
+In the “Release” section, you'll find the portable version and the installer for the program.
 
 
-# Guia de ejecución de proyecto.
-Para desarrollo:
+# Guide to Adding Local Games
 
-1. **Instalar Node.js:** Asegurarse de tener Node.js instalado en su sistema. (v24.12.0 o superior)
-2. **Clonar/Descargar el repositorio:** Obtener el código fuente del proyecto.
-3. **Abrir la terminal en la carpeta correcta:**
-   cd frontend
-4. **Instalar las dependencias:** (Solo la primera vez)
-   npm install
-5. **inciar servidor web:** npm run web
-6. **Iniciar API de PlayStation Store (primera vez):**
-   cd ../backend
-   npm install
-   cd ../frontend
-7. **espere a que se inicie la web:**
-8. **Iniciar la aplicación (Modo Desarrollo):**
-   npm run electron:dev
+- Go to the Home tab
+- In the widget panel, click the “Add Game” widget
+- A modal will open showing all installed programs
+  <img width="1912" height="1079" alt="image" src="https://github.com/user-attachments/assets/25a0bf63-26f4-4f2f-a948-e515e30a8c6a" />
+- Select your games
+- Check the “Games” category (it's already checked by default)
+- Select the platform (PC is selected by default)
+- If the game you want to add isn’t listed in the modal, click “Browse”
+- A file explorer window will open; add your .exe files
+- Once you’ve selected your games, add them, and they’ll appear in your library under “Installed”
+ <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/e83b5af8-4b75-4087-a6dd-3d6881973cc4" />
+- Once added, if you notice that their metadata hasn’t downloaded, correct the game title and click “Sync”
+  <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/195d5d08-6fb0-4493-abc5-e422b64b3e99" />
 
-*Nota: `electron:dev` levanta el backend (puerto 3000) y Electron. El panel PlayStation Store consume `GET http://localhost:3000/api/store/deals`.*
-
----
-
-Para compilar el proyecto y crear un instalador (.exe) listo para usar sin código:
-1. Asegúrate de estar en la carpeta 'frontend'
-2. Ejecuta: npm run electron:build
-3. El instalador se guardará en la carpeta 'frontend/dist-electron'
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/77e25c83-a335-485a-8b2f-c2533a5c86d8" />
