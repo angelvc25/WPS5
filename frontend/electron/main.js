@@ -148,6 +148,45 @@ const IGDB_CLIENT_ID = 'cedukeor213t2yrqswcerzpldefp43'; // REEMPLAZAR
 const IGDB_CLIENT_SECRET = 'q9hm9iq6ahlaccv3osl19a7y71qd3t'; // REEMPLAZAR
 const STEAMGRID_API_KEY = '6abd5716fa6f6cb81eaed8426560c5eb'; // REEMPLAZADO
 let igdbAccessToken = null;
+
+// ── IGDB: caché de token en disco (dura ~60 días, no hace falta pedirlo cada vez) ──
+const igdbTokenCachePath = path.join(app.getPath('userData'), 'igdb-token-cache.json');
+
+async function getIGDBAccessTokenCached() {
+  // 1. Memoria (rápido, dura toda la sesión)
+  if (igdbAccessToken) return igdbAccessToken;
+
+  // 2. Disco (sobrevive reinicios del launcher)
+  try {
+    if (fs.existsSync(igdbTokenCachePath)) {
+      const cached = JSON.parse(fs.readFileSync(igdbTokenCachePath, 'utf8'));
+      if (cached.token && cached.expiresAt > Date.now()) {
+        igdbAccessToken = cached.token;
+        return igdbAccessToken;
+      }
+    }
+  } catch (_) { /* caché corrupta, pedimos uno nuevo */ }
+
+  // 3. Pedir token nuevo a Twitch
+  try {
+    const response = await fetch(
+      `https://id.twitch.tv/oauth2/token?client_id=${IGDB_CLIENT_ID}&client_secret=${IGDB_CLIENT_SECRET}&grant_type=client_credentials`,
+      { method: 'POST' }
+    );
+    const data = await response.json();
+    if (!data.access_token) return null;
+
+    igdbAccessToken = data.access_token;
+    // expires_in viene en segundos (Twitch normalmente da ~60 días); restamos
+    // 1 día de margen para no usarlo justo cuando expira.
+    const expiresAt = Date.now() + (data.expires_in - 86400) * 1000;
+    fs.writeFileSync(igdbTokenCachePath, JSON.stringify({ token: igdbAccessToken, expiresAt }));
+    return igdbAccessToken;
+  } catch (err) {
+    console.error('Error obteniendo token de IGDB:', err);
+    return null;
+  }
+}
 let mainWindow = null;
 let webMediaWindow = null;
 let toastOverlayWindow = null;
@@ -2380,47 +2419,43 @@ app.whenReady().then(async () => {
   });
 
 
-  // IPC: Buscar videos/trailers desde IGDB
-  // Nota importante: a diferencia de RAWG (que da un .mp4 directo), IGDB solo
-  // guarda el `video_id` de YouTube. No hay archivo de video servible; el
-  // front tiene que reproducirlo como embed/iframe de YouTube, no como <video src=mp4>.
-  ipcMain.handle('fetch-igdb-videos', async (_event, title) => {
-    const token = await getIGDBAccessToken();
+  // IPC: Buscar trailers/videos de un juego en IGDB
+  ipcMain.handle('fetch-igdb-videos', async (event, title) => {
+    const token = await getIGDBAccessTokenCached();
     if (!token) return { success: false, error: 'No se pudo obtener el token de IGDB' };
 
     try {
-      // El endpoint `game_videos` no tiene índice de búsqueda por texto, así
-      // que buscamos en `games` y pedimos la relación `videos` (esto sí
-      // soporta `search`).
+      // IGDB exige POST con estos headers exactos — no es viable desde el
+      // renderer por CORS, por eso vive aquí en el proceso principal.
       const response = await fetch('https://api.igdb.com/v4/games', {
         method: 'POST',
         headers: {
-          'Accept': 'application/json',
           'Client-ID': IGDB_CLIENT_ID,
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'text/plain'
+          'Content-Type': 'text/plain',
         },
-        body: `fields name, videos.name, videos.video_id; search "${title}"; limit 1;`
+        body: `fields name, videos.video_id, videos.name; search "${title}"; limit 1;`,
       });
 
       if (!response.ok) {
-        return { success: false, error: `IGDB videos respondió ${response.status}` };
+        return { success: false, error: `IGDB respondió ${response.status}` };
       }
 
       const data = await response.json();
-      console.log('[IGDB Videos] Respuesta cruda:', JSON.stringify(data));
+      if (!data || data.length === 0) {
+        return { success: false, error: 'No se encontró el juego en IGDB' };
+      }
 
-      const game = data && data[0];
+      const game = data[0];
       const rawVideos = (game && game.videos) || [];
 
-      // Mapear a formato compatible con la app (mismo shape que
-      // mapRawgMoviesToMedia en rawgService.ts, adaptado a YouTube).
       const videos = rawVideos
-        .filter(v => v.video_id)
-        .map(v => ({
-          id: `igdb_video_${v.id}`,
+        .filter((v) => v.video_id)
+        .map((v) => ({
+          id: `igdb_video_${v.id || v.video_id}`,
           type: 'movie',
           name: v.name || '',
+          videoId: v.video_id,
           thumbnail: `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
           full: `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
           youtube_id: v.video_id,
@@ -2429,11 +2464,9 @@ app.whenReady().then(async () => {
           source: 'igdb',
         }));
 
-      console.log(`[IGDB Videos] ${title}: ${videos.length} trailers encontrados`);
       return { success: true, data: videos };
-
     } catch (error) {
-      console.error('[IGDB Videos] Error:', error);
+      console.error('Error buscando videos en IGDB:', error);
       return { success: false, error: error.message };
     }
   });
@@ -3285,21 +3318,9 @@ app.whenReady().then(async () => {
     }
   });
 
-  // IGDB: Obtener token de acceso
+  // IGDB: Obtener token de acceso (delega a getIGDBAccessTokenCached con caché en disco)
   async function getIGDBAccessToken() {
-    if (igdbAccessToken) return igdbAccessToken;
-
-    try {
-      const response = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${IGDB_CLIENT_ID}&client_secret=${IGDB_CLIENT_SECRET}&grant_type=client_credentials`, {
-        method: 'POST'
-      });
-      const data = await response.json();
-      igdbAccessToken = data.access_token;
-      return igdbAccessToken;
-    } catch (error) {
-      console.error('Error obteniendo token de IGDB:', error);
-      return null;
-    }
+    return getIGDBAccessTokenCached();
   }
 
   // IPC: Buscar datos de un juego en IGDB

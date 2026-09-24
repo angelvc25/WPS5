@@ -14,6 +14,7 @@ import { fetchSteamInstalledAppIds, fetchSteamInstalledGamesDetailed } from '@/s
 import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchRawgMediaByName, mapRawgScreenshotsToMedia, fetchRawgVideosByName, mapRawgMoviesToMedia } from '@/services/rawgService';
+import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
 import { fetchWishlistDeals, WishlistDeal } from '@/services/steamWishlistService';
@@ -279,6 +280,7 @@ export default function ConsoleHome() {
 
   // Steam screenshots & trailers
   const [steamMedia, setSteamMedia] = useState<SteamMediaItem[]>([]);
+  const [gameVideos, setGameVideos] = useState<GameVideoResult[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
   const [achievementCount, setAchievementCount] = useState(0);
@@ -2993,15 +2995,14 @@ export default function ConsoleHome() {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        // Steam, RAWG e IGDB se consultan en paralelo. Prioridad de trailers:
+        // Steam, RAWG e IGDB se consultan en paralelo (con caché de 7 días para IGDB).
+        // Prioridad de trailers:
         // RAWG (mp4 directo) > IGDB (embed de YouTube, siempre reproduce)
         // > Steam (el mp4 suele venir roto/bloqueado; último recurso).
-        const [steamResult, rawgVideosResult, igdbVideosResult] = await Promise.all([
+        const [steamResult, rawgVideosResult, igdbVideos] = await Promise.all([
           fetchSteamMediaByName(title, language),
           fetchRawgVideosByName(title),
-          (window as any).electronAPI?.fetchIgdbVideos
-            ? (window as any).electronAPI.fetchIgdbVideos(title)
-            : Promise.resolve({ success: false, data: [] }),
+          fetchGameVideosByName(title),
         ]);
 
         if (cancelled) return;
@@ -3014,8 +3015,8 @@ export default function ConsoleHome() {
         const videos: SteamMediaItem[] =
           rawgVideosResult.success && rawgVideosResult.data?.length
             ? mapRawgMoviesToMedia(rawgVideosResult.data)
-            : igdbVideosResult?.success && igdbVideosResult.data?.length
-              ? igdbVideosResult.data
+            : igdbVideos.length > 0
+              ? (igdbVideos as unknown as SteamMediaItem[])
               : steamMovies;
 
         // Capturas: Steam tiene prioridad; RAWG solo si Steam no encontró.
@@ -3048,6 +3049,24 @@ export default function ConsoleHome() {
       clearTimeout(timer);
     };
   }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language]);
+
+  // Trailers de IGDB cacheados en localStorage (7 días de TTL)
+  useEffect(() => {
+    const item = currentData[activeIndex];
+    const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
+    if (!playable) { setGameVideos([]); return; }
+    const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
+    if (!title) { setGameVideos([]); return; }
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetchGameVideosByName(title).then(videos => {
+        if (!cancelled) setGameVideos(videos);
+      });
+    }, 400);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id]);
 
   // Auto-scroll main vertical scrollview when focus moves to lower sections
   useEffect(() => {

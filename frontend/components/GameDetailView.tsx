@@ -15,6 +15,7 @@ import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsServic
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
 import { fetchRawgGameData, fetchRawgMediaByName, mapRawgScreenshotsToMedia, fetchRawgVideosByName, mapRawgMoviesToMedia } from '../services/rawgService';
+import { fetchGameVideosByName } from '../services/gameVideoService';
 import { soundService } from '../services/soundService';
 import { fetchSteamDescription, isPlaytimePlaceholder, fetchSteamInfo } from '../services/steamDescriptionService';
 import { getSteamLaunchPath, isSteamGame, getSteamAppId, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
@@ -858,21 +859,21 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       try {
         // Solo usamos RAWG para videos (mp4 directo confiable).
         // Steam se usa solo para capturas de pantalla.
-        const [steamResult, rawgVideosResult, igdbVideosResult] = await Promise.all([
+        const [steamResult, rawgVideosResult, igdbVideos] = await Promise.all([
           fetchSteamMediaByName(title, language),
           fetchRawgVideosByName(title),
-          (window as any).electronAPI.fetchIgdbVideos(title)
+          fetchGameVideosByName(title),
         ]);
 
         if (cancelled) return;
 
         const steamImages = (steamResult.items || []).filter((m) => m.type === 'screenshot');
 
-        // Videos: SOLO RAWG. Ignoramos completamente los videos de Steam.
+        // Videos: SOLO RAWG. Si no hay, IGDB con caché de 7 días. Ignoramos completamente los videos de Steam.
         const videos: SteamMediaItem[] =
           rawgVideosResult.success && rawgVideosResult.data?.length
             ? mapRawgMoviesToMedia(rawgVideosResult.data)
-            : igdbVideosResult.data || [];
+            : (igdbVideos as unknown as SteamMediaItem[]) || [];
 
         // Capturas: Steam tiene prioridad; RAWG solo si Steam no encontró.
         let images: SteamMediaItem[] = steamImages;
