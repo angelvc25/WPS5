@@ -28,6 +28,8 @@ export interface InstalledProgram {
   location?: string;
   checked?: boolean;
   isCustom?: boolean;
+  folderName?: string;
+  exeName?: string;
 }
 
 interface AddAppModalProps {
@@ -45,6 +47,68 @@ const PLATFORMS = [
   { id: 'PS5', icon: 'sony-playstation' },
   { id: 'Retro', icon: 'gamepad-variant' },
 ];
+
+const GENERIC_SUBFOLDERS = new Set([
+  'bin', 'binaries', 'bin32', 'bin64', 'x64', 'x86', 'x86_64',
+  'win32', 'win64', 'windows', 'windows_x64', 'windows_x86',
+  'retail', 'release', 'shipping', 'game', 'games', 'engine',
+  'build', 'dist', 'app', 'launcher', 'client', 'system', 'root',
+  'win', 'pc', 'cooked', 'cookedpc', 'cookedpcconsole'
+]);
+
+function cleanGameTitle(str: string): string {
+  let clean = str;
+  // Quitar corchetes y paréntesis típicos de grupos de release (e.g. [FitGirl Repack], (DODI), etc.)
+  clean = clean.replace(/\[[^\]]*\]/g, ' ').replace(/\([^\)]*\)/g, ' ');
+  // Quitar tags de grupos scene (-CODEX, -RUNE, etc.)
+  clean = clean.replace(/[-_](CODEX|RUNE|CPY|SKIDROW|GOG|TENOKE|FLT|EMPRESS|ElAmigos|FitGirl|DODI|Razor1911|RELOADED|HOODLUM|PLAZA)\b/gi, ' ');
+  // Reemplazar puntos y guiones bajos por espacios
+  clean = clean.replace(/[._]/g, ' ');
+  // Quitar tags de versión aislados como v1 0, v1 04
+  clean = clean.replace(/\bv\d+(\s\d+)*\b/gi, ' ');
+  // Quitar palabras de packaging comunes
+  clean = clean.replace(/\b(Repack|Clean Rip)\b/gi, ' ');
+  return clean.replace(/\s+/g, ' ').trim();
+}
+
+function extractSmartGameName(filePath: string): { suggestedName: string; folderName: string; exeName: string } {
+  const normalized = filePath.replace(/\\/g, '/');
+  const parts = normalized.split('/').filter(Boolean);
+  if (parts.length === 0) return { suggestedName: '', folderName: '', exeName: '' };
+
+  const rawFilename = parts[parts.length - 1];
+  const rawExeName = rawFilename.replace(/\.[^/.]+$/, '');
+  const exeName = cleanGameTitle(rawExeName);
+
+  let folderName = '';
+  // Buscar hacia atrás la carpeta que no sea genérica (bin, x64, etc.)
+  for (let i = parts.length - 2; i >= 0; i--) {
+    const part = parts[i];
+    // Evitar raíces de unidad como "C:" o "D:"
+    if (!part || /^[a-zA-Z]:$/.test(part)) break;
+    const lower = part.toLowerCase();
+    if (GENERIC_SUBFOLDERS.has(lower)) continue;
+    folderName = part;
+    break;
+  }
+
+  const cleanedFolder = folderName ? cleanGameTitle(folderName) : '';
+
+  const isGenericExe = /^(game|launcher|shipping|client|start|app|main|play|run|loader|bootstrap|patcher)$/i.test(exeName) ||
+                       /win(32|64)[-_]shipping/i.test(rawExeName);
+
+  // Se prefiere el nombre de la carpeta si existe, especialmente si el exe es genérico o la carpeta es más descriptiva
+  let suggestedName = cleanedFolder || exeName || rawExeName;
+  if (!isGenericExe && exeName.length > 4 && (!cleanedFolder || cleanedFolder.length < 3)) {
+    suggestedName = exeName;
+  }
+
+  return {
+    suggestedName: suggestedName || rawExeName,
+    folderName: cleanedFolder || folderName,
+    exeName: exeName || rawExeName,
+  };
+}
 
 
 
@@ -67,6 +131,32 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
 
+  // Edición rápida de nombre del programa
+  const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState<string>('');
+
+  const handleStartEdit = (prog: InstalledProgram) => {
+    soundService.playNavigation();
+    setEditingPath(prog.path);
+    setEditingName(prog.name);
+  };
+
+  const handleSaveEdit = (targetPath: string) => {
+    const trimmed = editingName.trim();
+    if (trimmed) {
+      setPrograms((prev) =>
+        prev.map((p) => (p.path === targetPath ? { ...p, name: trimmed } : p))
+      );
+    }
+    setEditingPath(null);
+    setEditingName('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPath(null);
+    setEditingName('');
+  };
+
   const searchInputRef = useRef<TextInput>(null);
 
   // Escanear programas instalados cuando se abre el modal
@@ -78,6 +168,8 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
     setSelectedPlatform('PC');
     setRetroSystem('PSP');
     setFocusedIndex(0);
+    setEditingPath(null);
+    setEditingName('');
 
     if (Platform.OS === 'web' && (window as any).electronAPI?.getInstalledPrograms) {
       setLoading(true);
@@ -152,26 +244,30 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
       soundService.playNavigation();
       const filePath = await (window as any).electronAPI.selectFile();
       if (filePath) {
-        const filename = filePath.split(/[\\\/]/).pop() || '';
-        const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+        const { suggestedName, folderName, exeName } = extractSmartGameName(filePath);
 
         // Verificar si ya existe
         const existingIdx = programs.findIndex((p) => p.path === filePath);
         if (existingIdx !== -1) {
           setPrograms((prev) =>
-            prev.map((p, idx) => (idx === existingIdx ? { ...p, checked: true } : p))
+            prev.map((p, idx) => (idx === existingIdx ? { ...p, checked: true, name: suggestedName || p.name, folderName, exeName } : p))
           );
         } else {
-          // Agregar al principio como chequeado
+          // Agregar al principio como chequeado con el nombre inteligente de la carpeta
           const newProg: InstalledProgram = {
-            name: nameWithoutExt,
+            name: suggestedName,
             path: filePath,
             location: filePath,
             checked: true,
             isCustom: true,
+            folderName,
+            exeName,
           };
           setPrograms((prev) => [newProg, ...prev]);
         }
+        // Iniciar edición de nombre de inmediato para que el usuario pueda confirmar o afinar
+        setEditingPath(filePath);
+        setEditingName(suggestedName);
       }
     }
   };
@@ -325,13 +421,18 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (editingPath) {
+          setEditingPath(null);
+          setEditingName('');
+          return;
+        }
         onClose();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [visible, onClose]);
+  }, [visible, onClose, editingPath]);
 
   // Estilos dinámicos calculados según el tamaño de la ventana
   const styles = useMemo(() => {
@@ -526,6 +627,92 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
         fontFamily: 'SSTMedium',
         fontWeight: '500',
         flex: 1,
+      },
+      nameWithEditWrap: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingRight: s(6),
+      },
+      editPencilBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: s(4),
+        paddingHorizontal: s(6),
+        paddingVertical: s(3),
+        borderRadius: s(4),
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        marginLeft: s(8),
+      },
+      editPencilText: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: s(11),
+        fontFamily: 'SSTRg',
+      },
+      inlineEditWrap: {
+        flex: 1,
+        flexDirection: 'column',
+        gap: s(4),
+      },
+      inlineInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: s(6),
+      },
+      inlineEditInput: {
+        flex: 1,
+        backgroundColor: '#090D14',
+        borderRadius: s(6),
+        borderWidth: 1.5,
+        borderColor: '#0070D1',
+        color: '#FFFFFF',
+        fontSize: s(14),
+        fontFamily: 'SSTMedium',
+        paddingHorizontal: s(10),
+        paddingVertical: s(4),
+        height: s(32),
+        outlineStyle: 'none' as any,
+      },
+      inlineEditConfirmBtn: {
+        width: s(30),
+        height: s(30),
+        borderRadius: s(6),
+        backgroundColor: '#0070D1',
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      inlineEditCancelBtn: {
+        width: s(30),
+        height: s(30),
+        borderRadius: s(6),
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      quickChipsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: s(6),
+        marginTop: s(2),
+      },
+      quickChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: s(7),
+        paddingVertical: s(2),
+        borderRadius: s(4),
+        backgroundColor: 'rgba(0, 112, 209, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(0, 112, 209, 0.35)',
+      },
+      quickChipText: {
+        color: '#70B5FF',
+        fontSize: s(11),
+        fontFamily: 'SSTRg',
       },
       programColPath: {
         flex: 1.8,
@@ -796,12 +983,17 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
               <ScrollView showsVerticalScrollIndicator={true} style={{ flex: 1 }}>
                 {filteredPrograms.map((program, idx) => {
                   const isChecked = !!program.checked;
+                  const isEditing = editingPath === program.path;
                   return (
                     <TouchableOpacity
                       key={program.path + '_' + idx}
                       style={[styles.row, isChecked && styles.rowSelected]}
                       activeOpacity={0.7}
-                      onPress={() => toggleProgram(program.path)}
+                      onPress={() => {
+                        if (!isEditing) {
+                          toggleProgram(program.path);
+                        }
+                      }}
                     >
                       <View style={styles.checkboxContainer}>
                         <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
@@ -825,9 +1017,78 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
                             />
                           )}
                         </View>
-                        <Text style={styles.programName} numberOfLines={1}>
-                          {program.name}
-                        </Text>
+
+                        {isEditing ? (
+                          <View
+                            style={styles.inlineEditWrap}
+                            // @ts-ignore
+                            onClick={(e: any) => e.stopPropagation()}
+                          >
+                            <View style={styles.inlineInputRow}>
+                              <TextInput
+                                style={styles.inlineEditInput}
+                                value={editingName}
+                                onChangeText={setEditingName}
+                                autoFocus
+                                selectTextOnFocus
+                                onSubmitEditing={() => handleSaveEdit(program.path)}
+                                placeholder={t('addModal.namePlaceholder')}
+                                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                              />
+                              <TouchableOpacity
+                                style={styles.inlineEditConfirmBtn}
+                                onPress={() => handleSaveEdit(program.path)}
+                              >
+                                <Ionicons name="checkmark" size={16} color="#FFF" />
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.inlineEditCancelBtn}
+                                onPress={handleCancelEdit}
+                              >
+                                <Ionicons name="close" size={16} color="rgba(255, 255, 255, 0.7)" />
+                              </TouchableOpacity>
+                            </View>
+
+                            {(program.folderName || program.exeName) && (
+                              <View style={styles.quickChipsRow}>
+                                {program.folderName && program.folderName !== editingName && (
+                                  <TouchableOpacity
+                                    style={styles.quickChip}
+                                    onPress={() => setEditingName(program.folderName!)}
+                                  >
+                                    <Ionicons name="folder-outline" size={12} color="#70B5FF" style={{ marginRight: 4 }} />
+                                    <Text style={styles.quickChipText} numberOfLines={1}>{program.folderName}</Text>
+                                  </TouchableOpacity>
+                                )}
+                                {program.exeName && program.exeName !== editingName && (
+                                  <TouchableOpacity
+                                    style={styles.quickChip}
+                                    onPress={() => setEditingName(program.exeName!)}
+                                  >
+                                    <Ionicons name="cog-outline" size={12} color="#70B5FF" style={{ marginRight: 4 }} />
+                                    <Text style={styles.quickChipText} numberOfLines={1}>{program.exeName}</Text>
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+                            )}
+                          </View>
+                        ) : (
+                          <View style={styles.nameWithEditWrap}>
+                            <Text style={styles.programName} numberOfLines={1}>
+                              {program.name}
+                            </Text>
+                            <TouchableOpacity
+                              style={styles.editPencilBtn}
+                              onPress={(e: any) => {
+                                e?.stopPropagation?.();
+                                handleStartEdit(program);
+                              }}
+                            >
+                              <Ionicons name="pencil" size={12} color="rgba(255, 255, 255, 0.5)" />
+                              <Text style={styles.editPencilText}>{t('addModal.editName')}</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
                       </View>
 
                       <View style={styles.programColPath}>
