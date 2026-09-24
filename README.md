@@ -87,5 +87,36 @@ To add your emulator games
 <img width="1328" height="734" alt="image" src="https://github.com/user-attachments/assets/98c8b192-0fbf-41b0-acdd-bb6787af6e36" />
 <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/aed0159c-c994-4382-856c-90c173a61e15" />
 
+# Guide to Editing Your Profile
+
+- Tap your username; a floating menu will appear at the bottom
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/dd8b553d-b1ae-4c77-8a77-a4b45587ef59" />
+
+- Go to profile
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/7ac4ea0d-02e8-4408-a0d1-8f200a7616fd" />
+- edit profile
+- profile picture
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/21a85941-47ad-4ca2-ae25-247fa8f5ec14" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/69106389-4a6d-4ad8-b6b0-c7b54237ee57" />
+This applies if you haven't set up your profile photo (avatar) folder.
+
+# Basic Guide to the First Things You Should Set Up
+- Go to Settings -> Accessibility
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/a035a2c9-a302-47e4-9cc6-bfccc7949ab4" />
+- Select your dedicated wallpaper folder
+- Select your screenshot folder; you can use the same one that Xbox uses, like I do
+- If you use the RPCS3 emulator, enter the location of your EXE file—this is for achievements
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/53952b78-cbfd-426a-9983-74589ee62e38" />
+- select your avatar dedicated folder
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/0e598fe2-50c8-46f0-ad43-20984f815a17" />
+
+# Sign in to Steam
+- Go to Settings -> Accessibility -> Steam
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/6f48086d-635d-4c61-b4fb-ae8b3ec60494" />
+
+
+
+
+
 
 
