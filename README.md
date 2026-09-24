@@ -77,7 +77,7 @@ In the “Release” section, you'll find the portable version and the installer
 
 <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/77e25c83-a335-485a-8b2f-c2533a5c86d8" />
 
-To add your emulator games
+# To add your emulator games
 
 - Open your emulator and create shortcuts for your games
 - I recommend creating a folder and adding your shortcuts there instead of leaving them on the desktop
