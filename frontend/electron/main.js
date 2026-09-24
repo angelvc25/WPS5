@@ -6,6 +6,9 @@ const { exec, spawn, fork } = require('child_process');
 const { pathToFileURL } = require('url');
 const http = require('http');
 
+// Desactivar advertencias de seguridad de Electron en consola de desarrollo
+// (webSecurity se desactiva deliberadamente para permitir la carga de assets locales y de emuladores)
+process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
 
 const distPath = app.isPackaged
   ? path.join(process.resourcesPath, 'dist')

@@ -331,8 +331,8 @@ const WidgetEditPanel: React.FC<WidgetEditPanelProps> = ({
 
   useEffect(() => {
     RNAnimated.parallel([
-      RNAnimated.timing(slideAnim, { toValue: visible ? 0 : -420, duration: 280, useNativeDriver: true }),
-      RNAnimated.timing(opacityAnim, { toValue: visible ? 1 : 0, duration: 220, useNativeDriver: true }),
+      RNAnimated.timing(slideAnim, { toValue: visible ? 0 : -420, duration: 280, useNativeDriver: Platform.OS !== 'web' }),
+      RNAnimated.timing(opacityAnim, { toValue: visible ? 1 : 0, duration: 220, useNativeDriver: Platform.OS !== 'web' }),
     ]).start();
   }, [visible]);
 

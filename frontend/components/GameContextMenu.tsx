@@ -141,14 +141,14 @@ export default function GameContextMenu({
     Animated.timing(glowAnims[prev], {
       toValue: 0,
       duration: GLOW_DURATION,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
 
     // Fade in new item
     Animated.timing(glowAnims[focusedIndex], {
       toValue: 1,
       duration: GLOW_DURATION,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [focusedIndex]);
 

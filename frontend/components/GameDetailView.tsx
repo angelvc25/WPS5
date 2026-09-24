@@ -55,8 +55,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
   const [isSyncing, setIsSyncing] = useState(false);
-  const [focusIndex, setFocusIndex] = useState(0); // 0:Jugar, 1:···, 2:Trofeos, 3:Amigos
+  const [focusIndex, setFocusIndex] = useState(0); // 0:Jugar, 1:···, 2:Trofeos, 3:Amigos, 100+:Media, 200+:Logros, 4+:Noticias
   const prevFocusIndexRef = React.useRef(0);
+  const [achievementCount, setAchievementCount] = useState(0);
+  const bottomScrollRef = useRef<ScrollView>(null);
   const [editModalFocusIndex, setEditModalFocusIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'basic' | 'path' | 'art'>('basic');
   const { activeUser } = useUser();
@@ -761,6 +763,22 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     infoCardsAnim.value = withTiming(focusIndex >= 4 ? 0 : 1, { duration: 300 });
   }, [focusIndex]);
 
+  // Auto-scroll del panel inferior en GameDetailView para mantener la fila enfocada en pantalla
+  useEffect(() => {
+    if (!isVisible || !bottomScrollRef.current) return;
+    if (focusIndex <= 1) {
+      bottomScrollRef.current.scrollTo({ y: 0, animated: true });
+    } else if (focusIndex === 2 || focusIndex === 3) {
+      bottomScrollRef.current.scrollTo({ y: 160, animated: true });
+    } else if (focusIndex >= 100 && focusIndex < 200) {
+      bottomScrollRef.current.scrollTo({ y: 240, animated: true });
+    } else if (focusIndex >= 200) {
+      bottomScrollRef.current.scrollTo({ y: 380, animated: true });
+    } else if (focusIndex >= 4 && focusIndex < 100) {
+      bottomScrollRef.current.scrollTo({ y: 620, animated: true });
+    }
+  }, [focusIndex, isVisible]);
+
   // Reset card layout cache whenever the paginated list (or page) changes
   useEffect(() => {
     cardLayoutsRef.current = [];
@@ -910,6 +928,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     if (item) {
       prevFocusIndexRef.current = 0;
       setFocusIndex(0); // Reset focus when opening
+      setAchievementCount(0);
       const initialData: any = {
         id: item.id,
         title: item.title,
@@ -1153,30 +1172,52 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         if (e.key === 'ArrowRight') {
           if (focusIndex === 0) { soundService.playNavigation(); moveFocus(1); }
           else if (focusIndex === 2) { soundService.playNavigation(); moveFocus(3); }
+          // En row de logros: avanzar item (throttled)
+          else if (focusIndex >= 200 && focusIndex < 200 + achievementCount - 1) moveFocusThrottled(focusIndex + 1);
           // En row de capturas: avanzar item (throttled)
-          else if (focusIndex >= 100 && focusIndex < 100 + steamMedia.length - 1) moveFocusThrottled(focusIndex + 1);
+          else if (focusIndex >= 100 && focusIndex < 200 && focusIndex < 100 + steamMedia.length - 1) moveFocusThrottled(focusIndex + 1);
           // En row de noticias: avanzar item (throttled)
-          else if (focusIndex >= 4 && focusIndex < 4 + steamNews.length - 1) moveFocusThrottled(focusIndex + 1);
+          else if (focusIndex >= 4 && focusIndex < 100 && focusIndex < 4 + steamNews.length - 1) moveFocusThrottled(focusIndex + 1);
         } else if (e.key === 'ArrowLeft') {
           if (focusIndex === 1) { soundService.playNavigation(); moveFocus(0); }
           else if (focusIndex === 3) { soundService.playNavigation(); moveFocus(2); }
+          // En row de logros: retroceder item (mínimo 200, throttled)
+          else if (focusIndex > 200) moveFocusThrottled(focusIndex - 1);
+          else if (focusIndex === 200) { } // ya en el primero
           // En row de capturas: retroceder item (mínimo 100, throttled)
-          else if (focusIndex > 100) moveFocusThrottled(focusIndex - 1);
+          else if (focusIndex > 100 && focusIndex < 200) moveFocusThrottled(focusIndex - 1);
           else if (focusIndex === 100) { } // ya en el primero
           // En row de noticias: retroceder item (mínimo 4, throttled)
           else if (focusIndex > 4 && focusIndex < 100) moveFocusThrottled(focusIndex - 1);
           else if (focusIndex === 4) { } // ya en el primero
         } else if (e.key === 'ArrowDown') {
           soundService.playNavigation();
-          if (focusIndex <= 1) moveFocus(2);                          // botones → trofeos
-          else if (focusIndex <= 3) moveFocus(steamMedia.length > 0 ? 100 : (steamNews.length > 0 ? 4 : 2)); // cards → capturas o noticias
-          else if (focusIndex >= 100) moveFocus(steamNews.length > 0 ? 4 : focusIndex); // capturas → noticias
+          if (focusIndex <= 1) {
+            moveFocus(2); // botones → trofeos
+          } else if (focusIndex <= 3) {
+            if (steamMedia.length > 0) moveFocus(100);
+            else if (achievementCount > 0) moveFocus(200);
+            else if (steamNews.length > 0) moveFocus(4);
+          } else if (focusIndex >= 100 && focusIndex < 200) {
+            if (achievementCount > 0) moveFocus(200);
+            else if (steamNews.length > 0) moveFocus(4);
+          } else if (focusIndex >= 200) {
+            if (steamNews.length > 0) moveFocus(4);
+          }
           // noticias: no hay más abajo
         } else if (e.key === 'ArrowUp') {
           soundService.playNavigation();
-          if (focusIndex >= 4 && focusIndex < 100) moveFocus(steamMedia.length > 0 ? 100 : 2); // noticias → capturas o trofeos
-          else if (focusIndex >= 100) moveFocus(2);                   // capturas → trofeos
-          else if (focusIndex >= 2) moveFocus(0);                     // trofeos → botones
+          if (focusIndex >= 4 && focusIndex < 100) {
+            if (achievementCount > 0) moveFocus(200);
+            else if (steamMedia.length > 0) moveFocus(100);
+            else moveFocus(2);
+          } else if (focusIndex >= 200) {
+            moveFocus(steamMedia.length > 0 ? 100 : 2);
+          } else if (focusIndex >= 100 && focusIndex < 200) {
+            moveFocus(2); // capturas → trofeos
+          } else if (focusIndex >= 2) {
+            moveFocus(0); // trofeos → botones
+          }
           // 0/1: no hace nada, no sale
         } else if (e.key === 'Enter') {
           soundService.playActivation?.();
@@ -1210,6 +1251,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     isAssetSelectorVisible,
     selectedMediaIndex,
     focusIndex,
+    achievementCount,
     editModalFocusIndex,
     item,
     onLaunch,
@@ -1532,6 +1574,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
           {/* BOTTOM INFO PANEL — scrollable */}
           <ScrollView
+            ref={bottomScrollRef}
             style={styles.ps5BottomPanel}
             contentContainerStyle={{ paddingBottom: 80 }}
             showsVerticalScrollIndicator={false}
@@ -1577,6 +1620,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 infoCardsStyle={infoCardsStyle}
                 topPanelStyle={topPanelStyle}
                 installedSteamAppIds={installedSteamAppIds}
+                onAchievementCountChange={setAchievementCount}
                 onOpenMediaGallery={onOpenMediaGallery}
               />
             </Animated.View>

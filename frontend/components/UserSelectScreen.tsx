@@ -410,7 +410,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   useEffect(() => {
     Animated.spring(animatedIndex, {
       toValue: safeIndex,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
       friction: 8,
       tension: 40,
     }).start();
