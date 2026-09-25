@@ -597,6 +597,21 @@ function initDB() {
     if (!data.games) { data.games = []; modified = true; }
     if (!data.media) { data.media = []; modified = true; }
     if (!data.users) { data.users = []; modified = true; }
+
+    // Limpiar registros fantasma incompletos de Steam o Epic (sin título o título 'Juego')
+    if (Array.isArray(data.games)) {
+      const beforeLen = data.games.length;
+      data.games = data.games.filter(item => {
+        if (!item || !item.id) return false;
+        const isSteamOrEpic = item.id.toString().startsWith('steam_') || item.id.toString().startsWith('epic_');
+        if (isSteamOrEpic) {
+          return !!item.title && item.title.trim() !== '' && item.title !== 'Juego';
+        }
+        return true;
+      });
+      if (data.games.length !== beforeLen) modified = true;
+    }
+
     if (modified) fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
   }
 }
@@ -2568,6 +2583,23 @@ app.whenReady().then(async () => {
   // IPC: Obtener todas las aplicaciones y usuarios
   ipcMain.handle('get-apps', () => {
     const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+
+    // Purgar registros fantasma de Steam/Epic sin título para que no contaminen la interfaz
+    if (data.games && Array.isArray(data.games)) {
+      const initialCount = data.games.length;
+      data.games = data.games.filter(item => {
+        if (!item || !item.id) return false;
+        const isSteamOrEpic = item.id.toString().startsWith('steam_') || item.id.toString().startsWith('epic_');
+        if (isSteamOrEpic) {
+          return !!item.title && item.title.trim() !== '' && item.title !== 'Juego';
+        }
+        return true;
+      });
+      if (data.games.length !== initialCount) {
+        fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+      }
+    }
+
     data.games = (data.games || []).map(injectMediaToBase64);
     data.media = (data.media || []).map(injectMediaToBase64);
     return data;
@@ -2637,13 +2669,16 @@ app.whenReady().then(async () => {
           ...filteredUpdate
         });
       } else if (updatedApp.id.toString().startsWith('steam_') || updatedApp.id.toString().startsWith('epic_')) {
-        data.games = data.games || [];
-        const filteredUpdate = Object.fromEntries(
-          Object.entries(updatedApp).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
-        );
-        data.games.push({
-          ...filteredUpdate
-        });
+        // Solo agregar a la DB si tiene título real, evitando crear registros fantasma vacíos
+        if (updatedApp.title && updatedApp.title.trim() && updatedApp.title !== 'Juego') {
+          data.games = data.games || [];
+          const filteredUpdate = Object.fromEntries(
+            Object.entries(updatedApp).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+          );
+          data.games.push({
+            ...filteredUpdate
+          });
+        }
       } else {
         return { success: false, error: 'App not found' };
       }

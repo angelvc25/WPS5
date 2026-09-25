@@ -580,20 +580,49 @@ export default function ConsoleHome() {
   const libraryGridRef = useRef<LibraryGridHandle>(null);
   const welcomeWidgetsRef = useRef<WelcomeWidgetsHandle>(null);
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
+  const steamGamesRef = useRef<ConsoleItem[]>([]);
+  steamGamesRef.current = steamGames;
   const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
   const { downloads: steamDownloads } = useSteamDownloads();
   const [loadingSteam, setLoadingSteam] = useState(false);
   const [epicGames, setEpicGames] = useState<ConsoleItem[]>([]);
   const [loadingEpic, setLoadingEpic] = useState(false);
+  const epicGamesRef = useRef<ConsoleItem[]>([]);
+  epicGamesRef.current = epicGames;
   const [uiReady, setUiReady] = useState(false);
   const launchStartTimeRef = useRef<Record<string, number>>({});
   const sessionPlaytimeRef = useRef<Record<string, number>>({});
+
+  const getEffectiveSteamGames = (): ConsoleItem[] => {
+    if (steamGamesRef.current.length > 0) return steamGamesRef.current;
+    const steamId = activeUser?.settings?.steamId;
+    if (steamId) {
+      try {
+        const raw = localStorage.getItem(`steam_games_${steamId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) { /* noop */ }
+    }
+    return [];
+  };
+
   const syncGamePlaytime = (gameId: string, totalMinutes: number) => {
     setGames(prev => prev.map(item => item.id !== gameId ? item : { ...item, playtimeMinutes: totalMinutes, playtime_forever: totalMinutes }));
-    setSteamGames(prev => prev.map(item => item.id !== gameId ? item : { ...item, playtimeMinutes: totalMinutes, playtime_forever: totalMinutes }));
+    setSteamGames(prev => {
+      const updated = prev.map(item => item.id !== gameId ? item : { ...item, playtimeMinutes: totalMinutes, playtime_forever: totalMinutes });
+      steamGamesRef.current = updated;
+      const steamId = activeUser?.settings?.steamId;
+      if (steamId) {
+        try { localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updated)); } catch (e) { /* noop */ }
+      }
+      return updated;
+    });
     setLastPlayedGame(prev => prev && prev.id === gameId ? { ...prev, playtimeMinutes: totalMinutes, playtime_forever: totalMinutes } : prev);
 
-    if ((window as any).electronAPI?.updateApp) {
+    const isSteamOrEpic = gameId.startsWith('steam_') || gameId.startsWith('epic_');
+    if (!isSteamOrEpic && (window as any).electronAPI?.updateApp) {
       (window as any).electronAPI.updateApp({
         id: gameId,
         playtimeMinutes: totalMinutes,
@@ -616,13 +645,18 @@ export default function ConsoleHome() {
       setSteamGames(prev => {
         if (!prev.some(g => g.id === id)) return prev;
         const updated = prev.map(g => g.id === id ? { ...g, lastPlayed: now } : g);
+        steamGamesRef.current = updated;
         const steamId = activeUser?.settings?.steamId;
         if (steamId) {
           try { localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updated)); } catch (e) { /* noop */ }
         }
         return updated;
       });
-      setEpicGames(prev => prev.map(g => g.id === id ? { ...g, lastPlayed: now } : g));
+      setEpicGames(prev => {
+        const updated = prev.map(g => g.id === id ? { ...g, lastPlayed: now } : g);
+        epicGamesRef.current = updated;
+        return updated;
+      });
     }
 
     setLastPlayedGame({ ...item, lastPlayed: now });
@@ -986,7 +1020,7 @@ export default function ConsoleHome() {
 
   const GAMES_LIMIT = 10;
   const nonSteamGames = useMemo(
-    () => games.filter(item => !item.id.toString().startsWith('steam_')),
+    () => games.filter(item => !item.id.toString().startsWith('steam_') && !item.id.toString().startsWith('epic_')),
     [games]
   );
 
@@ -1046,7 +1080,7 @@ export default function ConsoleHome() {
   // Filter out system utility cards from the saved games list
   const savedGames = useMemo(
     () => nonSteamGames.filter(
-      item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && item.id !== '5' && !item.isFolder && !item.isGrid
+      item => item.id !== '1' && item.id !== 'last_played' && item.id !== 'more_library' && item.id !== '5' && !item.isFolder && !item.isGrid && (!!item.title && item.title !== 'Juego')
     ),
     [nonSteamGames]
   );
@@ -1073,8 +1107,15 @@ export default function ConsoleHome() {
       // los demás juegos de esta pestaña. Si los excluimos aquí, jamás
       // llegan a LibraryGrid y no aparecen aunque estén instalados.
       steamGames.forEach(sg => {
-        const override = games.find(g => g.id === sg.id);
-        const merged = override ? { ...sg, ...override } : sg;
+        const override = games.find(g => g.id === sg.id && g.title && g.title !== 'Juego');
+        const merged = override ? {
+          ...sg,
+          ...override,
+          title: override.title || sg.title,
+          image: (override.image && override.image !== require('@/assets/images/Home.gif')) ? override.image : sg.image,
+          backgroundImage: (override.backgroundImage && override.backgroundImage !== require('@/assets/images/FondoDefault2.jpg')) ? override.backgroundImage : sg.backgroundImage,
+          logo: override.logo || sg.logo,
+        } : sg;
         byId.set(sg.id, { ...merged, path: resolveLaunchPath(merged) });
       });
       savedGames.forEach(game => {
@@ -1085,8 +1126,15 @@ export default function ConsoleHome() {
       return result;
     }
     return steamGames.map(sg => {
-      const override = games.find(g => g.id === sg.id);
-      const merged = override ? { ...sg, ...override } : sg;
+      const override = games.find(g => g.id === sg.id && g.title && g.title !== 'Juego');
+      const merged = override ? {
+        ...sg,
+        ...override,
+        title: override.title || sg.title,
+        image: (override.image && override.image !== require('@/assets/images/Home.gif')) ? override.image : sg.image,
+        backgroundImage: (override.backgroundImage && override.backgroundImage !== require('@/assets/images/FondoDefault2.jpg')) ? override.backgroundImage : sg.backgroundImage,
+        logo: override.logo || sg.logo,
+      } : sg;
       return { ...merged, path: resolveLaunchPath(merged) };
     });
   }, [libraryTab, savedGames, epicGames, steamGames, games]);
@@ -1133,6 +1181,19 @@ export default function ConsoleHome() {
       setSteamGames([]);
     }
   }, [activeUser?.settings?.steamId]);
+
+  // Si steamGames se carga/actualiza y tiene un juego con lastPlayed más reciente que lastPlayedGame,
+  // aseguramos que la card de último jugado apunte a ese juego de Steam
+  useEffect(() => {
+    if (steamGames.length === 0) return;
+    const played = steamGames.filter(g => g.lastPlayed);
+    if (played.length === 0) return;
+    played.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+    const mostRecentSteam = played[0];
+    if (mostRecentSteam && (!lastPlayedGame || !lastPlayedGame.lastPlayed || (mostRecentSteam.lastPlayed || 0) > (lastPlayedGame.lastPlayed || 0))) {
+      setLastPlayedGame(mostRecentSteam);
+    }
+  }, [steamGames]);
 
   // Refresco silencioso de tiempos de juego de Steam en segundo plano
   // Se ejecuta cuando hay juegos en caché para mantener los tiempos actualizados
@@ -1712,7 +1773,16 @@ export default function ConsoleHome() {
           platform: app.platform,
           isPinned: app.isPinned
         });
-        const gamesList = (data.games || []).map(formatApp);
+        const validRawGames = (data.games || []).filter((app: any) => {
+          if (!app || !app.id) return false;
+          if (app.id === '1' || app.id === '5' || app.id === 'last_played' || app.id === 'more_library') return false;
+          const isSteamOrEpic = app.id.toString().startsWith('steam_') || app.id.toString().startsWith('epic_');
+          if (isSteamOrEpic && (!app.title || app.title.trim() === '' || app.title === 'Juego')) {
+            return false;
+          }
+          return true;
+        });
+        const gamesList = validRawGames.map(formatApp);
         const mediaList = (data.media || []).map(formatApp);
 
         const initialGames = getInitialGames(t);
@@ -1724,15 +1794,22 @@ export default function ConsoleHome() {
 
         const baseItems = [ps5store, home, lastPlayed, favGames, favMedia].filter(Boolean) as ConsoleItem[];
 
-        // Find the most recently played game/media to show in last_played card
-        const allFormatted = [...gamesList, ...mediaList];
+        // Find the most recently played game/media across all sources (manual, steam, epic, media)
+        const currentSteamGames = getEffectiveSteamGames();
+        const currentEpicGames = epicGamesRef.current;
+        const allFormatted = [
+          ...gamesList,
+          ...mediaList,
+          ...currentSteamGames,
+          ...currentEpicGames,
+        ];
         const sortedByLastPlayed = allFormatted
           .filter((i: any) => i.lastPlayed && i.id !== '1' && i.id !== '5' && i.id !== 'last_played' && i.id !== 'more_library')
-          .sort((a: any, b: any) => b.lastPlayed - a.lastPlayed);
+          .sort((a: any, b: any) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
         let latestGame = sortedByLastPlayed[0] || null;
 
         if (latestGame && (latestGame.id?.toString().startsWith('steam_') || latestGame.id?.toString().startsWith('epic_'))) {
-          const richVersion = steamGames.find(g => g.id === latestGame!.id) || epicGames.find(g => g.id === latestGame!.id);
+          const richVersion = currentSteamGames.find(g => g.id === latestGame!.id) || currentEpicGames.find(g => g.id === latestGame!.id);
           if (richVersion) {
             latestGame = {
               ...richVersion,
@@ -4071,6 +4148,11 @@ export default function ConsoleHome() {
             onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}
             installedSteamAppIds={installedSteamAppIds}
             onVisibleGamesChange={setVisibleLibraryGames}
+            onLaunch={(id, path) => {
+              const game = displayedLibraryGames.find(g => g.id === id) || (selectedItem?.id === id ? selectedItem : null);
+              if (game) handleLaunchApp(game);
+              else handleLaunchApp({ id, path } as any);
+            }}
           />
         )}
 
