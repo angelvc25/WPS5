@@ -12,7 +12,7 @@ import GameInfoPanel from './GameInfoPanel';
 import DeleteConfirmView from './DeleteConfirmView';
 import { useUser } from '../contexts/UserContext';
 import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
-import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
+import { resolveGameScreenshots, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
 import { fetchRawgGameData, fetchRawgMediaByName, mapRawgScreenshotsToMedia } from '../services/rawgService';
 import { searchPsnGames, psnLocaleForLanguage, isPsnEligiblePlatform } from '../services/psnMetadataService';
@@ -964,27 +964,15 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     (async () => {
       try {
         // Videos de fondo: siempre IGDB (embed de YouTube, siempre reproduce).
-        // Steam se usa solo para capturas de pantalla.
-        const [steamResult, igdbVideos] = await Promise.all([
-          fetchSteamMediaByName(title, language),
+        // Capturas con filtro de plataforma (Steam solo en PC; resto, RAWG e IGDB).
+        const [images, igdbVideos] = await Promise.all([
+          resolveGameScreenshots(title, { platform: (item as any)?.platform, language }),
           fetchGameVideosByName(title),
         ]);
 
         if (cancelled) return;
 
-        const steamImages = (steamResult.items || []).filter((m) => m.type === 'screenshot');
-
         const videos: SteamMediaItem[] = (igdbVideos as unknown as SteamMediaItem[]) || [];
-
-        // Capturas: Steam tiene prioridad; RAWG solo si Steam no encontró.
-        let images: SteamMediaItem[] = steamImages;
-        if (images.length === 0) {
-          const rawgImagesResult = await fetchRawgMediaByName(title);
-          if (cancelled) return;
-          if (rawgImagesResult.success && rawgImagesResult.data?.length) {
-            images = mapRawgScreenshotsToMedia(rawgImagesResult.data);
-          }
-        }
 
         if (!cancelled) {
           setSteamMedia([...videos, ...images]);

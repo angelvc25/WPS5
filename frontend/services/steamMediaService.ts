@@ -1,5 +1,6 @@
 import type { Language } from '@/i18n/translations';
 import { STEAM_API_LANG } from './steamLanguage';
+import { fetchRawgMediaByName, mapRawgScreenshotsToMedia } from './rawgService';
 
 export interface SteamMediaItem {
   id: string;
@@ -86,4 +87,52 @@ export const fetchSteamMediaByName = async (gameName: string, language: Language
     console.error('[SteamMedia] Error:', error);
     return { items: [], appid: null };
   }
+};
+
+/**
+ * Capturas de un juego con filtro de plataforma: la búsqueda de Steam por
+ * nombre trae el juego homónimo equivocado en plataformas que no son PC
+ * (ej. el "Puppet Master" de Steam para el Puppeteer de PS3), así que solo
+ * se usa Steam en PC (o sin plataforma). En el resto se va directo a las
+ * fuentes de respaldo: RAWG y luego capturas/artworks de IGDB.
+ */
+export const resolveGameScreenshots = async (
+  title: string,
+  opts: { platform?: string | null; language?: Language } = {},
+): Promise<SteamMediaItem[]> => {
+  const platform = (opts.platform || '').trim().toLowerCase();
+  const useSteam = !platform || platform === 'pc';
+
+  if (useSteam) {
+    const steamResult = await fetchSteamMediaByName(title, opts.language || 'es');
+    const steamImages = (steamResult.items || []).filter((m) => m.type === 'screenshot');
+    if (steamImages.length > 0) return steamImages;
+  }
+
+  const rawgImagesResult = await fetchRawgMediaByName(title);
+  if (rawgImagesResult.success && rawgImagesResult.data?.length) {
+    return mapRawgScreenshotsToMedia(rawgImagesResult.data);
+  }
+
+  if (typeof window !== 'undefined' && (window as any).electronAPI?.fetchIgdbAssets) {
+    try {
+      const igdb = await (window as any).electronAPI.fetchIgdbAssets(title);
+      const shots = igdb?.success && igdb.data
+        ? [...(igdb.data.artworks || []), ...(igdb.data.screenshots || [])]
+        : [];
+      const mapped = shots
+        .filter((shot: any) => shot?.url)
+        .map((shot: any) => ({
+          id: String(shot.id),
+          type: 'screenshot' as const,
+          thumbnail: shot.thumb || shot.url,
+          full: shot.url,
+        }));
+      if (mapped.length > 0) return mapped;
+    } catch {
+      /* sin respaldo de IGDB */
+    }
+  }
+
+  return [];
 };

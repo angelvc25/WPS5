@@ -12,8 +12,7 @@ import { fetchGamingNews } from '@/services/newsService';
 import { soundService } from '@/services/soundService';
 import { fetchSteamInstalledAppIds, fetchSteamInstalledGamesDetailed } from '@/services/steamInstallService';
 import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
-import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
-import { fetchRawgMediaByName, mapRawgScreenshotsToMedia } from '@/services/rawgService';
+import { resolveGameScreenshots, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
@@ -3119,28 +3118,17 @@ export default function ConsoleHome() {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        // Steam e IGDB se consultan en paralelo (con caché de 7 días para IGDB).
-        // Trailers/vídeos de fondo: siempre IGDB (embed de YouTube, siempre reproduce).
-        const [steamResult, igdbVideos] = await Promise.all([
-          fetchSteamMediaByName(title, language),
+        // Vídeos de fondo: siempre IGDB. Capturas con filtro de plataforma
+        // (Steam solo en PC; en el resto, RAWG e IGDB).
+        const srcItem = item.isLastPlayed ? lastPlayedGame : item;
+        const [images, igdbVideos] = await Promise.all([
+          resolveGameScreenshots(title, { platform: srcItem?.platform, language }),
           fetchGameVideosByName(title),
         ]);
 
         if (cancelled) return;
 
-        const steamImages = (steamResult.items || []).filter((m) => m.type === 'screenshot');
-
         const videos: SteamMediaItem[] = (igdbVideos as unknown as SteamMediaItem[]) || [];
-
-        // Capturas: Steam tiene prioridad; RAWG solo si Steam no encontró.
-        let images: SteamMediaItem[] = steamImages;
-        if (images.length === 0) {
-          const rawgImagesResult = await fetchRawgMediaByName(title);
-          if (cancelled) return;
-          if (rawgImagesResult.success && rawgImagesResult.data?.length) {
-            images = mapRawgScreenshotsToMedia(rawgImagesResult.data);
-          }
-        }
 
         if (!cancelled) {
           setSteamMedia([...videos, ...images]);

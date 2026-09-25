@@ -17,7 +17,7 @@ interface CacheEntry {
   cachedAt: number;
 }
 
-const CACHE_PREFIX = 'game_video_cache_';
+const CACHE_PREFIX = 'game_video_cache_v2_';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días — los trailers no cambian seguido
 
 function cacheKey(title: string) {

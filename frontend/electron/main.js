@@ -2174,6 +2174,30 @@ app.whenReady().then(async () => {
   });
 
 
+  // Elige el mejor candidato de IGDB para un título: coincidencia exacta
+  // (normalizada) primero, luego prefijo en cualquier dirección y por último
+  // el primer resultado. Evita que un homónimo (ej. un DLC "Puppet Master"
+  // para el "Puppeteer" de PS3) oculte al juego real.
+  const normalizeIgdbTitle = (value) => String(value || '')
+    .toLowerCase()
+    .replace(/[®™©]/g, '')
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const pickBestIgdbMatch = (games, title) => {
+    if (!Array.isArray(games) || games.length === 0) return null;
+    const wanted = normalizeIgdbTitle(title);
+    const exact = games.find((g) => normalizeIgdbTitle(g?.name) === wanted);
+    if (exact) return exact;
+    const prefix = games.find((g) => {
+      const name = normalizeIgdbTitle(g?.name);
+      return name && wanted && (name.startsWith(wanted) || wanted.startsWith(name));
+    });
+    return prefix || games[0];
+  };
+
   // IPC: Buscar trailers/videos de un juego en IGDB
   ipcMain.handle('fetch-igdb-videos', async (event, title) => {
     if (!title) return { success: false, error: 'Título no proporcionado' };
@@ -2189,7 +2213,14 @@ app.whenReady().then(async () => {
         return { success: false, error: 'No se encontró el juego en IGDB' };
       }
 
-      const game = data.games[0];
+      // El primer resultado no siempre trae videos: se elige el mejor
+      // candidato con al menos un video_id válido.
+      const candidates = data.games;
+      const best = pickBestIgdbMatch(candidates, title);
+      const game = (best && Array.isArray(best.videos) && best.videos.some((v) => v?.video_id))
+        ? best
+        : candidates.find((g) => Array.isArray(g?.videos) && g.videos.some((v) => v?.video_id))
+          || best;
       const rawVideos = (game && game.videos) || [];
 
       const videos = rawVideos
@@ -2236,7 +2267,7 @@ app.whenReady().then(async () => {
         return { success: false, error: 'No se encontró el juego en IGDB' };
       }
 
-      const game = data.games[0];
+      const game = pickBestIgdbMatch(data.games, title);
 
       const covers = (game.cover?.url ? [game.cover] : []).map(c => ({
         id: `igdb_cover_${c.id || 0}`,
@@ -3089,7 +3120,7 @@ app.whenReady().then(async () => {
 
       const json = await response.json();
       if (json.success && json.games && json.games.length > 0) {
-        return { success: true, data: json.games[0] };
+        return { success: true, data: pickBestIgdbMatch(json.games, title) };
       }
 
       return { success: false, error: 'No se encontró el juego' };
