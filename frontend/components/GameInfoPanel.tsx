@@ -148,7 +148,7 @@ export const GameInfoPanel = ({
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : t('lastPlayed.title')) : activeItem?.title;
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
   const playtimeItem = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
-  const canPlay = activeItem && (!activeItem.isFolder || activeItem.id === 'media_gallery') && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
+  const canPlay = activeItem && (!activeItem.isFolder || activeItem.id === 'media_gallery') && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== '5' && activeItem.id !== 'more_library' && (!activeItem.isLastPlayed || (!!lastPlayedGame && lastPlayedGame.id !== '1' && lastPlayedGame.id !== '5'));
   const isSpotify = activeItem?.title?.toLowerCase()?.includes('spotify');
   const isMediaSection = (activeItem?.type === 'media' || activeItem?.type === 'web' || isSpotify) && activeItem?.id !== 'media_gallery';
   const isMediaGallery = activeItem?.id === 'media_gallery';
@@ -767,6 +767,7 @@ export const GameInfoPanel = ({
                       if (isMediaGallery) {
                         onOpenMediaGallery?.();
                       } else if (activeItem) {
+                        if (activeItem.id === '1' || activeItem.id === '5' || activeItem.id === 'more_library') return;
                         handleLaunchApp(activeItem);
                       }
                     }}

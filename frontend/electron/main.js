@@ -2605,6 +2605,9 @@ app.whenReady().then(async () => {
 
   // IPC: Actualizar una aplicación existente
   ipcMain.handle('update-app', (event, updatedApp) => {
+    if (!updatedApp || updatedApp.id === '1' || updatedApp.id === '5' || updatedApp.id === 'last_played' || updatedApp.id === 'more_library') {
+      return { success: false };
+    }
     const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
 
     const updateInList = (list) => {
@@ -2894,8 +2897,8 @@ app.whenReady().then(async () => {
 
     let appRecord = null;
 
-    // Actualizar timestamp de último juego en la DB si el id existe
-    if (id && id !== 'last_played') {
+    // Actualizar timestamp de último juego en la DB si el id existe y no es un elemento de sistema
+    if (id && id !== 'last_played' && id !== '1' && id !== '5' && id !== 'more_library') {
       console.log('Actualizando lastPlayed para:', id);
       const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
       const updateInList = (list) => {

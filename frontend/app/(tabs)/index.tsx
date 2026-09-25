@@ -317,6 +317,12 @@ export default function ConsoleHome() {
   const [games, setGames] = useState<ConsoleItem[]>(() => getInitialGames(t));
   const [media, setMedia] = useState<ConsoleItem[]>(() => getInitialMedia(t));
   const [lastPlayedGame, setLastPlayedGame] = useState<ConsoleItem | null>(null);
+
+  useEffect(() => {
+    if (lastPlayedGame?.id === '1' || lastPlayedGame?.id === '5' || lastPlayedGame?.id === 'more_library') {
+      setLastPlayedGame(null);
+    }
+  }, [lastPlayedGame]);
   const [currentTime, setCurrentTime] = useState('');
   const [gamepadInfo, setGamepadInfo] = useState({ connected: false, name: '', battery: 0 });
   const [storageInfo, setStorageInfo] = useState<{
@@ -597,6 +603,9 @@ export default function ConsoleHome() {
   };
 
   const markGameAsLastPlayed = (item: ConsoleItem) => {
+    if (!item || !item.id || item.id === '1' || item.id === '5' || item.id === 'last_played' || item.id === 'more_library' || item.isLastPlayed || item.isFolder || item.isGrid) {
+      return;
+    }
     const now = Date.now();
     const id = item.id;
     const isSteamOrEpic = id.startsWith('steam_') || id.startsWith('epic_');
@@ -1718,7 +1727,7 @@ export default function ConsoleHome() {
         // Find the most recently played game/media to show in last_played card
         const allFormatted = [...gamesList, ...mediaList];
         const sortedByLastPlayed = allFormatted
-          .filter((i: any) => i.lastPlayed)
+          .filter((i: any) => i.lastPlayed && i.id !== '1' && i.id !== '5' && i.id !== 'last_played' && i.id !== 'more_library')
           .sort((a: any, b: any) => b.lastPlayed - a.lastPlayed);
         let latestGame = sortedByLastPlayed[0] || null;
 
@@ -1736,7 +1745,7 @@ export default function ConsoleHome() {
 
         // Exclude last played game from the row to avoid duplication.
         // Sort remaining games: most recently played first, then unplayed in original order.
-        const gamesWithoutLastPlayed = latestGame
+        const gamesWithoutLastPlayed = (latestGame && latestGame.id !== '1' && latestGame.id !== '5')
           ? gamesList.filter((g: any) => g.id !== latestGame.id)
           : gamesList;
         const pinnedGames = gamesWithoutLastPlayed.filter((g: any) => g.isPinned);
@@ -1754,7 +1763,11 @@ export default function ConsoleHome() {
         );
         setMedia([...filteredDataMedia, ...mediaList.reverse()]);
 
-        if (latestGame) setLastPlayedGame(latestGame);
+        if (latestGame && latestGame.id !== '1' && latestGame.id !== '5') {
+          setLastPlayedGame(latestGame);
+        } else {
+          setLastPlayedGame(null);
+        }
       });
     }
   };
@@ -1931,7 +1944,7 @@ export default function ConsoleHome() {
 
   const openContextMenu = () => {
     const item = currentData[activeIndex];
-    if (!item || item.id === 'more_library') return;
+    if (!item || item.id === 'more_library' || item.id === '1' || item.id === '5' || item.isLastPlayed) return;
 
     if (activeCardRef.current) {
       activeCardRef.current.measureInWindow((x, y, width, height) => {
@@ -2912,12 +2925,14 @@ export default function ConsoleHome() {
       if (focusArea === 'main_carousel') {
         const item = currentData[activeIndex];
         if (item) {
-          if (item.id === 'more_library') return;
+          if (item.id === 'more_library' || item.id === '1' || item.id === '5') return;
           if (item.isFolder || item.isGrid) { setFavoritesVisible(true); return; }
-          if (activeTab === 'Games' && activeIndex === 0) { setHomeBgModalVisible(true); return; }
           if (item.isLastPlayed) {
-            if (lastPlayedGame) { handleLaunchApp(lastPlayedGame); }
-            else toastService.show('toast.noGameLaunched');
+            if (lastPlayedGame && lastPlayedGame.id !== '1' && lastPlayedGame.id !== '5') {
+              handleLaunchApp(lastPlayedGame);
+            } else {
+              toastService.show('toast.noGameLaunched');
+            }
           } else { handleLaunchApp(item); }
         }
       }
@@ -3139,13 +3154,13 @@ export default function ConsoleHome() {
     }
   }, [activeIndex, currentRenderedTab, ITEM_WIDTH]);
   const handleLaunchApp = (item: ConsoleItem) => {
-    if (!item) return;
-    if (item.isLastPlayed && !lastPlayedGame) {
+    if (!item || item.id === '1' || item.id === '5' || item.id === 'more_library' || item.isFolder || item.isGrid) return;
+    if (item.isLastPlayed && (!lastPlayedGame || lastPlayedGame.id === '1' || lastPlayedGame.id === '5')) {
       toastService.show('toast.noGameLaunched');
       return;
     }
     const targetItem = item.isLastPlayed ? lastPlayedGame! : item;
-    if (!targetItem) return;
+    if (!targetItem || targetItem.id === '1' || targetItem.id === '5' || targetItem.id === 'more_library') return;
 
     if (targetItem?.id && (!targetItem.type || targetItem.type === 'game') && !launchStartTimeRef.current[targetItem.id]) {
       launchStartTimeRef.current[targetItem.id] = Date.now();
@@ -3245,12 +3260,14 @@ export default function ConsoleHome() {
     setActiveIndex(index);
     setFocusIndex(index);
     if (activeIndex === index) {
-      if (item.id === 'more_library') return;
-      if (activeTab === 'Games' && index === 0) { setHomeBgModalVisible(true); return; }
+      if (item.id === 'more_library' || item.id === '1' || item.id === '5') return;
       if (item.isFolder || item.isGrid) { setFavoritesVisible(true); return; }
       if (item.isLastPlayed) {
-        if (lastPlayedGame) { handleLaunchApp(lastPlayedGame); }
-        else alert(t('lastPlayed.noGamesYet'));
+        if (lastPlayedGame && lastPlayedGame.id !== '1' && lastPlayedGame.id !== '5') {
+          handleLaunchApp(lastPlayedGame);
+        } else {
+          toastService.show('toast.noGameLaunched');
+        }
         return;
       }
       if (!item.isGrid) { handleLaunchApp(item); }
