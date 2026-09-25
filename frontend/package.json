@@ -116,6 +116,8 @@
       "icon": "assets/icons/wps5.ico"
     },
     "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
       "installerIcon": "assets/icons/wps5.ico",
       "uninstallerIcon": "assets/icons/wps5.ico",
       "installerHeaderIcon": "assets/icons/wps5.ico"

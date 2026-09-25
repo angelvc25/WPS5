@@ -5,8 +5,7 @@
  * rechaza la petición, se devuelven arrays vacíos.
  */
 
-const STEAMGRID_API_KEY = '6abd5716fa6f6cb81eaed8426560c5eb';
-const BASE = 'https://www.steamgriddb.com/api/v2';
+const WORKER_API_BASE = 'https://wps5-api.wps5-api.workers.dev';
 
 export interface SteamGridAsset {
   id: number;
@@ -22,29 +21,6 @@ export interface SteamGridAssetsResult {
   heroes: SteamGridAsset[];
   logos: SteamGridAsset[];
   icons: SteamGridAsset[];
-}
-
-const headers = { Authorization: `Bearer ${STEAMGRID_API_KEY}` };
-
-/**
- * Busca el gameId de SteamGridDB por nombre.
- */
-async function searchGame(title: string): Promise<number | null> {
-  try {
-    const res = await fetch(
-      `${BASE}/search/autocomplete/${encodeURIComponent(title)}`,
-      { headers }
-    );
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (json.success && json.data && json.data.length > 0) {
-      return json.data[0].id;
-    }
-    return null;
-  } catch (err) {
-    console.error('[SteamGrid] Error searching game:', err);
-    return null;
-  }
 }
 
 /**
@@ -92,52 +68,27 @@ export async function fetchSteamGridData(
   }
 
   try {
-    const gameId = await searchGame(title);
-    if (!gameId) return { success: false, error: 'Juego no encontrado en SteamGridDB' };
-
-    const [grids1x1Res, grids2x3Res, gridsAllRes, heroesRes, logosRes] = await Promise.all([
-      fetch(`${BASE}/grids/game/${gameId}?dimensions=512x512,1024x1024`, { headers }),
-      fetch(`${BASE}/grids/game/${gameId}?dimensions=600x900`, { headers }),
-      fetch(`${BASE}/grids/game/${gameId}`, { headers }),
-      fetch(`${BASE}/heroes/game/${gameId}?limit=1`, { headers }),
-      fetch(`${BASE}/logos/game/${gameId}?limit=1`, { headers }),
-    ]);
-
-    const [grids1x1, grids2x3, gridsAll, heroes, logos] = await Promise.all([
-      grids1x1Res.ok ? grids1x1Res.json() : { success: false, data: [] },
-      grids2x3Res.ok ? grids2x3Res.json() : { success: false, data: [] },
-      gridsAllRes.ok ? gridsAllRes.json() : { success: false, data: [] },
-      heroesRes.ok ? heroesRes.json() : { success: false, data: [] },
-      logosRes.ok ? logosRes.json() : { success: false, data: [] },
-    ]);
-
-    let chosenGrid: string | null = null;
-    if (grids1x1.success && grids1x1.data && grids1x1.data.length > 0) {
-      chosenGrid = grids1x1.data[0].url || grids1x1.data[0].thumb;
-    } else if (grids2x3.success && grids2x3.data && grids2x3.data.length > 0) {
-      chosenGrid = grids2x3.data[0].url || grids2x3.data[0].thumb;
-    } else if (gridsAll.success && gridsAll.data && gridsAll.data.length > 0) {
-      const square = gridsAll.data.find((g: any) => g.width && g.height && g.width === g.height);
-      const vertical2x3 = gridsAll.data.find((g: any) => g.width && g.height && Math.abs((g.width / g.height) - (2 / 3)) < 0.05);
-      if (square) {
-        chosenGrid = square.url || square.thumb;
-      } else if (vertical2x3) {
-        chosenGrid = vertical2x3.url || vertical2x3.thumb;
-      } else {
-        chosenGrid = gridsAll.data[0].url || gridsAll.data[0].thumb;
-      }
+    const res = await fetch(`${WORKER_API_BASE}/api/steamgrid?title=${encodeURIComponent(title)}`);
+    if (!res.ok) return { success: false, error: `Worker API respondió ${res.status}` };
+    const json = await res.json();
+    if (!json.success || !json.game) {
+      return { success: false, error: json.error || 'Juego no encontrado en SteamGridDB' };
     }
+
+    const chosenGrid = json.grids?.[0]?.url || json.grids?.[0]?.thumb || null;
+    const hero = json.heroes?.[0]?.url || json.heroes?.[0]?.thumb || null;
+    const logo = json.logos?.[0]?.url || json.logos?.[0]?.thumb || null;
 
     return {
       success: true,
       data: {
         grid: chosenGrid,
-        hero: heroes.success && heroes.data && heroes.data.length > 0 ? (heroes.data[0].url || heroes.data[0].thumb) : null,
-        logo: logos.success && logos.data && logos.data.length > 0 ? (logos.data[0].url || logos.data[0].thumb) : null,
+        hero,
+        logo,
       },
     };
   } catch (err: any) {
-    console.error('[SteamGrid] Direct fetch failed:', err);
+    console.error('[SteamGrid] Direct Worker fetch failed:', err);
     return { success: false, error: err?.message || 'Error al obtener datos de SteamGridDB' };
   }
 }
@@ -174,47 +125,21 @@ export async function fetchSteamGridAssets(
     }
   }
 
-  // 2. Fetch directo a la API (funciona en Electron con webSecurity:false)
+  // 2. Fetch directo al Worker API
   try {
-    const gameId = await searchGame(title);
-    if (!gameId) return empty;
-
-    const [gridsRes, squaresRes, heroesRes, logosRes, iconsRes] = await Promise.all([
-      fetch(`${BASE}/grids/game/${gameId}`, { headers }),
-      fetch(`${BASE}/grids/game/${gameId}?dimensions=512x512,1024x1024`, { headers }),
-      fetch(`${BASE}/heroes/game/${gameId}`, { headers }),
-      fetch(`${BASE}/logos/game/${gameId}`, { headers }),
-      fetch(`${BASE}/icons/game/${gameId}`, { headers }),
-    ]);
-
-    const [grids, squares, heroes, logos, icons] = await Promise.all([
-      gridsRes.ok ? gridsRes.json() : { success: false, data: [] },
-      squaresRes.ok ? squaresRes.json() : { success: false, data: [] },
-      heroesRes.ok ? heroesRes.json() : { success: false, data: [] },
-      logosRes.ok ? logosRes.json() : { success: false, data: [] },
-      iconsRes.ok ? iconsRes.json() : { success: false, data: [] },
-    ]);
-
-    const list1x1 = (squares.success ? squares.data : []).map(mapAsset);
-    const listAll = (grids.success ? grids.data : []).map(mapAsset);
-    const list2x3 = listAll.filter((g: SteamGridAsset) => g.width && g.height && Math.abs((g.width / g.height) - (2 / 3)) < 0.05);
-    const remaining = listAll.filter((g: SteamGridAsset) => !list1x1.some((s: SteamGridAsset) => s.id === g.id) && !list2x3.some((v: SteamGridAsset) => v.id === g.id));
-
-    const mergedGridsMap = new Map<number, SteamGridAsset>();
-    [...list1x1, ...list2x3, ...remaining].forEach(item => {
-      if (!mergedGridsMap.has(item.id)) {
-        mergedGridsMap.set(item.id, item);
-      }
-    });
+    const res = await fetch(`${WORKER_API_BASE}/api/steamgrid?title=${encodeURIComponent(title)}`);
+    if (!res.ok) return empty;
+    const json = await res.json();
+    if (!json.success || !json.game) return empty;
 
     return {
-      grids: Array.from(mergedGridsMap.values()),
-      heroes: (heroes.success ? heroes.data : []).map(mapAsset),
-      logos: (logos.success ? logos.data : []).map(mapAsset),
-      icons: (icons.success ? icons.data : []).map(mapAsset),
+      grids: (json.grids || []).map(mapAsset),
+      heroes: (json.heroes || []).map(mapAsset),
+      logos: (json.logos || []).map(mapAsset),
+      icons: [],
     };
   } catch (err) {
-    console.error('[SteamGrid] Direct fetch failed:', err);
+    console.error('[SteamGrid] Direct Worker fetch failed:', err);
     return empty;
   }
 }

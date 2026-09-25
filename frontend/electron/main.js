@@ -147,49 +147,9 @@ if (!gotSingleInstanceLock) {
 }
 
 const dbPath = path.join(app.getPath('userData'), 'database.json');
-const IGDB_CLIENT_ID = 'cedukeor213t2yrqswcerzpldefp43'; // REEMPLAZAR
-const IGDB_CLIENT_SECRET = 'q9hm9iq6ahlaccv3osl19a7y71qd3t'; // REEMPLAZAR
-const STEAMGRID_API_KEY = '6abd5716fa6f6cb81eaed8426560c5eb'; // REEMPLAZADO
-let igdbAccessToken = null;
 
-// ── IGDB: caché de token en disco (dura ~60 días, no hace falta pedirlo cada vez) ──
-const igdbTokenCachePath = path.join(app.getPath('userData'), 'igdb-token-cache.json');
-
-async function getIGDBAccessTokenCached() {
-  // 1. Memoria (rápido, dura toda la sesión)
-  if (igdbAccessToken) return igdbAccessToken;
-
-  // 2. Disco (sobrevive reinicios del launcher)
-  try {
-    if (fs.existsSync(igdbTokenCachePath)) {
-      const cached = JSON.parse(fs.readFileSync(igdbTokenCachePath, 'utf8'));
-      if (cached.token && cached.expiresAt > Date.now()) {
-        igdbAccessToken = cached.token;
-        return igdbAccessToken;
-      }
-    }
-  } catch (_) { /* caché corrupta, pedimos uno nuevo */ }
-
-  // 3. Pedir token nuevo a Twitch
-  try {
-    const response = await fetch(
-      `https://id.twitch.tv/oauth2/token?client_id=${IGDB_CLIENT_ID}&client_secret=${IGDB_CLIENT_SECRET}&grant_type=client_credentials`,
-      { method: 'POST' }
-    );
-    const data = await response.json();
-    if (!data.access_token) return null;
-
-    igdbAccessToken = data.access_token;
-    // expires_in viene en segundos (Twitch normalmente da ~60 días); restamos
-    // 1 día de margen para no usarlo justo cuando expira.
-    const expiresAt = Date.now() + (data.expires_in - 86400) * 1000;
-    fs.writeFileSync(igdbTokenCachePath, JSON.stringify({ token: igdbAccessToken, expiresAt }));
-    return igdbAccessToken;
-  } catch (err) {
-    console.error('Error obteniendo token de IGDB:', err);
-    return null;
-  }
-}
+// Base URL del Worker en Cloudflare donde residen de forma segura las API Keys (IGDB, SteamGridDB)
+const WORKER_API_BASE = 'https://wps5-api.wps5-api.workers.dev';
 let mainWindow = null;
 let webMediaWindow = null;
 let toastOverlayWindow = null;
@@ -2161,310 +2121,75 @@ app.whenReady().then(async () => {
     }
   });
 
-  // RAWG API
-  const RAWG_API_KEY = process.env.RAWG_API_KEY || 'e99dab2c9f5e4a1b9866c7984a232399';
+  // IPC: Datos de juego desde RAWG (vía Worker)
   ipcMain.handle('fetch-rawg-game-data', async (_event, title) => {
-    console.log('[RAWG][main] Petición recibida para:', title);
-
-    if (!RAWG_API_KEY) {
-      console.warn('[RAWG][main] Sin API key configurada');
-      return {
-        success: false,
-        error: 'RAWG_API_KEY no está configurada',
-      };
-    }
-
     if (!title || typeof title !== 'string') {
-      console.warn('[RAWG][main] Título inválido:', title);
-      return {
-        success: false,
-        error: 'Título no proporcionado',
-      };
+      return { success: false, error: 'Título no proporcionado' };
     }
-
     try {
-      const searchUrl = new URL('https://api.rawg.io/api/games');
-
-      searchUrl.searchParams.set('key', RAWG_API_KEY);
-      searchUrl.searchParams.set('search', title.trim());
-      searchUrl.searchParams.set('search_precise', 'true');
-      searchUrl.searchParams.set('page_size', '5');
-
-      console.log('[RAWG][main] Buscando:', searchUrl.toString().replace(RAWG_API_KEY, '***'));
-      const searchRes = await fetch(searchUrl);
-
-      if (!searchRes.ok) {
-        console.warn('[RAWG][main] Búsqueda falló, HTTP', searchRes.status);
-        return {
-          success: false,
-          error: `RAWG search HTTP ${searchRes.status}`,
-        };
+      const res = await fetch(`${WORKER_API_BASE}/api/rawg?title=${encodeURIComponent(title.trim())}`);
+      if (!res.ok) return { success: false, error: `Worker respondió ${res.status}` };
+      const json = await res.json();
+      if (!json.success || !json.game) {
+        return { success: false, error: json.error || 'Juego no encontrado en RAWG' };
       }
-
-      const searchData = await searchRes.json();
-      console.log('[RAWG][main] Resultados de búsqueda:', searchData?.results?.length ?? 0);
-
-      if (!Array.isArray(searchData.results) || searchData.results.length === 0) {
-        console.warn('[RAWG][main] Sin coincidencias para:', title);
-        return {
-          success: false,
-          error: 'Juego no encontrado en RAWG',
-        };
-      }
-
-      // Primera coincidencia como estrategia inicial.
-      // Más adelante podemos implementar una selección más precisa.
-      const game = searchData.results[0];
-      console.log('[RAWG][main] Coincidencia elegida:', game.name, '(id:', game.id, ')');
-
-      const detailsUrl = new URL(
-        `https://api.rawg.io/api/games/${game.id}`
-      );
-
-      detailsUrl.searchParams.set('key', RAWG_API_KEY);
-
-      const detailsRes = await fetch(detailsUrl);
-
-      if (!detailsRes.ok) {
-        console.warn('[RAWG][main] Detalle falló, HTTP', detailsRes.status);
-        return {
-          success: false,
-          error: `RAWG details HTTP ${detailsRes.status}`,
-        };
-      }
-
-      const details = await detailsRes.json();
-      console.log('[RAWG][main] OK. background_image:', !!details.background_image, 'rating:', details.rating);
-
-      return {
-        success: true,
-        data: details,
-      };
+      return { success: true, data: json.game };
     } catch (error) {
       console.error('[RAWG][main] Error buscando juego:', error);
-
-      return {
-        success: false,
-        error: error?.message || 'Error al consultar RAWG',
-      };
+      return { success: false, error: error?.message || 'Error al consultar RAWG' };
     }
   });
 
 
-  // IPC: Obtener capturas de pantalla desde RAWG
+  // IPC: Capturas de pantalla desde RAWG (vía Worker)
   ipcMain.handle('fetch-rawg-screenshots', async (_event, title) => {
-    if (!RAWG_API_KEY || RAWG_API_KEY.includes('TU_')) {
-      return {
-        success: false,
-        error: 'API Key de RAWG no configurada',
-      };
+    if (!title || typeof title !== 'string') {
+      return { success: false, error: 'Título no proporcionado' };
     }
-
-    if (typeof title !== 'string' || !title.trim()) {
-      return {
-        success: false,
-        error: 'Título no proporcionado',
-      };
-    }
-
     try {
-      console.log('[RAWG Screenshots] Buscando juego:', title);
-
-      // 1. Buscar el juego por nombre
-      const searchUrl =
-        `https://api.rawg.io/api/games` +
-        `?key=${encodeURIComponent(RAWG_API_KEY)}` +
-        `&search=${encodeURIComponent(title.trim())}` +
-        `&page_size=1`;
-
-      const searchResponse = await fetch(searchUrl);
-
-      if (!searchResponse.ok) {
-        return {
-          success: false,
-          error: `RAWG search respondió ${searchResponse.status}`,
-        };
-      }
-
-      const searchData = await searchResponse.json();
-      const game = searchData?.results?.[0];
-
-      if (!game?.id) {
-        return {
-          success: false,
-          error: 'Juego no encontrado en RAWG',
-        };
-      }
-
-      // 2. Obtener las capturas del juego
-      const screenshotsUrl =
-        `https://api.rawg.io/api/games/${game.id}/screenshots` +
-        `?key=${encodeURIComponent(RAWG_API_KEY)}` +
-        `&page_size=20`;
-
-      const screenshotsResponse = await fetch(screenshotsUrl);
-
-      if (!screenshotsResponse.ok) {
-        return {
-          success: false,
-          error: `RAWG screenshots respondió ${screenshotsResponse.status}`,
-        };
-      }
-
-      const screenshotsData = await screenshotsResponse.json();
-
-      const screenshots = Array.isArray(screenshotsData?.results)
-        ? screenshotsData.results
-          .filter((screenshot) => screenshot?.image)
-          .map((screenshot) => ({
-            id: screenshot.id,
-            image: screenshot.image,
-            width: screenshot.width || 0,
-            height: screenshot.height || 0,
-            is_deleted: Boolean(screenshot.is_deleted),
-          }))
-        : [];
-
-      console.log(
-        `[RAWG Screenshots] ${title}: ${screenshots.length} capturas encontradas`
-      );
-
-      return {
-        success: true,
-        data: screenshots,
-      };
+      const res = await fetch(`${WORKER_API_BASE}/api/rawg?title=${encodeURIComponent(title.trim())}`);
+      if (!res.ok) return { success: false, error: `Worker respondió ${res.status}` };
+      const json = await res.json();
+      return { success: true, data: json.screenshots || [] };
     } catch (error) {
       console.error('[RAWG Screenshots] Error:', error);
-
-      return {
-        success: false,
-        error: error?.message || 'Error al consultar capturas de RAWG',
-      };
+      return { success: false, error: error?.message || 'Error al consultar capturas de RAWG' };
     }
   });
 
-  // IPC: Obtener videos/trailers de gameplay desde RAWG
-  // Steam a veces solo entrega la miniatura del trailer (el mp4 no reproduce
-  // por CORS o por URLs rotas). RAWG expone mp4 directos que sí funcionan.
+  // IPC: Trailers / videos desde RAWG (vía Worker)
   ipcMain.handle('fetch-rawg-videos', async (_event, title) => {
-    if (!RAWG_API_KEY || RAWG_API_KEY.includes('TU_')) {
-      return {
-        success: false,
-        error: 'API Key de RAWG no configurada',
-      };
+    if (!title || typeof title !== 'string') {
+      return { success: false, error: 'Título no proporcionado' };
     }
-
-    if (typeof title !== 'string' || !title.trim()) {
-      return {
-        success: false,
-        error: 'Título no proporcionado',
-      };
-    }
-
     try {
-      console.log('[RAWG Videos] Buscando juego:', title);
-
-      // 1. Buscar el juego por nombre
-      const searchUrl =
-        `https://api.rawg.io/api/games` +
-        `?key=${encodeURIComponent(RAWG_API_KEY)}` +
-        `&search=${encodeURIComponent(title.trim())}` +
-        `&page_size=1`;
-
-      const searchResponse = await fetch(searchUrl);
-
-      if (!searchResponse.ok) {
-        return {
-          success: false,
-          error: `RAWG search respondió ${searchResponse.status}`,
-        };
-      }
-
-      const searchData = await searchResponse.json();
-      const game = searchData?.results?.[0];
-
-      if (!game?.id) {
-        return {
-          success: false,
-          error: 'Juego no encontrado en RAWG',
-        };
-      }
-
-      // 2. Obtener los trailers del juego
-      const moviesUrl =
-        `https://api.rawg.io/api/games/${game.id}/movies` +
-        `?key=${encodeURIComponent(RAWG_API_KEY)}`;
-
-      const moviesResponse = await fetch(moviesUrl);
-
-      if (!moviesResponse.ok) {
-        return {
-          success: false,
-          error: `RAWG movies respondió ${moviesResponse.status}`,
-        };
-      }
-
-      const moviesData = await moviesResponse.json();
-
-      const movies = Array.isArray(moviesData?.results)
-        ? moviesData.results
-          .filter((movie) => movie?.data?.max || movie?.data?.['480'])
-          .map((movie) => ({
-            id: movie.id,
-            name: movie.name || '',
-            preview: movie.preview || '',
-            mp4_max: movie.data?.max || '',
-            mp4_480: movie.data?.['480'] || '',
-          }))
-        : [];
-
-      console.log(
-        `[RAWG Videos] ${title}: ${movies.length} trailers encontrados`
-      );
-
-      return {
-        success: true,
-        data: movies,
-      };
+      const res = await fetch(`${WORKER_API_BASE}/api/rawg?title=${encodeURIComponent(title.trim())}`);
+      if (!res.ok) return { success: false, error: `Worker respondió ${res.status}` };
+      const json = await res.json();
+      return { success: true, data: json.movies || [] };
     } catch (error) {
       console.error('[RAWG Videos] Error:', error);
-
-      return {
-        success: false,
-        error: error?.message || 'Error al consultar videos de RAWG',
-      };
+      return { success: false, error: error?.message || 'Error al consultar videos de RAWG' };
     }
   });
 
 
   // IPC: Buscar trailers/videos de un juego en IGDB
   ipcMain.handle('fetch-igdb-videos', async (event, title) => {
-    const token = await getIGDBAccessTokenCached();
-    if (!token) return { success: false, error: 'No se pudo obtener el token de IGDB' };
+    if (!title) return { success: false, error: 'Título no proporcionado' };
 
     try {
-      // IGDB exige POST con estos headers exactos — no es viable desde el
-      // renderer por CORS, por eso vive aquí en el proceso principal.
-      const response = await fetch('https://api.igdb.com/v4/games', {
-        method: 'POST',
-        headers: {
-          'Client-ID': IGDB_CLIENT_ID,
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'text/plain',
-        },
-        body: `fields name, videos.video_id, videos.name; search "${title}"; limit 1;`,
-      });
-
+      const response = await fetch(`${WORKER_API_BASE}/api/game?title=${encodeURIComponent(title)}`);
       if (!response.ok) {
-        return { success: false, error: `IGDB respondió ${response.status}` };
+        return { success: false, error: `Worker API respondió ${response.status}` };
       }
 
       const data = await response.json();
-      if (!data || data.length === 0) {
+      if (!data.success || !data.games || data.games.length === 0) {
         return { success: false, error: 'No se encontró el juego en IGDB' };
       }
 
-      const game = data[0];
+      const game = data.games[0];
       const rawVideos = (game && game.videos) || [];
 
       const videos = rawVideos
@@ -2484,61 +2209,57 @@ app.whenReady().then(async () => {
 
       return { success: true, data: videos };
     } catch (error) {
-      console.error('Error buscando videos en IGDB:', error);
+      console.error('Error buscando videos en IGDB via Worker:', error);
       return { success: false, error: error.message };
     }
   });
 
   // IPC: Buscar assets (cover, screenshots, artworks) de un juego en IGDB
   ipcMain.handle('fetch-igdb-assets', async (event, title) => {
-    const token = await getIGDBAccessToken();
-    if (!token) return { success: false, error: 'No se pudo obtener el token de IGDB' };
+    if (!title) return { success: false, error: 'Título no proporcionado' };
 
-    // IGDB solo entrega un image_id; el tamaño de la imagen se arma con el
-    // segmento t_<size> en la URL. Usamos tamaños grandes para el asset
-    // seleccionable y t_thumb para la miniatura del grid.
-    const buildUrl = (imageId, size) => `https://images.igdb.com/igdb/image/upload/t_${size}/${imageId}.jpg`;
+    const buildUrl = (rawUrl, size) => {
+      if (!rawUrl) return '';
+      let u = rawUrl;
+      if (u.startsWith('//')) u = 'https:' + u;
+      return u.replace(/\/t_[^\/]+\//, `/${size}/`);
+    };
 
     try {
-      const response = await fetch('https://api.igdb.com/v4/games', {
-        method: 'POST',
-        headers: {
-          'Client-ID': IGDB_CLIENT_ID,
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'text/plain'
-        },
-        body: `fields name, cover.image_id, screenshots.image_id, artworks.image_id; search "${title}"; limit 1;`
-      });
+      const response = await fetch(`${WORKER_API_BASE}/api/game?title=${encodeURIComponent(title)}`);
+      if (!response.ok) {
+        return { success: false, error: `Worker API respondió ${response.status}` };
+      }
 
       const data = await response.json();
-      if (!data || data.length === 0) {
+      if (!data.success || !data.games || data.games.length === 0) {
         return { success: false, error: 'No se encontró el juego en IGDB' };
       }
 
-      const game = data[0];
+      const game = data.games[0];
 
-      const covers = (game.cover ? [game.cover] : []).map(c => ({
-        id: `igdb_cover_${c.id}`,
-        url: buildUrl(c.image_id, 'cover_big'),
-        thumb: buildUrl(c.image_id, 'thumb'),
+      const covers = (game.cover?.url ? [game.cover] : []).map(c => ({
+        id: `igdb_cover_${c.id || 0}`,
+        url: buildUrl(c.url, 't_cover_big'),
+        thumb: buildUrl(c.url, 't_thumb'),
         width: 264,
         height: 374,
         author: null
       }));
 
-      const artworks = (game.artworks || []).map(a => ({
-        id: `igdb_artwork_${a.id}`,
-        url: buildUrl(a.image_id, '1080p'),
-        thumb: buildUrl(a.image_id, 'thumb'),
+      const artworks = (game.artworks || []).filter(a => a.url).map(a => ({
+        id: `igdb_artwork_${a.id || 0}`,
+        url: buildUrl(a.url, 't_1080p'),
+        thumb: buildUrl(a.url, 't_thumb'),
         width: 1920,
         height: 1080,
         author: null
       }));
 
-      const screenshots = (game.screenshots || []).map(s => ({
-        id: `igdb_screenshot_${s.id}`,
-        url: buildUrl(s.image_id, 'screenshot_huge'),
-        thumb: buildUrl(s.image_id, 'thumb'),
+      const screenshots = (game.screenshots || []).filter(s => s.url).map(s => ({
+        id: `igdb_screenshot_${s.id || 0}`,
+        url: buildUrl(s.url, 't_screenshot_huge'),
+        thumb: buildUrl(s.url, 't_thumb'),
         width: 1280,
         height: 720,
         author: null
@@ -2546,7 +2267,7 @@ app.whenReady().then(async () => {
 
       return { success: true, data: { covers, artworks, screenshots } };
     } catch (error) {
-      console.error('Error buscando assets en IGDB:', error);
+      console.error('Error buscando assets en IGDB via Worker:', error);
       return { success: false, error: error.message };
     }
   });
@@ -3359,177 +3080,91 @@ app.whenReady().then(async () => {
     }
   });
 
-  // IGDB: Obtener token de acceso (delega a getIGDBAccessTokenCached con caché en disco)
-  async function getIGDBAccessToken() {
-    return getIGDBAccessTokenCached();
-  }
-
   // IPC: Buscar datos de un juego en IGDB
   ipcMain.handle('fetch-game-data', async (event, title) => {
-    const token = await getIGDBAccessToken();
-    if (!token) return { success: false, error: 'No se pudo obtener el token de IGDB' };
+    if (!title) return { success: false, error: 'Título no proporcionado' };
 
     try {
-      const response = await fetch('https://api.igdb.com/v4/games', {
-        method: 'POST',
-        headers: {
-          'Client-ID': IGDB_CLIENT_ID,
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'text/plain'
-        },
-        body: `fields name, videos.video_id, videos.name, rating, summary, aggregated_rating, cover.url, screenshots.url, artworks.url; search "${title}"; limit 1;`
+      const response = await fetch(`${WORKER_API_BASE}/api/game?title=${encodeURIComponent(title)}`);
+      if (!response.ok) {
+        return { success: false, error: `Worker API respondió ${response.status}` };
+      }
 
-      });
-
-      const data = await response.json();
-      console.log('IGDB Data:', JSON.stringify(data, null, 2));
-      if (data && data.length > 0) {
-        return { success: true, data: data[0] };
+      const json = await response.json();
+      if (json.success && json.games && json.games.length > 0) {
+        return { success: true, data: json.games[0] };
       }
 
       return { success: false, error: 'No se encontró el juego' };
     } catch (error) {
-      console.error('Error buscando datos en IGDB:', error);
+      console.error('Error buscando datos en IGDB via Worker:', error);
       return { success: false, error: error.message };
     }
   });
 
   // IPC: Buscar assets de un juego en SteamGridDB
   ipcMain.handle('fetch-steamgrid-data', async (event, title) => {
-    if (!STEAMGRID_API_KEY || STEAMGRID_API_KEY.includes('TU_')) {
-      return { success: false, error: 'Configuración pendiente: Pon tu API Key en la línea 17 de main.js' };
-    }
+    if (!title) return { success: false, error: 'Título no proporcionado' };
 
-    console.log('Buscando en SteamGridDB:', title);
+    console.log('Buscando en SteamGridDB via Worker:', title);
 
     try {
-      // 1. Buscar el juego para obtener el ID
-      const searchRes = await fetch(`https://www.steamgriddb.com/api/v2/search/autocomplete/${encodeURIComponent(title)}`, {
-        headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` }
-      });
-      const searchData = await searchRes.json();
-
-      if (!searchData.success) {
-        return { success: false, error: 'Error de API: ' + (searchData.errors ? searchData.errors.join(', ') : '¿Quizás la API Key es incorrecta?') };
+      const response = await fetch(`${WORKER_API_BASE}/api/steamgrid?title=${encodeURIComponent(title)}`);
+      if (!response.ok) {
+        return { success: false, error: `Worker respondió ${response.status}` };
       }
 
-      if (!searchData.data || searchData.data.length === 0) {
-        return { success: false, error: 'Juego no encontrado en SteamGridDB' };
+      const json = await response.json();
+      if (!json.success || !json.game) {
+        return { success: false, error: json.error || 'Juego no encontrado en SteamGridDB' };
       }
 
-      const gameId = searchData.data[0].id;
-
-      // 2. Buscar Grids 1:1, Grids 2:3, Grids Generales, Heroes (Fondos) y Logos en paralelo
-      const [grids1x1Res, grids2x3Res, gridsAllRes, heroesRes, logosRes] = await Promise.all([
-        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}?dimensions=512x512,1024x1024`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
-        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}?dimensions=600x900`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
-        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
-        fetch(`https://www.steamgriddb.com/api/v2/heroes/game/${gameId}?limit=1`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
-        fetch(`https://www.steamgriddb.com/api/v2/logos/game/${gameId}?limit=1`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } })
-      ]);
-
-      const [grids1x1, grids2x3, gridsAll, heroes, logos] = await Promise.all([
-        grids1x1Res.ok ? grids1x1Res.json() : { success: false, data: [] },
-        grids2x3Res.ok ? grids2x3Res.json() : { success: false, data: [] },
-        gridsAllRes.ok ? gridsAllRes.json() : { success: false, data: [] },
-        heroesRes.ok ? heroesRes.json() : { success: false, data: [] },
-        logosRes.ok ? logosRes.json() : { success: false, data: [] }
-      ]);
-
-      // Selección prioritaria de la portada: 1:1 -> 2:3 -> cualquier otra disponible
-      let chosenGrid = null;
-      if (grids1x1.success && grids1x1.data && grids1x1.data.length > 0) {
-        chosenGrid = grids1x1.data[0].url || grids1x1.data[0].thumb;
-      } else if (grids2x3.success && grids2x3.data && grids2x3.data.length > 0) {
-        chosenGrid = grids2x3.data[0].url || grids2x3.data[0].thumb;
-      } else if (gridsAll.success && gridsAll.data && gridsAll.data.length > 0) {
-        const square = gridsAll.data.find(g => g.width && g.height && g.width === g.height);
-        const vertical2x3 = gridsAll.data.find(g => g.width && g.height && Math.abs((g.width / g.height) - (2 / 3)) < 0.05);
-        if (square) {
-          chosenGrid = square.url || square.thumb;
-        } else if (vertical2x3) {
-          chosenGrid = vertical2x3.url || vertical2x3.thumb;
-        } else {
-          chosenGrid = gridsAll.data[0].url || gridsAll.data[0].thumb;
-        }
-      }
+      const chosenGrid = json.grids?.[0]?.url || json.grids?.[0]?.thumb || null;
+      const hero = json.heroes?.[0]?.url || json.heroes?.[0]?.thumb || null;
+      const logo = json.logos?.[0]?.url || json.logos?.[0]?.thumb || null;
 
       return {
         success: true,
         data: {
           grid: chosenGrid,
-          hero: heroes.success && heroes.data && heroes.data.length > 0 ? (heroes.data[0].url || heroes.data[0].thumb) : null,
-          logo: logos.success && logos.data && logos.data.length > 0 ? (logos.data[0].url || logos.data[0].thumb) : null
+          hero,
+          logo
         }
       };
     } catch (error) {
-      console.error('Error buscando en SteamGridDB:', error);
+      console.error('Error buscando en SteamGridDB via Worker:', error);
       return { success: false, error: error.message };
     }
   });
 
   // IPC: Buscar todos los assets disponibles de un juego en SteamGridDB
   ipcMain.handle('fetch-steamgrid-assets', async (event, title) => {
-    if (!STEAMGRID_API_KEY || STEAMGRID_API_KEY.includes('TU_')) {
-      return { success: false, error: 'Configuración pendiente: Pon tu API Key en la línea 17 de main.js' };
-    }
+    if (!title) return { success: false, error: 'Título no proporcionado' };
 
-    console.log('Buscando todos los assets en SteamGridDB para:', title);
+    console.log('Buscando todos los assets en SteamGridDB via Worker para:', title);
 
     try {
-      // 1. Buscar el juego para obtener el ID
-      const searchRes = await fetch(`https://www.steamgriddb.com/api/v2/search/autocomplete/${encodeURIComponent(title)}`, {
-        headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` }
-      });
-      const searchData = await searchRes.json();
-
-      if (!searchData.success || !searchData.data || searchData.data.length === 0) {
-        return { success: false, error: 'Juego no encontrado en SteamGridDB' };
+      const response = await fetch(`${WORKER_API_BASE}/api/steamgrid?title=${encodeURIComponent(title)}`);
+      if (!response.ok) {
+        return { success: false, error: `Worker respondió ${response.status}` };
       }
 
-      const gameId = searchData.data[0].id;
-
-      // 2. Buscar Grids, Squares, Heroes, Logos e Iconos en paralelo
-      const [gridsRes, squaresRes, heroesRes, logosRes, iconsRes] = await Promise.all([
-        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
-        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${gameId}?dimensions=512x512,1024x1024`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
-        fetch(`https://www.steamgriddb.com/api/v2/heroes/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
-        fetch(`https://www.steamgriddb.com/api/v2/logos/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } }),
-        fetch(`https://www.steamgriddb.com/api/v2/icons/game/${gameId}`, { headers: { 'Authorization': `Bearer ${STEAMGRID_API_KEY}` } })
-      ]);
-
-      const [grids, squares, heroes, logos, icons] = await Promise.all([
-        gridsRes.json(),
-        squaresRes.json(),
-        heroesRes.json(),
-        logosRes.json(),
-        iconsRes.json()
-      ]);
-
-      const list1x1 = squares.success ? squares.data : [];
-      const listAll = grids.success ? grids.data : [];
-      const list2x3 = listAll.filter(g => g.width && g.height && Math.abs((g.width / g.height) - (2 / 3)) < 0.05);
-      const remaining = listAll.filter(g => !list1x1.some(s => s.id === g.id) && !list2x3.some(v => v.id === g.id));
-
-      const mergedGridsMap = new Map();
-      [...list1x1, ...list2x3, ...remaining].forEach(item => {
-        if (!mergedGridsMap.has(item.id)) {
-          mergedGridsMap.set(item.id, item);
-        }
-      });
-      const mergedGrids = Array.from(mergedGridsMap.values());
+      const json = await response.json();
+      if (!json.success || !json.game) {
+        return { success: false, error: json.error || 'Juego no encontrado en SteamGridDB' };
+      }
 
       return {
         success: true,
         data: {
-          grids: mergedGrids,
-          heroes: heroes.success ? heroes.data : [],
-          logos: logos.success ? logos.data : [],
-          icons: icons.success ? icons.data : []
+          grids: json.grids || [],
+          heroes: json.heroes || [],
+          logos: json.logos || [],
+          icons: []
         }
       };
     } catch (error) {
-      console.error('Error buscando todos los assets en SteamGridDB:', error);
+      console.error('Error buscando todos los assets en SteamGridDB via Worker:', error);
       return { success: false, error: error.message };
     }
   });
