@@ -15,7 +15,7 @@ import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsServic
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
 import { fetchRawgGameData, fetchRawgMediaByName, mapRawgScreenshotsToMedia, fetchRawgVideosByName, mapRawgMoviesToMedia } from '../services/rawgService';
-import { fetchPsnMetadata } from '../services/psnMetadataService';
+import { fetchPsnMetadata, searchPsnGames } from '../services/psnMetadataService';
 import { fetchGameVideosByName } from '../services/gameVideoService';
 import { soundService } from '../services/soundService';
 import { fetchSteamDescription, isPlaytimePlaceholder, fetchSteamInfo } from '../services/steamDescriptionService';
@@ -77,16 +77,21 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [selectedDimensionFilter, setSelectedDimensionFilter] = useState<'all' | '2:3' | '22:31' | '1:1' | '92:43'>('all');
   const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   // Fuente de imágenes: SteamGridDB (portadas/logos/iconos con dimensiones precisas),
-  // RAWG (fondo principal + fondo adicional + capturas) o IGDB (cover + artworks +
-  // screenshots). RAWG e IGDB solo aplican a cápsula, cápsula ancha e imagen
-  // principal — no tienen logos ni iconos.
-  const [assetSource, setAssetSource] = useState<'steamgrid' | 'rawg' | 'igdb'>('steamgrid');
+  // RAWG (fondo principal + fondo adicional + capturas), IGDB (cover + artworks +
+  // screenshots) o PSN (portadas y fondos de los candidatos del Store).
+  // RAWG e IGDB solo aplican a cápsula, cápsula ancha e imagen
+  // principal — no tienen logos ni iconos. PSN además aporta portadas
+  // cuadradas que sirven como logo.
+  const [assetSource, setAssetSource] = useState<'steamgrid' | 'rawg' | 'igdb' | 'psn'>('steamgrid');
   const [rawgAssetsData, setRawgAssetsData] = useState<{ background: any[]; screenshots: any[] }>({ background: [], screenshots: [] });
   const [isLoadingRawgAssets, setIsLoadingRawgAssets] = useState(false);
   const rawgAssetsLoadedForTitleRef = useRef<string | null>(null);
   const [igdbAssetsData, setIgdbAssetsData] = useState<{ covers: any[]; artworks: any[]; screenshots: any[] }>({ covers: [], artworks: [], screenshots: [] });
   const [isLoadingIgdbAssets, setIsLoadingIgdbAssets] = useState(false);
   const igdbAssetsLoadedForTitleRef = useRef<string | null>(null);
+  const [psnAssetsData, setPsnAssetsData] = useState<{ covers: any[]; backgrounds: any[] }>({ covers: [], backgrounds: [] });
+  const [isLoadingPsnAssets, setIsLoadingPsnAssets] = useState(false);
+  const psnAssetsLoadedForTitleRef = useRef<string | null>(null);
   const [sliderValue, setSliderValue] = useState(5);
   const [assetSelectorFocusArea, setAssetSelectorFocusArea] = useState<'tabs' | 'filters' | 'grid'>('tabs');
   const [gridFocusIndex, setGridFocusIndex] = useState(0);
@@ -142,8 +147,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const { t, language } = useTranslation();
 
   // Pestañas donde RAWG/IGDB pueden aportar imágenes (no tienen logos ni iconos).
+  // PSN aporta portadas (cápsula y logo) y fondos (cápsula ancha e imagen principal).
   const isRawgEligibleTab = (tab: string) => tab === 'capsule' || tab === 'capsule_wide' || tab === 'hero';
   const isIgdbEligibleTab = (tab: string) => tab === 'capsule' || tab === 'capsule_wide' || tab === 'hero';
+  const isPsnEligibleTab = (tab: string) => tab === 'capsule' || tab === 'capsule_wide' || tab === 'hero' || tab === 'logo';
 
   const getActiveTabList = () => {
     if (assetSource === 'rawg' && isRawgEligibleTab(assetSelectorTab)) {
@@ -162,6 +169,18 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       const combined = assetSelectorTab === 'capsule'
         ? [...igdbAssetsData.covers]
         : [...igdbAssetsData.artworks, ...igdbAssetsData.screenshots];
+      const seenUrls = new Set<string>();
+      return combined.filter((a: any) => {
+        if (!a?.url || seenUrls.has(a.url)) return false;
+        seenUrls.add(a.url);
+        return true;
+      });
+    }
+
+    if (assetSource === 'psn' && isPsnEligibleTab(assetSelectorTab)) {
+      const combined = (assetSelectorTab === 'capsule' || assetSelectorTab === 'logo')
+        ? [...psnAssetsData.covers]
+        : [...psnAssetsData.backgrounds];
       const seenUrls = new Set<string>();
       return combined.filter((a: any) => {
         if (!a?.url || seenUrls.has(a.url)) return false;
@@ -287,6 +306,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setRawgAssetsData({ background: [], screenshots: [] });
     igdbAssetsLoadedForTitleRef.current = null;
     setIgdbAssetsData({ covers: [], artworks: [], screenshots: [] });
+    psnAssetsLoadedForTitleRef.current = null;
+    setPsnAssetsData({ covers: [], backgrounds: [] });
 
     setIsLoadingAssets(true);
     try {
@@ -397,6 +418,50 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
   };
 
+  // Carga bajo demanda las imágenes de PSN (portadas y fondos de los
+  // candidatos del Store) al elegir esa fuente en el selector de assets.
+  // Se cachea por título dentro de la sesión del selector, igual que RAWG.
+  const loadPsnAssets = async () => {
+    const title = editData.title || '';
+    if (!title) {
+      setPsnAssetsData({ covers: [], backgrounds: [] });
+      return;
+    }
+    if (psnAssetsLoadedForTitleRef.current === title) return;
+
+    setIsLoadingPsnAssets(true);
+    try {
+      const results = await searchPsnGames(title, { limit: 24 });
+      const covers = results
+        .filter((r) => r.coverUrl)
+        .map((r) => ({
+          id: `psn_cover_${r.id}`,
+          url: r.coverUrl,
+          thumb: r.coverUrl,
+          width: 0,
+          height: 0,
+          author: null,
+        }));
+      const backgrounds = results
+        .filter((r) => r.backgroundUrl)
+        .map((r) => ({
+          id: `psn_bg_${r.id}`,
+          url: r.backgroundUrl as string,
+          thumb: r.backgroundUrl as string,
+          width: 0,
+          height: 0,
+          author: null,
+        }));
+      setPsnAssetsData({ covers, backgrounds });
+      psnAssetsLoadedForTitleRef.current = title;
+    } catch (err) {
+      console.error('Failed to load PSN assets', err);
+      setPsnAssetsData({ covers: [], backgrounds: [] });
+    } finally {
+      setIsLoadingPsnAssets(false);
+    }
+  };
+
   // Al elegir RAWG como fuente (mientras el selector está abierto), dispara la carga.
   useEffect(() => {
     if (!isAssetSelectorVisible) return;
@@ -415,14 +480,26 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetSource, isAssetSelectorVisible, assetSelectorTab]);
 
-  // Logo/icono no tienen equivalente en RAWG ni IGDB: si el usuario cambia a
-  // esas pestañas mientras una de esas fuentes está activa, volvemos
-  // automáticamente a SteamGridDB.
+  // Al elegir PSN como fuente (mientras el selector está abierto), dispara la carga.
+  useEffect(() => {
+    if (!isAssetSelectorVisible) return;
+    if (assetSource !== 'psn') return;
+    if (!isPsnEligibleTab(assetSelectorTab)) return;
+    loadPsnAssets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetSource, isAssetSelectorVisible, assetSelectorTab]);
+
+  // Logo/icono no tienen equivalente en RAWG ni IGDB (PSN solo aporta logo):
+  // si el usuario cambia a esas pestañas mientras una de esas fuentes está
+  // activa, volvemos automáticamente a SteamGridDB.
   useEffect(() => {
     if (assetSource === 'rawg' && !isRawgEligibleTab(assetSelectorTab)) {
       setAssetSource('steamgrid');
     }
     if (assetSource === 'igdb' && !isIgdbEligibleTab(assetSelectorTab)) {
+      setAssetSource('steamgrid');
+    }
+    if (assetSource === 'psn' && !isPsnEligibleTab(assetSelectorTab)) {
       setAssetSource('steamgrid');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2217,7 +2294,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   {/* Filter and slider bar */}
                   <View style={styles.filterBar}>
                     <View style={styles.filterActions}>
-                      {(isRawgEligibleTab(assetSelectorTab) || isIgdbEligibleTab(assetSelectorTab)) && (
+                      {(isRawgEligibleTab(assetSelectorTab) || isIgdbEligibleTab(assetSelectorTab) || isPsnEligibleTab(assetSelectorTab)) && (
                         <View style={styles.sourceToggleRow}>
                           <TouchableOpacity
                             style={[styles.sourceToggleBtn, assetSource === 'steamgrid' && styles.sourceToggleBtnActive]}
@@ -2258,10 +2335,23 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               IGDB
                             </Text>
                           </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.sourceToggleBtn, assetSource === 'psn' && styles.sourceToggleBtnActive]}
+                            onPress={() => {
+                              setAssetSource('psn');
+                              setAssetSelectorFocusArea('filters');
+                              setGridFocusIndex(0);
+                              setCurrentPage(0);
+                            }}
+                          >
+                            <Text style={[styles.sourceToggleText, assetSource === 'psn' && styles.sourceToggleTextActive]}>
+                              PSN
+                            </Text>
+                          </TouchableOpacity>
                         </View>
                       )}
 
-                      {assetSource !== 'rawg' && assetSource !== 'igdb' && (
+                      {assetSource !== 'rawg' && assetSource !== 'igdb' && assetSource !== 'psn' && (
                         <TouchableOpacity
                           style={[
                             styles.filterBtn,
@@ -2336,7 +2426,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                       assetGridVisibleHeightRef.current = e.nativeEvent.layout.height;
                     }}
                   >
-                    {(isLoadingAssets || (assetSource === 'rawg' && isLoadingRawgAssets) || (assetSource === 'igdb' && isLoadingIgdbAssets)) ? (
+                    {(isLoadingAssets || (assetSource === 'rawg' && isLoadingRawgAssets) || (assetSource === 'igdb' && isLoadingIgdbAssets) || (assetSource === 'psn' && isLoadingPsnAssets)) ? (
                       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
                         <MaterialCommunityIcons name="loading" size={s(40)} color="#FFF" style={{ marginBottom: 12 }} />
                         <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>
@@ -2344,7 +2434,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             ? 'Buscando assets en RAWG...'
                             : assetSource === 'igdb'
                               ? 'Buscando assets en IGDB...'
-                              : 'Buscando assets en SteamGridDB...'}
+                              : assetSource === 'psn'
+                                ? 'Buscando assets en PSN...'
+                                : 'Buscando assets en SteamGridDB...'}
                         </Text>
                       </View>
                     ) : assetSelectorTab === 'manage' ? (
@@ -2463,7 +2555,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                   </>
                                 ) : (
                                   <Text style={styles.authorName} numberOfLines={1}>
-                                    {assetSource === 'rawg' ? 'RAWG' : assetSource === 'igdb' ? 'IGDB' : 'SteamGridDB'}
+                                    {assetSource === 'rawg' ? 'RAWG' : assetSource === 'igdb' ? 'IGDB' : assetSource === 'psn' ? 'PSN' : 'SteamGridDB'}
                                   </Text>
                                 )}
                               </View>
