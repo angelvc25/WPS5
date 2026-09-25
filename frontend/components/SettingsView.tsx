@@ -538,7 +538,7 @@ export default function SettingsView({
   // y cambian los filtros. Se debounce el texto de búsqueda para no
   // disparar una petición por cada tecla.
   useEffect(() => {
-    if (currentScreen !== 'accessibility' || accessibilityLeftIndex !== 7) return;
+    if (currentScreen !== 'accessibility' || accessibilityLeftIndex !== 8) return;
     // "Descargados" es un filtro 100% local (historial en localStorage),
     // no dispara ninguna búsqueda contra SteamDeckRepo.
     if (splashType === 'downloaded') {
@@ -587,7 +587,7 @@ export default function SettingsView({
 
   // Reinicia el foco de mando al entrar a la sección Splash Videos.
   useEffect(() => {
-    if (accessibilityLeftIndex === 7) {
+    if (accessibilityLeftIndex === 8) {
       setSplashFocusZone('filters');
       setSplashFilterIndex(0);
       setSplashGridFlatIndex(0);
@@ -658,7 +658,7 @@ export default function SettingsView({
   // que el ScrollView no la sigue solo (el foco es lógico, no de teclado
   // real del navegador).
   useEffect(() => {
-    if (accessibilityLeftIndex !== 7 || splashFocusZone !== 'grid') return;
+    if (accessibilityLeftIndex !== 8 || splashFocusZone !== 'grid') return;
     const node = splashCardRefs.current[splashGridFlatIndex];
     if (node && typeof node.scrollIntoView === 'function') {
       node.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
@@ -847,8 +847,9 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 3) return 0; // Steam: conectar/desvincular
     if (accessibilityLeftIndex === 4) return 1; // RetroAchievements: 2 inputs
     if (accessibilityLeftIndex === 5) return 3; // Smart Sync
-    if (accessibilityLeftIndex === 6) return 1; // Overlay: toggle + combo
-    if (accessibilityLeftIndex === 7) return 0; // Splash Videos: navegación por mouse/touch en la grilla
+    if (accessibilityLeftIndex === 6) return 1; // Panel del juego: 2 toggles
+    if (accessibilityLeftIndex === 7) return 1; // Overlay: toggle + combo
+    if (accessibilityLeftIndex === 8) return 0; // Splash Videos: navegación por mouse/touch en la grilla
     return 0;
   };
 
@@ -1028,6 +1029,25 @@ export default function SettingsView({
     }
 
     if (accessibilityLeftIndex === 6) {
+      if (subFocusIndex === 0) {
+        updateUser({
+          settings: {
+            ...activeUser?.settings,
+            showNews: !(activeUser?.settings?.showNews !== false),
+          } as any,
+        });
+      } else if (subFocusIndex === 1) {
+        updateUser({
+          settings: {
+            ...activeUser?.settings,
+            showGameMetadata: !(activeUser?.settings?.showGameMetadata !== false),
+          } as any,
+        });
+      }
+      return;
+    }
+
+    if (accessibilityLeftIndex === 7) {
       const overlayEnabled = activeUser?.settings?.overlayEnabled !== false;
       const overlayCombo = activeUser?.settings?.overlayCombo || 'SELECT_START';
       if (subFocusIndex === 0) {
@@ -1040,7 +1060,7 @@ export default function SettingsView({
       return;
     }
 
-    if (accessibilityLeftIndex === 7) {
+    if (accessibilityLeftIndex === 8) {
       // Splash Videos — la búsqueda, filtros y tarjetas se manejan con
       // mouse/touch directamente (onPress de cada control).
       return;
@@ -1146,7 +1166,7 @@ export default function SettingsView({
             setSubFocusIndex(0);
             soundService.playNavigation();
           }
-        } else if (accessibilityLeftIndex === 7) {
+        } else if (accessibilityLeftIndex === 8) {
           // Splash Videos: navegación en zonas (filtros -> grilla -> paginación)
           const cols = Math.max(1, splashGridCols);
           const maxFlat = Math.max(0, displayedSplashItems.length - 1);
@@ -1700,6 +1720,7 @@ export default function SettingsView({
       { id: 'steam', title: 'Steam' },
       { id: 'retroachievements', title: 'RetroAchievements' },
       { id: 'sync', title: t('settings.smartSync') },
+      { id: 'gamepanel', title: t('settings.gamePanel') },
       { id: 'overlay', title: t('settings.overlay') },
       { id: 'splash', title: t('settings.steamDeckRepo') },
     ];
@@ -2230,7 +2251,84 @@ export default function SettingsView({
               );
             })()}
 
-            {accessibilityLeftIndex === 6 && (() => {
+            {accessibilityLeftIndex === 6 && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.rightSectionTitle}>{t('settings.gamePanel')}</Text>
+                <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.gamePanelDesc')}</Text>
+
+                {/* Mostrar noticias */}
+                <View
+                  style={[
+                    styles.toggleRowSection,
+                    accessibilityFocusArea === 'right' && subFocusIndex === 0 && styles.rightItemFocused,
+                  ]}
+                >
+                  {accessibilityFocusArea === 'right' && subFocusIndex === 0 && <SpinningBorderSearch size={s(200)} spread={0.5} borderRadius={0} />}
+                  <View style={{ flex: 1, paddingRight: 20 }}>
+                    <Text style={styles.toggleRowTitle}>{t('settings.showNews')}</Text>
+                    <Text style={styles.toggleRowDesc}>{t('settings.showNewsDesc')}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.psSwitch,
+                      activeUser?.settings?.showNews !== false && styles.psSwitchActive,
+                    ]}
+                    onPress={() =>
+                      updateUser({
+                        settings: {
+                          ...activeUser?.settings,
+                          showNews: !(activeUser?.settings?.showNews !== false),
+                        } as any,
+                      })
+                    }
+                  >
+                    <View
+                      style={[
+                        styles.psSwitchThumb,
+                        activeUser?.settings?.showNews !== false && styles.psSwitchThumbActive,
+                      ]}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Ficha de metadatos */}
+                <View
+                  style={[
+                    styles.toggleRowSection,
+                    accessibilityFocusArea === 'right' && subFocusIndex === 1 && styles.rightItemFocused,
+                  ]}
+                >
+                  {accessibilityFocusArea === 'right' && subFocusIndex === 1 && <SpinningBorderSearch size={s(200)} spread={0.5} borderRadius={0} />}
+                  <View style={{ flex: 1, paddingRight: 20 }}>
+                    <Text style={styles.toggleRowTitle}>{t('settings.showGameMetadata')}</Text>
+                    <Text style={styles.toggleRowDesc}>{t('settings.showGameMetadataDesc')}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.psSwitch,
+                      activeUser?.settings?.showGameMetadata !== false && styles.psSwitchActive,
+                    ]}
+                    onPress={() =>
+                      updateUser({
+                        settings: {
+                          ...activeUser?.settings,
+                          showGameMetadata: !(activeUser?.settings?.showGameMetadata !== false),
+                        } as any,
+                      })
+                    }
+                  >
+                    <View
+                      style={[
+                        styles.psSwitchThumb,
+                        activeUser?.settings?.showGameMetadata !== false && styles.psSwitchThumbActive,
+                      ]}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            )}
+
+            {accessibilityLeftIndex === 7 && (() => {
               const overlayEnabled = activeUser?.settings?.overlayEnabled !== false;
               const overlayCombo = activeUser?.settings?.overlayCombo || 'SELECT_START';
               const isRightFocused = accessibilityFocusArea === 'right';
@@ -2296,7 +2394,7 @@ export default function SettingsView({
               );
             })()}
 
-            {accessibilityLeftIndex === 7 && (() => {
+            {accessibilityLeftIndex === 8 && (() => {
               const currentBoot = (activeUser?.settings as any)?.bootVideoPath;
               const currentSuspend = (activeUser?.settings as any)?.suspendVideoPath;
               const isRightFocused = accessibilityFocusArea === 'right';
@@ -3628,7 +3726,7 @@ export default function SettingsView({
         {currentScreen === 'system' && renderSystemScreen()}
       </View>
       {/* Control Prompt Bar at Bottom */}
-      {currentScreen === 'accessibility' && accessibilityLeftIndex === 7 && (
+      {currentScreen === 'accessibility' && accessibilityLeftIndex === 8 && (
         <View style={styles.bottomControlBarContainer2}>
           <View style={[styles.bottomControlBar, {}]}>
             <PSIcon

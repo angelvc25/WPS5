@@ -20,6 +20,7 @@ import { fetchSteamDescription, isPlaytimePlaceholder } from '../services/steamD
 import { getGameActionLabel, getSteamAppId, isSteamGame } from '../services/steamLaunchService';
 import { fetchSteamGameAchievements, getCachedSteamGameAchievements, SteamGameAchievementsSummary } from '../services/steamUserService';
 import MusicPlayerCard from './MusicPlayerCard';
+import { GameMetadataSection } from './GameMetadataSection';
 import SpinningBorderNoticias from './SpinningborderNoticias';
 import { toastService } from '@/services/toastService';
 
@@ -1745,7 +1746,7 @@ export const GameInfoPanel = ({
       )}
 
       {/* Steam News row */}
-      {canPlay && !isMediaSection && !isMediaGallery && (
+      {canPlay && !isMediaSection && !isMediaGallery && activeUser?.settings?.showNews !== false && (
         <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
           <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.latestNews')}</Text>
 
@@ -1937,6 +1938,16 @@ export const GameInfoPanel = ({
             </ScrollView>
           )}
         </View>
+      )}
+
+      {/* Ficha de metadatos estilo PS5 (opcional desde Accesibilidad) */}
+      {canPlay && !isMediaSection && !isMediaGallery && activeUser?.settings?.showGameMetadata !== false && playtimeItem && (
+        <GameMetadataSection
+          item={playtimeItem}
+          language={language}
+          windowWidth={windowWidth}
+          windowHeight={windowHeight}
+        />
       )}
     </Animated.View>
   );

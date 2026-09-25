@@ -60,6 +60,29 @@ export function psnLocaleForLanguage(language?: string | null): string {
   }
 }
 
+// Plataformas sin ficha fiable en el Store moderno (solo indexa PS4/PS5).
+// Buscarlas en PSN trae el juego homónimo equivocado (ej. el Ratchet & Clank
+// de PS4 para el Tools of Destruction de PS3), así que se excluyen y se usa
+// IGDB en su lugar. Sin plataforma informada se permite (comportamiento actual).
+const NON_PSN_PLATFORMS = new Set([
+  'ps1', 'psx', 'psone', 'playstation1',
+  'ps2', 'playstation2',
+  'ps3', 'playstation3',
+  'psp', 'playstationportable',
+  'psvita', 'vita', 'playstationvita',
+  'retro', 'arcade', 'mame', 'neogeo',
+  'nes', 'snes', 'n64', 'nintendo64', 'gamecube', 'wii', 'wiiu',
+  'switch', 'nintendoswitch', 'gameboy', 'gbc', 'gba', 'ds', '3ds',
+  'sega', 'genesis', 'megadrive', 'dreamcast', 'saturn', 'mastersystem',
+  'atari', 'amiga', 'commodore',
+]);
+
+export function isPsnEligiblePlatform(platform?: string | null): boolean {
+  if (!platform?.trim()) return true;
+  const normalized = platform.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  return !NON_PSN_PLATFORMS.has(normalized);
+}
+
 const PSN_API_URL =
   (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_STORE_API_URL) ||
   'http://localhost:3000';

@@ -15,7 +15,7 @@ import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsServic
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
 import { fetchRawgGameData, fetchRawgMediaByName, mapRawgScreenshotsToMedia, fetchRawgVideosByName, mapRawgMoviesToMedia } from '../services/rawgService';
-import { fetchPsnMetadata, searchPsnGames, psnLocaleForLanguage } from '../services/psnMetadataService';
+import { fetchPsnMetadata, searchPsnGames, psnLocaleForLanguage, isPsnEligiblePlatform } from '../services/psnMetadataService';
 import { fetchGameVideosByName } from '../services/gameVideoService';
 import { soundService } from '../services/soundService';
 import { fetchSteamDescription, isPlaytimePlaceholder, fetchSteamInfo } from '../services/steamDescriptionService';
@@ -993,13 +993,17 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     })();
 
     setSteamNews([]);
-    setNewsLoading(true);
-    fetchSteamNewsByName(title, language).then(news => {
-      if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
-    });
+    if (activeUser?.settings?.showNews === false) {
+      setNewsLoading(false);
+    } else {
+      setNewsLoading(true);
+      fetchSteamNewsByName(title, language).then(news => {
+        if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
+      });
+    }
 
     return () => { cancelled = true; };
-  }, [item?.id, isVisible, language]);
+  }, [item?.id, isVisible, language, activeUser?.settings?.showNews]);
 
 
   useEffect(() => {
@@ -1511,8 +1515,16 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       }
     }
 
-    // Fetch PSN if needed (API propia /api/psn)
-    if (syncPrefs.ratingAndSummary === 'psn' || syncPrefs.cover === 'psn' || syncPrefs.background === 'psn' || syncPrefs.logo === 'psn') {
+    // Fetch PSN if needed (API propia /api/psn). El Store moderno solo
+    // indexa PS4/PS5: en plataformas retro/emuladas el match por nombre
+    // trae el juego equivocado, así que PSN se omite y el resumen usa IGDB.
+    const psnEligible = isPsnEligiblePlatform((item as any)?.platform);
+    const wantPsnSummary = syncPrefs.ratingAndSummary === 'psn';
+    const wantPsnArt = syncPrefs.cover === 'psn' || syncPrefs.background === 'psn' || syncPrefs.logo === 'psn';
+    if (!psnEligible && (wantPsnSummary || wantPsnArt)) {
+      console.log('[Sync][PSN] Omitido por plataforma no elegible, se usará IGDB:', (item as any)?.platform);
+    }
+    if (psnEligible && (wantPsnSummary || wantPsnArt)) {
       console.log('[Sync][PSN] Buscando:', editData.title);
       const resultPsn = await fetchPsnMetadata(editData.title, { locale: psnLocaleForLanguage(language) });
       console.log('[Sync][PSN] Resultado:', resultPsn?.match?.name || null);
@@ -1537,6 +1549,20 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         }
       } else {
         console.log('PSN Sync failed: sin resultados');
+      }
+    }
+
+    // Fallback IGDB cuando PSN está elegido pero la plataforma no es elegible
+    // (retro/emulados): evita descripciones del juego homónimo equivocado.
+    if (!psnEligible && wantPsnSummary) {
+      console.log('[Sync][PSN->IGDB] Resumen desde IGDB para:', editData.title);
+      const resultIGDB = await (window as any).electronAPI.fetchGameData(editData.title);
+      if (resultIGDB.success) {
+        const game = resultIGDB.data;
+        newEditData.rating = game.rating ? game.rating / 20 : (game.aggregated_rating ? game.aggregated_rating / 20 : newEditData.rating);
+        newEditData.description = game.summary || newEditData.description;
+      } else {
+        console.log('IGDB fallback Sync failed:', resultIGDB.error);
       }
     }
 

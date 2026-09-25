@@ -3059,6 +3059,7 @@ export default function ConsoleHome() {
     const item = currentData[activeIndex];
     const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
     if (!playable) { setSteamNews([]); return; }
+    if (activeUser?.settings?.showNews === false) { setSteamNews([]); setNewsLoading(false); return; }
     const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
     if (!title || title === 'Último Jugado') { setSteamNews([]); return; }
     setNewsLoading(true);
@@ -3073,7 +3074,7 @@ export default function ConsoleHome() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language]);
+  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language, activeUser?.settings?.showNews]);
 
   // Fetch Steam screenshots & trailers when the active item changes (debounced)
   useEffect(() => {

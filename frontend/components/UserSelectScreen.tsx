@@ -41,6 +41,10 @@ export interface UserSettings {
   raApiKey?: string;
   overlayEnabled?: boolean;
   overlayCombo?: string;
+  /** Muestra la fila de noticias en el panel del juego. Por defecto true. */
+  showNews?: boolean;
+  /** Muestra la ficha de metadatos estilo PS5 en el panel del juego. Por defecto true. */
+  showGameMetadata?: boolean;
 }
 
 export interface UserProfile {
