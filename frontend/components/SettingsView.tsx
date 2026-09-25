@@ -1001,10 +1001,10 @@ export default function SettingsView({
 
     if (accessibilityLeftIndex === 5) {
       const prefs: { key: 'ratingAndSummary' | 'cover' | 'background' | 'logo'; options: string[] }[] = [
-        { key: 'ratingAndSummary', options: ['steam', 'igdb', 'rawg', 'none'] },
-        { key: 'cover', options: ['steamgrid', 'igdb', 'rawg', 'none'] },
-        { key: 'background', options: ['steamgrid', 'igdb', 'rawg', 'none'] },
-        { key: 'logo', options: ['steamgrid', 'none'] },
+        { key: 'ratingAndSummary', options: ['steam', 'igdb', 'rawg', 'psn', 'none'] },
+        { key: 'cover', options: ['steamgrid', 'igdb', 'rawg', 'psn', 'none'] },
+        { key: 'background', options: ['steamgrid', 'igdb', 'rawg', 'psn', 'none'] },
+        { key: 'logo', options: ['steamgrid', 'psn', 'none'] },
       ];
       const pref = prefs[subFocusIndex];
       if (pref) {
@@ -2618,6 +2618,7 @@ export default function SettingsView({
                       { id: 'steam', label: 'Steam' },
                       { id: 'igdb', label: 'IGDB' },
                       { id: 'rawg', label: 'RAWG' },
+                      { id: 'psn', label: 'PSN' },
                       { id: 'none', label: t('settings.none') },
                     ],
                   },
@@ -2628,6 +2629,7 @@ export default function SettingsView({
                       { id: 'steamgrid', label: 'SteamGrid' },
                       { id: 'igdb', label: 'IGDB' },
                       { id: 'rawg', label: 'RAWG' },
+                      { id: 'psn', label: 'PSN' },
                       { id: 'none', label: t('settings.none') },
                     ],
                   },
@@ -2638,6 +2640,7 @@ export default function SettingsView({
                       { id: 'steamgrid', label: 'SteamGrid' },
                       { id: 'igdb', label: 'IGDB' },
                       { id: 'rawg', label: 'RAWG' },
+                      { id: 'psn', label: 'PSN' },
                       { id: 'none', label: t('settings.none') },
                     ],
                   },
@@ -2646,6 +2649,7 @@ export default function SettingsView({
                     label: t('settings.logo'),
                     options: [
                       { id: 'steamgrid', label: 'SteamGrid' },
+                      { id: 'psn', label: 'PSN' },
                       { id: 'none', label: t('settings.none') },
                     ],
                   },

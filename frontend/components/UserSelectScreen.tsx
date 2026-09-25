@@ -19,10 +19,10 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import BackgroundVideo from './BackgroundVideo';
 
 export interface SyncPreferences {
-  ratingAndSummary: 'igdb' | 'none';
-  cover: 'igdb' | 'steamgrid' | 'none';
-  background: 'igdb' | 'steamgrid' | 'none';
-  logo: 'steamgrid' | 'none';
+  ratingAndSummary: 'steam' | 'igdb' | 'rawg' | 'psn' | 'none';
+  cover: 'steamgrid' | 'igdb' | 'rawg' | 'psn' | 'none';
+  background: 'steamgrid' | 'igdb' | 'rawg' | 'psn' | 'none';
+  logo: 'steamgrid' | 'psn' | 'none';
 }
 
 export interface UserSettings {

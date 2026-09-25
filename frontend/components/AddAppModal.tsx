@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { fetchSteamInfo } from '@/services/steamDescriptionService';
+import { fetchPsnMetadata } from '@/services/psnMetadataService';
 import {
   ActivityIndicator,
   Modal,
@@ -331,7 +332,30 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
       console.error('[AddAppModal] Error en IGDB para:', title, e);
     }
 
-    // 3. Steam: descripción localizada + rating
+    // 3. PSN: descripción + rating + arte (API propia /api/psn)
+    try {
+      const psnRes = await fetchPsnMetadata(title);
+      const psnCover = psnRes?.details?.coverUrl || psnRes?.match?.coverUrl;
+      const psnBackground = psnRes?.details?.backgroundUrl || psnRes?.match?.backgroundUrl;
+      if (source === 'psn') {
+        if (psnRes?.details?.description) metadata.description = psnRes.details.description;
+        if (psnRes?.details?.communityScore != null) {
+          metadata.rating = Math.round((psnRes.details.communityScore / 20) * 10) / 10;
+        }
+      }
+
+      if (!metadata.image && psnCover) {
+        metadata.image = psnCover;
+      }
+
+      if (!metadata.backgroundImage && psnBackground) {
+        metadata.backgroundImage = psnBackground;
+      }
+    } catch (e) {
+      console.error('[AddAppModal] Error en PSN para:', title, e);
+    }
+
+    // 4. Steam: descripción localizada + rating
     if (source === 'steam' && allowSteam) {
       try {
         const info = await fetchSteamInfo(title, language);

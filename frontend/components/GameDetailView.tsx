@@ -15,6 +15,7 @@ import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsServic
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
 import { fetchRawgGameData, fetchRawgMediaByName, mapRawgScreenshotsToMedia, fetchRawgVideosByName, mapRawgMoviesToMedia } from '../services/rawgService';
+import { fetchPsnMetadata } from '../services/psnMetadataService';
 import { fetchGameVideosByName } from '../services/gameVideoService';
 import { soundService } from '../services/soundService';
 import { fetchSteamDescription, isPlaytimePlaceholder, fetchSteamInfo } from '../services/steamDescriptionService';
@@ -1370,10 +1371,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
     setIsSyncing(true);
     type SyncPrefs = {
-      ratingAndSummary: 'steam' | 'igdb' | 'rawg' | 'none';
-      cover: 'steamgrid' | 'igdb' | 'rawg' | 'none';
-      background: 'steamgrid' | 'igdb' | 'rawg' | 'none';
-      logo: 'steamgrid' | 'none';
+      ratingAndSummary: 'steam' | 'igdb' | 'rawg' | 'psn' | 'none';
+      cover: 'steamgrid' | 'igdb' | 'rawg' | 'psn' | 'none';
+      background: 'steamgrid' | 'igdb' | 'rawg' | 'psn' | 'none';
+      logo: 'steamgrid' | 'psn' | 'none';
     };
     const syncPrefs = (activeUser?.settings?.syncPreferences || {
       ratingAndSummary: 'steam',
@@ -1430,6 +1431,35 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         }
       } else {
         console.log('RAWG Sync failed:', resultRawg.error);
+      }
+    }
+
+    // Fetch PSN if needed (API propia /api/psn)
+    if (syncPrefs.ratingAndSummary === 'psn' || syncPrefs.cover === 'psn' || syncPrefs.background === 'psn' || syncPrefs.logo === 'psn') {
+      console.log('[Sync][PSN] Buscando:', editData.title);
+      const resultPsn = await fetchPsnMetadata(editData.title);
+      console.log('[Sync][PSN] Resultado:', resultPsn?.match?.name || null);
+      const psnCover = resultPsn?.details?.coverUrl || resultPsn?.match?.coverUrl;
+      const psnBackground = resultPsn?.details?.backgroundUrl || resultPsn?.match?.backgroundUrl;
+      if (resultPsn && (resultPsn.details || resultPsn.match)) {
+        if (syncPrefs.ratingAndSummary === 'psn') {
+          if (resultPsn.details?.description) newEditData.description = resultPsn.details.description;
+          if (resultPsn.details?.communityScore != null) {
+            newEditData.rating = Math.round((resultPsn.details.communityScore / 20) * 10) / 10;
+          }
+        }
+        if (syncPrefs.cover === 'psn' && psnCover) {
+          newEditData.image = psnCover;
+        }
+        if (syncPrefs.background === 'psn' && psnBackground) {
+          newEditData.backgroundImage = psnBackground;
+        }
+        // Las portadas de PSN son cuadradas, sirven como logo/icono
+        if (syncPrefs.logo === 'psn' && psnCover) {
+          newEditData.logo = psnCover;
+        }
+      } else {
+        console.log('PSN Sync failed: sin resultados');
       }
     }
 
