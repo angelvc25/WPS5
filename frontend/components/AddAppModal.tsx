@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { fetchSteamInfo } from '@/services/steamDescriptionService';
-import { fetchPsnMetadata } from '@/services/psnMetadataService';
+import { fetchPsnMetadata, psnLocaleForLanguage } from '@/services/psnMetadataService';
 import {
   ActivityIndicator,
   Modal,
@@ -334,7 +334,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
 
     // 3. PSN: descripción + rating + arte (API propia /api/psn)
     try {
-      const psnRes = await fetchPsnMetadata(title);
+      const psnRes = await fetchPsnMetadata(title, { locale: psnLocaleForLanguage(language) });
       const psnCover = psnRes?.details?.coverUrl || psnRes?.match?.coverUrl;
       const psnBackground = psnRes?.details?.backgroundUrl || psnRes?.match?.backgroundUrl;
       if (source === 'psn') {

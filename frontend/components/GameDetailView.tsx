@@ -15,7 +15,7 @@ import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsServic
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
 import { fetchRawgGameData, fetchRawgMediaByName, mapRawgScreenshotsToMedia, fetchRawgVideosByName, mapRawgMoviesToMedia } from '../services/rawgService';
-import { fetchPsnMetadata, searchPsnGames } from '../services/psnMetadataService';
+import { fetchPsnMetadata, searchPsnGames, psnLocaleForLanguage } from '../services/psnMetadataService';
 import { fetchGameVideosByName } from '../services/gameVideoService';
 import { soundService } from '../services/soundService';
 import { fetchSteamDescription, isPlaytimePlaceholder, fetchSteamInfo } from '../services/steamDescriptionService';
@@ -431,7 +431,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
     setIsLoadingPsnAssets(true);
     try {
-      const results = await searchPsnGames(title, { limit: 24 });
+      const results = await searchPsnGames(title, { limit: 24, locale: psnLocaleForLanguage(language) });
       const covers = results
         .filter((r) => r.coverUrl)
         .map((r) => ({
@@ -1514,7 +1514,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     // Fetch PSN if needed (API propia /api/psn)
     if (syncPrefs.ratingAndSummary === 'psn' || syncPrefs.cover === 'psn' || syncPrefs.background === 'psn' || syncPrefs.logo === 'psn') {
       console.log('[Sync][PSN] Buscando:', editData.title);
-      const resultPsn = await fetchPsnMetadata(editData.title);
+      const resultPsn = await fetchPsnMetadata(editData.title, { locale: psnLocaleForLanguage(language) });
       console.log('[Sync][PSN] Resultado:', resultPsn?.match?.name || null);
       const psnCover = resultPsn?.details?.coverUrl || resultPsn?.match?.coverUrl;
       const psnBackground = resultPsn?.details?.backgroundUrl || resultPsn?.match?.backgroundUrl;

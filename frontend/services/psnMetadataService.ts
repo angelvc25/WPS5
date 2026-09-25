@@ -42,6 +42,24 @@ export interface PsnMetadata {
   candidates?: PsnSearchResult[];
 }
 
+/**
+ * Mapea el idioma de la app al locale del PlayStation Store para que las
+ * descripciones y fichas lleguen localizadas. Si el idioma no se reconoce,
+ * se usa 'es-CO' (mismo valor que el backend usa por defecto).
+ */
+export function psnLocaleForLanguage(language?: string | null): string {
+  switch (language) {
+    case 'en':
+      return 'en-US';
+    case 'pt':
+      return 'pt-BR';
+    case 'es':
+      return 'es-CO';
+    default:
+      return 'es-CO';
+  }
+}
+
 const PSN_API_URL =
   (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_STORE_API_URL) ||
   'http://localhost:3000';
