@@ -23,6 +23,7 @@ import MusicPlayerCard from './MusicPlayerCard';
 import { GameMetadataSection } from './GameMetadataSection';
 import { resolveFieldSyncPreferences } from '../services/metadataPreferences';
 import SpinningBorderNoticias from './SpinningborderNoticias';
+import SpinningBorderLogros from './SpinningBorderLogros';
 import { toastService } from '@/services/toastService';
 
 
@@ -1722,7 +1723,7 @@ export const GameInfoPanel = ({
                     position: 'relative',
                   }}
                 >
-                  {isAchievementFocused && <SpinningBorderNoticias size={s(250)} />}
+                  {isAchievementFocused && <SpinningBorderLogros size={s(250)} />}
                   <Image
                     source={{ uri: achievement.achieved ? achievement.icon : achievement.lockedIcon }}
                     style={{ position: 'absolute', top: s(16), right: s(16), width: s(68), height: s(68), borderRadius: s(8), opacity: achievement.achieved ? 1 : 0.34 }}
