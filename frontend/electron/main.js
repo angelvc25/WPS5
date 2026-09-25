@@ -2272,14 +2272,11 @@ app.whenReady().then(async () => {
     }
   });
 
-  // IPC: Obtener noticias (desde el Proceso Principal para evitar bloqueos de red en el renderer)
+  // IPC: Obtener noticias (desde el Proceso Principal vía Worker)
   ipcMain.handle('fetch-news', async () => {
-    const API_KEY = '84b43625d92547c89d24fab37f0543af';
-    const BASE_URL = 'https://newsapi.org/v2';
     try {
-      const response = await fetch(
-        `${BASE_URL}/everything?q=videojuegos+gaming&sortBy=publishedAt&pageSize=10&apiKey=${API_KEY}`
-      );
+      const response = await fetch(`${WORKER_API_BASE}/api/news`);
+      if (!response.ok) throw new Error(`Worker respondió ${response.status}`);
       const data = await response.json();
       return data;
     } catch (error) {

@@ -1,5 +1,4 @@
-const API_KEY = '84b43625d92547c89d24fab37f0543af'; // Reemplaza con tu API Key de newsapi.org
-const BASE_URL = 'https://newsapi.org/v2';
+const WORKER_API_BASE = 'https://wps5-api.wps5-api.workers.dev';
 
 export interface NewsArticle {
   title: string;
@@ -17,19 +16,17 @@ export const fetchGamingNews = async (): Promise<NewsArticle[]> => {
     // Si estamos en Electron, preferimos usar el proceso principal para evitar bloqueos de red/CORS
     if ((window as any).electronAPI && (window as any).electronAPI.fetchNews) {
       const data = await (window as any).electronAPI.fetchNews();
-      if (data.status === 'ok') {
+      if (data.status === 'ok' && Array.isArray(data.articles)) {
         return data.articles.filter((article: NewsArticle) => article.urlToImage && article.title);
       }
       console.error('Error fetching news from Electron Main:', data.message);
     }
 
-    // Fallback o modo web: fetch directo
-    const response = await fetch(
-      `${BASE_URL}/everything?q=videojuegos+gaming&sortBy=publishedAt&pageSize=10&apiKey=${API_KEY}`
-    );
+    // Fallback o modo web: fetch directo al Worker
+    const response = await fetch(`${WORKER_API_BASE}/api/news`);
     const data = await response.json();
 
-    if (data.status === 'ok') {
+    if (data.status === 'ok' && Array.isArray(data.articles)) {
       return data.articles.filter((article: NewsArticle) => article.urlToImage && article.title);
     }
 
