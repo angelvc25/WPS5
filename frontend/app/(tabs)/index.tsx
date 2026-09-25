@@ -13,7 +13,7 @@ import { soundService } from '@/services/soundService';
 import { fetchSteamInstalledAppIds, fetchSteamInstalledGamesDetailed } from '@/services/steamInstallService';
 import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
 import { fetchSteamMediaByName, SteamMediaItem } from '@/services/steamMediaService';
-import { fetchRawgMediaByName, mapRawgScreenshotsToMedia, fetchRawgVideosByName, mapRawgMoviesToMedia } from '@/services/rawgService';
+import { fetchRawgMediaByName, mapRawgScreenshotsToMedia } from '@/services/rawgService';
 import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
@@ -174,6 +174,9 @@ export interface ConsoleItem {
   launchArgs?: string;
   description?: string;
   rating?: number;
+  publisher?: string;
+  genres?: string[];
+  releaseDate?: string;
   isFavorite?: boolean;
   isLastPlayed?: boolean;
   lastPlayed?: number;
@@ -3116,29 +3119,18 @@ export default function ConsoleHome() {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        // Steam, RAWG e IGDB se consultan en paralelo (con caché de 7 días para IGDB).
-        // Prioridad de trailers:
-        // RAWG (mp4 directo) > IGDB (embed de YouTube, siempre reproduce)
-        // > Steam (el mp4 suele venir roto/bloqueado; último recurso).
-        const [steamResult, rawgVideosResult, igdbVideos] = await Promise.all([
+        // Steam e IGDB se consultan en paralelo (con caché de 7 días para IGDB).
+        // Trailers/vídeos de fondo: siempre IGDB (embed de YouTube, siempre reproduce).
+        const [steamResult, igdbVideos] = await Promise.all([
           fetchSteamMediaByName(title, language),
-          fetchRawgVideosByName(title),
           fetchGameVideosByName(title),
         ]);
 
         if (cancelled) return;
 
         const steamImages = (steamResult.items || []).filter((m) => m.type === 'screenshot');
-        const steamMovies = (steamResult.items || []).filter((m) => m.type === 'movie');
 
-        // Trailers: RAWG primero (mp4 confiable). Si no hay, IGDB (YouTube,
-        // siempre reproduce aunque no tenga mp4 directo). Si tampoco, Steam.
-        const videos: SteamMediaItem[] =
-          rawgVideosResult.success && rawgVideosResult.data?.length
-            ? mapRawgMoviesToMedia(rawgVideosResult.data)
-            : igdbVideos.length > 0
-              ? (igdbVideos as unknown as SteamMediaItem[])
-              : steamMovies;
+        const videos: SteamMediaItem[] = (igdbVideos as unknown as SteamMediaItem[]) || [];
 
         // Capturas: Steam tiene prioridad; RAWG solo si Steam no encontró.
         let images: SteamMediaItem[] = steamImages;

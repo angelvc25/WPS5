@@ -14,11 +14,19 @@ import { useUser } from '../contexts/UserContext';
 import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
 import { fetchSteamMediaByName, SteamMediaItem } from '../services/steamMediaService';
 import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
-import { fetchRawgGameData, fetchRawgMediaByName, mapRawgScreenshotsToMedia, fetchRawgVideosByName, mapRawgMoviesToMedia } from '../services/rawgService';
-import { fetchPsnMetadata, searchPsnGames, psnLocaleForLanguage, isPsnEligiblePlatform } from '../services/psnMetadataService';
+import { fetchRawgGameData, fetchRawgMediaByName, mapRawgScreenshotsToMedia } from '../services/rawgService';
+import { searchPsnGames, psnLocaleForLanguage, isPsnEligiblePlatform } from '../services/psnMetadataService';
 import { fetchGameVideosByName } from '../services/gameVideoService';
 import { soundService } from '../services/soundService';
-import { fetchSteamDescription, isPlaytimePlaceholder, fetchSteamInfo } from '../services/steamDescriptionService';
+import { fetchSteamDescription, isPlaytimePlaceholder } from '../services/steamDescriptionService';
+import { resolveFieldSyncPreferences } from '../services/metadataPreferences';
+import {
+  fetchIgdbFieldData,
+  fetchPsnFieldData,
+  fetchRawgFieldData,
+  fetchSteamFieldData,
+  type SourceFieldData,
+} from '../services/metadataFields';
 import { getSteamLaunchPath, isSteamGame, getSteamAppId, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
@@ -955,11 +963,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setMediaLoading(true);
     (async () => {
       try {
-        // Solo usamos RAWG para videos (mp4 directo confiable).
+        // Videos de fondo: siempre IGDB (embed de YouTube, siempre reproduce).
         // Steam se usa solo para capturas de pantalla.
-        const [steamResult, rawgVideosResult, igdbVideos] = await Promise.all([
+        const [steamResult, igdbVideos] = await Promise.all([
           fetchSteamMediaByName(title, language),
-          fetchRawgVideosByName(title),
           fetchGameVideosByName(title),
         ]);
 
@@ -967,11 +974,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
         const steamImages = (steamResult.items || []).filter((m) => m.type === 'screenshot');
 
-        // Videos: SOLO RAWG. Si no hay, IGDB con caché de 7 días. Ignoramos completamente los videos de Steam.
-        const videos: SteamMediaItem[] =
-          rawgVideosResult.success && rawgVideosResult.data?.length
-            ? mapRawgMoviesToMedia(rawgVideosResult.data)
-            : (igdbVideos as unknown as SteamMediaItem[]) || [];
+        const videos: SteamMediaItem[] = (igdbVideos as unknown as SteamMediaItem[]) || [];
 
         // Capturas: Steam tiene prioridad; RAWG solo si Steam no encontró.
         let images: SteamMediaItem[] = steamImages;
@@ -1469,142 +1472,102 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
 
     setIsSyncing(true);
-    type SyncPrefs = {
-      ratingAndSummary: 'steam' | 'igdb' | 'rawg' | 'psn' | 'none';
-      cover: 'steamgrid' | 'igdb' | 'rawg' | 'psn' | 'none';
-      background: 'steamgrid' | 'igdb' | 'rawg' | 'psn' | 'none';
-      logo: 'steamgrid' | 'psn' | 'none';
-    };
-    const syncPrefs = (activeUser?.settings?.syncPreferences || {
-      ratingAndSummary: 'steam',
-      cover: 'steamgrid',
-      background: 'steamgrid',
-      logo: 'steamgrid'
-    }) as SyncPrefs;
-    console.log('[Sync] Iniciando con preferencias:', syncPrefs, 'título:', editData.title);
+    const prefs = resolveFieldSyncPreferences(activeUser?.settings?.syncPreferences);
+    console.log('[Sync] Iniciando con preferencias:', prefs, 'título:', editData.title);
 
     let newEditData = { ...editData };
+    const title = editData.title || '';
 
-    // Fetch IGDB if needed
-    if (syncPrefs.ratingAndSummary === 'igdb' || syncPrefs.cover === 'igdb' || syncPrefs.background === 'igdb') {
-      const resultIGDB = await (window as any).electronAPI.fetchGameData(editData.title);
-      if (resultIGDB.success) {
-        const game = resultIGDB.data;
-        if (syncPrefs.ratingAndSummary === 'igdb') {
-          newEditData.rating = game.rating ? game.rating / 20 : (game.aggregated_rating ? game.aggregated_rating / 20 : 5.0);
-          newEditData.description = game.summary || newEditData.description;
-          newEditData.youtubeId = game.videos && game.videos.length > 0 ? game.videos[0].video_id : newEditData.youtubeId;
-        }
-        if (syncPrefs.cover === 'igdb' && game.cover?.url) {
-          newEditData.image = 'https:' + game.cover.url.replace('t_thumb', 't_cover_big');
-        }
-        if (syncPrefs.background === 'igdb') {
-          if (game.screenshots && game.screenshots.length > 0) {
-            newEditData.backgroundImage = 'https:' + game.screenshots[0].url.replace('t_thumb', 't_1080p');
-          } else if (game.artworks && game.artworks.length > 0) {
-            newEditData.backgroundImage = 'https:' + game.artworks[0].url.replace('t_thumb', 't_1080p');
-          }
-        }
-      } else {
-        console.log('IGDB Sync failed:', resultIGDB.error);
-      }
-    }
-
-    // Fetch RAWG if needed
-    if (syncPrefs.ratingAndSummary === 'rawg' || syncPrefs.cover === 'rawg' || syncPrefs.background === 'rawg') {
-      console.log('[Sync][RAWG] Buscando:', editData.title);
-      const resultRawg = await fetchRawgGameData(editData.title);
-      console.log('[Sync][RAWG] Resultado:', resultRawg);
-      if (resultRawg.success && resultRawg.data) {
-        const game = resultRawg.data;
-        if (syncPrefs.ratingAndSummary === 'rawg') {
-          // RAWG rating va de 0 a 5, lo dejamos tal cual (misma escala que usa el resto de la UI)
-          newEditData.rating = game.rating || newEditData.rating;
-          newEditData.description = game.description_raw || game.description || newEditData.description;
-        }
-        if (syncPrefs.cover === 'rawg' && game.background_image) {
-          newEditData.image = game.background_image;
-        }
-        if (syncPrefs.background === 'rawg') {
-          newEditData.backgroundImage = game.background_image_additional || game.background_image || newEditData.backgroundImage;
-        }
-      } else {
-        console.log('RAWG Sync failed:', resultRawg.error);
-      }
-    }
-
-    // Fetch PSN if needed (API propia /api/psn). El Store moderno solo
-    // indexa PS4/PS5: en plataformas retro/emuladas el match por nombre
-    // trae el juego equivocado, así que PSN se omite y el resumen usa IGDB.
+    // El Store moderno solo indexa PS4/PS5: en plataformas retro/emuladas
+    // PSN traería el juego homónimo equivocado. Los campos de texto e info
+    // caen a IGDB y el arte PSN se omite.
     const psnEligible = isPsnEligiblePlatform((item as any)?.platform);
-    const wantPsnSummary = syncPrefs.ratingAndSummary === 'psn';
-    const wantPsnArt = syncPrefs.cover === 'psn' || syncPrefs.background === 'psn' || syncPrefs.logo === 'psn';
-    if (!psnEligible && (wantPsnSummary || wantPsnArt)) {
-      console.log('[Sync][PSN] Omitido por plataforma no elegible, se usará IGDB:', (item as any)?.platform);
-    }
-    if (psnEligible && (wantPsnSummary || wantPsnArt)) {
-      console.log('[Sync][PSN] Buscando:', editData.title);
-      const resultPsn = await fetchPsnMetadata(editData.title, { locale: psnLocaleForLanguage(language) });
-      console.log('[Sync][PSN] Resultado:', resultPsn?.match?.name || null);
-      const psnCover = resultPsn?.details?.coverUrl || resultPsn?.match?.coverUrl;
-      const psnBackground = resultPsn?.details?.backgroundUrl || resultPsn?.match?.backgroundUrl;
-      if (resultPsn && (resultPsn.details || resultPsn.match)) {
-        if (syncPrefs.ratingAndSummary === 'psn') {
-          if (resultPsn.details?.description) newEditData.description = resultPsn.details.description;
-          if (resultPsn.details?.communityScore != null) {
-            newEditData.rating = Math.round((resultPsn.details.communityScore / 20) * 10) / 10;
-          }
-        }
-        if (syncPrefs.cover === 'psn' && psnCover) {
-          newEditData.image = psnCover;
-        }
-        if (syncPrefs.background === 'psn' && psnBackground) {
-          newEditData.backgroundImage = psnBackground;
-        }
-        // Las portadas de PSN son cuadradas, sirven como logo/icono
-        if (syncPrefs.logo === 'psn' && psnCover) {
-          newEditData.logo = psnCover;
-        }
-      } else {
-        console.log('PSN Sync failed: sin resultados');
-      }
+    const eff = (src: string, isArt: boolean): string =>
+      src === 'psn' && !psnEligible ? (isArt ? 'none' : 'igdb') : src;
+    if (!psnEligible && Object.values(prefs).includes('psn')) {
+      console.log('[Sync][PSN] Omitido por plataforma no elegible:', (item as any)?.platform);
     }
 
-    // Fallback IGDB cuando PSN está elegido pero la plataforma no es elegible
-    // (retro/emulados): evita descripciones del juego homónimo equivocado.
-    if (!psnEligible && wantPsnSummary) {
-      console.log('[Sync][PSN->IGDB] Resumen desde IGDB para:', editData.title);
-      const resultIGDB = await (window as any).electronAPI.fetchGameData(editData.title);
-      if (resultIGDB.success) {
-        const game = resultIGDB.data;
-        newEditData.rating = game.rating ? game.rating / 20 : (game.aggregated_rating ? game.aggregated_rating / 20 : newEditData.rating);
-        newEditData.description = game.summary || newEditData.description;
-      } else {
-        console.log('IGDB fallback Sync failed:', resultIGDB.error);
-      }
+    const effPrefs = {
+      description: eff(prefs.description, false),
+      rating: eff(prefs.rating, false),
+      publisher: eff(prefs.publisher, false),
+      genres: eff(prefs.genres, false),
+      releaseDate: eff(prefs.releaseDate, false),
+      cover: eff(prefs.cover, true),
+      background: eff(prefs.background, true),
+      logo: eff(prefs.logo, true),
+    };
+    const uses = (source: string) => Object.values(effPrefs).includes(source);
+
+    const steamAppId = item ? getSteamAppId(item as any) : null;
+    const [steamData, igdbData, rawgData, psnData, steamGridRes] = await Promise.all([
+      uses('steam') ? fetchSteamFieldData(steamAppId ?? title, language) : Promise.resolve(null),
+      uses('igdb') ? fetchIgdbFieldData(title) : Promise.resolve(null),
+      uses('rawg') ? fetchRawgFieldData(title) : Promise.resolve(null),
+      uses('psn') ? fetchPsnFieldData(title, language) : Promise.resolve(null),
+      uses('steamgrid')
+        ? ((window as any).electronAPI?.fetchSteamGridData
+          ? (window as any).electronAPI.fetchSteamGridData(title)
+          : fetchSteamGridDataService(title))
+        : Promise.resolve(null),
+    ]);
+    const bySource: Record<string, SourceFieldData | null> = {
+      steam: steamData,
+      igdb: igdbData,
+      rawg: rawgData,
+      psn: psnData,
+    };
+    console.log('[Sync] Fuentes resueltas:', {
+      steam: !!steamData,
+      igdb: !!igdbData,
+      rawg: !!rawgData,
+      psn: !!(psnData),
+    });
+
+    const fieldData = (key: 'description' | 'rating' | 'publisher' | 'genres' | 'releaseDate' | 'cover' | 'background') =>
+      bySource[effPrefs[key]] || null;
+
+    const descData = fieldData('description');
+    if (descData?.description) newEditData.description = descData.description;
+    if (effPrefs.description === 'igdb' && igdbData?.youtubeId) {
+      newEditData.youtubeId = igdbData.youtubeId;
     }
 
-    // Steam: descripción localizada + rating
-    if (syncPrefs.ratingAndSummary === 'steam') {
-      const steamAppId = item ? getSteamAppId(item as any) : null;
-      const info = await fetchSteamInfo(steamAppId ?? editData.title ?? null, language);
-      if (info.description) newEditData.description = info.description;
-      if (info.rating != null) newEditData.rating = info.rating;
+    const ratingData = fieldData('rating');
+    if (ratingData?.rating != null) newEditData.rating = ratingData.rating;
+
+    const publisherData = fieldData('publisher');
+    if (publisherData?.publisher) (newEditData as any).publisher = publisherData.publisher;
+
+    const genresData = fieldData('genres');
+    if (genresData?.genres && genresData.genres.length > 0) (newEditData as any).genres = genresData.genres;
+
+    const dateData = fieldData('releaseDate');
+    if (dateData?.releaseDate) (newEditData as any).releaseDate = dateData.releaseDate;
+
+    if (effPrefs.cover === 'steamgrid') {
+      if (steamGridRes?.success && steamGridRes.data?.grid) newEditData.image = steamGridRes.data.grid;
+      else if (!steamGridRes?.success) console.log('SteamGrid Sync failed:', steamGridRes?.error);
+    } else {
+      const coverData = fieldData('cover');
+      if (coverData?.coverUrl) newEditData.image = coverData.coverUrl;
     }
 
-    // Fetch SteamGridDB if needed
-    if (syncPrefs.cover === 'steamgrid' || syncPrefs.background === 'steamgrid' || syncPrefs.logo === 'steamgrid') {
-      const resultSteam = (window as any).electronAPI?.fetchSteamGridData
-        ? await (window as any).electronAPI.fetchSteamGridData(editData.title)
-        : await fetchSteamGridDataService(editData.title);
-      if (resultSteam.success && resultSteam.data) {
-        const assets = resultSteam.data;
-        if (syncPrefs.cover === 'steamgrid' && assets.grid) newEditData.image = assets.grid;
-        if (syncPrefs.background === 'steamgrid' && assets.hero) newEditData.backgroundImage = assets.hero;
-        if (syncPrefs.logo === 'steamgrid' && assets.logo) newEditData.logo = assets.logo;
-      } else {
-        console.log('SteamGrid Sync failed:', resultSteam.error);
-      }
+    if (effPrefs.background === 'steamgrid') {
+      if (steamGridRes?.success && steamGridRes.data?.hero) newEditData.backgroundImage = steamGridRes.data.hero;
+      else if (!steamGridRes?.success) console.log('SteamGrid Sync failed:', steamGridRes?.error);
+    } else {
+      const bgData = fieldData('background');
+      if (bgData?.backgroundUrl) newEditData.backgroundImage = bgData.backgroundUrl;
+    }
+
+    if (effPrefs.logo === 'steamgrid') {
+      if (steamGridRes?.success && steamGridRes.data?.logo) newEditData.logo = steamGridRes.data.logo;
+      else if (!steamGridRes?.success) console.log('SteamGrid Sync failed:', steamGridRes?.error);
+    } else if (effPrefs.logo === 'psn' && psnData?.coverUrl) {
+      // Las portadas de PSN son cuadradas, sirven como logo/icono
+      newEditData.logo = psnData.coverUrl;
     }
 
     setEditData(newEditData);

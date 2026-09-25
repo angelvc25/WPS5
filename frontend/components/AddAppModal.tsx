@@ -9,6 +9,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { fetchSteamInfo } from '@/services/steamDescriptionService';
 import { fetchPsnMetadata, psnLocaleForLanguage, isPsnEligiblePlatform } from '@/services/psnMetadataService';
+import { resolveFieldSyncPreferences } from '@/services/metadataPreferences';
+import { fetchRawgFieldData } from '@/services/metadataFields';
 import {
   ActivityIndicator,
   Modal,
@@ -120,7 +122,6 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
 }) => {
   const { t, language } = useTranslation();
   const { activeUser } = useUser();
-  const summarySource: string = activeUser?.settings?.syncPreferences?.ratingAndSummary ?? 'steam';
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const [programs, setPrograms] = useState<InstalledProgram[]>([]);
@@ -276,20 +277,26 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
   const [savingStatusText, setSavingStatusText] = useState<string>('');
 
   // Función para obtener todos los metadatos y arte del juego (SteamGridDB + IGDB)
-  const fetchFullGameMetadata = async (title: string, source: string = 'steam', allowSteam: boolean = true) => {
+  const fetchFullGameMetadata = async (title: string, allowSteam: boolean = true) => {
+    const fieldPrefs = resolveFieldSyncPreferences(activeUser?.settings?.syncPreferences);
+    // El Store moderno solo indexa PS4/PS5: en plataformas retro/emuladas
+    // PSN traería el juego homónimo equivocado, así que esos campos usan IGDB.
+    const psnEligible = isPsnEligiblePlatform(selectedPlatform);
+    const eff = (src: string): string => (src === 'psn' && !psnEligible ? 'igdb' : src);
+    const descSource = eff(fieldPrefs.description);
+    const ratingSource = eff(fieldPrefs.rating);
+    const infoSource = (key: 'publisher' | 'genres' | 'releaseDate') => eff(fieldPrefs[key]);
+
     let metadata: {
       image?: string;
       backgroundImage?: string;
       logo?: string;
       description?: string;
       rating?: number;
+      publisher?: string;
+      genres?: string[];
+      releaseDate?: string;
     } = {};
-
-    // El Store moderno solo indexa PS4/PS5: en plataformas retro/emuladas
-    // PSN traería el juego homónimo equivocado, así que se omite y el
-    // resumen usa IGDB.
-    const psnEligible = isPsnEligiblePlatform(selectedPlatform);
-    const effectiveSource = source === 'psn' && !psnEligible ? 'igdb' : source;
 
     // 1. Obtener arte desde SteamGridDB (grid/portada, hero/fondo, logo)
     try {
@@ -312,11 +319,21 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
         const igdbRes = await (window as any).electronAPI.fetchGameData(title);
         if (igdbRes?.success && igdbRes.data) {
           const d = igdbRes.data;
-          if (effectiveSource === 'igdb') {
-            if (d.summary) metadata.description = d.summary;
-            if (d.rating || d.aggregated_rating) {
-              metadata.rating = Math.round(((d.rating || d.aggregated_rating) / 20) * 10) / 10;
-            }
+          if (descSource === 'igdb' && d.summary) metadata.description = d.summary;
+          if (ratingSource === 'igdb' && (d.rating || d.aggregated_rating)) {
+            metadata.rating = Math.round(((d.rating || d.aggregated_rating) / 20) * 10) / 10;
+          }
+          if (infoSource('publisher') === 'igdb' && Array.isArray(d.involved_companies)) {
+            const pub = d.involved_companies.find((c: any) => c?.publisher)?.company?.name;
+            if (pub) metadata.publisher = pub;
+          }
+          if (infoSource('genres') === 'igdb' && Array.isArray(d.genres)) {
+            const names = d.genres.map((g: any) => g?.name).filter(Boolean);
+            if (names.length > 0) metadata.genres = names;
+          }
+          if (infoSource('releaseDate') === 'igdb' && d.first_release_date) {
+            const dt = new Date(d.first_release_date * 1000);
+            metadata.releaseDate = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
           }
 
           if (!metadata.image && d.cover?.url) {
@@ -338,38 +355,58 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
       console.error('[AddAppModal] Error en IGDB para:', title, e);
     }
 
+    // 2b. RAWG (descripción, rating e info cuando es la fuente elegida)
+    if ([descSource, ratingSource, infoSource('publisher'), infoSource('genres'), infoSource('releaseDate')].includes('rawg')) {
+      try {
+        const rawgData = await fetchRawgFieldData(title);
+        if (rawgData) {
+          if (descSource === 'rawg' && rawgData.description) metadata.description = rawgData.description;
+          if (ratingSource === 'rawg' && rawgData.rating != null) metadata.rating = rawgData.rating;
+          if (infoSource('publisher') === 'rawg' && rawgData.publisher) metadata.publisher = rawgData.publisher;
+          if (infoSource('genres') === 'rawg' && rawgData.genres.length > 0) metadata.genres = rawgData.genres;
+          if (infoSource('releaseDate') === 'rawg' && rawgData.releaseDate) metadata.releaseDate = rawgData.releaseDate;
+        }
+      } catch (e) {
+        console.error('[AddAppModal] Error en RAWG para:', title, e);
+      }
+    }
+
     // 3. PSN: descripción + rating + arte (API propia /api/psn).
     // Se omite en plataformas no elegibles para no mezclar el juego homónimo.
-    if (psnEligible) {
+    if (psnEligible && [descSource, ratingSource, infoSource('publisher'), infoSource('genres'), infoSource('releaseDate')].includes('psn')) {
+      try {
+        const psnRes = await fetchPsnMetadata(title, { locale: psnLocaleForLanguage(language) });
+        if (descSource === 'psn' && psnRes?.details?.description) metadata.description = psnRes.details.description;
+        if (ratingSource === 'psn' && psnRes?.details?.communityScore != null) {
+          metadata.rating = Math.round((psnRes.details.communityScore / 20) * 10) / 10;
+        }
+        if (infoSource('publisher') === 'psn' && psnRes?.details?.publisher) metadata.publisher = psnRes.details.publisher;
+        if (infoSource('genres') === 'psn' && psnRes?.details?.genres?.length) metadata.genres = psnRes.details.genres;
+        if (infoSource('releaseDate') === 'psn' && psnRes?.details?.releaseDate) metadata.releaseDate = psnRes.details.releaseDate;
+      } catch (e) {
+        console.error('[AddAppModal] Error en PSN para:', title, e);
+      }
+    }
+
+    // PSN como arte alternativo (igual que antes, solo en elegibles).
+    if (psnEligible && (!metadata.image || !metadata.backgroundImage)) {
       try {
         const psnRes = await fetchPsnMetadata(title, { locale: psnLocaleForLanguage(language) });
         const psnCover = psnRes?.details?.coverUrl || psnRes?.match?.coverUrl;
         const psnBackground = psnRes?.details?.backgroundUrl || psnRes?.match?.backgroundUrl;
-        if (source === 'psn') {
-          if (psnRes?.details?.description) metadata.description = psnRes.details.description;
-          if (psnRes?.details?.communityScore != null) {
-            metadata.rating = Math.round((psnRes.details.communityScore / 20) * 10) / 10;
-          }
-        }
-
-        if (!metadata.image && psnCover) {
-          metadata.image = psnCover;
-        }
-
-        if (!metadata.backgroundImage && psnBackground) {
-          metadata.backgroundImage = psnBackground;
-        }
+        if (!metadata.image && psnCover) metadata.image = psnCover;
+        if (!metadata.backgroundImage && psnBackground) metadata.backgroundImage = psnBackground;
       } catch (e) {
         console.error('[AddAppModal] Error en PSN para:', title, e);
       }
     }
 
     // 4. Steam: descripción localizada + rating
-    if (source === 'steam' && allowSteam) {
+    if ((descSource === 'steam' || ratingSource === 'steam') && allowSteam) {
       try {
         const info = await fetchSteamInfo(title, language);
-        if (info.description) metadata.description = info.description;
-        if (info.rating != null) metadata.rating = info.rating;
+        if (descSource === 'steam' && info.description) metadata.description = info.description;
+        if (ratingSource === 'steam' && info.rating != null) metadata.rating = info.rating;
       } catch (e) {
         console.error('[AddAppModal] Error en Steam para:', title, e);
       }
@@ -415,12 +452,15 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
         };
 
         if (selectedType === 'game') {
-          const meta = await fetchFullGameMetadata(prog.name, summarySource, selectedPlatform !== 'Retro');
+          const meta = await fetchFullGameMetadata(prog.name, selectedPlatform !== 'Retro');
           if (meta.image) appToSave.image = meta.image;
           if (meta.backgroundImage) appToSave.backgroundImage = meta.backgroundImage;
           if (meta.logo) appToSave.logo = meta.logo;
           if (meta.description) appToSave.description = meta.description;
           if (meta.rating !== undefined) appToSave.rating = meta.rating;
+          if (meta.publisher) appToSave.publisher = meta.publisher;
+          if (meta.genres) appToSave.genres = meta.genres;
+          if (meta.releaseDate) appToSave.releaseDate = meta.releaseDate;
         }
 
         if ((window as any).electronAPI?.saveApp) {

@@ -21,6 +21,7 @@ import { getGameActionLabel, getSteamAppId, isSteamGame } from '../services/stea
 import { fetchSteamGameAchievements, getCachedSteamGameAchievements, SteamGameAchievementsSummary } from '../services/steamUserService';
 import MusicPlayerCard from './MusicPlayerCard';
 import { GameMetadataSection } from './GameMetadataSection';
+import { resolveFieldSyncPreferences } from '../services/metadataPreferences';
 import SpinningBorderNoticias from './SpinningborderNoticias';
 import { toastService } from '@/services/toastService';
 
@@ -1950,6 +1951,7 @@ export const GameInfoPanel = ({
           language={language}
           windowWidth={windowWidth}
           windowHeight={windowHeight}
+          sources={resolveFieldSyncPreferences(activeUser?.settings?.syncPreferences)}
           isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 300}
         />
       )}

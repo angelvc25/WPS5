@@ -27,6 +27,12 @@ import {
   SteamDeckRepoSort,
   SteamDeckRepoVideoType,
 } from '../services/steamDeckRepoService';
+import {
+  FIELD_SOURCE_OPTIONS,
+  SOURCE_LABELS,
+  resolveFieldSyncPreferences,
+  type SyncFieldKey,
+} from '../services/metadataPreferences';
 import BackgroundVideo from './BackgroundVideo';
 import PSIcon from './PSIcon';
 import { UserProfile } from './UserSelectScreen';
@@ -846,7 +852,7 @@ export default function SettingsView({
     }
     if (accessibilityLeftIndex === 3) return 0; // Steam: conectar/desvincular
     if (accessibilityLeftIndex === 4) return 1; // RetroAchievements: 2 inputs
-    if (accessibilityLeftIndex === 5) return 3; // Smart Sync
+    if (accessibilityLeftIndex === 5) return 7; // Smart Sync: 8 campos
     if (accessibilityLeftIndex === 6) return 1; // Panel del juego: 2 toggles
     if (accessibilityLeftIndex === 7) return 1; // Overlay: toggle + combo
     if (accessibilityLeftIndex === 8) return 0; // Splash Videos: navegación por mouse/touch en la grilla
@@ -1001,27 +1007,18 @@ export default function SettingsView({
     }
 
     if (accessibilityLeftIndex === 5) {
-      const prefs: { key: 'ratingAndSummary' | 'cover' | 'background' | 'logo'; options: string[] }[] = [
-        { key: 'ratingAndSummary', options: ['steam', 'igdb', 'rawg', 'psn', 'none'] },
-        { key: 'cover', options: ['steamgrid', 'igdb', 'rawg', 'psn', 'none'] },
-        { key: 'background', options: ['steamgrid', 'igdb', 'rawg', 'psn', 'none'] },
-        { key: 'logo', options: ['steamgrid', 'psn', 'none'] },
-      ];
-      const pref = prefs[subFocusIndex];
+      const fieldKeys = Object.keys(FIELD_SOURCE_OPTIONS) as SyncFieldKey[];
+      const pref = fieldKeys[subFocusIndex];
       if (pref) {
-        const currentSync = activeUser?.settings?.syncPreferences || {
-          ratingAndSummary: 'steam',
-          cover: 'steamgrid',
-          background: 'steamgrid',
-          logo: 'steamgrid',
-        };
-        const currentValue = (currentSync as any)[pref.key];
-        const curIdx = pref.options.indexOf(currentValue);
-        const nextValue = pref.options[(curIdx + 1) % pref.options.length];
+        const currentSync = resolveFieldSyncPreferences(activeUser?.settings?.syncPreferences);
+        const options = FIELD_SOURCE_OPTIONS[pref];
+        const currentValue = currentSync[pref];
+        const curIdx = options.indexOf(currentValue);
+        const nextValue = options[(curIdx + 1) % options.length];
         updateUser({
           settings: {
             ...activeUser?.settings,
-            syncPreferences: { ...currentSync, [pref.key]: nextValue } as any,
+            syncPreferences: { ...currentSync, [pref]: nextValue } as any,
           },
         });
       }
@@ -2708,57 +2705,22 @@ export default function SettingsView({
                 <Text style={styles.rightSectionTitle}>{t('settings.smartSync')}</Text>
                 <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.smartSyncDesc')}</Text>
 
-                {[
-                  {
-                    key: 'ratingAndSummary',
-                    label: t('settings.ratingAndSummary'),
-                    options: [
-                      { id: 'steam', label: 'Steam' },
-                      { id: 'igdb', label: 'IGDB' },
-                      { id: 'rawg', label: 'RAWG' },
-                      { id: 'psn', label: 'PSN' },
-                      { id: 'none', label: t('settings.none') },
-                    ],
-                  },
-                  {
-                    key: 'cover',
-                    label: t('settings.cover'),
-                    options: [
-                      { id: 'steamgrid', label: 'SteamGrid' },
-                      { id: 'igdb', label: 'IGDB' },
-                      { id: 'rawg', label: 'RAWG' },
-                      { id: 'psn', label: 'PSN' },
-                      { id: 'none', label: t('settings.none') },
-                    ],
-                  },
-                  {
-                    key: 'background',
-                    label: t('settings.background'),
-                    options: [
-                      { id: 'steamgrid', label: 'SteamGrid' },
-                      { id: 'igdb', label: 'IGDB' },
-                      { id: 'rawg', label: 'RAWG' },
-                      { id: 'psn', label: 'PSN' },
-                      { id: 'none', label: t('settings.none') },
-                    ],
-                  },
-                  {
-                    key: 'logo',
-                    label: t('settings.logo'),
-                    options: [
-                      { id: 'steamgrid', label: 'SteamGrid' },
-                      { id: 'psn', label: 'PSN' },
-                      { id: 'none', label: t('settings.none') },
-                    ],
-                  },
-                ].map((pref, prefIdx) => {
-                  const currentSync = activeUser?.settings?.syncPreferences || {
-                    ratingAndSummary: 'steam',
-                    cover: 'steamgrid',
-                    background: 'steamgrid',
-                    logo: 'steamgrid',
-                  };
-                  const currentValue = (currentSync as any)[pref.key];
+                {([
+                  { key: 'description', label: t('settings.fieldDescription') },
+                  { key: 'rating', label: t('settings.fieldRating') },
+                  { key: 'publisher', label: t('settings.fieldPublisher') },
+                  { key: 'genres', label: t('settings.fieldGenres') },
+                  { key: 'releaseDate', label: t('settings.fieldReleaseDate') },
+                  { key: 'cover', label: t('settings.cover') },
+                  { key: 'background', label: t('settings.background') },
+                  { key: 'logo', label: t('settings.logo') },
+                ] as { key: SyncFieldKey; label: string }[]).map((pref, prefIdx) => {
+                  const currentSync = resolveFieldSyncPreferences(activeUser?.settings?.syncPreferences);
+                  const currentValue = currentSync[pref.key];
+                  const options = FIELD_SOURCE_OPTIONS[pref.key].map((id) => ({
+                    id,
+                    label: id === 'none' ? t('settings.none') : (SOURCE_LABELS[id] || id),
+                  }));
                   const isRowFocused = accessibilityFocusArea === 'right' && subFocusIndex === prefIdx;
                   return (
                     <View
@@ -2767,8 +2729,8 @@ export default function SettingsView({
                     >
                       {isRowFocused && subFocusIndex === prefIdx && <SpinningBorderSearch size={s(180)} spread={0.5} borderRadius={0} />}
                       <Text style={styles.syncItemLabel}>{pref.label}</Text>
-                      <View style={{ flexDirection: 'row', gap: 10 }}>
-                        {pref.options.map((opt) => (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                        {options.map((opt) => (
                           <TouchableOpacity
                             key={opt.id}
                             style={[

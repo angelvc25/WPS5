@@ -1,4 +1,5 @@
 import type { Language } from '@/i18n/translations';
+import { resolveFieldSyncPreferences } from './metadataPreferences';
 import { STEAM_API_LANG } from './steamLanguage';
 
 const ratingCache = new Map<number, number | null>();
@@ -107,21 +108,22 @@ export async function fetchSteamInfo(
 }
 
 /**
- * Al añadir un juego: si la preferencia "Resumen y Rating" es Steam,
- * completa descripción y rating desde Steam. Si falla, devuelve el juego intacto.
+ * Al añadir un juego: si la preferencia de Descripción o Puntuación es Steam,
+ * completa esos campos desde Steam. Si falla, devuelve el juego intacto.
  */
 export async function enrichAppWithSteamInfo<T extends { title?: string; type?: string; description?: string; rating?: number }>(
     app: T,
-    syncPreferences: { ratingAndSummary?: string } | undefined,
+    syncPreferences: unknown,
     language: Language
 ): Promise<T> {
-    if (syncPreferences?.ratingAndSummary !== 'steam') return app;
+    const prefs = resolveFieldSyncPreferences(syncPreferences);
+    if (prefs.description !== 'steam' && prefs.rating !== 'steam') return app;
     if (app.type && app.type !== 'game') return app;
     if (!app.title) return app;
     const info = await fetchSteamInfo(app.title, language);
     return {
         ...app,
-        description: info.description ?? app.description,
-        rating: info.rating ?? app.rating,
+        description: prefs.description === 'steam' ? (info.description ?? app.description) : app.description,
+        rating: prefs.rating === 'steam' ? (info.rating ?? app.rating) : app.rating,
     };
 }

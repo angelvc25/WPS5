@@ -3,45 +3,24 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { ConsoleItem } from '../app/(tabs)/index';
-import { fetchPsnMetadata, isPsnEligiblePlatform, psnLocaleForLanguage, type PsnMetadata } from '../services/psnMetadataService';
-
-// Caché en memoria por título para no repetir la petición al recorrer el carrusel.
-const metadataCache = new Map<string, PsnMetadata | null>();
-const igdbExtraCache = new Map<string, { publishers: string[]; genres: string[] } | null>();
-
-function parseIgdbGenres(game: any): string[] {
-  const raw = game?.genres;
-  if (!Array.isArray(raw)) return [];
-  const names = raw
-    .map((g: any) => (typeof g === 'string' ? g : g?.name))
-    .filter((n: any): n is string => typeof n === 'string' && n.trim().length > 0);
-  return [...new Set(names)];
-}
-
-function parseIgdbPublishers(game: any): string[] {
-  const companies = game?.involved_companies;
-  if (Array.isArray(companies) && companies.length > 0) {
-    const flagged = companies
-      .filter((c: any) => c?.publisher)
-      .map((c: any) => c?.company?.name ?? c?.name)
-      .filter((n: any): n is string => typeof n === 'string' && n.trim().length > 0);
-    if (flagged.length > 0) return [...new Set(flagged)];
-  }
-  const direct = game?.publishers;
-  if (Array.isArray(direct) && direct.length > 0) {
-    const names = direct
-      .map((p: any) => (typeof p === 'string' ? p : p?.name))
-      .filter((n: any): n is string => typeof n === 'string' && n.trim().length > 0);
-    if (names.length > 0) return [...new Set(names)];
-  }
-  return [];
-}
+import { isPsnEligiblePlatform } from '../services/psnMetadataService';
+import {
+  fetchIgdbFieldData,
+  fetchPsnFieldData,
+  fetchRawgFieldData,
+  fetchSteamFieldData,
+  type SourceFieldData,
+} from '../services/metadataFields';
+import type { FieldSyncPreferences } from '../services/metadataPreferences';
+import type { Language } from '@/i18n/translations';
 
 interface GameMetadataSectionProps {
   item: ConsoleItem;
   language: string;
   windowWidth: number;
   windowHeight: number;
+  /** Fuentes por campo elegidas en Accesibilidad. */
+  sources: FieldSyncPreferences;
   /** Foco por mando/teclado (índice 300 del panel): resalta la descripción. */
   isFocused?: boolean;
 }
@@ -53,7 +32,7 @@ function formatReleaseDate(iso: string | null): string | null {
   return iso;
 }
 
-export const GameMetadataSection = ({ item, language, windowWidth, windowHeight, isFocused = false }: GameMetadataSectionProps) => {
+export const GameMetadataSection = ({ item, language, windowWidth, windowHeight, sources, isFocused = false }: GameMetadataSectionProps) => {
   const { t } = useTranslation();
 
   // Scale factor: igual que GameInfoPanel (1.0 a 1080p).
@@ -64,27 +43,34 @@ export const GameMetadataSection = ({ item, language, windowWidth, windowHeight,
   const s = (v: number) => Math.round(v * scale);
 
   const title = item?.title || '';
-  // El Store moderno solo indexa PS4/PS5: para plataformas retro/emuladas
-  // (PS1-PS3, PSP, Vita, Nintendo...) el match por nombre trae el juego
-  // equivocado, así que no se busca nada fuera y se muestra tal cual el
-  // campo de descripción local del juego.
+  // El Store moderno solo indexa PS4/PS5: en plataformas retro/emuladas los
+  // campos PSN caen a IGDB para no traer el juego homónimo equivocado.
   const psnEligible = isPsnEligiblePlatform(item?.platform);
-  const [metadata, setMetadata] = React.useState<PsnMetadata | null>(() => metadataCache.get(title) ?? null);
-  const [igdbExtra, setIgdbExtra] = React.useState<{ publishers: string[]; genres: string[] } | null>(
-    () => igdbExtraCache.get(title) ?? null,
-  );
+  const eff = (src: string): string => (src === 'psn' && !psnEligible ? 'igdb' : src);
+  const effSources = {
+    description: eff(sources.description),
+    rating: eff(sources.rating),
+    publisher: eff(sources.publisher),
+    genres: eff(sources.genres),
+    releaseDate: eff(sources.releaseDate),
+  };
+
+  type SourceKey = 'steam' | 'igdb' | 'rawg' | 'psn';
+  const [sourceData, setSourceData] = React.useState<Record<SourceKey, SourceFieldData | null> | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const prevTitleRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    // Al cambiar de juego (o de elegibilidad) se limpia la ficha anterior
-    // para no mostrar datos obsoletos del juego previo.
-    if (!title || !psnEligible) {
-      setMetadata(null);
+    if (prevTitleRef.current !== title) {
+      prevTitleRef.current = title;
+      setSourceData(null);
+    }
+    if (!title) {
       setLoading(false);
       return;
     }
-    if (metadataCache.has(title)) {
-      setMetadata(metadataCache.get(title) ?? null);
+    const needed = [...new Set(Object.values(effSources))].filter((v) => v !== 'none') as SourceKey[];
+    if (needed.length === 0) {
       setLoading(false);
       return;
     }
@@ -92,12 +78,25 @@ export const GameMetadataSection = ({ item, language, windowWidth, windowHeight,
     setLoading(true);
     // debounce: evita pedir fichas mientras se recorre el carrusel
     const timer = setTimeout(() => {
-      fetchPsnMetadata(title, { locale: psnLocaleForLanguage(language) }).then((result) => {
-        metadataCache.set(title, result);
-        if (!cancelled) {
-          setMetadata(result);
-          setLoading(false);
-        }
+      Promise.all(
+        needed.map(async (source) => {
+          try {
+            if (source === 'steam') return await fetchSteamFieldData(title, (language as Language) || 'es');
+            if (source === 'igdb') return await fetchIgdbFieldData(title);
+            if (source === 'rawg') return await fetchRawgFieldData(title);
+            return await fetchPsnFieldData(title, language);
+          } catch {
+            return null;
+          }
+        }),
+      ).then((results) => {
+        if (cancelled) return;
+        const next = { steam: null, igdb: null, rawg: null, psn: null } as Record<SourceKey, SourceFieldData | null>;
+        needed.forEach((source, idx) => {
+          next[source] = results[idx];
+        });
+        setSourceData(next);
+        setLoading(false);
       });
     }, 600);
     return () => {
@@ -106,66 +105,30 @@ export const GameMetadataSection = ({ item, language, windowWidth, windowHeight,
       setLoading(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, psnEligible]);
+  }, [title, language, psnEligible, sources.description, sources.rating, sources.publisher, sources.genres, sources.releaseDate]);
 
-  const details = metadata?.details;
-  const match = metadata?.match;
+  const pick = (key: 'description' | 'rating' | 'publisher' | 'genres' | 'releaseDate') =>
+    sourceData?.[effSources[key] as SourceKey] || null;
 
-  // En plataformas no elegibles no se busca nada fuera para la descripción
-  // (se muestra el campo local), pero IGDB sí aporta publicadora y géneros
-  // exactos del juego emulado. Carga silenciosa en segundo plano: el contenido
-  // local se muestra de inmediato y estas filas aparecen al llegar.
-  React.useEffect(() => {
-    // Sin título o con PSN elegible no hay extra de IGDB: se limpia para
-    // no mostrar datos obsoletos del juego anterior.
-    if (!title || psnEligible) {
-      setIgdbExtra(null);
-      return;
-    }
-    if (igdbExtraCache.has(title)) {
-      setIgdbExtra(igdbExtraCache.get(title) ?? null);
-      return;
-    }
-    if (typeof window === 'undefined' || !(window as any).electronAPI?.fetchGameData) return;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      (window as any).electronAPI.fetchGameData(title).then((result: any) => {
-        const extra = result?.success && result.data
-          ? { publishers: parseIgdbPublishers(result.data), genres: parseIgdbGenres(result.data) }
-          : null;
-        igdbExtraCache.set(title, extra);
-        if (!cancelled) setIgdbExtra(extra);
-      }).catch(() => {
-        igdbExtraCache.set(title, null);
-      });
-    }, 600);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, psnEligible]);
-
-  const description = details?.description || item?.description;
-  const publisher = details?.publisher || igdbExtra?.publishers?.[0] || null;
-  const releaseDate = formatReleaseDate(details?.releaseDate || null);
-  const genres = details?.genres && details.genres.length > 0
-    ? details.genres.join(', ')
-    : (igdbExtra?.genres && igdbExtra.genres.length > 0 ? igdbExtra.genres.join(', ') : null);
-  const classification = details
-    ? (match?.classificationLabel || match?.classification || null)
-    : null;
+  const description = pick('description')?.description || item?.description;
+  const publisher = pick('publisher')?.publisher || null;
+  const releaseDate = formatReleaseDate(pick('releaseDate')?.releaseDate || item?.releaseDate || null);
+  const genresList = pick('genres')?.genres || [];
+  const itemGenres = Array.isArray(item?.genres)
+    ? item.genres
+    : (typeof item?.genres === 'string' ? [item.genres] : []);
+  const genres = genresList.length > 0 ? genresList.join(', ') : (itemGenres.length > 0 ? itemGenres.join(', ') : null);
+  const classification = sourceData?.psn?.classification || null;
   const platform = item?.platform
     ? (item.platform === 'Retro' && item.retroSystem ? item.retroSystem : item.platform)
     : null;
 
-  const scoreOutOf100 = details?.communityScore ?? null;
-  const scoreOutOf5 = scoreOutOf100 != null
-    ? scoreOutOf100 / 20
-    : (typeof item?.rating === 'number' ? item.rating : null);
+  const scoreOutOf5 = pick('rating')?.rating ?? (typeof item?.rating === 'number' ? item.rating : null);
+  const scoreOutOf100 = effSources.rating === 'psn' && scoreOutOf5 != null ? Math.round(scoreOutOf5 * 20) : null;
   const filledStars = scoreOutOf5 != null ? Math.round(Math.min(Math.max(scoreOutOf5, 0), 5)) : 0;
 
-  if (!loading && !description && !publisher && !releaseDate && !genres && !classification && !platform && scoreOutOf5 == null) {
+  const hasContent = description || publisher || releaseDate || genres || classification || platform || scoreOutOf5 != null;
+  if (!loading && !hasContent) {
     return null;
   }
 
@@ -175,7 +138,7 @@ export const GameMetadataSection = ({ item, language, windowWidth, windowHeight,
         {t('game.metadataTitle')}
       </Text>
 
-      {loading && !metadata ? (
+      {loading && !hasContent ? (
         <View style={[styles.loadingRow, { paddingLeft: s(50) }]}>
           <Ionicons name="information-circle-outline" size={14} color="rgba(255,255,255,0.25)" />
           <Text style={styles.loadingText}>{t('game.metadataLoading')}</Text>

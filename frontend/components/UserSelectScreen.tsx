@@ -18,12 +18,16 @@ import { toastService } from '@/services/toastService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import BackgroundVideo from './BackgroundVideo';
 
-export interface SyncPreferences {
-  ratingAndSummary: 'steam' | 'igdb' | 'rawg' | 'psn' | 'none';
-  cover: 'steamgrid' | 'igdb' | 'rawg' | 'psn' | 'none';
-  background: 'steamgrid' | 'igdb' | 'rawg' | 'psn' | 'none';
-  logo: 'steamgrid' | 'psn' | 'none';
+import type { FieldSyncPreferences } from '../services/metadataPreferences';
+
+export interface LegacySyncPreferences {
+  ratingAndSummary?: 'steam' | 'igdb' | 'rawg' | 'psn' | 'none';
+  cover?: 'steamgrid' | 'igdb' | 'rawg' | 'psn' | 'none';
+  background?: 'steamgrid' | 'igdb' | 'rawg' | 'psn' | 'none';
+  logo?: 'steamgrid' | 'psn' | 'none';
 }
+
+export type SyncPreferences = FieldSyncPreferences | LegacySyncPreferences;
 
 export interface UserSettings {
   autoPlayVideo?: boolean;
@@ -65,7 +69,11 @@ interface UserSelectScreenProps {
 }
 
 const DEFAULT_SYNC_PREFERENCES: SyncPreferences = {
-  ratingAndSummary: 'igdb',
+  description: 'igdb',
+  rating: 'igdb',
+  publisher: 'psn',
+  genres: 'psn',
+  releaseDate: 'psn',
   cover: 'steamgrid',
   background: 'steamgrid',
   logo: 'steamgrid',
