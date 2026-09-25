@@ -573,6 +573,9 @@ export const GameInfoPanel = ({
         // Solo mueve el ScrollView horizontal; scrollIntoView también desplaza
         // contenedores padre y puede sacar toda la pantalla del viewport.
         mediaScrollRef.current?.scrollTo({ x: idx * Math.round(516 * scale), animated: true });
+      } else if (gamePanelFocusIndex >= 300) {
+        // Ficha de metadatos: el scroll vertical lo manejan los contenedores
+        // padre (mainScrollRef en inicio, bottomScrollRef en detalle).
       } else if (gamePanelFocusIndex >= 4) {
         const idx = gamePanelFocusIndex - 4;
         newsScrollRef.current?.scrollTo({ x: idx * Math.round(336 * scale), animated: true });
@@ -1947,6 +1950,7 @@ export const GameInfoPanel = ({
           language={language}
           windowWidth={windowWidth}
           windowHeight={windowHeight}
+          isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 300}
         />
       )}
     </Animated.View>

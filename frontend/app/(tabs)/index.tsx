@@ -2622,6 +2622,8 @@ export default function ConsoleHome() {
             setGamePanelFocusIndex(1);
           } else if (gamePanelFocusIndex === 2) {
             setGamePanelFocusIndex(3);
+          } else if (gamePanelFocusIndex === 300) {
+            // Ficha de metadatos: tarjeta única, no hay avance horizontal.
           } else if (gamePanelFocusIndex >= 200) {
             setGamePanelFocusIndex(prev => Math.min(prev + 1, 200 + achievementCount - 1));
           } else if (gamePanelFocusIndex >= 100) {
@@ -2695,6 +2697,8 @@ export default function ConsoleHome() {
             setGamePanelFocusIndex(0);
           } else if (gamePanelFocusIndex === 3) {
             setGamePanelFocusIndex(2);
+          } else if (gamePanelFocusIndex === 300) {
+            // Ficha de metadatos: tarjeta única, no hay retroceso horizontal.
           } else if (gamePanelFocusIndex >= 200) {
             setGamePanelFocusIndex(prev => Math.max(prev - 1, 200));
           } else if (gamePanelFocusIndex >= 100) {
@@ -2785,16 +2789,29 @@ export default function ConsoleHome() {
               setGamePanelFocusIndex(200);
             } else if (steamNews.length > 0) {
               setGamePanelFocusIndex(4);
+            } else if (activeUser?.settings?.showGameMetadata !== false) {
+              setGamePanelFocusIndex(300);
             }
           } else if (gamePanelFocusIndex >= 100 && gamePanelFocusIndex < 200) {
             if (achievementCount > 0) {
               setGamePanelFocusIndex(200);
             } else if (steamNews.length > 0) {
               setGamePanelFocusIndex(4);
+            } else if (activeUser?.settings?.showGameMetadata !== false) {
+              setGamePanelFocusIndex(300);
             }
+          } else if (gamePanelFocusIndex === 300) {
+            // Ficha de metadatos: última sección, no hay más abajo.
           } else if (gamePanelFocusIndex >= 200) {
             if (steamNews.length > 0) {
               setGamePanelFocusIndex(4);
+            } else if (activeUser?.settings?.showGameMetadata !== false) {
+              setGamePanelFocusIndex(300);
+            }
+          } else if (gamePanelFocusIndex >= 4 && gamePanelFocusIndex < 100) {
+            // De noticias se baja a la ficha de metadatos (si está activada).
+            if (activeUser?.settings?.showGameMetadata !== false) {
+              setGamePanelFocusIndex(300);
             }
           }
         }
@@ -2851,6 +2868,17 @@ export default function ConsoleHome() {
             setGamePanelFocusIndex(0);
           } else if (gamePanelFocusIndex === 3) {
             setGamePanelFocusIndex(1);
+          } else if (gamePanelFocusIndex === 300) {
+            // De la ficha se vuelve a la fila de noticias.
+            if (steamNews.length > 0) {
+              setGamePanelFocusIndex(4);
+            } else if (achievementCount > 0) {
+              setGamePanelFocusIndex(200);
+            } else if (steamMedia.length > 0) {
+              setGamePanelFocusIndex(100);
+            } else {
+              setGamePanelFocusIndex(2);
+            }
           } else if (gamePanelFocusIndex >= 200) {
             setGamePanelFocusIndex(steamMedia.length > 0 ? 100 : 2);
           } else if (gamePanelFocusIndex >= 100) {
@@ -3177,6 +3205,9 @@ export default function ConsoleHome() {
         mainScrollRef.current.scrollTo({ y: 220, animated: true });
       } else if (gamePanelFocusIndex >= 100 && gamePanelFocusIndex < 200) {
         mainScrollRef.current.scrollTo({ y: 220, animated: true });
+      } else if (gamePanelFocusIndex === 300) {
+        // Ficha de metadatos: está debajo de noticias, se lleva al viewport.
+        mainScrollRef.current.scrollTo({ y: 1000, animated: true });
       } else if (gamePanelFocusIndex >= 200) {
         mainScrollRef.current.scrollTo({ y: 220, animated: true });
       } else if (gamePanelFocusIndex >= 100) {

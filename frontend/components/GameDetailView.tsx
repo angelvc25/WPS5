@@ -850,6 +850,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       bottomScrollRef.current.scrollTo({ y: 160, animated: true });
     } else if (focusIndex >= 100 && focusIndex < 200) {
       bottomScrollRef.current.scrollTo({ y: 240, animated: true });
+    } else if (focusIndex === 300) {
+      bottomScrollRef.current.scrollTo({ y: 900, animated: true });
     } else if (focusIndex >= 200) {
       bottomScrollRef.current.scrollTo({ y: 380, animated: true });
     } else if (focusIndex >= 4 && focusIndex < 100) {
@@ -1254,6 +1256,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         if (e.key === 'ArrowRight') {
           if (focusIndex === 0) { soundService.playNavigation(); moveFocus(1); }
           else if (focusIndex === 2) { soundService.playNavigation(); moveFocus(3); }
+          else if (focusIndex === 300) { } // Ficha de metadatos: tarjeta única
           // En row de logros: avanzar item (throttled)
           else if (focusIndex >= 200 && focusIndex < 200 + achievementCount - 1) moveFocusThrottled(focusIndex + 1);
           // En row de capturas: avanzar item (throttled)
@@ -1263,6 +1266,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         } else if (e.key === 'ArrowLeft') {
           if (focusIndex === 1) { soundService.playNavigation(); moveFocus(0); }
           else if (focusIndex === 3) { soundService.playNavigation(); moveFocus(2); }
+          else if (focusIndex === 300) { } // Ficha de metadatos: tarjeta única
           // En row de logros: retroceder item (mínimo 200, throttled)
           else if (focusIndex > 200) moveFocusThrottled(focusIndex - 1);
           else if (focusIndex === 200) { } // ya en el primero
@@ -1280,16 +1284,29 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             if (steamMedia.length > 0) moveFocus(100);
             else if (achievementCount > 0) moveFocus(200);
             else if (steamNews.length > 0) moveFocus(4);
+            else if (activeUser?.settings?.showGameMetadata !== false) moveFocus(300);
           } else if (focusIndex >= 100 && focusIndex < 200) {
             if (achievementCount > 0) moveFocus(200);
             else if (steamNews.length > 0) moveFocus(4);
+            else if (activeUser?.settings?.showGameMetadata !== false) moveFocus(300);
+          } else if (focusIndex === 300) {
+            // Ficha de metadatos: última sección, no hay más abajo.
           } else if (focusIndex >= 200) {
             if (steamNews.length > 0) moveFocus(4);
+            else if (activeUser?.settings?.showGameMetadata !== false) moveFocus(300);
+          } else if (focusIndex >= 4 && focusIndex < 100) {
+            // De noticias se baja a la ficha de metadatos (si está activada).
+            if (activeUser?.settings?.showGameMetadata !== false) moveFocus(300);
           }
-          // noticias: no hay más abajo
         } else if (e.key === 'ArrowUp') {
           soundService.playNavigation();
-          if (focusIndex >= 4 && focusIndex < 100) {
+          if (focusIndex === 300) {
+            // De la ficha se vuelve a la fila de noticias.
+            if (steamNews.length > 0) moveFocus(4);
+            else if (achievementCount > 0) moveFocus(200);
+            else if (steamMedia.length > 0) moveFocus(100);
+            else moveFocus(2);
+          } else if (focusIndex >= 4 && focusIndex < 100) {
             if (achievementCount > 0) moveFocus(200);
             else if (steamMedia.length > 0) moveFocus(100);
             else moveFocus(2);
@@ -1351,6 +1368,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     assetsData,
     isLoadingAssets,
     onOpenMediaGallery,
+    activeUser?.settings?.showGameMetadata,
   ]);
 
   // ─── Mando: botón Options/Start guarda y cierra el selector de imágenes ───

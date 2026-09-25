@@ -42,6 +42,8 @@ interface GameMetadataSectionProps {
   language: string;
   windowWidth: number;
   windowHeight: number;
+  /** Foco por mando/teclado (índice 300 del panel): resalta la descripción. */
+  isFocused?: boolean;
 }
 
 function formatReleaseDate(iso: string | null): string | null {
@@ -51,7 +53,7 @@ function formatReleaseDate(iso: string | null): string | null {
   return iso;
 }
 
-export const GameMetadataSection = ({ item, language, windowWidth, windowHeight }: GameMetadataSectionProps) => {
+export const GameMetadataSection = ({ item, language, windowWidth, windowHeight, isFocused = false }: GameMetadataSectionProps) => {
   const { t } = useTranslation();
 
   // Scale factor: igual que GameInfoPanel (1.0 a 1080p).
@@ -180,9 +182,9 @@ export const GameMetadataSection = ({ item, language, windowWidth, windowHeight 
         </View>
       ) : (
         <View style={[styles.cardsRow, { paddingLeft: s(50), paddingRight: s(50), gap: s(20) }]}>
-          {/* Descripción */}
+          {/* Descripción (foco 300 del panel) */}
           {description ? (
-            <View style={[styles.card, { padding: s(24), flex: 1.2 }]}>
+            <View style={[styles.card, { padding: s(24), flex: 1.2 }, isFocused && styles.cardFocused]}>
               <Text style={[styles.descriptionText, { fontSize: s(16), lineHeight: s(24) }]}>
                 {description}
               </Text>
@@ -277,6 +279,11 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: 'rgba(0,0,0,0.55)',
     borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  cardFocused: {
+    borderColor: 'rgba(255,255,255,0.9)',
   },
   descriptionText: {
     color: 'rgba(255,255,255,0.85)',
