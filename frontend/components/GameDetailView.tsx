@@ -2083,9 +2083,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                 onFocus={() => setEditModalFocusIndex(22)}
                               />
                               <View style={styles.pathDisplayBox}>
-                                <Text style={styles.pathDisplayTextHeader}>Lanzamiento vía Steam</Text>
+                                <Text style={styles.pathDisplayTextHeader}>{t('add.launchViaSteam')}</Text>
                                 <Text style={styles.pathDisplayText}>
-                                  Este juego se ejecutará directamente desde Steam usando el protocolo steam://
+                                  {t('add.launchViaSteamDesc')}
                                 </Text>
                               </View>
                             </>
@@ -2185,9 +2185,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               onPress={() => { setEditModalFocusIndex(26); handleSelectFocusAudio(); }}
                             >
                               <Ionicons name="musical-notes-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
-                              <Text style={styles.artFileBtnTitle}>Audio al enfocar</Text>
+                              <Text style={styles.artFileBtnTitle}>{t('edit.focusAudio')}</Text>
                               <Text style={styles.artFileBtnSub} numberOfLines={1}>
-                                {editData.focusAudio ? 'Archivo seleccionado' : 'Música del juego en Inicio'}
+                                {editData.focusAudio ? t('edit.fileSelected') : t('edit.musicDesc')}
                               </Text>
                             </TouchableOpacity>
                           </View>

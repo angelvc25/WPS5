@@ -1901,6 +1901,11 @@ const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
     icon: 'accessibility',
     tips: [
       {
+        image: require('@/assets/images/changeLanguage.png'),
+        title: t('cc.changeLanguage'),
+        description: t('cc.changeLanguageDesc'),
+      },
+      {
         video: require('@/assets/video/controlCenter.mp4'),
         title: t('cc.floatingMenu'),
         description: (
@@ -1946,10 +1951,25 @@ const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
         description: t('cc.steamSettingDesc'),
       },
       {
-        image: require('@/assets/images/Sync.png'),
-        title: t('cc.sync'),
-        description: t('cc.syncDesc'),
+        image: require('@/assets/images/NewsOnofOff.png'),
+        title: t('cc.gamePanel'),
+        description: t('cc.gamePanelDesc'),
       },
+      {
+        image: require('@/assets/images/retroAchievements.png'),
+        title: t('cc.retroAchievements'),
+        description: t('cc.retroAchievementsDesc'),
+      },
+      {
+        image: require('@/assets/images/RPCS3.png'),
+        title: t('cc.RPCS3Achievements'),
+        description: t('cc.RPCS3AchievementsDesc'),
+      },
+      {
+        image: require('@/assets/images/smartSync.png'),
+        title: t('cc.metadataSources'),
+        description: t('cc.metadataSourcesDesc'),
+      }
     ]
   },
   {
@@ -1960,24 +1980,19 @@ const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
     icon: 'compass',
     tips: [
       {
-        video: require('@/assets/video/addGames.mp4'),
+        video: require('@/assets/video/addGames2.mp4'),
         title: t('cc.addGameManually'),
-        description: (
-          <>
-            {t('cc.addGameManuallyDesc')}{' '}
-            <PSIcon
-              char={PSIcons.share}
-              size={10}
-              color="rgba(255, 255, 255, 0.9)"
-              style={{ verticalAlign: 'middle' }}
-            />
-          </>
-        ),
+        description: t('cc.addGameManuallyDesc'),
       },
       {
         image: require('@/assets/images/settingGuide2.png'),
         title: t('cc.personalizeBg'),
         description: t('cc.personalizeBgDesc'),
+      },
+      {
+        video: require('@/assets/video/addGames2.mp4'),
+        title: t('cc.addEmulatedGames'),
+        description: t('cc.addEmulatedGamesDesc'),
       },
       {
         video: require('@/assets/video/wallpaper.mp4'),
@@ -1988,6 +2003,16 @@ const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
         video: require('@/assets/video/avatarPicker.mp4'),
         title: t('cc.avatarPicker'),
         description: t('cc.avatarPickerDesc'),
+      },
+      {
+        image: require('@/assets/images/customWidgets.png'),
+        title: t('cc.customizeWidgets'),
+        description: t('cc.customizeWidgetsDesc'),
+      },
+      {
+        image: require('@/assets/images/selectvideos.png'),
+        title: t('cc.backgroundVideo'),
+        description: t('cc.backgroundVideoDesc'),
       }
     ]
   },
@@ -2022,7 +2047,17 @@ const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
         video: require('@/assets/video/editorGames.mp4'),
         title: t('cc.editorGames'),
         description: t('cc.editorGamesDesc'),
-      }
+      },
+      {
+        image: require('@/assets/images/parametros.png'),
+        title: t('cc.paramsTitle'),
+        description: t('cc.paramsDesc'),
+      },
+      {
+        image: require('@/assets/images/VideoSplash.png'),
+        title: t('cc.videoSplash'),
+        description: t('cc.videoSplashDesc'),
+      },
     ]
   }
 ];
