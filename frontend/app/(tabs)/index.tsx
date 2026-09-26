@@ -4722,32 +4722,23 @@ export default function ConsoleHome() {
             entering={FadeIn.duration(800)}
             exiting={FadeOut.duration(800)}
           >
-            {/* Background image of the game */}
+            {/* Background image of the game, sin oscurecer */}
             {launchingItem.backgroundImage ? (
               <Image
                 source={launchingItem.backgroundImage}
-                style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}
+                style={StyleSheet.absoluteFillObject}
                 contentFit="cover"
               />
             ) : launchingItem.image ? (
               <Image
                 source={launchingItem.image}
-                style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}
+                style={StyleSheet.absoluteFillObject}
                 contentFit="cover"
               />
             ) : null}
 
-            {/* Dark background gradient overlay */}
-            {Platform.OS === 'web' && (
-              <div style={{
-                position: 'absolute', inset: 0,
-                background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.3) 100%)',
-                pointerEvents: 'none',
-              } as any} />
-            )}
-
             <View style={styles.launchingOverlay}>
-              <Animated.View style={{ alignItems: 'center', marginBottom: 40 }} entering={FadeInDown.delay(300).duration(800)}>
+              <Animated.View style={{ alignItems: 'center', marginBottom: 40 }} entering={FadeIn.delay(600).duration(2000)}>
                 {launchingItem.logo ? (
                   <Image
                     source={launchingItem.logo}

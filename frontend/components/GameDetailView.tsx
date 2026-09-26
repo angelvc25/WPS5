@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from './AppVideo';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, FadeIn } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import YoutubePlayer from './YoutubePlayer';
 import ControlPrompt from './ControlPrompt';
@@ -1752,33 +1752,24 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               entering={FadeIn.duration(800)}
               style={[StyleSheet.absoluteFill, { zIndex: 1000, backgroundColor: '#000' }]}
             >
-              {/* Fondo del juego oscurecido */}
+              {/* Fondo del juego a plena imagen, sin oscurecer */}
               {item.backgroundImage ? (
                 <Image
                   source={item.backgroundImage}
-                  style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}
+                  style={StyleSheet.absoluteFillObject}
                   contentFit="cover"
                 />
               ) : item.image ? (
                 <Image
                   source={item.image}
-                  style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}
+                  style={StyleSheet.absoluteFillObject}
                   contentFit="cover"
                 />
               ) : null}
 
-              {/* Gradiente oscuro */}
-              {Platform.OS === 'web' && (
-                <div style={{
-                  position: 'absolute', inset: 0,
-                  background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.3) 100%)',
-                  pointerEvents: 'none',
-                } as any} />
-              )}
-
               <View style={styles.launchingOverlay}>
                 <Animated.View
-                  entering={FadeInDown.delay(300).duration(800)}
+                  entering={FadeIn.delay(600).duration(2000)}
                   style={{ alignItems: 'center', marginBottom: 40 }}
                 >
                   {item.logo ? (
