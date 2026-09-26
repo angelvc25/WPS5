@@ -12,6 +12,7 @@ import {
   fetchPcGameAchievements, // juegos PC manuales — detecta AppID desde el exe
   fetchRpcs3Trophies,
   fetchRpcs3TrophiesFromLnk,
+  fetchRpcs3TrophiesFromRom,
   getCachedAwAchievements,
   getRpcs3AppId,
 } from '../services/achievementWatcherService';
@@ -243,6 +244,12 @@ export const GameInfoPanel = ({
 
       const gamePath: string | null = achievementGame?.path ?? null;
       const isLnk = typeof gamePath === 'string' && gamePath.toLowerCase().endsWith('.lnk');
+      // ROM añadida por escaneo: el exe está en `path` y la ROM citada en `launchArgs`.
+      const launchArgs: string | null = (achievementGame as any)?.launchArgs ?? null;
+      const romMatch = typeof launchArgs === 'string' ? launchArgs.match(/"([^"]+)"/g) : null;
+      const romPath: string | null = romMatch && romMatch.length > 0
+        ? romMatch[romMatch.length - 1].replace(/"/g, '')
+        : null;
 
       let cancelled = false;
       setSteamAchievements(null);
@@ -252,11 +259,13 @@ export const GameInfoPanel = ({
       const timer = setTimeout(() => {
         setAchievementsLoading(true);
 
-        // Dos variantes: .lnk (juego añadido como acceso directo desde ES-DE / escritorio)
-        // o path directo a una carpeta dentro de RPCS3.
+        // Tres variantes: .lnk (acceso directo ES-DE/escritorio), ROM escaneada
+        // (GameID extraído de la ruta) o NPcommID directo a una carpeta en RPCS3.
         const trophyPromise = isLnk
           ? fetchRpcs3TrophiesFromLnk(gamePath!, rpcs3Dir)
-          : fetchRpcs3Trophies(rpcs3Dir, rpcs3AppId);
+          : romPath
+            ? fetchRpcs3TrophiesFromRom(romPath, rpcs3Dir, achievementGame?.title || '')
+            : fetchRpcs3Trophies(rpcs3Dir, rpcs3AppId);
 
         trophyPromise.then((summary) => {
           if (cancelled) return;

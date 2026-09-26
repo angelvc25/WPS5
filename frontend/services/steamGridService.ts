@@ -40,6 +40,20 @@ function mapAsset(raw: any): SteamGridAsset {
   };
 }
 
+/**
+ * Elige la portada: prioriza cuadradas 1:1 (quedan mejor en el launcher),
+ * con fallback a la primera disponible.
+ */
+function pickPreferredGrid(grids: any[]): any | null {
+  if (!Array.isArray(grids) || grids.length === 0) return null;
+  const square = grids.find((g) => {
+    const w = Number(g?.width) || 0;
+    const h = Number(g?.height) || 0;
+    return w > 0 && w === h;
+  });
+  return square || grids[0];
+}
+
 export interface SteamGridDataResult {
   success: boolean;
   data?: {
@@ -75,14 +89,15 @@ export async function fetchSteamGridData(
       return { success: false, error: json.error || 'Juego no encontrado en SteamGridDB' };
     }
 
-    const chosenGrid = json.grids?.[0]?.url || json.grids?.[0]?.thumb || null;
+    const chosenGrid = pickPreferredGrid(json.grids);
+    const grid = chosenGrid?.url || chosenGrid?.thumb || null;
     const hero = json.heroes?.[0]?.url || json.heroes?.[0]?.thumb || null;
     const logo = json.logos?.[0]?.url || json.logos?.[0]?.thumb || null;
 
     return {
       success: true,
       data: {
-        grid: chosenGrid,
+        grid,
         hero,
         logo,
       },

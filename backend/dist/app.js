@@ -18413,17 +18413,17 @@ var require_router = __commonJS({
     var toString = Object.prototype.toString;
     var proto = module.exports = function(options) {
       var opts = options || {};
-      function router2(req, res, next) {
-        router2.handle(req, res, next);
+      function router3(req, res, next) {
+        router3.handle(req, res, next);
       }
-      setPrototypeOf(router2, proto);
-      router2.params = {};
-      router2._params = [];
-      router2.caseSensitive = opts.caseSensitive;
-      router2.mergeParams = opts.mergeParams;
-      router2.strict = opts.strict;
-      router2.stack = [];
-      return router2;
+      setPrototypeOf(router3, proto);
+      router3.params = {};
+      router3._params = [];
+      router3.caseSensitive = opts.caseSensitive;
+      router3.mergeParams = opts.mergeParams;
+      router3.strict = opts.strict;
+      router3.stack = [];
+      return router3;
     };
     proto.param = function param(name, fn) {
       if (typeof name === "function") {
@@ -21016,7 +21016,7 @@ var require_application = __commonJS({
   "node_modules/express/lib/application.js"(exports, module) {
     "use strict";
     var finalhandler = require_finalhandler();
-    var Router2 = require_router();
+    var Router3 = require_router();
     var methods = require_methods();
     var middleware = require_init();
     var query = require_query();
@@ -21081,7 +21081,7 @@ var require_application = __commonJS({
     };
     app2.lazyrouter = function lazyrouter() {
       if (!this._router) {
-        this._router = new Router2({
+        this._router = new Router3({
           caseSensitive: this.enabled("case sensitive routing"),
           strict: this.enabled("strict routing")
         });
@@ -21090,17 +21090,17 @@ var require_application = __commonJS({
       }
     };
     app2.handle = function handle(req, res, callback) {
-      var router2 = this._router;
+      var router3 = this._router;
       var done = callback || finalhandler(req, res, {
         env: this.get("env"),
         onerror: logerror.bind(this)
       });
-      if (!router2) {
+      if (!router3) {
         debug("no routes defined on app");
         done();
         return;
       }
-      router2.handle(req, res, done);
+      router3.handle(req, res, done);
     };
     app2.use = function use(fn) {
       var offset = 0;
@@ -21120,15 +21120,15 @@ var require_application = __commonJS({
         throw new TypeError("app.use() requires a middleware function");
       }
       this.lazyrouter();
-      var router2 = this._router;
+      var router3 = this._router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router2.use(path, fn2);
+          return router3.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router2.use(path, function mounted_app(req, res, next) {
+        router3.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             setPrototypeOf(req, orig.request);
@@ -22945,7 +22945,7 @@ var require_express = __commonJS({
     var mixin = require_merge_descriptors();
     var proto = require_application();
     var Route = require_route();
-    var Router2 = require_router();
+    var Router3 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -22968,7 +22968,7 @@ var require_express = __commonJS({
     exports.request = req;
     exports.response = res;
     exports.Route = Route;
-    exports.Router = Router2;
+    exports.Router = Router3;
     exports.json = bodyParser.json;
     exports.query = require_query();
     exports.raw = bodyParser.raw;
@@ -23303,7 +23303,7 @@ var require_lib3 = __commonJS({
 })();
 
 // src/app.js
-var import_express2 = __toESM(require_express2(), 1);
+var import_express3 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 
 // src/routes/store.js
@@ -23461,12 +23461,400 @@ router.get("/health", (_req, res) => {
 });
 var store_default = router;
 
+// src/routes/psn.js
+var import_express2 = __toESM(require_express2(), 1);
+
+// src/services/psnMetadataService.js
+var GRAPHQL_URL2 = "https://web.np.playstation.com/api/graphql/v1/op";
+var SEARCH_HASH = "4df6284f982e57bec70f23c77e2c219dc792eb19af7fb3d3a81767aa3f1958aa";
+var APP_NAME = "@sie-ppr-web-store/app";
+var APP_VERSION = "0.113.0";
+var REQUEST_TIMEOUT_MS = 3e4;
+var COVER_ROLES = ["MASTER", "PORTRAIT_BANNER", "EDITION_KEY_ART", "GAMEHUB_COVER_ART"];
+var BACKGROUND_ROLES = ["BACKGROUND", "SIXTEEN_BY_NINE_BANNER"];
+var searchCache = /* @__PURE__ */ new Map();
+var detailsCache = /* @__PURE__ */ new Map();
+function getConfig2() {
+  return {
+    locale: process.env.PSN_LOCALE || "es-CO",
+    storePath: (process.env.PSN_STORE_PATH || "es-co").toLowerCase(),
+    cacheMs: Number(process.env.PSN_METADATA_CACHE_MS || process.env.CACHE_DURATION_MS || 1e3 * 60 * 60)
+  };
+}
+function cacheGet(map, key, ttlMs) {
+  const entry = map.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.time > ttlMs) {
+    map.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+function cacheSet(map, key, data) {
+  map.set(key, { data, time: Date.now() });
+  if (map.size > 200) {
+    const oldest = map.keys().next().value;
+    map.delete(oldest);
+  }
+}
+function normalizeLocale(input) {
+  const fallback = getConfig2().locale;
+  const raw = (input || fallback || "es-CO").trim();
+  const parts = raw.split("-");
+  if (parts.length < 2) return fallback;
+  return `${parts[0].toLowerCase()}-${parts.slice(1).join("-").toUpperCase()}`;
+}
+function localeForUrl(locale) {
+  return normalizeLocale(locale).toLowerCase();
+}
+function splitLocale(locale) {
+  const normalized = normalizeLocale(locale);
+  const parts = normalized.split("-");
+  const countryCode = parts[parts.length - 1].toUpperCase();
+  let languageCode = parts[0].toLowerCase();
+  if (languageCode === "zh" && parts.length > 2 && parts[1].toLowerCase() === "hant") {
+    languageCode = "ch";
+  }
+  return { countryCode, languageCode };
+}
+function newRequestId() {
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+}
+function storeHeaders(locale) {
+  return {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+    Origin: "https://store.playstation.com",
+    Referer: "https://store.playstation.com/",
+    "apollographql-client-name": APP_NAME,
+    "apollographql-client-version": APP_VERSION,
+    "X-PSN-App-Ver": `${APP_NAME}/${APP_VERSION}-`,
+    "X-PSN-Correlation-ID": newRequestId(),
+    "X-PSN-Request-ID": newRequestId(),
+    "X-PSN-Store-Locale-Override": normalizeLocale(locale)
+  };
+}
+async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+function buildSearchUrl(searchTerm, locale, pageSize = 24) {
+  const { countryCode, languageCode } = splitLocale(locale);
+  const variables = {
+    countryCode,
+    languageCode,
+    nextCursor: "",
+    pageOffset: 0,
+    pageSize,
+    searchTerm
+  };
+  const extensions = { persistedQuery: { version: 1, sha256Hash: SEARCH_HASH } };
+  const params = new URLSearchParams({
+    operationName: "getSearchResults",
+    variables: JSON.stringify(variables),
+    extensions: JSON.stringify(extensions)
+  });
+  return `${GRAPHQL_URL2}?${params.toString()}`;
+}
+function pickMediaUrl(media = [], roles) {
+  for (const role of roles) {
+    const match = media.find(
+      (m) => m?.type === "IMAGE" && m?.role === role && m?.url
+    );
+    if (match?.url) return match.url;
+  }
+  return null;
+}
+function pickAnyImage(media = []) {
+  return media.find((m) => m?.type === "IMAGE" && m?.url)?.url || null;
+}
+function mapSearchItem(item, locale) {
+  const storePath = localeForUrl(locale);
+  const coverUrl = pickMediaUrl(item.media, COVER_ROLES) || pickAnyImage(item.media);
+  if (!item?.id || !item?.name || !coverUrl) return null;
+  const route = String(item.__typename || "").toLowerCase() === "concept" ? "concept" : "product";
+  const labels = [];
+  if (item.localizedStoreDisplayClassification) labels.push(item.localizedStoreDisplayClassification);
+  if (Array.isArray(item.platforms) && item.platforms.length > 0) {
+    labels.push(item.platforms.join(", "));
+  }
+  return {
+    id: item.id,
+    name: item.name,
+    type: item.__typename || "Product",
+    classification: item.storeDisplayClassification || null,
+    classificationLabel: item.localizedStoreDisplayClassification || null,
+    description: labels.join(" \xB7 ") || null,
+    platforms: Array.isArray(item.platforms) ? item.platforms : [],
+    coverUrl,
+    backgroundUrl: pickMediaUrl(item.media, BACKGROUND_ROLES),
+    url: `https://store.playstation.com/${storePath}/${route}/${item.id}`,
+    route
+  };
+}
+async function searchGames(query, { locale, limit = 24 } = {}) {
+  const q = String(query || "").trim();
+  if (!q) {
+    const err = new Error('Par\xE1metro "q" requerido');
+    err.status = 400;
+    throw err;
+  }
+  const resolvedLocale = normalizeLocale(locale);
+  const pageSize = Math.min(Math.max(Number(limit) || 24, 1), 24);
+  const { cacheMs } = getConfig2();
+  const cacheKey = `search:${resolvedLocale}:${q.toLowerCase()}:${pageSize}`;
+  const cached = cacheGet(searchCache, cacheKey, cacheMs);
+  if (cached) return cached;
+  const url = buildSearchUrl(q, resolvedLocale, pageSize);
+  const response = await fetchWithTimeout(url, { headers: storeHeaders(resolvedLocale) });
+  if (!response.ok) {
+    const err = new Error(`PlayStation Store respondi\xF3 con status ${response.status}`);
+    err.status = 502;
+    throw err;
+  }
+  const data = await response.json();
+  if (Array.isArray(data?.errors) && data.errors.length > 0) {
+    const msg = data.errors.map((e) => e?.message).filter(Boolean).join("; ");
+    const err = new Error(`PlayStation Store GraphQL error: ${msg || "unknown"}`);
+    err.status = 502;
+    throw err;
+  }
+  const results = data?.data?.universalSearch?.results || [];
+  const mapped = results.map((item) => mapSearchItem(item, resolvedLocale)).filter(Boolean).slice(0, pageSize);
+  const payload = { query: q, locale: resolvedLocale, count: mapped.length, results: mapped };
+  cacheSet(searchCache, cacheKey, payload);
+  return payload;
+}
+function htmlUnescape(value) {
+  return String(value || "").replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+}
+function stripTags(html) {
+  return htmlUnescape(String(html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " "));
+}
+function matchFirst(html, patterns) {
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m?.[1]) return htmlUnescape(m[1]);
+  }
+  return null;
+}
+function parseDetailsHtml(html, { id, locale, route, pageUrl }) {
+  const storePath = localeForUrl(locale);
+  const description = matchFirst(html, [
+    /<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i
+  ]) ? extractJsonLdDescription(html) || matchFirst(html, [
+    /data-qa="mfe-game-overview#description"[^>]*>([\s\S]*?)<\/[a-z]+>/i,
+    /<meta name="description" content="([^"]+)"/i,
+    /<meta property="og:description" content="([^"]+)"/i
+  ]) : matchFirst(html, [
+    /data-qa="mfe-game-overview#description"[^>]*>([\s\S]*?)<\/[a-z]+>/i,
+    /<meta name="description" content="([^"]+)"/i,
+    /<meta property="og:description" content="([^"]+)"/i
+  ]);
+  const publisher = matchFirst(html, [
+    /data-qa="gameInfo#releaseInformation#publisher-value"[^>]*>([^<]+)</i,
+    /data-qa="mfe-game-title#publisher"[^>]*>([^<]+)</i,
+    /"publisher"\s*:\s*\{\s*"[^"]*"\s*:\s*"([^"]+)"/i,
+    /"publisher"\s*:\s*"([^"]+)"/i
+  ]);
+  const rawGenres = matchFirst(html, [
+    /data-qa="gameInfo#releaseInformation#genre-value"[^>]*>([^<]+)</i,
+    /"genre"\s*:\s*\[([^\]]+)\]/i
+  ]);
+  const localizedGenres = [...html.matchAll(/"localizedGenres"\s*:\s*\[([^\]]*?)\]/gi)].flatMap((m) => [...m[1].matchAll(/"value"\s*:\s*"([^"]+)"/g)].map((g) => g[1])).filter(Boolean);
+  const genres = [...new Set(localizedGenres.length > 0 ? localizedGenres : rawGenres ? rawGenres.split(/[,|]/).map((g) => stripTags(g).replace(/["[\]]/g, "").trim()) : [])].filter(Boolean);
+  const releaseDate = matchFirst(html, [
+    /"releaseDate"\s*:\s*"(\d{4}-\d{2}-\d{2})/i,
+    /data-qa="gameInfo#releaseInformation#releaseDate-value"[^>]*>([^<]+)</i
+  ]);
+  const ratingRaw = matchFirst(html, [
+    /data-qa="mfe-game-title#average-rating"[^>]*>([^<]+)</i,
+    /"ratingValue"\s*:\s*"([\d.]+)"/i,
+    /"averageRating"\s*:\s*([\d.]+)/i
+  ]);
+  let communityScore = null;
+  if (ratingRaw) {
+    const rating = Number.parseFloat(ratingRaw.replace(",", "."));
+    if (Number.isFinite(rating) && rating >= 0 && rating <= 5) {
+      communityScore = Math.round(rating * 20);
+    }
+  }
+  const name = matchFirst(html, [
+    /<meta property="og:title" content="([^"]+)"/i,
+    /data-qa="mfe-game-title#title"[^>]*>([^<]+)</i,
+    /<title>([^<]+)<\/title>/i
+  ]) || null;
+  const coverUrl = matchFirst(html, [
+    /<meta property="og:image" content="([^"]+)"/i
+  ]);
+  const backgroundUrl = matchFirst(html, [
+    /img[^>]*data-qa="gameBackgroundImage#heroImage#image-no-js"[^>]*src="([^"]+)"/i,
+    /img[^>]*data-qa="gameBackgroundImage#heroImage#preview"[^>]*src="([^"]+)"/i
+  ]);
+  return {
+    id,
+    name,
+    description: description ? stripTags(description) : null,
+    genres,
+    publisher,
+    releaseDate,
+    communityScore,
+    coverUrl: coverUrl ? coverUrl.split("?")[0] : null,
+    backgroundUrl: backgroundUrl ? backgroundUrl.split("?")[0] : null,
+    platforms: [],
+    locale: normalizeLocale(locale),
+    url: pageUrl || `https://store.playstation.com/${storePath}/${route}/${encodeURIComponent(id)}`
+  };
+}
+function extractJsonLdDescription(html) {
+  try {
+    const blocks = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)];
+    for (const [, jsonText] of blocks) {
+      const parsed = JSON.parse(jsonText);
+      const candidates = Array.isArray(parsed) ? parsed : [parsed];
+      for (const node of candidates) {
+        const desc = node?.description;
+        if (typeof desc === "string" && desc.trim()) return desc.trim();
+        const graph = node?.["@graph"];
+        if (Array.isArray(graph)) {
+          for (const g of graph) {
+            if (typeof g?.description === "string" && g.description.trim()) return g.description.trim();
+          }
+        }
+      }
+    }
+  } catch {
+  }
+  return null;
+}
+async function getProductDetails(productId, { locale, route = "product" } = {}) {
+  const id = String(productId || "").trim();
+  if (!id) {
+    const err = new Error('Par\xE1metro "id" requerido');
+    err.status = 400;
+    throw err;
+  }
+  const resolvedLocale = normalizeLocale(locale);
+  const storePath = localeForUrl(resolvedLocale);
+  const safeRoute = route === "concept" ? "concept" : "product";
+  const { cacheMs } = getConfig2();
+  const cacheKey = `details:${resolvedLocale}:${safeRoute}:${id}`;
+  const cached = cacheGet(detailsCache, cacheKey, cacheMs);
+  if (cached) return cached;
+  const pageUrl = `https://store.playstation.com/${storePath}/${safeRoute}/${encodeURIComponent(id)}`;
+  const response = await fetchWithTimeout(
+    pageUrl,
+    {
+      headers: {
+        ...storeHeaders(resolvedLocale),
+        Accept: "text/html,application/xhtml+xml"
+      }
+    },
+    REQUEST_TIMEOUT_MS
+  );
+  if (!response.ok) {
+    const err = new Error(`Ficha de PlayStation Store respondi\xF3 con status ${response.status}`);
+    err.status = response.status === 404 ? 404 : 502;
+    throw err;
+  }
+  const html = await response.text();
+  const details = parseDetailsHtml(html, { id, locale: resolvedLocale, route: safeRoute, pageUrl });
+  cacheSet(detailsCache, cacheKey, details);
+  return details;
+}
+async function getMetadataForName(name, { locale } = {}) {
+  const search = await searchGames(name, { locale, limit: 10 });
+  if (search.results.length === 0) {
+    return { query: name, locale: search.locale, match: null, details: null };
+  }
+  const best = search.results[0];
+  const details = await getProductDetails(best.id, { locale: search.locale, route: best.route }).catch(() => null);
+  return {
+    query: name,
+    locale: search.locale,
+    match: best,
+    details: details || {
+      id: best.id,
+      name: best.name,
+      description: best.description,
+      genres: [],
+      publisher: null,
+      releaseDate: null,
+      communityScore: null,
+      coverUrl: best.coverUrl,
+      backgroundUrl: best.backgroundUrl,
+      platforms: best.platforms,
+      locale: search.locale,
+      url: best.url
+    },
+    candidates: search.results
+  };
+}
+function clearPsnCaches() {
+  searchCache.clear();
+  detailsCache.clear();
+}
+
+// src/routes/psn.js
+var router2 = (0, import_express2.Router)();
+function sendError(res, error) {
+  const status = Number(error?.status) || 500;
+  console.error("[PsnRoute]", error?.message || error);
+  res.status(status).json({ error: error?.message || "Error en la API de metadatos PSN" });
+}
+router2.get("/search", async (req, res) => {
+  try {
+    const { q, locale, limit } = req.query;
+    const result = await searchGames(q, { locale, limit });
+    res.json(result);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+router2.get("/product/:id", async (req, res) => {
+  try {
+    const { locale, route } = req.query;
+    const details = await getProductDetails(req.params.id, { locale, route });
+    res.json(details);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+router2.get("/metadata", async (req, res) => {
+  try {
+    const { name, locale } = req.query;
+    if (!String(name || "").trim()) {
+      return res.status(400).json({ error: 'Par\xE1metro "name" requerido' });
+    }
+    const result = await getMetadataForName(name, { locale });
+    res.json(result);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+router2.delete("/cache", (_req, res) => {
+  clearPsnCaches();
+  res.json({ status: "ok", cleared: true });
+});
+router2.get("/health", (_req, res) => {
+  res.json({ status: "ok", service: "wps5-psn-metadata-api" });
+});
+var psn_default = router2;
+
 // src/app.js
-var app = (0, import_express2.default)();
+var app = (0, import_express3.default)();
 var PORT = Number(process.env.PORT || 3e3);
 app.use((0, import_cors.default)());
-app.use(import_express2.default.json());
+app.use(import_express3.default.json());
 app.use("/api/store", store_default);
+app.use("/api/psn", psn_default);
 app.listen(PORT, () => {
   console.log(`[WPS5 Backend] API running on http://localhost:${PORT}`);
 });

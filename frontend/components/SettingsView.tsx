@@ -34,6 +34,7 @@ import {
   type SyncFieldKey,
 } from '../services/metadataPreferences';
 import BackgroundVideo from './BackgroundVideo';
+import { EmulationView } from './EmulationView';
 import PSIcon from './PSIcon';
 import { UserProfile } from './UserSelectScreen';
 import SpinningBorderSearch from './SpinningBorderSearch';
@@ -59,6 +60,7 @@ export type SettingsScreenType =
   | 'users_and_accounts'
   | 'profile_edit'
   | 'profile_edit_detail'
+  | 'emulation'
   | 'system';
 
 type ProfileEditSection =
@@ -244,6 +246,8 @@ interface SettingsViewProps {
   // Se dispara al presionar Enter / tocar un juego en el perfil (Actividad
   // reciente o Biblioteca). Opcional: si no se pasa, esos items solo se enfocan.
   onGamePress?: (game: any) => void;
+  // Se dispara cuando Emulación importa juegos nuevos, para recargar la lista.
+  onGamesImported?: () => void;
 }
 
 export default function SettingsView({
@@ -265,6 +269,7 @@ export default function SettingsView({
   onSelectAvatarFolder,
   initialScreen = 'main',
   onGamePress,
+  onGamesImported,
 }: SettingsViewProps) {
   const { t } = useTranslation();
 
@@ -1134,7 +1139,7 @@ export default function SettingsView({
       if (currentScreen === 'main') {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          setMainFocusIndex((prev) => Math.min(prev + 1, 3));
+          setMainFocusIndex((prev) => Math.min(prev + 1, 4));
           soundService.playNavigation();
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
@@ -1145,7 +1150,8 @@ export default function SettingsView({
           if (mainFocusIndex === 0) navigateToScreen('guide');
           else if (mainFocusIndex === 1) navigateToScreen('accessibility');
           else if (mainFocusIndex === 2) navigateToScreen('users_and_accounts');
-          else if (mainFocusIndex === 3) navigateToScreen('system');
+          else if (mainFocusIndex === 3) navigateToScreen('emulation');
+          else if (mainFocusIndex === 4) navigateToScreen('system');
         }
       } else if (currentScreen === 'accessibility') {
         if (accessibilityFocusArea === 'left') {
@@ -1566,6 +1572,12 @@ export default function SettingsView({
         title: t('settings.usersAndAccounts'),
         icon: 'person-circle-outline' as const,
         onPress: () => navigateToScreen('users_and_accounts'),
+      },
+      {
+        id: 'emulation',
+        title: t('emu.title'),
+        icon: 'game-controller-outline' as const,
+        onPress: () => navigateToScreen('emulation'),
       },
       {
         id: 'system',
@@ -3685,6 +3697,15 @@ export default function SettingsView({
         {currentScreen === 'users_and_accounts' && renderProfileViewScreen()}
         {currentScreen === 'profile_edit' && renderProfileEditScreen()}
         {currentScreen === 'profile_edit_detail' && renderProfileEditDetailScreen()}
+        {currentScreen === 'emulation' && (
+          <EmulationView
+            activeUser={activeUser}
+            updateUser={updateUser}
+            libraryGames={libraryGames}
+            onBack={handleBack}
+            onGamesImported={onGamesImported}
+          />
+        )}
         {currentScreen === 'system' && renderSystemScreen()}
       </View>
       {/* Control Prompt Bar at Bottom */}

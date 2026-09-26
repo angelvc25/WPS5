@@ -1773,6 +1773,7 @@ export default function ConsoleHome() {
           youtubeId: app.youtubeId,
           type: app.type,
           platform: app.platform,
+          retroSystem: app.retroSystem,
           isPinned: app.isPinned
         });
         const validRawGames = (data.games || []).filter((app: any) => {
@@ -4524,6 +4525,7 @@ export default function ConsoleHome() {
         onOpenAvatarModal={() => setAvatarModalVisible(true)}
         onSelectAvatarFolder={handleSelectAvatarFolder}
         initialScreen={settingsInitialScreen}
+        onGamesImported={() => loadApps()}
       />
 
       {/* WELCOME SETTINGS VIEW */}

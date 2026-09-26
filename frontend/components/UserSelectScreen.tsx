@@ -19,6 +19,7 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import BackgroundVideo from './BackgroundVideo';
 
 import type { FieldSyncPreferences } from '../services/metadataPreferences';
+import type { EmulatorConfig } from '../services/emulationService';
 
 export interface LegacySyncPreferences {
   ratingAndSummary?: 'steam' | 'igdb' | 'rawg' | 'psn' | 'none';
@@ -49,6 +50,8 @@ export interface UserSettings {
   showNews?: boolean;
   /** Muestra la ficha de metadatos estilo PS5 en el panel del juego. Por defecto true. */
   showGameMetadata?: boolean;
+  /** Configuración de emuladores por consola (id de consola → config). */
+  emulators?: Record<string, EmulatorConfig>;
 }
 
 export interface UserProfile {

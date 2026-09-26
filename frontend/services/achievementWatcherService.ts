@@ -333,6 +333,58 @@ export async function fetchRpcs3TrophiesFromLnk(
   return promise;
 }
 
+// ─── Resolución de trofeos RPCS3 desde una ROM escaneada ────────────────────
+
+/**
+ * Resuelve un juego PS3 añadido por escaneo de ROMs y lee sus trofeos.
+ * Misma lógica que los .lnk, pero el GameID se extrae de la ruta de la ROM
+ * (carpeta BLUSXXXXX, [BCESXXXXX] en el nombre o GameID en el .iso).
+ */
+export async function fetchRpcs3TrophiesFromRom(
+  romPath: string,
+  rpcs3Dir: string,
+  titleHint = '',
+): Promise<SteamGameAchievementsSummary | null> {
+  const cacheKey = `rpcs3_rom_${romPath}_${rpcs3Dir}`;
+
+  const cached = awCache.get(cacheKey);
+  if (cached) {
+    if (Date.now() - cached.timestamp <= CACHE_TTL_MS) return cached.summary;
+    awCache.delete(cacheKey);
+  }
+
+  const inFlight = awInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const api = getElectronAPI();
+  if (!api?.resolveRpcs3RomTrophies) {
+    awCache.set(cacheKey, { summary: null, timestamp: Date.now() });
+    return null;
+  }
+
+  const promise = (async (): Promise<SteamGameAchievementsSummary | null> => {
+    try {
+      const response = await api.resolveRpcs3RomTrophies(romPath, rpcs3Dir, titleHint);
+      if (!response?.success || !response.data) {
+        awCache.set(cacheKey, { summary: null, timestamp: Date.now() });
+        return null;
+      }
+      const summary = response.data as SteamGameAchievementsSummary;
+      awCache.set(cacheKey, { summary, timestamp: Date.now() });
+      return summary;
+    } catch (err) {
+      console.warn('[AchievementWatcherService] fetchRpcs3TrophiesFromRom error:', err);
+      awCache.set(cacheKey, { summary: null, timestamp: Date.now() });
+      return null;
+    } finally {
+      awInFlight.delete(cacheKey);
+    }
+  })();
+
+  awInFlight.set(cacheKey, promise);
+  return promise;
+}
+
 // ─── Normalización legacy ─────────────────────────────────────────────────────
 
 /**

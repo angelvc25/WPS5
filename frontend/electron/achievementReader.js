@@ -1003,6 +1003,45 @@ async function resolveRpcs3GameFromLnk(lnkPath, rpcs3Dir) {
   return scanRpcs3Trophies(rpcs3Dir, found.npCommId);
 }
 
+/**
+ * Punto de entrada para resolver una ROM PS3 añadida por escaneo y obtener
+ * los trofeos (misma lógica que los .lnk, pero el GameID sale de la ruta).
+ *
+ * El GameID (ej. "BCES00510") suele venir en la carpeta del juego
+ * (.../BCES00510/PS3_GAME/...), en el nombre del .iso o entre corchetes.
+ *
+ * @param {string} romPath    - Ruta a la ROM (EBOOT.BIN, .iso, carpeta...)
+ * @param {string} rpcs3Dir   - Carpeta raíz de RPCS3 configurada por el usuario
+ * @param {string} titleHint  - Título del juego (para el match por título)
+ * @returns {Promise<NormalizedSummary|null>}
+ */
+function extractGameIdFromRomPath(romPath) {
+  if (!romPath) return null;
+  const m = String(romPath).match(/\b([A-Z]{4}\d{5})\b/i);
+  return m ? m[1].toUpperCase() : null;
+}
+
+async function resolveRpcs3GameFromRom(romPath, rpcs3Dir, titleHint = '') {
+  if (!romPath || !rpcs3Dir) return null;
+  if (!fs.existsSync(rpcs3Dir)) return null;
+
+  const gameId = extractGameIdFromRomPath(romPath);
+  if (!gameId) {
+    console.warn('[AchievementReader] Sin GameID en la ruta de ROM:', romPath);
+    return null;
+  }
+
+  console.log(`[AchievementReader] GameID extraído de ROM: ${gameId}`);
+  const found = await findNpCommIdByGameId(rpcs3Dir, gameId, titleHint);
+  if (!found) {
+    console.warn(`[AchievementReader] No se encontró NPcommID para GameID=${gameId} en ${rpcs3Dir}`);
+    return null;
+  }
+
+  console.log(`[AchievementReader] NPcommID encontrado: ${found.npCommId}`);
+  return scanRpcs3Trophies(rpcs3Dir, found.npCommId);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Detección de Steam AppID para juegos PC manuales
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1113,4 +1152,4 @@ async function scanPcGameAchievements(exePath, steamApiKey, lang = 'english') {
   return scanExternalAchievements(appId, steamApiKey, lang);
 }
 
-module.exports = { scanExternalAchievements, scanRpcs3Trophies, resolveRpcs3GameFromLnk, scanPcGameAchievements, detectSteamAppIdFromExe };
+module.exports = { scanExternalAchievements, scanRpcs3Trophies, resolveRpcs3GameFromLnk, resolveRpcs3GameFromRom, extractGameIdFromRomPath, scanPcGameAchievements, detectSteamAppIdFromExe };

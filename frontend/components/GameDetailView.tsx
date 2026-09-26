@@ -30,7 +30,7 @@ import {
 import { getSteamLaunchPath, isSteamGame, getSteamAppId, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
-import { PLATFORMS, PLATFORM_IDS } from '@/constants/platforms';
+import { PLATFORMS, PLATFORM_IDS, RETRO_SYSTEMS, isRetroPlatform } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import BackgroundVideo from './BackgroundVideo';
 import { toastService } from '@/services/toastService';
@@ -1016,6 +1016,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         focusAudio: item.focusAudio,
         youtubeId: item.youtubeId,
         platform: item.platform,
+        retroSystem: (item as any).retroSystem,
         path: getSteamLaunchPath(item) || item.path || undefined,
         type: item.type,
         launchArgs: item.launchArgs,
@@ -2015,6 +2016,27 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                   })}
                                 </ScrollView>
                               </View>
+                              {(editData.platform === 'Retro' || isRetroPlatform(editData.platform || '')) && (
+                                <View style={{ marginBottom: 25 }}>
+                                  <Text style={[styles.editLabel, { marginBottom: 8 }]}>{t('edit.retroSystem')}</Text>
+                                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                    {RETRO_SYSTEMS.map((sys) => {
+                                      const isActive = ((editData as any).retroSystem || '') === sys.id;
+                                      return (
+                                        <TouchableOpacity
+                                          key={sys.id}
+                                          style={[styles.platformBtnNew, isActive && styles.platformBtnActiveNew]}
+                                          onPress={() => setEditData({ ...editData, retroSystem: sys.id } as any)}
+                                        >
+                                          <Text style={[styles.platformBtnTextNew, isActive && styles.platformBtnTextActiveNew]}>
+                                            {sys.label}
+                                          </Text>
+                                        </TouchableOpacity>
+                                      );
+                                    })}
+                                  </View>
+                                </View>
+                              )}
                             </>
                           )}
 

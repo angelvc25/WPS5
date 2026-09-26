@@ -2935,6 +2935,154 @@ app.whenReady().then(async () => {
     return null;
   });
 
+  // ── Emulación: detectar ejecutable del emulador ──────────────────────────
+  // Busca los nombres de .exe en rutas comunes de instalación.
+  ipcMain.handle('detect-emulator-exe', async (event, exeNames) => {
+    try {
+      const names = new Set((Array.isArray(exeNames) ? exeNames : []).map((n) => String(n).toLowerCase()));
+      if (names.size === 0 || process.platform !== 'win32') return null;
+
+      const roots = [];
+      const pushRoot = (p) => { try { if (p && fs.existsSync(p)) roots.push(p); } catch (_) {} };
+      pushRoot(process.env['ProgramFiles']);
+      pushRoot(process.env['ProgramFiles(x86)']);
+      if (process.env.LOCALAPPDATA) pushRoot(path.join(process.env.LOCALAPPDATA, 'Programs'));
+      if (process.env.APPDATA) pushRoot(process.env.APPDATA);
+      if (process.env.USERPROFILE) {
+        pushRoot(path.join(process.env.USERPROFILE, 'Emulators'));
+        pushRoot(path.join(process.env.USERPROFILE, 'Documents', 'Emulators'));
+        pushRoot(path.join(process.env.USERPROFILE, 'Games'));
+      }
+      pushRoot('C:\\Emulators');
+      pushRoot('D:\\Emulators');
+
+      const SKIP_DIRS = new Set(['$recycle.bin', 'system volume information', 'windows', 'programdata']);
+      const searchDir = (dir, depth) => {
+        if (depth < 0) return null;
+        let entries;
+        try {
+          entries = fs.readdirSync(dir, { withFileTypes: true });
+        } catch (_) {
+          return null;
+        }
+        for (const entry of entries) {
+          try {
+            if (entry.isFile() && names.has(entry.name.toLowerCase())) {
+              return path.join(dir, entry.name);
+            }
+          } catch (_) {}
+        }
+        for (const entry of entries) {
+          try {
+            if (entry.isDirectory() && !entry.name.startsWith('.') && !SKIP_DIRS.has(entry.name.toLowerCase())) {
+              const hit = searchDir(path.join(dir, entry.name), depth - 1);
+              if (hit) return hit;
+            }
+          } catch (_) {}
+        }
+        return null;
+      };
+
+      for (const root of roots) {
+        const hit = searchDir(root, 4);
+        if (hit) return hit;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  });
+
+  // ── Emulación: escanear carpeta de ROMs (recursivo) ─────────────────────
+  ipcMain.handle('scan-roms', async (event, dir, extensions, specialFiles) => {
+    const roms = [];
+    try {
+      if (!dir || !fs.existsSync(dir)) return { roms };
+      const exts = new Set((Array.isArray(extensions) ? extensions : []).map((e) => String(e).toLowerCase()));
+      const specials = new Set((Array.isArray(specialFiles) ? specialFiles : []).map((s) => String(s).toLowerCase()));
+      const SKIP_DIRS = new Set(['$recycle.bin', 'system volume information']);
+
+      const walk = (current, depth) => {
+        if (depth < 0) return;
+        let entries;
+        try {
+          entries = fs.readdirSync(current, { withFileTypes: true });
+        } catch (_) {
+          return;
+        }
+        for (const entry of entries) {
+          let full;
+          try {
+            full = path.join(current, entry.name);
+            if (entry.isDirectory()) {
+              if (!entry.name.startsWith('.') && !SKIP_DIRS.has(entry.name.toLowerCase())) {
+                walk(full, depth - 1);
+              }
+            } else if (entry.isFile()) {
+              const lowerName = entry.name.toLowerCase();
+              const ext = path.extname(lowerName);
+              let size = 0;
+              try {
+                size = fs.statSync(full).size || 0;
+              } catch (_) {}
+              if (exts.has(ext)) {
+                roms.push({ name: entry.name, path: full, extension: ext, size });
+              } else if (specials.has(lowerName)) {
+                // EBOOT.BIN de PS3: <Juego>/PS3_GAME/USRDIR/EBOOT.BIN → título = carpeta del juego
+                let title = entry.name;
+                if (lowerName === 'eboot.bin') {
+                  const usrdir = path.dirname(full);
+                  const ps3game = path.dirname(usrdir);
+                  const gameDir = path.dirname(ps3game);
+                  if (path.basename(ps3game).toLowerCase() === 'ps3_game') {
+                    title = path.basename(gameDir) || title;
+                  }
+                }
+                roms.push({ name: title, path: full, extension: ext, size });
+              }
+            }
+          } catch (_) {}
+        }
+      };
+
+      walk(dir, 6);
+    } catch (_) {}
+    return { roms };
+  });
+
+  // ── Emulación: comprobar archivos de BIOS en una carpeta ────────────────
+  ipcMain.handle('check-bios', async (event, dir, patterns) => {
+    const files = [];
+    try {
+      if (!dir || !fs.existsSync(dir)) return { found: false, files };
+      const pats = (Array.isArray(patterns) ? patterns : []).map((p) => String(p).toLowerCase());
+      if (pats.length === 0) return { found: true, files };
+
+      const walk = (current, depth) => {
+        if (depth < 0) return;
+        let entries;
+        try {
+          entries = fs.readdirSync(current, { withFileTypes: true });
+        } catch (_) {
+          return;
+        }
+        for (const entry of entries) {
+          try {
+            const full = path.join(current, entry.name);
+            if (entry.isDirectory()) {
+              if (!entry.name.startsWith('.')) walk(full, depth - 1);
+            } else if (entry.isFile() && pats.some((p) => entry.name.toLowerCase().includes(p))) {
+              files.push(entry.name);
+            }
+          } catch (_) {}
+        }
+      };
+
+      walk(dir, 2);
+    } catch (_) {}
+    return { found: files.length > 0, files };
+  });
+
   // IPC: Listar imágenes de una carpeta (fondos, capturas, etc.)
   ipcMain.handle('list-folder-images', async (event, folderPath) => {
     try {
@@ -3147,14 +3295,23 @@ app.whenReady().then(async () => {
         return { success: false, error: json.error || 'Juego no encontrado en SteamGridDB' };
       }
 
-      const chosenGrid = json.grids?.[0]?.url || json.grids?.[0]?.thumb || null;
+      // Portada: prioriza cuadradas 1:1 (quedan mejor en el launcher),
+      // con fallback a la primera disponible.
+      const grids = Array.isArray(json.grids) ? json.grids : [];
+      const squareGrid = grids.find((g) => {
+        const w = Number(g?.width) || 0;
+        const h = Number(g?.height) || 0;
+        return w > 0 && w === h;
+      });
+      const chosenGrid = squareGrid || grids[0];
+      const grid = chosenGrid?.url || chosenGrid?.thumb || null;
       const hero = json.heroes?.[0]?.url || json.heroes?.[0]?.thumb || null;
       const logo = json.logos?.[0]?.url || json.logos?.[0]?.thumb || null;
 
       return {
         success: true,
         data: {
-          grid: chosenGrid,
+          grid,
           hero,
           logo
         }
@@ -3672,6 +3829,19 @@ app.whenReady().then(async () => {
       return { success: true, data: result };
     } catch (err) {
       console.error('[IPC:resolve-rpcs3-lnk-trophies]', err);
+      return { success: false, data: null, error: err.message };
+    }
+  });
+
+  // romPath:   ruta a la ROM PS3 añadida por escaneo (EBOOT.BIN, .iso...)
+  // rpcs3Dir:  carpeta raíz de RPCS3 configurada en Settings
+  // titleHint: título del juego (ayuda al match por título)
+  ipcMain.handle('resolve-rpcs3-rom-trophies', async (_event, romPath, rpcs3Dir, titleHint) => {
+    try {
+      const result = await achievementReader.resolveRpcs3GameFromRom(romPath, rpcs3Dir, titleHint);
+      return { success: true, data: result };
+    } catch (err) {
+      console.error('[IPC:resolve-rpcs3-rom-trophies]', err);
       return { success: false, data: null, error: err.message };
     }
   });

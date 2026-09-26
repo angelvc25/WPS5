@@ -39,6 +39,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSteamInstalledAppsDetailed: () => ipcRenderer.invoke('get-steam-installed-apps-detailed'),
   getEpicInstalledGames: () => ipcRenderer.invoke('get-epic-installed-games'),
   getInstalledPrograms: () => ipcRenderer.invoke('get-installed-programs'),
+  detectEmulatorExe: (exeNames) => ipcRenderer.invoke('detect-emulator-exe', exeNames),
+  scanRoms: (dir, extensions, specialFiles) => ipcRenderer.invoke('scan-roms', dir, extensions, specialFiles),
+  checkBios: (dir, patterns) => ipcRenderer.invoke('check-bios', dir, patterns),
   onGameClosed: (callback) => ipcRenderer.on('game-closed', (_event, id) => callback(id)),
   removeGameClosedListener: () => ipcRenderer.removeAllListeners('game-closed'),
   getMediaSessions: () => ipcRenderer.invoke('get-media-sessions'),
@@ -72,6 +75,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // rpcs3Dir: carpeta raíz de RPCS3 configurada en Settings
   resolveRpcs3LnkTrophies: (lnkPath, rpcs3Dir) =>
     ipcRenderer.invoke('resolve-rpcs3-lnk-trophies', lnkPath, rpcs3Dir),
+  resolveRpcs3RomTrophies: (romPath, rpcs3Dir, titleHint) =>
+    ipcRenderer.invoke('resolve-rpcs3-rom-trophies', romPath, rpcs3Dir, titleHint),
   // ── RetroAchievements (juegos clásicos: PS1, PS2, SNES, N64, GBA, etc.) ──
   // gameTitle: título del juego en el launcher
   // platform:  string de plataforma (e.g. "ps2", "snes", "gba")
