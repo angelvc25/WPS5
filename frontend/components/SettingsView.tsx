@@ -36,7 +36,8 @@ import {
 import BackgroundVideo from './BackgroundVideo';
 import { EmulationView } from './EmulationView';
 import { OnlineAccountCard, type OnlineAccountCardHandle } from './OnlineAccountCard';
-import { OnlineFriendsPanel, type OnlineFriendsPanelHandle } from './OnlineFriendsPanel';
+import { OnlineFriendsPanel } from './OnlineFriendsPanel';
+import { OnlineUserProfileModal } from './OnlineUserProfileModal';
 import PSIcon from './PSIcon';
 import { UserProfile } from './UserSelectScreen';
 import SpinningBorderSearch from './SpinningBorderSearch';
@@ -142,14 +143,14 @@ export function resolveImageSource(img: any) {
 }
 
 // ── Perfil: pestañas, secciones navegables y helpers ─────────────────────
-const PROFILE_TABS = ['overview', 'friends'] as const;
+const PROFILE_TABS = ['overview', 'games', 'friends'] as const;
 type ProfileTab = (typeof PROFILE_TABS)[number];
 
 // Cada pestaña se compone de "secciones" navegables con el mando/teclado.
 // Las secciones verticales (recent, friends, about) se recorren con ↑/↓ item
 // por item; las horizontales (library) se recorren con ←/→ y ↑/↓ cambia de
 // sección.
-type ProfileSectionId = 'recent' | 'library' | 'about' | 'friends';
+type ProfileSectionId = 'recent' | 'library' | 'gamesList' | 'about' | 'friends';
 type ProfileSection = { id: ProfileSectionId; count: number; horizontal?: boolean };
 
 const PROFILE_RECENT_LIMIT = 3;
@@ -306,13 +307,14 @@ export default function SettingsView({
   const [subFocusIndex, setSubFocusIndex] = useState(0);
   const [accessibilityLeftIndex, setAccessibilityLeftIndex] = useState(0);
   const onlineCardRef = useRef<OnlineAccountCardHandle | null>(null);
-  const friendsPanelRef = useRef<OnlineFriendsPanelHandle | null>(null);
   const [accessibilityFocusArea, setAccessibilityFocusArea] = useState<'left' | 'right'>('left');
   const [systemLeftIndex, setSystemLeftIndex] = useState(0);
   const [systemFocusArea, setSystemFocusArea] = useState<'left' | 'right'>('left');
   const [profileActiveTab, setProfileActiveTab] = useState<ProfileTab>('overview');
   const [profileFocusArea, setProfileFocusArea] = useState<'header_actions' | 'tabs' | 'content'>('header_actions');
   const [profileActionIndex, setProfileActionIndex] = useState(0);
+  const [onlineProfileUsername, setOnlineProfileUsername] = useState<string | null>(null);
+  const [friendsVersion, setFriendsVersion] = useState(0);
   const [profileEditSection, setProfileEditSection] = useState<ProfileEditSection>('name');
   // Foco dentro del contenido del perfil: sección (índice en profileSections)
   // e item dentro de esa sección (fila en listas verticales, columna en la
@@ -475,16 +477,15 @@ export default function SettingsView({
     };
   }, [profileLibraryGames]);
 
-  const profileFriends = useMemo(
-    () => (allUsers.length > 0 ? allUsers : activeUser ? [activeUser] : []),
-    [allUsers, activeUser],
-  );
-
   // Secciones navegables de la pestaña activa. Solo entran las que tienen
   // contenido, así el foco nunca cae en una sección vacía o inexistente.
+  // La pestaña de amigos online se maneja con mouse/touch (panel propio).
   const profileSections = useMemo<ProfileSection[]>(() => {
     if (profileActiveTab === 'friends') {
-      return profileFriends.length > 0 ? [{ id: 'friends', count: profileFriends.length }] : [];
+      return [];
+    }
+    if (profileActiveTab === 'games') {
+      return profileLibraryGames.length > 0 ? [{ id: 'gamesList', count: profileLibraryGames.length }] : [];
     }
     const list: ProfileSection[] = [];
     if (profileRecentGames.length > 0) list.push({ id: 'recent', count: profileRecentGames.length });
@@ -493,7 +494,7 @@ export default function SettingsView({
     }
     if (activeUser?.about) list.push({ id: 'about', count: 1 });
     return list;
-  }, [profileActiveTab, profileFriends, profileRecentGames, profileLibraryGames, activeUser?.about]);
+  }, [profileActiveTab, profileRecentGames, profileLibraryGames, activeUser?.about]);
 
   // Refs de cada item enfocable ("seccion:indice") y del ScrollView de la
   // página, para seguir el foco lógico con scroll automático.
@@ -866,7 +867,6 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 7) return 1; // Overlay: toggle + combo
     if (accessibilityLeftIndex === 8) return 0; // Splash Videos: navegación por mouse/touch en la grilla
     if (accessibilityLeftIndex === 9) return 1; // Cuenta online: pestañas + acción
-    if (accessibilityLeftIndex === 10) return 1; // Amigos: buscar + actualizar
     return 0;
   };
 
@@ -1076,12 +1076,6 @@ export default function SettingsView({
 
     if (accessibilityLeftIndex === 9) {
       onlineCardRef.current?.activateRow(subFocusIndex);
-      return;
-    }
-
-    if (accessibilityLeftIndex === 10) {
-      if (subFocusIndex === 0) friendsPanelRef.current?.focusSearch();
-      else friendsPanelRef.current?.refresh();
       return;
     }
   };
@@ -1443,7 +1437,7 @@ export default function SettingsView({
             const game =
               section.id === 'recent'
                 ? profileRecentGames[profileItemIndex]
-                : section.id === 'library'
+                : section.id === 'library' || section.id === 'gamesList'
                   ? profileLibraryGames[profileItemIndex]
                   : null;
             if (game && onGamePress) {
@@ -1750,7 +1744,6 @@ export default function SettingsView({
       { id: 'overlay', title: t('settings.overlay') },
       { id: 'splash', title: t('settings.steamDeckRepo') },
       { id: 'online', title: t('settings.onlineAccount') },
-      { id: 'friends', title: t('settings.onlineFriends') },
     ];
 
     return (
@@ -2745,14 +2738,6 @@ export default function SettingsView({
               </ScrollView>
             )}
 
-            {accessibilityLeftIndex === 10 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.rightSectionTitle}>{t('settings.onlineFriends')}</Text>
-                <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.onlineFriendsDesc')}</Text>
-                <OnlineFriendsPanel ref={friendsPanelRef} />
-              </ScrollView>
-            )}
-
             {accessibilityLeftIndex === 5 && (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.rightSectionTitle}>{t('settings.smartSync')}</Text>
@@ -2929,7 +2914,9 @@ export default function SettingsView({
                 </View>
                 <View style={styles.profileHandleRow}>
                   <Text style={styles.profileHandleText}>
-                    {activeUser?.onlineId || activeUser?.name?.toLowerCase().replace(/\s+/g, '_') || 'player_1'}
+                    {(activeUser?.settings as any)?.onlineUsername
+                      ? `@${(activeUser?.settings as any).onlineUsername}`
+                      : (activeUser?.onlineId || activeUser?.name?.toLowerCase().replace(/\s+/g, '_') || 'player_1')}
                   </Text>
                   <Text style={styles.profileHandleSep}>|</Text>
                   <Ionicons name="game-controller" size={s(14)} color="rgba(255,255,255,0.6)" />
@@ -3160,25 +3147,55 @@ export default function SettingsView({
             </View>
           )}
 
-          {/* ── Friends ── */}
+          {/* ── Games (biblioteca completa) ── */}
+          {profileActiveTab === 'games' && (
+            <View style={styles.profileSection}>
+              <View style={styles.profileSectionHeader}>
+                <Text style={styles.profileSectionTitle}>{t('profile.games')}</Text>
+                {gamesCount > 0 && <Text style={styles.profileSectionCount}>{gamesCount}</Text>}
+              </View>
+              {profileLibraryGames.length > 0 ? (
+                <View style={styles.recentList}>
+                  {profileLibraryGames.map((game: any, idx: number) => {
+                    const minutes = gameMinutes(game);
+                    return (
+                      <TouchableOpacity
+                        key={game.id || idx}
+                        ref={setItemRef('gamesList', idx)}
+                        activeOpacity={0.85}
+                        style={[styles.recentRow, isFocused('gamesList', idx) && styles.profileItemFocused]}
+                        onPress={() => pressGame('gamesList', idx, game)}
+                      >
+                        <BlurredArt source={game.image} style={styles.recentThumb} radius={0} placeholderSize={s(30)} />
+                        <View style={styles.recentInfo}>
+                          <Text style={styles.recentTitle} numberOfLines={1}>{game.title}</Text>
+                          <Text style={styles.recentSub}>
+                            {minutes > 0 ? formatPlaytime(minutes, t) : t('lastPlayed.never')}
+                          </Text>
+                        </View>
+                        <Text style={styles.recentPlaytime}>
+                          {game.platform || ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : (
+                <View style={styles.libraryEmpty}>
+                  <Text style={styles.libraryEmptyText}>{t('library.empty')}</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* ── Friends (online) ── */}
           {profileActiveTab === 'friends' && (
             <View style={styles.friendsListContainer}>
-              {profileFriends.map((u: any, idx: number) => (
-                <View
-                  key={u?.id || idx}
-                  ref={setItemRef('friends', idx) as any}
-                  style={[styles.friendCard, isFocused('friends', idx) && styles.profileItemFocused]}
-                >
-                  <Image
-                    source={resolveImageSource(u?.avatar || require('@/assets/images/userDefault.jpeg'))}
-                    style={styles.friendAvatar}
-                  />
-                  <View style={{ flex: 1, marginLeft: 14 }}>
-                    <Text style={styles.friendName}>{u?.name || 'Player'}</Text>
-                    <Text style={styles.friendStatus}>{t('common.online')}</Text>
-                  </View>
-                </View>
-              ))}
+              <OnlineFriendsPanel
+                hideSearch
+                refreshSignal={friendsVersion}
+                onSelectUser={(username) => setOnlineProfileUsername(username)}
+              />
             </View>
           )}
         </ScrollView>
@@ -3749,6 +3766,12 @@ export default function SettingsView({
         )}
         {currentScreen === 'system' && renderSystemScreen()}
       </View>
+
+      <OnlineUserProfileModal
+        username={onlineProfileUsername}
+        onClose={() => setOnlineProfileUsername(null)}
+        onChanged={() => setFriendsVersion((v) => v + 1)}
+      />
       {/* Control Prompt Bar at Bottom */}
       {currentScreen === 'accessibility' && accessibilityLeftIndex === 8 && (
         <View style={styles.bottomControlBarContainer2}>

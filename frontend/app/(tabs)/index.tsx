@@ -42,6 +42,7 @@ import BackgroundPickerModal from '@/components/BackgroundPickerModal';
 import ConsoleCarousel from '@/components/ConsoleCarousel';
 import GameInfoPanel from '@/components/GameInfoPanel';
 import SearchView from '@/components/SearchView';
+import { OnlineUserProfileModal } from '@/components/OnlineUserProfileModal';
 import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
 import { UserProfile } from '@/components/UserSelectScreen';
@@ -345,6 +346,7 @@ export default function ConsoleHome() {
   const [isHomeBgModalVisible, setHomeBgModalVisible] = useState(false);
   const [isAvatarModalVisible, setAvatarModalVisible] = useState(false);
   const [isSearchVisible, setSearchVisible] = useState(false);
+  const [onlineProfileUsername, setOnlineProfileUsername] = useState<string | null>(null);
   const [searchUsers, setSearchUsers] = useState<UserProfile[]>([]);
   const [toolbarFocusIndex, setToolbarFocusIndex] = useState(2);
   const [addModalFocusIndex, setAddModalFocusIndex] = useState(0);
@@ -4527,6 +4529,12 @@ export default function ConsoleHome() {
           setSelectedItem(item as ConsoleItem);
           setDetailVisible(true);
         }}
+        onOpenOnlineUser={(username) => setOnlineProfileUsername(username)}
+      />
+
+      <OnlineUserProfileModal
+        username={onlineProfileUsername}
+        onClose={() => setOnlineProfileUsername(null)}
       />
 
       {/* BACKGROUND PICKER */}

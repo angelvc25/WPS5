@@ -17,6 +17,9 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
 import { StoreOffer } from '@/services/storeService';
+import { getOnlineSession } from '@/services/onlineAccountService';
+import { searchOnlineUsers } from '@/services/onlineFriendsService';
+import type { OnlineUser } from '@/services/onlineAccountService';
 import { isRetroPlatform } from '@/constants/platforms';
 import { UserProfile } from '@/components/UserSelectScreen';
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -47,6 +50,7 @@ interface SearchEntry {
   item?: SearchGameItem;
   offer?: StoreOffer;
   user?: UserProfile;
+  onlineUser?: OnlineUser;
   url?: string;
 }
 
@@ -58,6 +62,7 @@ interface SearchViewProps {
   storeOffers: StoreOffer[];
   users: UserProfile[];
   onOpenGameDetail: (item: SearchGameItem) => void;
+  onOpenOnlineUser?: (username: string) => void;
 }
 
 const TABS: { id: SearchTab; labelKey: any }[] = [
@@ -243,11 +248,13 @@ const SearchView: React.FC<SearchViewProps> = ({
   storeOffers,
   users,
   onOpenGameDetail,
+  onOpenOnlineUser,
 }) => {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<SearchTab>('games');
   const [query, setQuery] = useState('');
+  const [onlinePlayers, setOnlinePlayers] = useState<OnlineUser[]>([]);
   const [focusArea, setFocusArea] = useState<'tabs' | 'search' | 'results' | 'subscriptions'>('search');
   const [tabFocusIndex, setTabFocusIndex] = useState(0);
   const [resultFocusIndex, setResultFocusIndex] = useState(0);
@@ -280,6 +287,33 @@ const SearchView: React.FC<SearchViewProps> = ({
     return map;
   }, [libraryGames]);
 
+  // Jugadores online (solo con sesión): búsqueda con debounce en el Worker.
+  useEffect(() => {
+    if (!visible || activeTab !== 'players') {
+      setOnlinePlayers([]);
+      return;
+    }
+    const q = query.trim();
+    if (q.length < 2 || !getOnlineSession()) {
+      setOnlinePlayers([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      searchOnlineUsers(q)
+        .then((res) => {
+          if (!cancelled) setOnlinePlayers(res);
+        })
+        .catch(() => {
+          if (!cancelled) setOnlinePlayers([]);
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [visible, activeTab, query]);
+
   const trendingEntries = useMemo((): SearchEntry[] => {
     if (activeTab === 'games') {
       return storeOffers.map(offer => {
@@ -308,17 +342,29 @@ const SearchView: React.FC<SearchViewProps> = ({
         item,
       }));
     }
-    return users.map(user => ({
-      id: user.id,
-      title: user.name,
-      subtitle: t('search.player'),
-      image: user.avatarBase64 ? { uri: user.avatarBase64 } : (user.avatar?.startsWith('http') || user.avatar?.startsWith('local-file')
-        ? { uri: user.avatar }
-        : require('@/assets/images/ProfilePicture.png')),
-      kind: 'player' as const,
-      user,
-    }));
-  }, [activeTab, storeOffers, libraryByTitle, mediaItems, users]);
+    return [
+      ...users.map(user => ({
+        id: user.id,
+        title: user.name,
+        subtitle: t('search.player'),
+        image: user.avatarBase64 ? { uri: user.avatarBase64 } : (user.avatar?.startsWith('http') || user.avatar?.startsWith('local-file')
+          ? { uri: user.avatar }
+          : require('@/assets/images/ProfilePicture.png')),
+        kind: 'player' as const,
+        user,
+      })),
+      ...onlinePlayers.map(user => ({
+        id: `online-${user.id}`,
+        title: user.displayName,
+        subtitle: `@${user.username}`,
+        image: user.avatarUrl
+          ? { uri: user.avatarUrl }
+          : require('@/assets/images/ProfilePicture.png'),
+        kind: 'player' as const,
+        onlineUser: user,
+      })),
+    ];
+  }, [activeTab, storeOffers, libraryByTitle, mediaItems, users, onlinePlayers]);
 
   const searchResults = useMemo((): SearchEntry[] => {
     const q = query.trim();
@@ -381,19 +427,31 @@ const SearchView: React.FC<SearchViewProps> = ({
         }));
     }
 
-    return users
-      .filter(user => matchesQuery(user.name, q))
-      .map(user => ({
-        id: user.id,
-        title: user.name,
-        subtitle: t('search.player'),
-        image: user.avatarBase64 ? { uri: user.avatarBase64 } : (user.avatar?.startsWith('http') || user.avatar?.startsWith('local-file')
-          ? { uri: user.avatar }
-          : require('@/assets/images/ProfilePicture.png')),
+    return [
+      ...users
+        .filter(user => matchesQuery(user.name, q))
+        .map(user => ({
+          id: user.id,
+          title: user.name,
+          subtitle: t('search.player'),
+          image: user.avatarBase64 ? { uri: user.avatarBase64 } : (user.avatar?.startsWith('http') || user.avatar?.startsWith('local-file')
+            ? { uri: user.avatar }
+            : require('@/assets/images/ProfilePicture.png')),
+          kind: 'player' as const,
+          user,
+        })),
+      ...onlinePlayers.map(user => ({
+        id: `online-${user.id}`,
+        title: user.displayName,
+        subtitle: `@${user.username}`,
+        image: user.avatarUrl
+          ? { uri: user.avatarUrl }
+          : require('@/assets/images/ProfilePicture.png'),
         kind: 'player' as const,
-        user,
-      }));
-  }, [query, activeTab, trendingEntries, libraryGames, storeOffers, mediaItems, users]);
+        onlineUser: user,
+      })),
+    ];
+  }, [query, activeTab, trendingEntries, libraryGames, storeOffers, mediaItems, users, onlinePlayers]);
 
   resultsRef.current = searchResults;
 
@@ -431,12 +489,16 @@ const SearchView: React.FC<SearchViewProps> = ({
       }
       return;
     }
+    if (entry.kind === 'player' && entry.onlineUser && onOpenOnlineUser) {
+      onOpenOnlineUser(entry.onlineUser.username);
+      return;
+    }
     if (entry.kind === 'store' || entry.kind === 'subscription') {
       const url = entry.url || entry.offer?.url;
       if (url) Linking.openURL(url);
       return;
     }
-  }, [onClose, onOpenGameDetail]);
+  }, [onClose, onOpenGameDetail, onOpenOnlineUser]);
 
   const switchTab = useCallback((direction: -1 | 1) => {
     const currentIdx = TABS.findIndex(t => t.id === activeTab);

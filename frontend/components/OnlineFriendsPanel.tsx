@@ -29,17 +29,33 @@ export interface OnlineFriendsPanelHandle {
   focusSearch: () => void;
 }
 
+function formatLastSeen(
+  t: (key: any, params?: any) => string,
+  iso: string | null,
+): string | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const absSec = Math.abs(Math.round((ms - Date.now()) / 1000));
+  if (absSec < 60) return t('common.justNow');
+  if (absSec < 3600) return `${Math.floor(absSec / 60)} ${t('common.minutesAgo')}`;
+  if (absSec < 86400) return `${Math.floor(absSec / 3600)} ${t('common.hoursAgo')}`;
+  return `${Math.floor(absSec / 86400)} ${t('common.daysAgo')}`;
+}
+
 function UserRow({
   user,
   subtitle,
   action,
+  onPress,
 }: {
   user: OnlineUser;
   subtitle?: string;
   action?: React.ReactNode;
+  onPress?: () => void;
 }) {
-  return (
-    <View style={styles.row}>
+  const body = (
+    <>
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>
           {(user.displayName || user.username).slice(0, 1).toUpperCase()}
@@ -50,11 +66,20 @@ function UserRow({
         <Text style={styles.sub}>@{user.username}{subtitle ? ` · ${subtitle}` : ''}</Text>
       </View>
       {action}
-    </View>
+    </>
   );
+  if (onPress) {
+    return (
+      <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={onPress}>
+        {body}
+      </TouchableOpacity>
+    );
+  }
+  return <View style={styles.row}>{body}</View>;
 }
 
-export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle>(function OnlineFriendsPanel(_, ref) {
+export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle, { hideSearch?: boolean; onSelectUser?: (username: string) => void; refreshSignal?: number }>(
+  function OnlineFriendsPanel({ hideSearch = false, onSelectUser, refreshSignal = 0 }, ref) {
   const { t } = useTranslation();
   const [hasSession, setHasSession] = useState(() => !!getOnlineSession());
   const [friends, setFriends] = useState<FriendItem[]>([]);
@@ -102,6 +127,11 @@ export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle>(function 
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (refreshSignal > 0) reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal]);
 
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -173,6 +203,7 @@ export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle>(function 
             <UserRow
               key={req.id}
               user={req.user}
+              onPress={onSelectUser ? () => onSelectUser(req.user.username) : undefined}
               action={
                 <View style={styles.inlineBtns}>
                   <TouchableOpacity
@@ -196,8 +227,9 @@ export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle>(function 
         </View>
       )}
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>{t('friends.search')}</Text>
+      {!hideSearch && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>{t('friends.search')}</Text>
         <View style={styles.searchRow}>
           <Ionicons name="search" size={16} color="rgba(255,255,255,0.5)" />
           <TextInput
@@ -217,6 +249,7 @@ export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle>(function 
           <UserRow
             key={user.id}
             user={user}
+            onPress={onSelectUser ? () => onSelectUser(user.username) : undefined}
             action={
               <TouchableOpacity
                 style={styles.btnAdd}
@@ -237,7 +270,8 @@ export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle>(function 
         {query.trim().length >= 2 && !searching && results.length === 0 && (
           <Text style={styles.hint}>{t('friends.noResults')}</Text>
         )}
-      </View>
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>
@@ -252,6 +286,8 @@ export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle>(function 
             <UserRow
               key={f.friendshipId}
               user={f.user}
+              subtitle={formatLastSeen(t, f.user.lastSeenAt) || undefined}
+              onPress={onSelectUser ? () => onSelectUser(f.user.username) : undefined}
               action={
                 <TouchableOpacity
                   style={styles.btnRemove}
