@@ -17,13 +17,18 @@ import {
   registerOnlineAccount,
   restoreOnlineSession,
   subscribeOnlineSession,
+  updateOnlineProfile,
   type OnlineSession,
 } from '../services/onlineAccountService';
+import { syncLocalLibraryToOnline } from '../services/onlineLibraryService';
+import { toastService } from '../services/toastService';
 import type { UserProfile } from './UserSelectScreen';
 
 interface OnlineAccountCardProps {
   activeUser: UserProfile | null;
   updateUser: (updates: Partial<UserProfile>) => void;
+  /** Juegos locales para sincronizar la biblioteca online. */
+  libraryGames?: any[];
   /** Foco de mando/teclado desde el padre (fila 0 = pestañas, 1 = acción). */
   isRightFocused?: boolean;
   subFocusIndex?: number;
@@ -59,7 +64,7 @@ function mapAuthError(t: (key: any, params?: any) => string, error?: string): st
 }
 
 export const OnlineAccountCard = forwardRef<OnlineAccountCardHandle, OnlineAccountCardProps>(function OnlineAccountCard(
-  { activeUser, updateUser, isRightFocused = false, subFocusIndex = -1 }: OnlineAccountCardProps,
+  { activeUser, updateUser, libraryGames = [], isRightFocused = false, subFocusIndex = -1 }: OnlineAccountCardProps,
   ref,
 ) {
   const { t } = useTranslation();
@@ -71,6 +76,10 @@ export const OnlineAccountCard = forwardRef<OnlineAccountCardHandle, OnlineAccou
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [savingVisibility, setSavingVisibility] = useState(false);
 
   useEffect(() => subscribeOnlineSession(setSession), []);
 
@@ -181,6 +190,39 @@ export const OnlineAccountCard = forwardRef<OnlineAccountCardHandle, OnlineAccou
     }
   };
 
+  const handleSyncLibrary = async () => {
+    if (busy || syncing) return;
+    setSyncing(true);
+    setSyncResult(null);
+    setSyncProgress({ done: 0, total: 1 });
+    try {
+      const result = await syncLocalLibraryToOnline(libraryGames, (done, total) =>
+        setSyncProgress({ done, total }),
+      );
+      setSyncResult(t('onlineLibrary.syncDone', { uploaded: result.uploaded, total: result.total }));
+    } catch {
+      setSyncResult(t('onlineLibrary.syncError'));
+    } finally {
+      setSyncing(false);
+      setSyncProgress(null);
+    }
+  };
+
+  const handleVisibility = async (value: 'public' | 'friends' | 'private') => {
+    if (busy || syncing || savingVisibility) return;
+    if (session?.user.libraryVisibility === value) return;
+    setSavingVisibility(true);
+    try {
+      const user = await updateOnlineProfile({ libraryVisibility: value });
+      setSession((prev) => (prev ? { ...prev, user } : prev));
+      toastService.show(t('onlineLibrary.visibilitySaved'));
+    } catch {
+      toastService.show(t('onlineLibrary.visibilityError'));
+    } finally {
+      setSavingVisibility(false);
+    }
+  };
+
   if (validating && !session) {
     return (
       <View style={styles.card}>
@@ -226,6 +268,49 @@ export const OnlineAccountCard = forwardRef<OnlineAccountCardHandle, OnlineAccou
             <Ionicons name="log-out-outline" size={16} color="#FFF" />
             <Text style={styles.btnSecondaryText}>{t('account.logout')}</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.libraryBox}>
+          <View style={styles.libraryHead}>
+            <Ionicons name="cloud-upload-outline" size={16} color="rgba(255,255,255,0.7)" />
+            <Text style={styles.libraryTitle}>{t('onlineLibrary.title')}</Text>
+          </View>
+          <Text style={styles.libraryDesc}>{t('onlineLibrary.visibilityLabel')}</Text>
+          <View style={styles.visibilityRow}>
+            {(['public', 'friends', 'private'] as const).map((value) => {
+              const active = (session.user.libraryVisibility || 'friends') === value;
+              return (
+                <TouchableOpacity
+                  key={value}
+                  style={[styles.visibilityBtn, active && styles.visibilityBtnActive]}
+                  onPress={() => handleVisibility(value)}
+                  disabled={savingVisibility}
+                >
+                  <Text style={[styles.visibilityText, active && styles.visibilityTextActive]}>
+                    {t(`onlineProfile.visibility_${value}` as any)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.libraryDesc}>{t('onlineLibrary.desc')}</Text>
+          <TouchableOpacity
+            style={[styles.btnSecondary, styles.syncBtn, syncing && styles.btnDisabled]}
+            onPress={handleSyncLibrary}
+            disabled={syncing}
+          >
+            {syncing && syncProgress ? (
+              <Text style={styles.btnSecondaryText}>
+                {t('onlineLibrary.syncing', { done: syncProgress.done, total: syncProgress.total })}
+              </Text>
+            ) : (
+              <>
+                <Ionicons name="sync" size={16} color="#FFF" />
+                <Text style={styles.btnSecondaryText}>{t('onlineLibrary.syncNow')}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          {syncResult ? <Text style={styles.syncResult}>{syncResult}</Text> : null}
         </View>
       </View>
     );
@@ -465,5 +550,61 @@ const styles = StyleSheet.create({
     backgroundColor: '#3D1E24',
     borderRadius: 20,
     paddingVertical: 10,
+  },
+  libraryBox: {
+    marginTop: 14,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 10,
+    padding: 14,
+    gap: 8,
+  },
+  libraryHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  libraryTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontFamily: 'SSTMedium',
+    flex: 1,
+  },
+  libraryVisibility: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 12,
+  },
+  visibilityRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  visibilityBtn: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  visibilityBtnActive: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  visibilityText: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 12,
+    fontFamily: 'SSTMedium',
+  },
+  visibilityTextActive: {
+    color: '#FFF',
+  },
+  libraryDesc: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+  },
+  syncBtn: {
+    justifyContent: 'center',
+  },
+  syncResult: {
+    color: '#7BDD7B',
+    fontSize: 12,
+    textAlign: 'center',
   },
 });

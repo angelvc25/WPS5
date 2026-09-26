@@ -115,6 +115,11 @@ async function request<T>(path: string, init: RequestInit, token?: string): Prom
     if (!response.ok || !json || json.success !== true) {
       const err: any = new Error(typeof json?.error === 'string' ? json.error : `HTTP ${response.status}`);
       err.status = response.status;
+      const retryAfter = response.headers.get('Retry-After');
+      if (retryAfter) {
+        const secs = Number(retryAfter);
+        if (Number.isFinite(secs) && secs > 0) err.retryAfterMs = Math.min(secs, 120) * 1000;
+      }
       throw err;
     }
     return json as T;
@@ -234,4 +239,22 @@ export async function restoreOnlineSession(): Promise<OnlineSession | null> {
     return null;
   }
   return readStoredSession();
+}
+
+export interface OnlineProfileUpdate {
+  displayName?: string;
+  bio?: string;
+  avatarUrl?: string | null;
+  libraryVisibility?: 'public' | 'friends' | 'private';
+}
+
+/** PATCH /users/me — actualiza el perfil y refresca el usuario en sesión. */
+export async function updateOnlineProfile(input: OnlineProfileUpdate): Promise<OnlineUser> {
+  const data = await authedOnlineRequest<{ user: OnlineUser }>('/users/me', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+  const current = readStoredSession();
+  if (current) writeStoredSession({ ...current, user: data.user });
+  return data.user;
 }

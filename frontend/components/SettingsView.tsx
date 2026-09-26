@@ -2732,6 +2732,7 @@ export default function SettingsView({
                   ref={onlineCardRef}
                   activeUser={activeUser}
                   updateUser={updateUser}
+                  libraryGames={libraryGames}
                   isRightFocused={accessibilityFocusArea === 'right'}
                   subFocusIndex={subFocusIndex}
                 />

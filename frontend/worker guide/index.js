@@ -59,6 +59,7 @@ export default {
           "/auth/me",
           "/users/search?q=...",
           "/users/:username",
+          "PATCH /users/me",
           "/friends",
           "/friends/request",
           "/friends/accept",
@@ -116,6 +117,10 @@ export default {
     // ============================================
     if (url.pathname === "/users/search") {
       return handleUserSearch(request, url, env);
+    }
+
+    if (url.pathname === "/users/me") {
+      return handleUserUpdate(request, env);
     }
 
     if (url.pathname.startsWith("/users/")) {
@@ -425,6 +430,73 @@ async function handleUserProfile(request, username, env) {
   }
 }
 
+async function handleUserUpdate(request, env) {
+  if (request.method !== "PATCH") return methodNotAllowed(["PATCH", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+  const data = body.data || {};
+  const updates = {};
+
+  if (data.displayName !== undefined) {
+    if (typeof data.displayName !== "string" || !data.displayName.trim() || data.displayName.trim().length > 50) {
+      return jsonResponse({ success: false, error: "displayName must contain between 1 and 50 characters" }, 400);
+    }
+    updates.display_name = data.displayName.trim();
+  }
+
+  if (data.bio !== undefined) {
+    if (typeof data.bio !== "string" || data.bio.length > 500) {
+      return jsonResponse({ success: false, error: "bio must contain up to 500 characters" }, 400);
+    }
+    updates.bio = data.bio.trim();
+  }
+
+  if (data.avatarUrl !== undefined) {
+    if (typeof data.avatarUrl !== "string" || data.avatarUrl.length > 1000) {
+      return jsonResponse({ success: false, error: "avatarUrl is too long" }, 400);
+    }
+    const v = data.avatarUrl.trim();
+    if (v && !/^https?:\/\//i.test(v)) {
+      return jsonResponse({ success: false, error: "avatarUrl must be an http(s) URL" }, 400);
+    }
+    updates.avatar_url = v || null;
+  }
+
+  if (data.libraryVisibility !== undefined) {
+    if (!["public", "friends", "private"].includes(data.libraryVisibility)) {
+      return jsonResponse({ success: false, error: "libraryVisibility must be public, friends or private" }, 400);
+    }
+    updates.library_visibility = data.libraryVisibility;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return jsonResponse({ success: false, error: "Nothing to update" }, 400);
+  }
+
+  try {
+    const now = new Date().toISOString();
+    const sets = Object.keys(updates).map((k) => `${k} = ?`).join(", ");
+    await env.DB.prepare(
+      `UPDATE users SET ${sets}, updated_at = ? WHERE id = ?`
+    ).bind(...Object.values(updates), now, auth.user.id).run();
+
+    const user = await env.DB.prepare(`
+      SELECT id, username, display_name, avatar_url, bio, library_visibility, created_at, last_seen_at
+      FROM users WHERE id = ? LIMIT 1
+    `).bind(auth.user.id).first();
+
+    return jsonResponse({ success: true, user: publicUser(user) });
+  } catch (error) {
+    console.error("User update error:", error);
+    return jsonResponse({ success: false, error: "Failed to update profile" }, 500);
+  }
+}
+
 async function handleFriendRequest(request, env) {
   if (request.method !== "POST") return methodNotAllowed(["POST", "OPTIONS"]);
   if (!env.DB) return databaseNotConfigured();
@@ -719,8 +791,13 @@ async function handleOwnLibrary(request, env) {
   }
 
   if (request.method === "POST") {
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, { maxBytes: 512 * 1024 });
     if (!body.ok) return body.response;
+
+    // Subida en lote: { games: [{ gameId, gameName, coverUrl?, metadata? }] }
+    if (Array.isArray(body.data.games)) {
+      return addLibraryGamesBatch(env.DB, auth.user, body.data.games);
+    }
 
     return addLibraryGame(env.DB, auth.user, body.data);
   }
@@ -735,10 +812,11 @@ async function handleOwnLibrary(request, env) {
     }
 
     try {
-      await env.DB.prepare(
-        "DELETE FROM libraries WHERE user_id = ? AND game_id = ?"
-      ).bind(auth.user.id, gameId).run();
-
+      const games = await readUserLibraryDoc(env.DB, auth.user.id);
+      const filtered = games.filter((g) => g.game_id !== gameId);
+      if (filtered.length !== games.length) {
+        await writeUserLibraryDoc(env.DB, auth.user.id, filtered);
+      }
       return jsonResponse({ success: true });
     } catch (error) {
       console.error("Library delete error:", error);
@@ -792,19 +870,14 @@ async function getLibraryForUser(db, targetUser, viewerId, isSelf) {
   }
 
   try {
-    const result = await db.prepare(`
-      SELECT id, game_id, game_name, cover_url, metadata_json, added_at
-      FROM libraries
-      WHERE user_id = ?
-      ORDER BY added_at DESC
-    `).bind(targetUser.id).all();
-
+    // Un solo documento JSON por usuario (ver user_libraries).
+    const games = await readUserLibraryDoc(db, targetUser.id);
     return jsonResponse({
       success: true,
       visible: true,
       userId: targetUser.id,
       username: targetUser.username,
-      library: result.results || [],
+      library: games.map(toLibraryRow),
     });
   } catch (error) {
     console.error("Library read error:", error);
@@ -812,67 +885,154 @@ async function getLibraryForUser(db, targetUser, viewerId, isSelf) {
   }
 }
 
-async function addLibraryGame(db, user, data) {
-  const gameId = typeof data.gameId === "string" ? data.gameId.trim() : "";
-  const gameName = typeof data.gameName === "string" ? data.gameName.trim() : "";
-  const coverUrl = typeof data.coverUrl === "string" ? data.coverUrl.trim() : "";
-  const metadata = data.metadata;
+// ── Biblioteca como documento único por usuario ────────────────────────────
+// En vez de una fila por juego (80-100 por usuario), cada usuario ocupa UNA
+// fila en user_libraries con todo su catálogo en JSON. Todas las lecturas
+// son de biblioteca completa, así que el modelo relacional no aportaba nada.
+//
+// Migración D1 (ejecutar una vez en la consola SQL):
+//   CREATE TABLE IF NOT EXISTS user_libraries (
+//     user_id TEXT PRIMARY KEY,
+//     library_json TEXT NOT NULL DEFAULT '[]',
+//     updated_at TEXT NOT NULL
+//   );
+//
+// Entrada del documento: { game_id, game_name, cover_url, metadata, added_at }
+
+async function readUserLibraryDoc(db, userId) {
+  try {
+    const row = await db.prepare(
+      "SELECT library_json FROM user_libraries WHERE user_id = ? LIMIT 1"
+    ).bind(userId).first();
+    if (!row || !row.library_json) return [];
+    const parsed = JSON.parse(row.library_json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeUserLibraryDoc(db, userId, games) {
+  const now = new Date().toISOString();
+  await db.prepare(`
+    INSERT INTO user_libraries (user_id, library_json, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      library_json = excluded.library_json,
+      updated_at = excluded.updated_at
+  `).bind(userId, JSON.stringify(games), now).run();
+}
+
+function toLibraryRow(game, idx) {
+  return {
+    id: game.game_id || `g${idx}`,
+    game_id: game.game_id,
+    game_name: game.game_name,
+    cover_url: game.cover_url || null,
+    metadata_json: game.metadata !== undefined && game.metadata !== null
+      ? JSON.stringify(game.metadata)
+      : null,
+    added_at: game.added_at || null,
+  };
+}
+
+function validateLibraryGame(data) {
+  const gameId = typeof data?.gameId === "string" ? data.gameId.trim() : "";
+  const gameName = typeof data?.gameName === "string" ? data.gameName.trim() : "";
+  const coverUrl = typeof data?.coverUrl === "string" ? data.coverUrl.trim() : "";
+  const metadata = data?.metadata;
 
   if (!gameId || !gameName) {
-    return jsonResponse(
-      { success: false, error: "gameId and gameName are required" },
-      400
-    );
+    return { ok: false, error: "gameId and gameName are required" };
   }
 
   if (gameId.length > 150 || gameName.length > 200 || coverUrl.length > 1000) {
-    return jsonResponse({ success: false, error: "Game data is too long" }, 400);
+    return { ok: false, error: "Game data is too long" };
   }
 
-  let metadataJson = null;
   if (metadata !== undefined && metadata !== null) {
     try {
-      metadataJson = JSON.stringify(metadata);
-      if (metadataJson.length > 12000) {
-        return jsonResponse({ success: false, error: "metadata is too large" }, 400);
+      if (JSON.stringify(metadata).length > 12000) {
+        return { ok: false, error: "metadata is too large" };
       }
     } catch {
-      return jsonResponse({ success: false, error: "Invalid metadata" }, 400);
+      return { ok: false, error: "Invalid metadata" };
     }
   }
 
+  return { ok: true, game: { gameId, gameName, coverUrl, metadata: metadata ?? null } };
+}
+
+async function addLibraryGamesBatch(db, user, games) {
+  if (!Array.isArray(games) || games.length === 0 || games.length > 1000) {
+    return jsonResponse({ success: false, error: "games must contain between 1 and 1000 items" }, 400);
+  }
+
+  const current = await readUserLibraryDoc(db, user.id);
+  const byId = new Map(current.map((g) => [g.game_id, g]));
+  const now = new Date().toISOString();
+  let upserted = 0;
+  const errors = [];
+
+  for (let i = 0; i < games.length; i++) {
+    const validated = validateLibraryGame(games[i]);
+    if (!validated.ok) {
+      if (errors.length < 10) errors.push({ index: i, error: validated.error });
+      continue;
+    }
+    const { gameId, gameName, coverUrl, metadata } = validated.game;
+    const existing = byId.get(gameId);
+    byId.set(gameId, {
+      game_id: gameId,
+      game_name: gameName,
+      cover_url: coverUrl || null,
+      metadata: metadata,
+      added_at: existing?.added_at || now,
+      updated_at: now,
+    });
+    upserted += 1;
+  }
+
   try {
-    const id = crypto.randomUUID();
+    const merged = Array.from(byId.values());
+    if (JSON.stringify(merged).length > 1024 * 1024) {
+      return jsonResponse({ success: false, error: "Library is too large" }, 413);
+    }
+    await writeUserLibraryDoc(db, user.id, merged);
+  } catch (error) {
+    console.error("Library batch write error:", error);
+    return jsonResponse({ success: false, error: "Failed to save library" }, 500);
+  }
+
+  return jsonResponse({ success: true, upserted, total: games.length, errors });
+}
+
+async function addLibraryGame(db, user, data) {
+  const validated = validateLibraryGame(data);
+  if (!validated.ok) {
+    const status = validated.error === "Failed to add game to library" ? 500 : 400;
+    return jsonResponse({ success: false, error: validated.error }, status);
+  }
+
+  try {
+    const current = await readUserLibraryDoc(db, user.id);
     const now = new Date().toISOString();
+    const { gameId, gameName, coverUrl, metadata } = validated.game;
+    const existing = current.find((g) => g.game_id === gameId);
+    const entry = {
+      game_id: gameId,
+      game_name: gameName,
+      cover_url: coverUrl || null,
+      metadata: metadata,
+      added_at: existing?.added_at || now,
+      updated_at: now,
+    };
+    const merged = existing
+      ? current.map((g) => (g.game_id === gameId ? entry : g))
+      : [...current, entry];
+    await writeUserLibraryDoc(db, user.id, merged);
 
-    await db.prepare(`
-      INSERT INTO libraries
-      (id, user_id, game_id, game_name, cover_url, metadata_json, added_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(user_id, game_id) DO UPDATE SET
-        game_name = excluded.game_name,
-        cover_url = excluded.cover_url,
-        metadata_json = excluded.metadata_json,
-        updated_at = excluded.updated_at
-    `).bind(
-      id,
-      user.id,
-      gameId,
-      gameName,
-      coverUrl || null,
-      metadataJson,
-      now,
-      now
-    ).run();
-
-    const game = await db.prepare(`
-      SELECT id, game_id, game_name, cover_url, metadata_json, added_at
-      FROM libraries
-      WHERE user_id = ? AND game_id = ?
-      LIMIT 1
-    `).bind(user.id, gameId).first();
-
-    return jsonResponse({ success: true, game });
+    return jsonResponse({ success: true, game: toLibraryRow(entry, 0) });
   } catch (error) {
     console.error("Library add error:", error);
     return jsonResponse({ success: false, error: "Failed to add game to library" }, 500);
@@ -1014,10 +1174,12 @@ function normalizeUsername(value) {
   return { valid: true, value: username };
 }
 
-async function readJsonBody(request) {
+async function readJsonBody(request, options = {}) {
+  const maxBytes = options.maxBytes || AUTH.maxBodyBytes;
+  const allowArray = options.allowArray === true;
   const contentLength = Number(request.headers.get("Content-Length") || 0);
 
-  if (contentLength > AUTH.maxBodyBytes) {
+  if (contentLength > maxBytes) {
     return {
       ok: false,
       response: jsonResponse({ success: false, error: "Request body is too large" }, 413),
@@ -1035,7 +1197,7 @@ async function readJsonBody(request) {
     };
   }
 
-  if (new TextEncoder().encode(text).byteLength > AUTH.maxBodyBytes) {
+  if (new TextEncoder().encode(text).byteLength > maxBytes) {
     return {
       ok: false,
       response: jsonResponse({ success: false, error: "Request body is too large" }, 413),
@@ -1044,7 +1206,7 @@ async function readJsonBody(request) {
 
   try {
     const data = JSON.parse(text);
-    if (!data || typeof data !== "object" || Array.isArray(data)) {
+    if (!data || typeof data !== "object" || (!allowArray && Array.isArray(data))) {
       throw new Error("Invalid object");
     }
     return { ok: true, data };
