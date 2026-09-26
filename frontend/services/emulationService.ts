@@ -38,6 +38,8 @@ export interface EmulatorDef {
   launchArgs: (romPath: string) => string;
   /** URL oficial de descarga. */
   downloadUrl: string;
+  /** Imagen de la consola (require de assets). */
+  image: any;
 }
 
 export const EMULATORS: EmulatorDef[] = [
@@ -51,6 +53,7 @@ export const EMULATORS: EmulatorDef[] = [
     platform: 'PS1',
     launchArgs: (rom) => `-batch -fullscreen "${rom}"`,
     downloadUrl: 'https://www.duckstation.org/',
+  image: require('@/assets/images/consolas/psx.png'),
   },
   {
     id: 'ps2',
@@ -62,6 +65,7 @@ export const EMULATORS: EmulatorDef[] = [
     platform: 'PS2',
     launchArgs: (rom) => `-batch -fullscreen "${rom}"`,
     downloadUrl: 'https://pcsx2.net/',
+  image: require('@/assets/images/consolas/ps2.png'),
   },
   {
     id: 'ps3',
@@ -73,6 +77,7 @@ export const EMULATORS: EmulatorDef[] = [
     platform: 'PS3',
     launchArgs: (rom) => `"${rom}"`,
     downloadUrl: 'https://rpcs3.net/',
+  image: require('@/assets/images/consolas/ps3.png'),
   },
   {
     id: 'psp',
@@ -84,6 +89,7 @@ export const EMULATORS: EmulatorDef[] = [
     retroSystem: 'PSP',
     launchArgs: (rom) => `"${rom}"`,
     downloadUrl: 'https://www.ppsspp.org/',
+  image: require('@/assets/images/consolas/psp.png'),
   },
   {
     id: 'gcwii',
@@ -95,6 +101,7 @@ export const EMULATORS: EmulatorDef[] = [
     retroSystemByExt: { '.rvz': 'WII', '.wbfs': 'WII', '.wad': 'WII', '.iso': 'GC', '.gcm': 'GC', '.ciso': 'GC', '.gcz': 'GC' },
     launchArgs: (rom) => `-e -b "${rom}"`,
     downloadUrl: 'https://dolphin-emu.org/',
+  image: require('@/assets/images/consolas/Wii-Console.png'),
   },
   {
     id: 'retroarch',
@@ -110,6 +117,7 @@ export const EMULATORS: EmulatorDef[] = [
     platform: 'Retro',
     launchArgs: (rom) => `-f "${rom}"`,
     downloadUrl: 'https://www.retroarch.com/',
+  image: require('@/assets/images/consolas/retroarch.png'),
   },
 ];
 

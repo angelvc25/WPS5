@@ -1990,6 +1990,11 @@ const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
         description: t('cc.personalizeBgDesc'),
       },
       {
+        image: require('@/assets/images/EmulatedGames.png'),
+        title: t('cc.addEmulatedGames'),
+        description: t('cc.emulatedGamesDesc2'),
+      },
+      {
         video: require('@/assets/video/addGames2.mp4'),
         title: t('cc.addEmulatedGames'),
         description: t('cc.addEmulatedGamesDesc'),

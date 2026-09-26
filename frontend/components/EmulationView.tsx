@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { soundService } from '../services/soundService';
+import { toastService } from '../services/toastService';
 import {
   EMULATORS,
   checkBiosFolder,
@@ -227,6 +228,11 @@ export const EmulationView = ({ activeUser, updateUser, libraryGames, onBack, on
       romPaths,
     });
     setImportedCount(added);
+    if (added > 0) {
+      toastService.show(t('emu.importToast', { count: added, name: wizardConsole.name }), {
+        icon: require('@/assets/images/install.png'),
+      });
+    }
     setFinishing(false);
     setWizardStep(3);
     soundService.playActivation?.();
@@ -364,8 +370,13 @@ export const EmulationView = ({ activeUser, updateUser, libraryGames, onBack, on
     const cfg = configs[def.id];
     if (!cfg?.exePath || manageScanning) return;
     setManageScanning(true);
-    await rescanAndImport(def, cfg.exePath, cfg.romPaths || []);
+    const { added } = await rescanAndImport(def, cfg.exePath, cfg.romPaths || []);
     setManageScanning(false);
+    if (added > 0) {
+      toastService.show(t('emu.importToast', { count: added, name: def.name }), {
+        icon: require('@/assets/images/install.png'),
+      });
+    }
     soundService.playActivation?.();
   };
 
@@ -884,8 +895,12 @@ export const EmulationView = ({ activeUser, updateUser, libraryGames, onBack, on
                 else openWizard(def);
               }}
             >
-              <View style={styles.cardIcon}>
-                <Ionicons name="game-controller" size={s(44)} color="rgba(255,255,255,0.9)" />
+              <View style={styles.cardImageWrap}>
+                <Image
+                  source={def.image}
+                  style={{ width: s(150), height: s(84) }}
+                  contentFit="contain"
+                />
               </View>
               <Text style={[styles.cardTitle, { fontSize: s(22) }]}>{def.name}</Text>
               <Text style={[styles.cardSub, { fontSize: s(13) }]}>{def.emulatorName}</Text>
@@ -1004,6 +1019,7 @@ const styles = StyleSheet.create({
   },
   cardFocused: { borderColor: 'rgba(255,255,255,0.9)' },
   cardIcon: { marginBottom: 10 },
+  cardImageWrap: { alignItems: 'flex-end', marginBottom: 6, marginTop: -6 },
   cardTitle: { color: '#FFF', fontFamily: 'SSTBold', fontWeight: '700' },
   cardSub: { color: 'rgba(255,255,255,0.55)', fontFamily: 'SSTLight', marginBottom: 14 },
   warnBox: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 12, marginBottom: 14, minHeight: 86 },
