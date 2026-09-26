@@ -46,6 +46,9 @@ export interface UserSettings {
   raApiKey?: string;
   overlayEnabled?: boolean;
   overlayCombo?: string;
+  /** Cuenta online WPS5 vinculada a este perfil local. */
+  onlineUserId?: string;
+  onlineUsername?: string;
   /** Muestra la fila de noticias en el panel del juego. Por defecto true. */
   showNews?: boolean;
   /** Muestra la ficha de metadatos estilo PS5 en el panel del juego. Por defecto true. */

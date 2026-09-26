@@ -3,23 +3,6 @@ export default {
     const url = new URL(request.url);
 
     // ============================================
-    // MÉTODOS PERMITIDOS
-    // ============================================
-    if (request.method !== "GET" && request.method !== "OPTIONS") {
-      return jsonResponse(
-        {
-          success: false,
-          error: "Method not allowed",
-        },
-        405,
-        {
-          Allow: "GET, OPTIONS",
-        }
-      );
-    }
-
-
-    // ============================================
     // CORS PREFLIGHT
     // ============================================
     if (request.method === "OPTIONS") {
@@ -30,7 +13,7 @@ export default {
     }
 
     // ============================================
-    // RATE LIMITING (40 req / min por IP)
+    // RATE LIMITING
     // ============================================
     const clientIP =
       request.headers.get("CF-Connecting-IP") ||
@@ -62,6 +45,7 @@ export default {
         success: true,
         message: "WConsole API is running with L1 (Memory) + L2 (KV) Cache",
         kvConnected: Boolean(kv),
+        databaseConnected: Boolean(env.DB),
         envKeys: Object.keys(env || {}),
         cachedItemsInMemory: memoryCache.size,
         endpoints: [
@@ -69,36 +53,116 @@ export default {
           "/api/steamgrid?title=...",
           "/api/rawg?title=...",
           "/api/news",
+          "/auth/register",
+          "/auth/login",
+          "/auth/logout",
+          "/auth/me",
+          "/users/search?q=...",
+          "/users/:username",
+          "/friends",
+          "/friends/request",
+          "/friends/accept",
+          "/friends/reject",
+          "/library",
+          "/library/:userId",
         ],
       });
     }
 
     // ============================================
-    // IGDB
+    // PUBLIC GAME / NEWS API
     // ============================================
     if (url.pathname === "/api/game") {
+      if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
       return handleGameRequest(url, env);
     }
 
-    // ============================================
-    // STEAMGRIDDB
-    // ============================================
     if (url.pathname === "/api/steamgrid") {
+      if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
       return handleSteamGridRequest(url, env);
     }
 
-    // ============================================
-    // RAWG
-    // ============================================
     if (url.pathname === "/api/rawg") {
+      if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
       return handleRawgRequest(url, env);
     }
 
-    // ============================================
-    // NOTICIAS (NEWS)
-    // ============================================
     if (url.pathname === "/api/news") {
+      if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
       return handleNewsRequest(url, env);
+    }
+
+    // ============================================
+    // AUTH
+    // ============================================
+    if (url.pathname === "/auth/register") {
+      return handleRegister(request, env);
+    }
+
+    if (url.pathname === "/auth/login") {
+      return handleLogin(request, env);
+    }
+
+    if (url.pathname === "/auth/logout") {
+      return handleLogout(request, env);
+    }
+
+    if (url.pathname === "/auth/me") {
+      return handleMe(request, env);
+    }
+
+    // ============================================
+    // USERS
+    // ============================================
+    if (url.pathname === "/users/search") {
+      return handleUserSearch(request, url, env);
+    }
+
+    if (url.pathname.startsWith("/users/")) {
+      const username = decodeURIComponent(url.pathname.slice("/users/".length)).trim();
+      if (username) {
+        return handleUserProfile(request, username, env);
+      }
+    }
+
+    // ============================================
+    // FRIENDS
+    // ============================================
+    if (url.pathname === "/friends" && request.method === "GET") {
+      return handleFriendsList(request, env);
+    }
+
+    if (url.pathname === "/friends/requests" && request.method === "GET") {
+      return handleFriendRequests(request, env);
+    }
+
+    if (url.pathname === "/friends/request") {
+      return handleFriendRequest(request, env);
+    }
+
+    if (url.pathname === "/friends/accept") {
+      return handleFriendAccept(request, env);
+    }
+
+    if (url.pathname === "/friends/reject") {
+      return handleFriendReject(request, env);
+    }
+
+    if (url.pathname.startsWith("/friends/") && request.method === "DELETE") {
+      const friendId = decodeURIComponent(url.pathname.slice("/friends/".length)).trim();
+      if (friendId) return handleFriendDelete(request, friendId, env);
+    }
+
+    // ============================================
+    // LIBRARY
+    // ============================================
+    if (url.pathname === "/library") {
+      return handleOwnLibrary(request, env);
+    }
+
+    if (url.pathname.startsWith("/library/")) {
+      const userId = decodeURIComponent(url.pathname.slice("/library/".length)).trim();
+      if (userId) return handleUserLibrary(request, userId, env);
     }
 
     // ============================================
@@ -113,6 +177,1006 @@ export default {
     );
   },
 };
+
+// ======================================================
+// AUTH / USERS / FRIENDS / LIBRARY
+// ======================================================
+
+const AUTH = {
+  sessionDays: 30,
+  passwordIterations: 100000,
+  maxBodyBytes: 16 * 1024,
+};
+
+async function handleRegister(request, env) {
+  if (request.method !== "POST") return methodNotAllowed(["POST", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const username = normalizeUsername(body.data.username);
+  const password = typeof body.data.password === "string" ? body.data.password : "";
+  const displayName =
+    typeof body.data.displayName === "string" && body.data.displayName.trim()
+      ? body.data.displayName.trim().slice(0, 50)
+      : username;
+
+  if (!username.valid) {
+    return jsonResponse({ success: false, error: username.error }, 400);
+  }
+
+  if (password.length < 8 || password.length > 128) {
+    return jsonResponse(
+      { success: false, error: "Password must contain between 8 and 128 characters" },
+      400
+    );
+  }
+
+  try {
+    const existing = await env.DB.prepare(
+      "SELECT id FROM users WHERE username = ? LIMIT 1"
+    ).bind(username.value).first();
+
+    if (existing) {
+      return jsonResponse({ success: false, error: "Username already exists" }, 409);
+    }
+
+    const id = crypto.randomUUID();
+    const passwordSalt = randomBytes(16);
+    const passwordHash = await hashPassword(password, passwordSalt);
+    const now = new Date().toISOString();
+
+    await env.DB.prepare(`
+      INSERT INTO users
+      (id, username, display_name, password_hash, password_salt, library_visibility, created_at, updated_at, last_seen_at)
+      VALUES (?, ?, ?, ?, ?, 'friends', ?, ?, ?)
+    `).bind(
+      id,
+      username.value,
+      displayName,
+      passwordHash,
+      bytesToBase64(passwordSalt),
+      now,
+      now,
+      now
+    ).run();
+
+    const token = await createSession(env.DB, id);
+
+    return jsonResponse({
+      success: true,
+      user: publicUser({
+        id,
+        username: username.value,
+        display_name: displayName,
+        library_visibility: "friends",
+        created_at: now,
+        last_seen_at: now,
+      }),
+      token,
+      expiresIn: AUTH.sessionDays * 24 * 60 * 60,
+    }, 201);
+  } catch (error) {
+    console.error("Register error:", error);
+    return jsonResponse({ success: false, error: "Failed to create account" }, 500);
+  }
+}
+
+async function handleLogin(request, env) {
+  if (request.method !== "POST") return methodNotAllowed(["POST", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const username = normalizeUsername(body.data.username);
+  const password = typeof body.data.password === "string" ? body.data.password : "";
+
+  if (!username.valid || !password) {
+    return jsonResponse({ success: false, error: "Invalid username or password" }, 401);
+  }
+
+  try {
+    const user = await env.DB.prepare(`
+      SELECT id, username, display_name, avatar_url, bio, password_hash, password_salt,
+             library_visibility, created_at, last_seen_at
+      FROM users
+      WHERE username = ?
+      LIMIT 1
+    `).bind(username.value).first();
+
+    if (!user) {
+      return jsonResponse({ success: false, error: "Invalid username or password" }, 401);
+    }
+
+    const salt = base64ToBytes(user.password_salt);
+    const candidateHash = await hashPassword(password, salt);
+
+    if (!timingSafeEqualString(candidateHash, user.password_hash)) {
+      return jsonResponse({ success: false, error: "Invalid username or password" }, 401);
+    }
+
+    const now = new Date().toISOString();
+
+    await env.DB.prepare(
+      "UPDATE users SET last_seen_at = ?, updated_at = ? WHERE id = ?"
+    ).bind(now, now, user.id).run();
+
+    const token = await createSession(env.DB, user.id);
+
+    return jsonResponse({
+      success: true,
+      user: publicUser({ ...user, last_seen_at: now }),
+      token,
+      expiresIn: AUTH.sessionDays * 24 * 60 * 60,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return jsonResponse({ success: false, error: "Failed to login" }, 500);
+  }
+}
+
+async function handleLogout(request, env) {
+  if (request.method !== "POST") return methodNotAllowed(["POST", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const token = getBearerToken(request);
+  if (!token) {
+    return jsonResponse({ success: true });
+  }
+
+  try {
+    const tokenHash = await sha256(token);
+    await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(tokenHash).run();
+    return jsonResponse({ success: true });
+  } catch (error) {
+    console.error("Logout error:", error);
+    return jsonResponse({ success: false, error: "Failed to logout" }, 500);
+  }
+}
+
+async function handleMe(request, env) {
+  if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  await touchLastSeen(env.DB, auth.user.id);
+
+  return jsonResponse({
+    success: true,
+    user: publicUser(auth.user),
+  });
+}
+
+async function handleUserSearch(request, url, env) {
+  if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  const q = (url.searchParams.get("q") || "").trim().toLowerCase();
+  if (q.length < 2 || q.length > 30) {
+    return jsonResponse(
+      { success: false, error: "Search query must contain between 2 and 30 characters" },
+      400
+    );
+  }
+
+  try {
+    const result = await env.DB.prepare(`
+      SELECT id, username, display_name, avatar_url, bio, library_visibility, created_at, last_seen_at
+      FROM users
+      WHERE username LIKE ? OR display_name LIKE ?
+      ORDER BY username ASC
+      LIMIT 20
+    `).bind(`%${q}%`, `%${q}%`).all();
+
+    return jsonResponse({
+      success: true,
+      users: (result.results || [])
+        .filter((user) => user.id !== auth.user.id)
+        .map(publicUser),
+    });
+  } catch (error) {
+    console.error("User search error:", error);
+    return jsonResponse({ success: false, error: "Failed to search users" }, 500);
+  }
+}
+
+async function handleUserProfile(request, username, env) {
+  if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  const normalized = normalizeUsername(username);
+  if (!normalized.valid) {
+    return jsonResponse({ success: false, error: "Invalid username" }, 400);
+  }
+
+  try {
+    const user = await env.DB.prepare(`
+      SELECT id, username, display_name, avatar_url, bio, library_visibility, created_at, last_seen_at
+      FROM users
+      WHERE username = ?
+      LIMIT 1
+    `).bind(normalized.value).first();
+
+    if (!user) {
+      return jsonResponse({ success: false, error: "User not found" }, 404);
+    }
+
+    const friendship = await getFriendship(env.DB, auth.user.id, user.id);
+
+    return jsonResponse({
+      success: true,
+      user: publicUser(user),
+      friendship: friendship ? friendship.status : "none",
+      isSelf: auth.user.id === user.id,
+    });
+  } catch (error) {
+    console.error("User profile error:", error);
+    return jsonResponse({ success: false, error: "Failed to load profile" }, 500);
+  }
+}
+
+async function handleFriendRequest(request, env) {
+  if (request.method !== "POST") return methodNotAllowed(["POST", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const targetUserId = typeof body.data.userId === "string" ? body.data.userId.trim() : "";
+  if (!targetUserId) {
+    return jsonResponse({ success: false, error: "userId is required" }, 400);
+  }
+
+  if (targetUserId === auth.user.id) {
+    return jsonResponse({ success: false, error: "You cannot add yourself" }, 400);
+  }
+
+  try {
+    const target = await env.DB.prepare(
+      "SELECT id, username FROM users WHERE id = ? LIMIT 1"
+    ).bind(targetUserId).first();
+
+    if (!target) {
+      return jsonResponse({ success: false, error: "User not found" }, 404);
+    }
+
+    const blocked = await env.DB.prepare(`
+      SELECT id FROM blocks
+      WHERE (blocker_id = ? AND blocked_id = ?)
+         OR (blocker_id = ? AND blocked_id = ?)
+      LIMIT 1
+    `).bind(auth.user.id, target.id, target.id, auth.user.id).first();
+
+    if (blocked) {
+      return jsonResponse({ success: false, error: "Friend request cannot be sent" }, 403);
+    }
+
+    const existing = await getFriendship(env.DB, auth.user.id, target.id);
+
+    if (existing?.status === "accepted") {
+      return jsonResponse({ success: false, error: "You are already friends" }, 409);
+    }
+
+    if (existing?.status === "pending") {
+      return jsonResponse({ success: false, error: "Friend request already exists" }, 409);
+    }
+
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await env.DB.prepare(`
+      INSERT INTO friendships
+      (id, requester_id, addressee_id, status, created_at, updated_at)
+      VALUES (?, ?, ?, 'pending', ?, ?)
+    `).bind(id, auth.user.id, target.id, now, now).run();
+
+    return jsonResponse({
+      success: true,
+      request: {
+        id,
+        userId: target.id,
+        username: target.username,
+        status: "pending",
+        createdAt: now,
+      },
+    }, 201);
+  } catch (error) {
+    console.error("Friend request error:", error);
+    return jsonResponse({ success: false, error: "Failed to send friend request" }, 500);
+  }
+}
+
+async function handleFriendAccept(request, env) {
+  if (request.method !== "POST") return methodNotAllowed(["POST", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const requestId = typeof body.data.requestId === "string" ? body.data.requestId.trim() : "";
+  if (!requestId) {
+    return jsonResponse({ success: false, error: "requestId is required" }, 400);
+  }
+
+  try {
+    const friendship = await env.DB.prepare(`
+      SELECT id, requester_id, addressee_id, status
+      FROM friendships
+      WHERE id = ? AND addressee_id = ? AND status = 'pending'
+      LIMIT 1
+    `).bind(requestId, auth.user.id).first();
+
+    if (!friendship) {
+      return jsonResponse({ success: false, error: "Friend request not found" }, 404);
+    }
+
+    const now = new Date().toISOString();
+
+    await env.DB.prepare(`
+      UPDATE friendships
+      SET status = 'accepted', updated_at = ?
+      WHERE id = ?
+    `).bind(now, requestId).run();
+
+    return jsonResponse({
+      success: true,
+      friendship: {
+        id: requestId,
+        userId: friendship.requester_id,
+        status: "accepted",
+        updatedAt: now,
+      },
+    });
+  } catch (error) {
+    console.error("Friend accept error:", error);
+    return jsonResponse({ success: false, error: "Failed to accept friend request" }, 500);
+  }
+}
+
+async function handleFriendReject(request, env) {
+  if (request.method !== "POST") return methodNotAllowed(["POST", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const requestId = typeof body.data.requestId === "string" ? body.data.requestId.trim() : "";
+  if (!requestId) {
+    return jsonResponse({ success: false, error: "requestId is required" }, 400);
+  }
+
+  try {
+    const result = await env.DB.prepare(`
+      DELETE FROM friendships
+      WHERE id = ? AND addressee_id = ? AND status = 'pending'
+    `).bind(requestId, auth.user.id).run();
+
+    if (!result.meta?.changes) {
+      return jsonResponse({ success: false, error: "Friend request not found" }, 404);
+    }
+
+    return jsonResponse({ success: true });
+  } catch (error) {
+    console.error("Friend reject error:", error);
+    return jsonResponse({ success: false, error: "Failed to reject friend request" }, 500);
+  }
+}
+
+async function handleFriendDelete(request, friendId, env) {
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  try {
+    const result = await env.DB.prepare(`
+      DELETE FROM friendships
+      WHERE id = ?
+        AND status = 'accepted'
+        AND (requester_id = ? OR addressee_id = ?)
+    `).bind(friendId, auth.user.id, auth.user.id).run();
+
+    if (!result.meta?.changes) {
+      return jsonResponse({ success: false, error: "Friendship not found" }, 404);
+    }
+
+    return jsonResponse({ success: true });
+  } catch (error) {
+    console.error("Friend delete error:", error);
+    return jsonResponse({ success: false, error: "Failed to remove friend" }, 500);
+  }
+}
+
+async function handleFriendsList(request, env) {
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  try {
+    const result = await env.DB.prepare(`
+      SELECT
+        f.id,
+        f.created_at,
+        u.id AS user_id,
+        u.username,
+        u.display_name,
+        u.avatar_url,
+        u.bio,
+        u.library_visibility,
+        u.created_at AS user_created_at,
+        u.last_seen_at
+      FROM friendships f
+      JOIN users u
+        ON u.id = CASE
+          WHEN f.requester_id = ? THEN f.addressee_id
+          ELSE f.requester_id
+        END
+      WHERE (f.requester_id = ? OR f.addressee_id = ?)
+        AND f.status = 'accepted'
+      ORDER BY u.username ASC
+    `).bind(auth.user.id, auth.user.id, auth.user.id).all();
+
+    return jsonResponse({
+      success: true,
+      friends: (result.results || []).map((row) => ({
+        friendshipId: row.id,
+        user: publicUser({
+          id: row.user_id,
+          username: row.username,
+          display_name: row.display_name,
+          avatar_url: row.avatar_url,
+          bio: row.bio,
+          library_visibility: row.library_visibility,
+          created_at: row.user_created_at,
+          last_seen_at: row.last_seen_at,
+        }),
+        friendshipCreatedAt: row.created_at,
+      })),
+    });
+  } catch (error) {
+    console.error("Friends list error:", error);
+    return jsonResponse({ success: false, error: "Failed to load friends" }, 500);
+  }
+}
+
+async function handleFriendRequests(request, env) {
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  try {
+    const result = await env.DB.prepare(`
+      SELECT
+        f.id,
+        f.created_at,
+        u.id AS user_id,
+        u.username,
+        u.display_name,
+        u.avatar_url,
+        u.bio,
+        u.library_visibility,
+        u.created_at AS user_created_at,
+        u.last_seen_at
+      FROM friendships f
+      JOIN users u ON u.id = f.requester_id
+      WHERE f.addressee_id = ? AND f.status = 'pending'
+      ORDER BY f.created_at DESC
+      LIMIT 50
+    `).bind(auth.user.id).all();
+
+    return jsonResponse({
+      success: true,
+      requests: (result.results || []).map((row) => ({
+        id: row.id,
+        createdAt: row.created_at,
+        user: publicUser({
+          id: row.user_id,
+          username: row.username,
+          display_name: row.display_name,
+          avatar_url: row.avatar_url,
+          bio: row.bio,
+          library_visibility: row.library_visibility,
+          created_at: row.user_created_at,
+          last_seen_at: row.last_seen_at,
+        }),
+      })),
+    });
+  } catch (error) {
+    console.error("Friend requests error:", error);
+    return jsonResponse({ success: false, error: "Failed to load friend requests" }, 500);
+  }
+}
+
+async function handleOwnLibrary(request, env) {
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  if (request.method === "GET") {
+    return getLibraryForUser(env.DB, auth.user, auth.user.id, true);
+  }
+
+  if (request.method === "POST") {
+    const body = await readJsonBody(request);
+    if (!body.ok) return body.response;
+
+    return addLibraryGame(env.DB, auth.user, body.data);
+  }
+
+  if (request.method === "DELETE") {
+    const body = await readJsonBody(request);
+    if (!body.ok) return body.response;
+
+    const gameId = typeof body.data.gameId === "string" ? body.data.gameId.trim() : "";
+    if (!gameId || gameId.length > 150) {
+      return jsonResponse({ success: false, error: "Valid gameId is required" }, 400);
+    }
+
+    try {
+      await env.DB.prepare(
+        "DELETE FROM libraries WHERE user_id = ? AND game_id = ?"
+      ).bind(auth.user.id, gameId).run();
+
+      return jsonResponse({ success: true });
+    } catch (error) {
+      console.error("Library delete error:", error);
+      return jsonResponse({ success: false, error: "Failed to remove game" }, 500);
+    }
+  }
+
+  return methodNotAllowed(["GET", "POST", "DELETE", "OPTIONS"]);
+}
+
+async function handleUserLibrary(request, userId, env) {
+  if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  const target = await env.DB.prepare(
+    "SELECT id, username, display_name, avatar_url, library_visibility FROM users WHERE id = ? LIMIT 1"
+  ).bind(userId).first();
+
+  if (!target) {
+    return jsonResponse({ success: false, error: "User not found" }, 404);
+  }
+
+  return getLibraryForUser(env.DB, target, auth.user.id, false);
+}
+
+async function getLibraryForUser(db, targetUser, viewerId, isSelf) {
+  const visibility = targetUser.library_visibility || "friends";
+
+  if (!isSelf && visibility === "private") {
+    return jsonResponse({
+      success: true,
+      visible: false,
+      reason: "private",
+      library: [],
+    });
+  }
+
+  if (!isSelf && visibility === "friends") {
+    const friendship = await getFriendship(db, viewerId, targetUser.id);
+    if (friendship?.status !== "accepted") {
+      return jsonResponse({
+        success: true,
+        visible: false,
+        reason: "friends_only",
+        library: [],
+      });
+    }
+  }
+
+  try {
+    const result = await db.prepare(`
+      SELECT id, game_id, game_name, cover_url, metadata_json, added_at
+      FROM libraries
+      WHERE user_id = ?
+      ORDER BY added_at DESC
+    `).bind(targetUser.id).all();
+
+    return jsonResponse({
+      success: true,
+      visible: true,
+      userId: targetUser.id,
+      username: targetUser.username,
+      library: result.results || [],
+    });
+  } catch (error) {
+    console.error("Library read error:", error);
+    return jsonResponse({ success: false, error: "Failed to load library" }, 500);
+  }
+}
+
+async function addLibraryGame(db, user, data) {
+  const gameId = typeof data.gameId === "string" ? data.gameId.trim() : "";
+  const gameName = typeof data.gameName === "string" ? data.gameName.trim() : "";
+  const coverUrl = typeof data.coverUrl === "string" ? data.coverUrl.trim() : "";
+  const metadata = data.metadata;
+
+  if (!gameId || !gameName) {
+    return jsonResponse(
+      { success: false, error: "gameId and gameName are required" },
+      400
+    );
+  }
+
+  if (gameId.length > 150 || gameName.length > 200 || coverUrl.length > 1000) {
+    return jsonResponse({ success: false, error: "Game data is too long" }, 400);
+  }
+
+  let metadataJson = null;
+  if (metadata !== undefined && metadata !== null) {
+    try {
+      metadataJson = JSON.stringify(metadata);
+      if (metadataJson.length > 12000) {
+        return jsonResponse({ success: false, error: "metadata is too large" }, 400);
+      }
+    } catch {
+      return jsonResponse({ success: false, error: "Invalid metadata" }, 400);
+    }
+  }
+
+  try {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await db.prepare(`
+      INSERT INTO libraries
+      (id, user_id, game_id, game_name, cover_url, metadata_json, added_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, game_id) DO UPDATE SET
+        game_name = excluded.game_name,
+        cover_url = excluded.cover_url,
+        metadata_json = excluded.metadata_json,
+        updated_at = excluded.updated_at
+    `).bind(
+      id,
+      user.id,
+      gameId,
+      gameName,
+      coverUrl || null,
+      metadataJson,
+      now,
+      now
+    ).run();
+
+    const game = await db.prepare(`
+      SELECT id, game_id, game_name, cover_url, metadata_json, added_at
+      FROM libraries
+      WHERE user_id = ? AND game_id = ?
+      LIMIT 1
+    `).bind(user.id, gameId).first();
+
+    return jsonResponse({ success: true, game });
+  } catch (error) {
+    console.error("Library add error:", error);
+    return jsonResponse({ success: false, error: "Failed to add game to library" }, 500);
+  }
+}
+
+async function requireAuth(request, db) {
+  const token = getBearerToken(request);
+
+  if (!token || token.length < 40 || token.length > 512) {
+    return {
+      ok: false,
+      response: jsonResponse({ success: false, error: "Authentication required" }, 401),
+    };
+  }
+
+  try {
+    const tokenHash = await sha256(token);
+
+    const session = await db.prepare(`
+      SELECT
+        s.id AS session_id,
+        s.expires_at,
+        u.id,
+        u.username,
+        u.display_name,
+        u.avatar_url,
+        u.bio,
+        u.library_visibility,
+        u.created_at,
+        u.last_seen_at
+      FROM sessions s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.token_hash = ?
+        AND s.expires_at > ?
+      LIMIT 1
+    `).bind(tokenHash, new Date().toISOString()).first();
+
+    if (!session) {
+      return {
+        ok: false,
+        response: jsonResponse({ success: false, error: "Invalid or expired session" }, 401),
+      };
+    }
+
+    return {
+      ok: true,
+      user: session,
+      sessionId: session.session_id,
+    };
+  } catch (error) {
+    console.error("Auth lookup error:", error);
+    return {
+      ok: false,
+      response: jsonResponse({ success: false, error: "Authentication service unavailable" }, 500),
+    };
+  }
+}
+
+async function createSession(db, userId) {
+  const rawToken = randomToken(32);
+  const tokenHash = await sha256(rawToken);
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  const expiresAt = new Date(now + AUTH.sessionDays * 24 * 60 * 60 * 1000).toISOString();
+
+  await db.prepare(`
+    INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(id, userId, tokenHash, expiresAt, new Date(now).toISOString()).run();
+
+  // Mantener como máximo 5 sesiones activas por usuario.
+  await db.prepare(`
+    DELETE FROM sessions
+    WHERE user_id = ?
+      AND id NOT IN (
+        SELECT id FROM sessions
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 5
+      )
+  `).bind(userId, userId).run();
+
+  return rawToken;
+}
+
+async function getFriendship(db, userA, userB) {
+  return db.prepare(`
+    SELECT id, requester_id, addressee_id, status, created_at, updated_at
+    FROM friendships
+    WHERE (requester_id = ? AND addressee_id = ?)
+       OR (requester_id = ? AND addressee_id = ?)
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(userA, userB, userB, userA).first();
+}
+
+async function touchLastSeen(db, userId) {
+  try {
+    await db.prepare(
+      "UPDATE users SET last_seen_at = ? WHERE id = ?"
+    ).bind(new Date().toISOString(), userId).run();
+  } catch (error) {
+    console.warn("Could not update last_seen_at:", error);
+  }
+}
+
+function publicUser(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.display_name ?? user.displayName ?? user.username,
+    avatarUrl: user.avatar_url ?? user.avatarUrl ?? null,
+    bio: user.bio ?? null,
+    libraryVisibility: user.library_visibility ?? "friends",
+    createdAt: user.created_at ?? user.createdAt ?? null,
+    lastSeenAt: user.last_seen_at ?? user.lastSeenAt ?? null,
+  };
+}
+
+function normalizeUsername(value) {
+  if (typeof value !== "string") {
+    return { valid: false, error: "Username is required" };
+  }
+
+  const username = value.trim().toLowerCase();
+
+  if (username.length < 3 || username.length > 24) {
+    return { valid: false, error: "Username must contain between 3 and 24 characters" };
+  }
+
+  if (!/^[a-z0-9_]+$/.test(username)) {
+    return {
+      valid: false,
+      error: "Username can contain only letters, numbers and underscores",
+    };
+  }
+
+  return { valid: true, value: username };
+}
+
+async function readJsonBody(request) {
+  const contentLength = Number(request.headers.get("Content-Length") || 0);
+
+  if (contentLength > AUTH.maxBodyBytes) {
+    return {
+      ok: false,
+      response: jsonResponse({ success: false, error: "Request body is too large" }, 413),
+    };
+  }
+
+  let text;
+
+  try {
+    text = await request.text();
+  } catch {
+    return {
+      ok: false,
+      response: jsonResponse({ success: false, error: "Invalid request body" }, 400),
+    };
+  }
+
+  if (new TextEncoder().encode(text).byteLength > AUTH.maxBodyBytes) {
+    return {
+      ok: false,
+      response: jsonResponse({ success: false, error: "Request body is too large" }, 413),
+    };
+  }
+
+  try {
+    const data = JSON.parse(text);
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("Invalid object");
+    }
+    return { ok: true, data };
+  } catch {
+    return {
+      ok: false,
+      response: jsonResponse({ success: false, error: "Invalid JSON body" }, 400),
+    };
+  }
+}
+
+async function hashPassword(password, salt) {
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: AUTH.passwordIterations,
+      hash: "SHA-256",
+    },
+    baseKey,
+    256
+  );
+
+  return bytesToBase64(new Uint8Array(bits));
+}
+
+async function sha256(value) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value)
+  );
+  return bytesToBase64(new Uint8Array(digest));
+}
+
+function randomBytes(length) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+function randomToken(byteLength) {
+  return bytesToBase64Url(randomBytes(byteLength));
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+
+  return btoa(binary);
+}
+
+function bytesToBase64Url(bytes) {
+  return bytesToBase64(bytes)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function base64ToBytes(value) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+
+function timingSafeEqualString(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
+
+  if (aBytes.length !== bBytes.length) return false;
+
+  return crypto.subtle.timingSafeEqual
+    ? crypto.subtle.timingSafeEqual(aBytes, bBytes)
+    : constantTimeEqual(aBytes, bBytes);
+}
+
+function constantTimeEqual(a, b) {
+  let result = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    result |= a[i] ^ b[i];
+  }
+
+  return result === 0;
+}
+
+function getBearerToken(request) {
+  const header = request.headers.get("Authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
+function methodNotAllowed(methods) {
+  return jsonResponse(
+    {
+      success: false,
+      error: "Method not allowed",
+    },
+    405,
+    {
+      Allow: methods.join(", "),
+    }
+  );
+}
+
+function databaseNotConfigured() {
+  return jsonResponse(
+    {
+      success: false,
+      error: "Database is not configured",
+    },
+    503
+  );
+}
 
 // ======================================================
 // DUAL CACHE: L1 (MEMORIA) + L2 (KV PERSISTENTE)
@@ -226,7 +1290,7 @@ async function handleGameRequest(url, env) {
     return jsonResponse({ success: false, error: "IGDB credentials are not configured" }, 500);
   }
 
-      const cacheKey = `igdb:v2:${title.toLowerCase()}`;
+  const cacheKey = `igdb:v2:${title.toLowerCase()}`;
   // 7 días de caché
   const { data, hit, source } = await withCache(env, cacheKey, 60 * 60 * 24 * 7, async () => {
     try {

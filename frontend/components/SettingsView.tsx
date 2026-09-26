@@ -35,6 +35,8 @@ import {
 } from '../services/metadataPreferences';
 import BackgroundVideo from './BackgroundVideo';
 import { EmulationView } from './EmulationView';
+import { OnlineAccountCard, type OnlineAccountCardHandle } from './OnlineAccountCard';
+import { OnlineFriendsPanel, type OnlineFriendsPanelHandle } from './OnlineFriendsPanel';
 import PSIcon from './PSIcon';
 import { UserProfile } from './UserSelectScreen';
 import SpinningBorderSearch from './SpinningBorderSearch';
@@ -303,6 +305,8 @@ export default function SettingsView({
   const [mainFocusIndex, setMainFocusIndex] = useState(0);
   const [subFocusIndex, setSubFocusIndex] = useState(0);
   const [accessibilityLeftIndex, setAccessibilityLeftIndex] = useState(0);
+  const onlineCardRef = useRef<OnlineAccountCardHandle | null>(null);
+  const friendsPanelRef = useRef<OnlineFriendsPanelHandle | null>(null);
   const [accessibilityFocusArea, setAccessibilityFocusArea] = useState<'left' | 'right'>('left');
   const [systemLeftIndex, setSystemLeftIndex] = useState(0);
   const [systemFocusArea, setSystemFocusArea] = useState<'left' | 'right'>('left');
@@ -861,6 +865,8 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 6) return 1; // Panel del juego: 2 toggles
     if (accessibilityLeftIndex === 7) return 1; // Overlay: toggle + combo
     if (accessibilityLeftIndex === 8) return 0; // Splash Videos: navegación por mouse/touch en la grilla
+    if (accessibilityLeftIndex === 9) return 1; // Cuenta online: pestañas + acción
+    if (accessibilityLeftIndex === 10) return 1; // Amigos: buscar + actualizar
     return 0;
   };
 
@@ -1065,6 +1071,17 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 8) {
       // Splash Videos — la búsqueda, filtros y tarjetas se manejan con
       // mouse/touch directamente (onPress de cada control).
+      return;
+    }
+
+    if (accessibilityLeftIndex === 9) {
+      onlineCardRef.current?.activateRow(subFocusIndex);
+      return;
+    }
+
+    if (accessibilityLeftIndex === 10) {
+      if (subFocusIndex === 0) friendsPanelRef.current?.focusSearch();
+      else friendsPanelRef.current?.refresh();
       return;
     }
   };
@@ -1732,6 +1749,8 @@ export default function SettingsView({
       { id: 'gamepanel', title: t('settings.gamePanel') },
       { id: 'overlay', title: t('settings.overlay') },
       { id: 'splash', title: t('settings.steamDeckRepo') },
+      { id: 'online', title: t('settings.onlineAccount') },
+      { id: 'friends', title: t('settings.onlineFriends') },
     ];
 
     return (
@@ -2711,6 +2730,28 @@ export default function SettingsView({
                 </Modal>
               );
             })()}
+
+            {accessibilityLeftIndex === 9 && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.rightSectionTitle}>{t('settings.onlineAccount')}</Text>
+                <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.onlineAccountDesc')}</Text>
+                <OnlineAccountCard
+                  ref={onlineCardRef}
+                  activeUser={activeUser}
+                  updateUser={updateUser}
+                  isRightFocused={accessibilityFocusArea === 'right'}
+                  subFocusIndex={subFocusIndex}
+                />
+              </ScrollView>
+            )}
+
+            {accessibilityLeftIndex === 10 && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.rightSectionTitle}>{t('settings.onlineFriends')}</Text>
+                <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.onlineFriendsDesc')}</Text>
+                <OnlineFriendsPanel ref={friendsPanelRef} />
+              </ScrollView>
+            )}
 
             {accessibilityLeftIndex === 5 && (
               <ScrollView showsVerticalScrollIndicator={false}>
