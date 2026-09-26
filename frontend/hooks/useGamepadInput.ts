@@ -30,6 +30,12 @@ export function useGamepadInput({
   const previousAxesRef = useRef([0, 0, 0, 0]);
   const lastGamepadIdRef = useRef<string | null>(null);
   const isFirstPollRef = useRef(true);
+  // Detección de mando congelado (típico cuando Steam Input toma el mando:
+  // el id físico sigue listado pero su timestamp deja de avanzar mientras
+  // el pad virtual de Steam sí entrega datos). Al detectarlo se migra al otro.
+  const lastTimestampRef = useRef<number>(-1);
+  const frozenPollsRef = useRef(0);
+  const FROZEN_POLLS_THRESHOLD = 180; // ~3s a 60fps
   const animationFrameIdRef = useRef<number | null>(null);
   const hadGamepadRef = useRef(false);
   const focusRecoveryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,17 +75,19 @@ export function useGamepadInput({
     };
 
     // Reemplaza la lectura de gamepad dentro de poll()
+    const isPadAlive = (p: Gamepad | null): p is Gamepad =>
+      !!p && (p as any).connected !== false;
     const getActiveGamepad = (): Gamepad | null => {
       const pads = navigator.getGamepads?.() ?? [];
       // Prioriza mantener el mismo mando si sigue conectado
       if (lastGamepadIdRef.current) {
         const same = Array.from(pads).find(
-          (p): p is Gamepad => !!p && p.id === lastGamepadIdRef.current
+          (p): p is Gamepad => isPadAlive(p) && p.id === lastGamepadIdRef.current
         );
         if (same) return same;
       }
       // Si no, toma el primer slot con un mando real
-      return Array.from(pads).find((p): p is Gamepad => !!p) ?? null;
+      return Array.from(pads).find((p): p is Gamepad => isPadAlive(p)) ?? null;
     };
 
     const notifyStaleGamepad = () => {
@@ -135,10 +143,43 @@ export function useGamepadInput({
           lastGamepadIdRef.current = null;
           isFirstPollRef.current = true;
           repeatStateRef.current = {};
+          lastTimestampRef.current = -1;
+          frozenPollsRef.current = 0;
           callbacksRef.current.onGamepadChange({ connected: false, name: '', battery: 0 });
         }
         schedulePoll();
         return;
+      }
+
+      // Si el timestamp no avanza durante varios segundos y hay otro mando
+      // listado con timestamp MAYOR (ej. el pad virtual de Steam Input, que
+      // sí entrega datos), migrar a él. Exigir timestamp mayor evita
+      // ping-pong entre dos mandos inactivos.
+      if (gamepad.timestamp === lastTimestampRef.current) {
+        frozenPollsRef.current += 1;
+        if (frozenPollsRef.current >= FROZEN_POLLS_THRESHOLD) {
+          const pads = navigator.getGamepads?.() ?? [];
+          let best: Gamepad | null = null;
+          for (const p of Array.from(pads)) {
+            if (!isPadAlive(p) || p.id === gamepad.id) continue;
+            if (p.timestamp > gamepad.timestamp && (!best || p.timestamp > best.timestamp)) {
+              best = p;
+            }
+          }
+          if (best) {
+            lastGamepadIdRef.current = best.id;
+            isFirstPollRef.current = true;
+            repeatStateRef.current = {};
+            lastTimestampRef.current = -1;
+            frozenPollsRef.current = 0;
+            schedulePoll();
+            return;
+          }
+          frozenPollsRef.current = 0; // no hay alternativa viva: no insistir
+        }
+      } else {
+        lastTimestampRef.current = gamepad.timestamp;
+        frozenPollsRef.current = 0;
       }
 
       if (isFirstPollRef.current) {
@@ -281,7 +322,16 @@ export function useGamepadInput({
       isFirstPollRef.current = true; // re-baseline con el nuevo mando
       schedulePoll();
     };
-    const handleGamepadDisconnected = () => {
+    const handleGamepadDisconnected = (e: Event) => {
+      // Si se fue JUSTO el mando preferido, soltar la preferencia para que
+      // el próximo poll tome otro slot (ej. el virtual de Steam) en vez de
+      // quedarse esperando un id que ya no existe.
+      const goneId = (e as GamepadEvent)?.gamepad?.id;
+      if (goneId && goneId === lastGamepadIdRef.current) {
+        lastGamepadIdRef.current = null;
+        lastTimestampRef.current = -1;
+        frozenPollsRef.current = 0;
+      }
       isFirstPollRef.current = true;
       schedulePoll();
     };
