@@ -1098,10 +1098,31 @@ export default function ConsoleHome() {
   }, [visibleLibraryGames.length]);
 
   const displayedLibraryGames = useMemo(() => {
+    // Registros manuales de la DB (ediciones del usuario) que pisan los datos
+    // detectados de Steam/Epic. Misma lógica que ya existía inline para Steam.
+    const dbOverrides = new Map<string, ConsoleItem>();
+    games.forEach(g => {
+      if ((g.id.startsWith('steam_') || g.id.startsWith('epic_')) && g.title && g.title !== 'Juego') {
+        dbOverrides.set(g.id, g);
+      }
+    });
+    const applyDbOverride = (base: ConsoleItem): ConsoleItem => {
+      const override = dbOverrides.get(base.id);
+      if (!override) return { ...base, path: resolveLaunchPath(base) };
+      const merged = {
+        ...base,
+        ...override,
+        title: override.title || base.title,
+        image: (override.image && override.image !== require('@/assets/images/Home.gif')) ? override.image : base.image,
+        backgroundImage: (override.backgroundImage && override.backgroundImage !== require('@/assets/images/FondoDefault2.jpg')) ? override.backgroundImage : base.backgroundImage,
+        logo: (override as any).logo || (base as any).logo,
+      };
+      return { ...merged, path: resolveLaunchPath(merged) };
+    };
     if (libraryTab === 'installed') {
       const byId = new Map<string, ConsoleItem>();
       epicGames.forEach(game => {
-        byId.set(game.id, game);
+        byId.set(game.id, applyDbOverride(game));
       });
       // Incluimos también los juegos de Steam (colección completa). No
       // filtramos aquí por "instalado": LibraryGrid ya aplica ese filtro
@@ -1109,16 +1130,7 @@ export default function ConsoleHome() {
       // los demás juegos de esta pestaña. Si los excluimos aquí, jamás
       // llegan a LibraryGrid y no aparecen aunque estén instalados.
       steamGames.forEach(sg => {
-        const override = games.find(g => g.id === sg.id && g.title && g.title !== 'Juego');
-        const merged = override ? {
-          ...sg,
-          ...override,
-          title: override.title || sg.title,
-          image: (override.image && override.image !== require('@/assets/images/Home.gif')) ? override.image : sg.image,
-          backgroundImage: (override.backgroundImage && override.backgroundImage !== require('@/assets/images/FondoDefault2.jpg')) ? override.backgroundImage : sg.backgroundImage,
-          logo: override.logo || sg.logo,
-        } : sg;
-        byId.set(sg.id, { ...merged, path: resolveLaunchPath(merged) });
+        byId.set(sg.id, applyDbOverride(sg));
       });
       savedGames.forEach(game => {
         byId.set(game.id, { ...game, path: resolveLaunchPath(game) });
@@ -1127,18 +1139,7 @@ export default function ConsoleHome() {
       result.unshift(MEDIA_GALLERY_ITEM);
       return result;
     }
-    return steamGames.map(sg => {
-      const override = games.find(g => g.id === sg.id && g.title && g.title !== 'Juego');
-      const merged = override ? {
-        ...sg,
-        ...override,
-        title: override.title || sg.title,
-        image: (override.image && override.image !== require('@/assets/images/Home.gif')) ? override.image : sg.image,
-        backgroundImage: (override.backgroundImage && override.backgroundImage !== require('@/assets/images/FondoDefault2.jpg')) ? override.backgroundImage : sg.backgroundImage,
-        logo: override.logo || sg.logo,
-      } : sg;
-      return { ...merged, path: resolveLaunchPath(merged) };
-    });
+    return steamGames.map(sg => applyDbOverride(sg));
   }, [libraryTab, savedGames, epicGames, steamGames, games]);
 
   const searchableLibraryGames = useMemo(() => {
@@ -1148,12 +1149,18 @@ export default function ConsoleHome() {
       const existing = byId.get(g.id);
       byId.set(g.id, existing ? { ...g, ...existing, path: resolveLaunchPath(existing) } : { ...g, path: resolveLaunchPath(g) });
     });
+    const epicOverrides = new Map<string, ConsoleItem>();
+    games.forEach(g => {
+      if (g.id.startsWith('epic_') && g.title && g.title !== 'Juego') epicOverrides.set(g.id, g);
+    });
     epicGames.forEach(g => {
       const existing = byId.get(g.id);
-      byId.set(g.id, existing ? { ...g, ...existing } : g);
+      const override = epicOverrides.get(g.id);
+      const base = override ? { ...g, ...override } : g;
+      byId.set(g.id, existing ? { ...base, ...existing } : base);
     });
     return Array.from(byId.values());
-  }, [savedGames, steamGames, epicGames]);
+  }, [savedGames, steamGames, epicGames, games]);
 
   const searchableMedia = useMemo(() => media, [media]);
 
@@ -1743,29 +1750,41 @@ export default function ConsoleHome() {
   const loadApps = () => {
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       (window as any).electronAPI.getApps().then((data: any) => {
+        // Convierte una ruta o URL guardada al formato { uri } de expo-image.
+        // Los valores no-string se ignoran para que un registro corrupto
+        // nunca rompa el refresco de toda la lista.
+        const toUri = (v: unknown) => {
+          if (typeof v !== 'string' || !v) return null;
+          return v.startsWith('http')
+            ? { uri: v }
+            : { uri: `local-file:///${v.replace(/\\/g, '/')}` };
+        };
         const formatApp = (app: any) => ({
           id: app.id,
           title: app.title,
           time: app.type === 'game' ? (app.platform || t('cc.typeGame')) : (app.type === 'web' ? 'Web App' : 'Media'),
           image: app.imageBase64
             ? { uri: app.imageBase64 }
-            : (app.image
-              ? (app.image.startsWith('http') ? { uri: app.image } : { uri: `local-file:///${app.image.replace(/\\/g, '/')}` })
-              : (app.id === 'spotify_default' ? require('@/assets/images/spotify_portada.png') : (app.type === 'web' ? require('@/assets/images/web_default.jpg') : require('@/assets/images/Home.gif')))
+            : (toUri(app.image)
+              ?? (app.id === 'spotify_default' ? require('@/assets/images/spotify_portada.png') : (app.type === 'web' ? require('@/assets/images/web_default.jpg') : require('@/assets/images/Home.gif')))
             ),
-          logo: app.logoBase64 ? { uri: app.logoBase64 } : (app.logo ? (app.logo.startsWith('http') ? { uri: app.logo } : { uri: `local-file:///${app.logo.replace(/\\/g, '/')}` }) : (app.id === 'spotify_default' ? require('@/assets/images/spotify_logo.png') : null)),
+          logo: app.logoBase64 ? { uri: app.logoBase64 } : (toUri(app.logo)
+            ?? (app.id === 'spotify_default' ? require('@/assets/images/spotify_logo.png') : null)),
           backgroundImage: app.backgroundImageBase64
             ? { uri: app.backgroundImageBase64 }
-            : (app.backgroundImage
-              ? (app.backgroundImage.startsWith('http') ? { uri: app.backgroundImage } : { uri: `local-file:///${app.backgroundImage.replace(/\\/g, '/')}` })
-              : (app.id === 'spotify_default' ? require('@/assets/images/spotify_fondo.png') : require('@/assets/images/FondoDefault2.jpg'))
+            : (toUri(app.backgroundImage)
+              ?? (app.id === 'spotify_default' ? require('@/assets/images/spotify_fondo.png') : require('@/assets/images/FondoDefault2.jpg'))
             ),
-          video: app.video ? (app.video.startsWith('http') ? { uri: app.video } : { uri: `local-file:///${app.video.replace(/\\/g, '/')}` }) : null,
+          video: toUri(app.video),
           focusAudio: app.focusAudio,
           path: app.path,
           launchArgs: app.launchArgs,
           description: app.description || (app.id === 'spotify_default' ? t('home.musicDesc') : ''),
           rating: app.rating,
+          publisher: app.publisher,
+          genres: app.genres,
+          releaseDate: app.releaseDate,
+          gameId: app.gameId,
           isFavorite: app.isFavorite,
           lastPlayed: app.lastPlayed,
           playtimeMinutes: Number(app.playtimeMinutes ?? app.playtime_forever ?? 0),
@@ -1848,15 +1867,41 @@ export default function ConsoleHome() {
         } else {
           setLastPlayedGame(null);
         }
+      }).catch((e: any) => {
+        console.error('[loadApps] Error refrescando la lista:', e);
       });
     }
   };
 
   // Merge a game update directly into state (no async gap) so the library
   // grid reflects the change immediately while loadApps() syncs DB in background.
-  const mergeGameIntoState = (updated: Partial<ConsoleItem>) => {
+  // Con `_deleted: true` elimina el juego de todos los estados al instante.
+  const mergeGameIntoState = (updated: Partial<ConsoleItem> & { _deleted?: boolean }) => {
     if (!updated.id) return;
     const id = updated.id;
+
+    if ((updated as any)._deleted) {
+      setGames(prev => prev.filter(g => g.id !== id));
+      setSteamGames(prev => {
+        const updatedList = prev.filter(g => g.id !== id);
+        const steamId = activeUser?.settings?.steamId;
+        if (steamId) {
+          try {
+            localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updatedList));
+          } catch (e) { }
+        }
+        return updatedList;
+      });
+      if (selectedItem && selectedItem.id === id) {
+        setDetailVisible(false);
+        setSelectedItem(null);
+      }
+      if (lastPlayedGame && lastPlayedGame.id === id) {
+        setLastPlayedGame(null);
+      }
+      return;
+    }
+
     const formatUpdated = (existing: ConsoleItem): ConsoleItem => {
       const merged = { ...existing };
       Object.entries(updated).forEach(([key, value]) => {
@@ -1889,6 +1934,15 @@ export default function ConsoleHome() {
           } catch (e) { }
         }
         return updatedList;
+      });
+    }
+
+    if (id.startsWith('epic_')) {
+      setEpicGames(prev => {
+        if (prev.some(g => g.id === id)) {
+          return prev.map(g => g.id === id ? formatUpdated(g) : g);
+        }
+        return [...prev, formatUpdated({ id } as ConsoleItem)];
       });
     }
 
@@ -3278,6 +3332,11 @@ export default function ConsoleHome() {
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       setLaunchingItem(targetItem);
       setIsLaunching(true);
+      // Cerrar cualquier detalle abierto (carrusel o librería) para que al
+      // volver del juego ningún modal ni flag atrape el teclado.
+      setDetailVisible(false);
+      libraryGridRef.current?.closeDetail();
+      setIsLibraryDetailVisible(false);
       (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs).then((result: any) => {
         loadApps();
         console.log('Juego lanzado');
@@ -3292,6 +3351,8 @@ export default function ConsoleHome() {
         }
         setFocusArea('main_carousel');
         setDetailVisible(false);
+        libraryGridRef.current?.closeDetail();
+        setIsLibraryDetailVisible(false);
         setFavoritesVisible(false);
         setRandomSelectorVisible(false);
 
@@ -3301,6 +3362,11 @@ export default function ConsoleHome() {
             setLaunchingItem(null);
           }, 5000);
         }
+      }).catch((e: any) => {
+        console.error('[Launch] Error lanzando el juego:', e);
+        setIsLaunching(false);
+        setLaunchingItem(null);
+        toastService.show(t('toast.error'));
       });
     }
   };
@@ -3337,6 +3403,10 @@ export default function ConsoleHome() {
         soundService.playBackground();
         setIsLaunching(false);
         setLaunchingItem(null);
+        // Higiene al volver: ningún modal ni flag debe atrapar el teclado.
+        setDetailVisible(false);
+        libraryGridRef.current?.closeDetail();
+        setIsLibraryDetailVisible(false);
         loadApps();
       });
       return () => {
@@ -4161,6 +4231,10 @@ export default function ConsoleHome() {
             onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}
             installedSteamAppIds={installedSteamAppIds}
             onVisibleGamesChange={setVisibleLibraryGames}
+            onRefresh={(updatedGame) => {
+              if (updatedGame) mergeGameIntoState(updatedGame);
+              loadApps();
+            }}
             onLaunch={(id, path) => {
               const game = displayedLibraryGames.find(g => g.id === id) || (selectedItem?.id === id ? selectedItem : null);
               if (game) handleLaunchApp(game);

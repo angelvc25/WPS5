@@ -1561,6 +1561,24 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
     setEditData(newEditData);
     setIsSyncing(false);
+
+    // Auto-guardado: igual que applySelectedAsset, la sincronización persiste
+    // de inmediato para que nada se pierda al salir sin pulsar Guardar.
+    if ((window as any).electronAPI && newEditData.id) {
+      const cleanData = Object.fromEntries(
+        Object.entries(newEditData).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+      );
+      try {
+        const result = await (window as any).electronAPI.updateApp(cleanData);
+        if (result?.success) {
+          if (onRefresh) onRefresh(cleanData);
+        } else {
+          console.log('[Sync] Auto-guardado fallido:', result?.error);
+        }
+      } catch (e) {
+        console.log('[Sync] Auto-guardado fallido:', e);
+      }
+    }
   };
 
   const handleToggleFavorite = async () => {

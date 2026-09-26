@@ -18,7 +18,7 @@ interface LibraryGridProps {
   focusedIndex?: number;
   onItemPress?: (index: number, game: ConsoleItem) => void;
   onLaunch?: (id: string, path: string) => void;
-  onRefresh?: () => void;
+  onRefresh?: (updatedGame?: any) => void;
   isLaunching?: boolean;
   inputMode?: 'keyboard' | 'gamepad';
   onDetailVisibilityChange?: (isVisible: boolean) => void;
@@ -64,6 +64,9 @@ export interface LibraryGridHandle {
   // Cierra el panel de filtros (equivalente a Circle/B o Escape).
   closeFilterPanel: () => void;
   isFilterPanelOpen: () => boolean;
+  // Cierra el detalle interno del juego.
+  closeDetail: () => void;
+  isDetailOpen: () => boolean;
 }
 
 const COLUMNS = 5;
@@ -541,6 +544,13 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     activatePanelSelection: () => activateCurrentPanelRow(),
     closeFilterPanel: () => closeFilterPanel(),
     isFilterPanelOpen: () => isFilterPanelOpen,
+    // Cierra el detalle interno (usado al lanzar un juego para no dejar
+    // el modal ni el flag isLibraryDetailVisible atrapados al volver).
+    closeDetail: () => {
+      setSelectedGame(null);
+      onDetailVisibilityChange?.(false);
+    },
+    isDetailOpen: () => selectedGame !== null,
   }));
 
   // 3. Ordenar los juegos basados en el estado actual

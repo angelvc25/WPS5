@@ -12,7 +12,7 @@ import {
 import { isPsnEligiblePlatform } from './psnMetadataService';
 import { fetchSteamGridData } from './steamGridService';
 
-export type EmulatorId = 'ps1' | 'ps2' | 'ps3' | 'psp' | 'gcwii' | 'retroarch';
+export type EmulatorId = 'ps1' | 'ps2' | 'ps3' | 'psp' | 'gcwii' | 'retroarch' | 'switch';
 
 export interface EmulatorDef {
   id: EmulatorId;
@@ -117,7 +117,18 @@ export const EMULATORS: EmulatorDef[] = [
     platform: 'Retro',
     launchArgs: (rom) => `-f "${rom}"`,
     downloadUrl: 'https://www.retroarch.com/',
-  image: require('@/assets/images/consolas/retroarch.png'),
+    image: require('@/assets/images/consolas/retroarch.png'),
+  },
+  {
+    id: 'switch',
+    name: 'Nintendo Switch',
+    emulatorName: 'Ryujinx / Eden',
+    exeNames: ['ryujinx.exe', 'ryujinx.ava.exe', 'eden.exe'],
+    romExtensions: ['.nsp', '.xci', '.nsz', '.xcz', '.nca', '.nro'],
+    platform: 'Switch',
+    launchArgs: (rom) => `"${rom}"`,
+    downloadUrl: 'https://eden-emulator.github.io/',
+    image: require('@/assets/images/consolas/Switch.png'),
   },
 ];
 
