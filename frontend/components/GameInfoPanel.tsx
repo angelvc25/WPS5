@@ -335,17 +335,13 @@ export const GameInfoPanel = ({
             setSteamAchievements(summary);
             setAchievementsSource('steam');
             setAchievementsLoading(false);
-          } else if (awAvailable) {
-            // Steam no devolvió nada (perfil privado, juego sin estadísticas...)
-            // Intentar AchievementWatcher como fallback
-            fetchAwGameAchievements(Number(achievementAppId), steamId).then((awSummary) => {
-              if (!cancelled) {
-                setSteamAchievements(awSummary);
-                setAchievementsSource(awSummary ? 'aw' : null);
-                setAchievementsLoading(false);
-              }
-            });
           } else {
+            // Steam no devolvió nada (perfil privado, juego sin estadísticas...).
+            // NO se usa AchievementWatcher como fallback: es el lector de juegos
+            // manuales/emulados y sus datos locales no son fiables para juegos
+            // oficiales de Steam (mostraba 0 desbloqueados con etiqueta errónea).
+            // Mejor no mostrar nada que mostrar datos incorrectos.
+            console.log('[Steam] Sin datos de logros para', achievementAppId);
             setSteamAchievements(null);
             setAchievementsSource(null);
             setAchievementsLoading(false);
