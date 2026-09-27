@@ -19,6 +19,7 @@ export interface OnlineUser {
   username: string;
   displayName: string;
   avatarUrl: string | null;
+  coverUrl: string | null;
   bio: string | null;
   libraryVisibility: string;
   createdAt: string | null;
@@ -245,6 +246,7 @@ export interface OnlineProfileUpdate {
   displayName?: string;
   bio?: string;
   avatarUrl?: string | null;
+  coverUrl?: string | null;
   libraryVisibility?: 'public' | 'friends' | 'private';
 }
 
@@ -257,4 +259,40 @@ export async function updateOnlineProfile(input: OnlineProfileUpdate): Promise<O
   const current = readStoredSession();
   if (current) writeStoredSession({ ...current, user: data.user });
   return data.user;
+}
+
+function httpMediaUrl(value: unknown): string | null {
+  const raw = typeof value === 'string' ? value : (value as any)?.uri;
+  return typeof raw === 'string' && /^https?:\/\//i.test(raw) ? raw : null;
+}
+
+export interface LocalProfileMedia {
+  avatar?: unknown;
+  avatarBase64?: unknown;
+  steamAvatarUrl?: unknown;
+  useSteamAvatar?: boolean;
+  coverImage?: unknown;
+}
+
+/**
+ * Sube avatar/portada del perfil local a la cuenta online (solo URLs http,
+ * que son las únicas visibles para otros dispositivos). No toca base64 ni
+ * rutas locales. Devuelve true si quedó sincronizado o no había nada que subir.
+ */
+export async function syncProfileMediaToOnline(local: LocalProfileMedia): Promise<boolean> {
+  const session = getOnlineSession();
+  if (!session) return false;
+  const avatar = httpMediaUrl(local.avatar)
+    || (local.useSteamAvatar ? httpMediaUrl(local.steamAvatarUrl) : null);
+  const cover = httpMediaUrl(local.coverImage);
+  const input: OnlineProfileUpdate = {};
+  if (avatar && avatar !== session.user.avatarUrl) input.avatarUrl = avatar;
+  if (cover && cover !== session.user.coverUrl) input.coverUrl = cover;
+  if (Object.keys(input).length === 0) return true;
+  try {
+    await updateOnlineProfile(input);
+    return true;
+  } catch {
+    return false;
+  }
 }

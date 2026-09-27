@@ -213,7 +213,11 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
           {/* Banner */}
           <View style={styles.banner}>
-            <View style={styles.bannerGradient} />
+            {profile?.user.coverUrl && /^https?:\/\//i.test(profile.user.coverUrl) ? (
+              <Image source={{ uri: profile.user.coverUrl }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+            ) : (
+              <View style={styles.bannerGradient} />
+            )}
             <TouchableOpacity style={styles.backBtn} onPress={onClose}>
               <Ionicons name="arrow-back" size={24} color="#FFF" />
             </TouchableOpacity>
@@ -227,12 +231,19 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
             <>
               {/* Cabecera */}
               <View style={styles.headerRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {(profile.user.displayName || profile.user.username).slice(0, 1).toUpperCase()}
-                  </Text>
-                  <View style={styles.onlineDot} />
-                </View>
+                {profile.user.avatarUrl && /^https?:\/\//i.test(profile.user.avatarUrl) ? (
+                  <View>
+                    <Image source={{ uri: profile.user.avatarUrl }} style={styles.avatarImg} contentFit="cover" />
+                    <View style={styles.onlineDot} />
+                  </View>
+                ) : (
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {(profile.user.displayName || profile.user.username).slice(0, 1).toUpperCase()}
+                    </Text>
+                    <View style={styles.onlineDot} />
+                  </View>
+                )}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.displayName}>{profile.user.displayName}</Text>
                   <Text style={styles.username}>
@@ -462,6 +473,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarImg: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
   },
   avatarText: {
     color: '#FFF',

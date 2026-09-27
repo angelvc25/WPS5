@@ -58,6 +58,7 @@ export default {
           "/auth/logout",
           "/auth/me",
           "/users/search?q=...",
+          "/users/discover?limit=10",
           "/users/:username",
           "PATCH /users/me",
           "/friends",
@@ -117,6 +118,10 @@ export default {
     // ============================================
     if (url.pathname === "/users/search") {
       return handleUserSearch(request, url, env);
+    }
+
+    if (url.pathname === "/users/discover") {
+      return handleUserDiscover(request, url, env);
     }
 
     if (url.pathname === "/users/me") {
@@ -284,7 +289,7 @@ async function handleLogin(request, env) {
 
   try {
     const user = await env.DB.prepare(`
-      SELECT id, username, display_name, avatar_url, bio, password_hash, password_salt,
+      SELECT id, username, display_name, avatar_url, cover_url, bio, password_hash, password_salt,
              library_visibility, created_at, last_seen_at
       FROM users
       WHERE username = ?
@@ -373,7 +378,7 @@ async function handleUserSearch(request, url, env) {
 
   try {
     const result = await env.DB.prepare(`
-      SELECT id, username, display_name, avatar_url, bio, library_visibility, created_at, last_seen_at
+      SELECT id, username, display_name, avatar_url, cover_url, bio, library_visibility, created_at, last_seen_at
       FROM users
       WHERE username LIKE ? OR display_name LIKE ?
       ORDER BY username ASC
@@ -406,7 +411,7 @@ async function handleUserProfile(request, username, env) {
 
   try {
     const user = await env.DB.prepare(`
-      SELECT id, username, display_name, avatar_url, bio, library_visibility, created_at, last_seen_at
+      SELECT id, username, display_name, avatar_url, cover_url, bio, library_visibility, created_at, last_seen_at
       FROM users
       WHERE username = ?
       LIMIT 1
@@ -427,6 +432,38 @@ async function handleUserProfile(request, username, env) {
   } catch (error) {
     console.error("User profile error:", error);
     return jsonResponse({ success: false, error: "Failed to load profile" }, 500);
+  }
+}
+
+// Descubrimiento: últimos usuarios activos (para sugerencias antes de buscar).
+// Requiere auth, excluye al propio usuario, máximo 20.
+async function handleUserDiscover(request, url, env) {
+  if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  let limit = Number(url.searchParams.get("limit") || 10);
+  if (!Number.isFinite(limit)) limit = 10;
+  limit = Math.min(Math.max(Math.floor(limit), 1), 20);
+
+  try {
+    const result = await env.DB.prepare(`
+      SELECT id, username, display_name, avatar_url, cover_url, bio, library_visibility, created_at, last_seen_at
+      FROM users
+      WHERE id != ?
+      ORDER BY last_seen_at DESC
+      LIMIT ?
+    `).bind(auth.user.id, limit).all();
+
+    return jsonResponse({
+      success: true,
+      users: (result.results || []).map(publicUser),
+    });
+  } catch (error) {
+    console.error("User discover error:", error);
+    return jsonResponse({ success: false, error: "Failed to discover users" }, 500);
   }
 }
 
@@ -467,6 +504,17 @@ async function handleUserUpdate(request, env) {
     updates.avatar_url = v || null;
   }
 
+  if (data.coverUrl !== undefined) {
+    if (typeof data.coverUrl !== "string" || data.coverUrl.length > 1000) {
+      return jsonResponse({ success: false, error: "coverUrl is too long" }, 400);
+    }
+    const v = data.coverUrl.trim();
+    if (v && !/^https?:\/\//i.test(v)) {
+      return jsonResponse({ success: false, error: "coverUrl must be an http(s) URL" }, 400);
+    }
+    updates.cover_url = v || null;
+  }
+
   if (data.libraryVisibility !== undefined) {
     if (!["public", "friends", "private"].includes(data.libraryVisibility)) {
       return jsonResponse({ success: false, error: "libraryVisibility must be public, friends or private" }, 400);
@@ -486,7 +534,7 @@ async function handleUserUpdate(request, env) {
     ).bind(...Object.values(updates), now, auth.user.id).run();
 
     const user = await env.DB.prepare(`
-      SELECT id, username, display_name, avatar_url, bio, library_visibility, created_at, last_seen_at
+      SELECT id, username, display_name, avatar_url, cover_url, bio, library_visibility, created_at, last_seen_at
       FROM users WHERE id = ? LIMIT 1
     `).bind(auth.user.id).first();
 
@@ -693,6 +741,7 @@ async function handleFriendsList(request, env) {
         u.username,
         u.display_name,
         u.avatar_url,
+        u.cover_url,
         u.bio,
         u.library_visibility,
         u.created_at AS user_created_at,
@@ -717,6 +766,7 @@ async function handleFriendsList(request, env) {
           username: row.username,
           display_name: row.display_name,
           avatar_url: row.avatar_url,
+          cover_url: row.cover_url,
           bio: row.bio,
           library_visibility: row.library_visibility,
           created_at: row.user_created_at,
@@ -746,6 +796,7 @@ async function handleFriendRequests(request, env) {
         u.username,
         u.display_name,
         u.avatar_url,
+        u.cover_url,
         u.bio,
         u.library_visibility,
         u.created_at AS user_created_at,
@@ -767,6 +818,7 @@ async function handleFriendRequests(request, env) {
           username: row.username,
           display_name: row.display_name,
           avatar_url: row.avatar_url,
+          cover_url: row.cover_url,
           bio: row.bio,
           library_visibility: row.library_visibility,
           created_at: row.user_created_at,
@@ -1060,6 +1112,7 @@ async function requireAuth(request, db) {
         u.username,
         u.display_name,
         u.avatar_url,
+        u.cover_url,
         u.bio,
         u.library_visibility,
         u.created_at,
@@ -1140,12 +1193,20 @@ async function touchLastSeen(db, userId) {
   }
 }
 
+// Migración D1 (ejecutar ANTES de desplegar):
+//   ALTER TABLE users ADD COLUMN cover_url TEXT;
+//   CREATE TABLE IF NOT EXISTS user_libraries (
+//     user_id TEXT PRIMARY KEY,
+//     library_json TEXT NOT NULL DEFAULT '[]',
+//     updated_at TEXT NOT NULL
+//   );
 function publicUser(user) {
   return {
     id: user.id,
     username: user.username,
     displayName: user.display_name ?? user.displayName ?? user.username,
     avatarUrl: user.avatar_url ?? user.avatarUrl ?? null,
+    coverUrl: user.cover_url ?? user.coverUrl ?? null,
     bio: user.bio ?? null,
     libraryVisibility: user.library_visibility ?? "friends",
     createdAt: user.created_at ?? user.createdAt ?? null,

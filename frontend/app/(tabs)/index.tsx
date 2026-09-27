@@ -16,6 +16,7 @@ import { resolveGameScreenshots, SteamMediaItem } from '@/services/steamMediaSer
 import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamOwnedGames } from '@/services/steamUserService';
+import { syncProfileMediaToOnline } from '@/services/onlineAccountService';
 import { fetchWishlistDeals, WishlistDeal } from '@/services/steamWishlistService';
 import { toastService } from '@/services/toastService';
 import { Ionicons } from '@expo/vector-icons';
@@ -347,7 +348,6 @@ export default function ConsoleHome() {
   const [isAvatarModalVisible, setAvatarModalVisible] = useState(false);
   const [isSearchVisible, setSearchVisible] = useState(false);
   const [onlineProfileUsername, setOnlineProfileUsername] = useState<string | null>(null);
-  const [searchUsers, setSearchUsers] = useState<UserProfile[]>([]);
   const [toolbarFocusIndex, setToolbarFocusIndex] = useState(2);
   const [addModalFocusIndex, setAddModalFocusIndex] = useState(0);
   const [settingsFocusArea, setSettingsFocusArea] = useState<'sidebar' | 'content'>('sidebar');
@@ -1165,13 +1165,6 @@ export default function ConsoleHome() {
   }, [savedGames, steamGames, epicGames, games]);
 
   const searchableMedia = useMemo(() => media, [media]);
-
-  useEffect(() => {
-    if (!isSearchVisible || Platform.OS !== 'web' || !(window as any).electronAPI?.getUsers) return;
-    (window as any).electronAPI.getUsers().then((users: UserProfile[]) => {
-      if (Array.isArray(users) && users.length > 0) setSearchUsers(users);
-    }).catch(() => { });
-  }, [isSearchVisible]);
 
   // Cargar juegos de Steam cacheados para el usuario actual al iniciar o cambiar usuario
   useEffect(() => {
@@ -3579,9 +3572,14 @@ export default function ConsoleHome() {
     const newSettings = { ...activeUser?.settings, useSteamAvatar: !isCurrentlyUsingSteam };
     updateUser({ settings: newSettings as any });
 
+    let avatarUrl = activeUser?.steamAvatarUrl;
     const GLOBAL_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'TU_API_KEY_AQUI';
     if (!isCurrentlyUsingSteam && activeUser?.settings?.steamId) {
-      await fetchSteamAvatar(GLOBAL_STEAM_API_KEY, activeUser.settings.steamId);
+      avatarUrl = (await fetchSteamAvatar(GLOBAL_STEAM_API_KEY, activeUser.settings.steamId)) || avatarUrl;
+    }
+    // Si se activó, intentar subirla a la cuenta online (URL http visible).
+    if (!isCurrentlyUsingSteam) {
+      syncProfileMediaToOnline({ ...activeUser, steamAvatarUrl: avatarUrl, settings: newSettings } as any).catch(() => {});
     }
   };
 
@@ -4530,7 +4528,6 @@ export default function ConsoleHome() {
         libraryGames={searchableLibraryGames}
         mediaItems={searchableMedia.length > 0 ? searchableMedia : media}
         storeOffers={storeOffers}
-        users={searchUsers.length > 0 ? searchUsers : (activeUser ? [activeUser] : [])}
         onOpenGameDetail={(item) => {
           setSelectedItem(item as ConsoleItem);
           setDetailVisible(true);
@@ -4612,6 +4609,7 @@ export default function ConsoleHome() {
         onSelectRpcs3Folder={handleSelectRpcs3Folder}
         onOpenAvatarModal={() => setAvatarModalVisible(true)}
         onSelectAvatarFolder={handleSelectAvatarFolder}
+        onToggleSteamAvatar={handleToggleSteamAvatar}
         initialScreen={settingsInitialScreen}
         onGamesImported={() => loadApps()}
       />

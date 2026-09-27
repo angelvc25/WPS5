@@ -1,5 +1,6 @@
 import { useTranslation } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -56,11 +57,15 @@ function UserRow({
 }) {
   const body = (
     <>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {(user.displayName || user.username).slice(0, 1).toUpperCase()}
-        </Text>
-      </View>
+      {user.avatarUrl && /^https?:\/\//i.test(user.avatarUrl) ? (
+        <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} contentFit="cover" />
+      ) : (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {(user.displayName || user.username).slice(0, 1).toUpperCase()}
+          </Text>
+        </View>
+      )}
       <View style={{ flex: 1 }}>
         <Text style={styles.name}>{user.displayName}</Text>
         <Text style={styles.sub}>@{user.username}{subtitle ? ` · ${subtitle}` : ''}</Text>
@@ -336,6 +341,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarImg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   avatarText: {
     color: '#FFF',

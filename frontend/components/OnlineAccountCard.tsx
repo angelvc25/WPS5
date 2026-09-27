@@ -1,5 +1,6 @@
 import { useTranslation } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +18,7 @@ import {
   registerOnlineAccount,
   restoreOnlineSession,
   subscribeOnlineSession,
+  syncProfileMediaToOnline,
   updateOnlineProfile,
   type OnlineSession,
 } from '../services/onlineAccountService';
@@ -93,6 +95,7 @@ export const OnlineAccountCard = forwardRef<OnlineAccountCardHandle, OnlineAccou
       .then((restored) => {
         if (cancelled) return;
         setSession(restored);
+        if (restored) syncProfileMediaToOnline(activeUser || {}).catch(() => {});
         // Sincroniza el vínculo con el perfil local.
         const linkedId = (activeUser?.settings as any)?.onlineUserId;
         if (restored && restored.user.id !== linkedId) {
@@ -155,6 +158,7 @@ export const OnlineAccountCard = forwardRef<OnlineAccountCardHandle, OnlineAccou
         return;
       }
       setSession(result.session);
+      syncProfileMediaToOnline(activeUser || {}).catch(() => {});
       updateUser({
         settings: {
           ...activeUser?.settings,
@@ -242,11 +246,15 @@ export const OnlineAccountCard = forwardRef<OnlineAccountCardHandle, OnlineAccou
     return (
       <View style={styles.card}>
         <View style={styles.linkedRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(session.user.displayName || session.user.username).slice(0, 1).toUpperCase()}
-            </Text>
-          </View>
+          {session.user.avatarUrl && /^https?:\/\//i.test(session.user.avatarUrl) ? (
+            <Image source={{ uri: session.user.avatarUrl }} style={styles.avatarImg} contentFit="cover" />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {(session.user.displayName || session.user.username).slice(0, 1).toUpperCase()}
+              </Text>
+            </View>
+          )}
           <View style={{ flex: 1 }}>
             <Text style={styles.displayName}>{session.user.displayName}</Text>
             <Text style={styles.username}>@{session.user.username}</Text>
@@ -492,6 +500,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarImg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   avatarText: {
     color: '#FFF',

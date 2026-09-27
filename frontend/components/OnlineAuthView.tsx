@@ -25,6 +25,7 @@ import {
   registerOnlineAccount,
   restoreOnlineSession,
   subscribeOnlineSession,
+  syncProfileMediaToOnline,
   updateOnlineProfile,
   type OnlineSession,
 } from '../services/onlineAccountService';
@@ -64,19 +65,23 @@ function mapAuthError(t: (key: any, params?: any) => string, error?: string): st
 }
 
 /**
- * Logotipo oficial vectorial de PlayStation
+ * Logotipo oficial de WPS5 (assets/icons/wps5FullWhite.svg)
  */
-function PlayStationVectorLogo({ size = 32 }: { size?: number }) {
+function Wps5VectorLogo({ size = 32 }: { size?: number }) {
   if (Platform.OS === 'web') {
     return (
       <svg
-        viewBox="0 0 100 80"
-        width={size * 1.25}
+        viewBox="0 0 600 600"
+        width={size}
         height={size}
         fill="#FFFFFF"
         style={{ flexShrink: 0 }}
       >
-        <path d="M54.7 1.2c-1.5-.5-3.3-.4-4.8.2-12.2 4.9-19.1 16.9-20.2 29.8v27.2l12.7 4.1.1-23.7c.3-7.8 4-13.6 11.8-15.4 6.7-1.5 12.3.9 14.1 7.2 1.6 5.8-1.5 12.4-7.4 14.6l-5.6 1.8 12.7 4.1 6.5-2.1c8.9-3.2 14.4-11.8 12.6-21.2-1.7-9.3-9.5-16.1-19.5-17.5-3.7-.5-7.3-.2-10.7 1V1.2zM21.2 56.4L1.4 62.8c7.4 2.4 15.3 3.6 23.3 3.6 14.9 0 27.7-4.1 36.9-11.7l-9.8-3.2c-7.3 5.4-17 7.7-27.4 5.9-1.5-.3-2.9-.6-4.4-1zM98.6 62.8l-19.8-6.4c-1.5.4-2.9.7-4.4 1-10.4 1.8-20.1-.5-27.4-5.9l-9.8 3.2c9.2 7.6 22 11.7 36.9 11.7 8 0 15.9-1.2 23.3-3.6z" />
+        <g transform="translate(0,600) scale(0.1,-0.1)" fill="#ffffff" stroke="none">
+          <path d="M2235 5433 c-73 -10 -246 -76 -287 -109 -22 -19 -50 -40 -61 -46 -41 -22 -99 -102 -128 -180 -36 -93 -40 -159 -29 -605 5 -235 14 -655 20 -933 21 -1045 31 -1417 40 -1476 21 -133 83 -275 176 -405 180 -250 474 -399 726 -368 116 14 225 85 288 187 54 89 62 140 61 417 -1 233 -4 419 -31 1640 -5 253 -11 595 -13 760 -2 343 -4 337 83 374 56 24 89 26 143 7 80 -29 116 -64 162 -160 55 -112 82 -226 90 -376 4 -83 34 -1400 35 -1528 0 -17 50 -10 170 25 177 51 304 124 420 242 213 216 303 471 278 791 -15 199 -61 353 -164 549 -93 176 -143 241 -329 427 -68 68 -311 233 -515 349 -386 221 -602 316 -892 394 -108 29 -165 34 -243 24z m173 -3057 c74 -24 138 -48 143 -53 6 -6 9 -50 7 -99 l-3 -89 -63 -47 c-35 -27 -69 -48 -76 -48 -7 0 -46 42 -86 93 l-75 92 -7 80 c-8 86 -4 115 15 115 7 0 72 -20 145 -44z m-295 -137 c40 -12 83 -31 96 -43 40 -36 150 -187 145 -200 -3 -7 -19 -20 -37 -31 -18 -10 -34 -21 -37 -25 -3 -3 -20 -16 -37 -29 l-33 -22 -82 27 c-46 15 -89 34 -95 42 -17 21 -18 302 -2 302 6 0 43 -10 82 -21z m597 -192 c89 -28 87 -22 89 -209 1 -104 -2 -128 -13 -128 -8 0 -47 11 -88 25 -40 14 -74 25 -75 25 -1 0 -34 39 -73 88 -74 92 -92 129 -69 143 8 4 36 24 64 43 27 20 59 36 70 36 11 0 54 -11 95 -23z m-222 -205 c38 -48 74 -96 79 -107 15 -27 14 -175 -1 -181 -6 -2 -76 17 -156 43 l-145 48 -3 92 -3 91 43 34 c57 45 90 67 105 67 6 1 43 -38 81 -87z" />
+          <path d="M4402 3297 c-49 -151 -89 -236 -169 -354 -63 -95 -125 -155 -230 -223 -89 -59 -176 -94 -322 -130 -62 -16 -120 -35 -128 -43 -23 -23 2 -53 72 -87 94 -47 198 -64 340 -56 140 7 183 -6 197 -59 19 -71 -16 -174 -68 -199 -45 -21 -50 -21 -169 8 -128 31 -241 75 -338 130 -82 47 -78 47 -92 -1 -6 -20 93 -101 199 -164 119 -70 281 -136 389 -157 71 -14 82 -14 138 2 34 9 76 28 95 42 51 40 101 123 125 210 19 68 21 96 16 219 -6 186 -31 255 -92 255 -11 0 -88 -34 -170 -76 -127 -65 -158 -77 -212 -82 -52 -4 -63 -2 -63 11 0 32 15 49 131 142 175 140 286 293 363 496 21 55 48 250 35 249 -2 -1 -23 -60 -47 -133z" />
+          <path d="M3516 2025 c6 -186 6 -185 56 -268 75 -125 259 -274 458 -371 190 -94 236 -139 234 -232 -3 -105 -82 -189 -170 -181 -67 7 -131 46 -235 145 -176 167 -286 330 -330 487 -6 20 -7 11 -3 -30 15 -160 144 -369 343 -557 145 -136 271 -200 392 -200 149 1 256 105 288 278 17 91 14 168 -7 187 -31 28 -163 84 -332 142 -89 30 -205 75 -257 100 -87 41 -95 47 -89 67 4 13 10 63 13 111 l6 89 31 -6 c195 -40 439 -49 570 -21 112 24 147 60 84 86 -17 7 -52 28 -77 47 -24 19 -54 34 -65 34 -12 0 -75 -13 -141 -28 -163 -37 -345 -40 -450 -7 -135 43 -245 128 -301 232 l-24 46 6 -150z" />
+        </g>
       </svg>
     );
   }
@@ -110,12 +115,11 @@ export default function OnlineAuthView({
 
   // Focus navigation state
   // 0: username input, 1: password input, 2: displayName (register only), 3: submit button,
-  // 4: code button, 5: create/toggle button, 6: play offline button
+  // 4: create/toggle button, 5: play offline button
   const [focusedIndex, setFocusedIndex] = useState(0);
 
   // Modals
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [showCodeModal, setShowCodeModal] = useState(false);
 
   // Connected state actions
   const [syncing, setSyncing] = useState(false);
@@ -182,11 +186,6 @@ export default function OnlineAuthView({
           soundService.playBack?.();
           return;
         }
-        if (showCodeModal) {
-          setShowCodeModal(false);
-          soundService.playBack?.();
-          return;
-        }
         if (!isInput) {
           e.preventDefault();
           soundService.playBack?.();
@@ -223,10 +222,9 @@ export default function OnlineAuthView({
         return;
       }
 
-      if (showHelpModal || showCodeModal) {
+      if (showHelpModal) {
         if (e.key === 'Enter') {
           setShowHelpModal(false);
-          setShowCodeModal(false);
           soundService.playActivation?.();
         }
         return;
@@ -234,7 +232,7 @@ export default function OnlineAuthView({
 
       if (isLinked) return;
 
-      const maxFocus = mode === 'register' ? 6 : 5;
+      const maxFocus = mode === 'register' ? 5 : 4;
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -251,13 +249,13 @@ export default function OnlineAuthView({
           return next;
         });
       } else if (e.key === 'ArrowRight') {
-        if (focusedIndex >= (mode === 'register' ? 4 : 3)) {
+        if (focusedIndex >= (mode === 'register' ? 3 : 2)) {
           e.preventDefault();
           setFocusedIndex((prev) => Math.min(prev + 1, maxFocus));
           soundService.playNavigation?.();
         }
       } else if (e.key === 'ArrowLeft') {
-        if (focusedIndex >= (mode === 'register' ? 4 : 3)) {
+        if (focusedIndex >= (mode === 'register' ? 3 : 2)) {
           e.preventDefault();
           setFocusedIndex((prev) => Math.max(prev - 1, mode === 'register' ? 4 : 3));
           soundService.playNavigation?.();
@@ -266,9 +264,8 @@ export default function OnlineAuthView({
         e.preventDefault();
         soundService.playActivation?.();
         const submitIdx = mode === 'register' ? 3 : 2;
-        const codeIdx = mode === 'register' ? 4 : 3;
-        const toggleIdx = mode === 'register' ? 5 : 4;
-        const offlineIdx = mode === 'register' ? 6 : 5;
+        const toggleIdx = mode === 'register' ? 4 : 3;
+        const offlineIdx = mode === 'register' ? 5 : 4;
 
         if (focusedIndex === 0) {
           usernameInputRef.current?.focus();
@@ -278,8 +275,6 @@ export default function OnlineAuthView({
           displayNameInputRef.current?.focus();
         } else if (focusedIndex === submitIdx) {
           handleSubmit();
-        } else if (focusedIndex === codeIdx) {
-          setShowCodeModal(true);
         } else if (focusedIndex === toggleIdx) {
           setMode((m) => (m === 'login' ? 'register' : 'login'));
           setError(null);
@@ -291,7 +286,7 @@ export default function OnlineAuthView({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mode, focusedIndex, isLinked, showHelpModal, showCodeModal, username, password, displayName, busy]);
+  }, [mode, focusedIndex, isLinked, showHelpModal, username, password, displayName, busy]);
 
   const handleSubmit = async () => {
     if (busy) return;
@@ -315,6 +310,7 @@ export default function OnlineAuthView({
       }
 
       setSession(result.session);
+      syncProfileMediaToOnline(activeUser || {}).catch(() => { });
       updateUser({
         settings: {
           ...activeUser?.settings,
@@ -395,9 +391,8 @@ export default function OnlineAuthView({
   };
 
   const submitButtonIndex = mode === 'register' ? 3 : 2;
-  const codeButtonIndex = mode === 'register' ? 4 : 3;
-  const toggleButtonIndex = mode === 'register' ? 5 : 4;
-  const offlineButtonIndex = mode === 'register' ? 6 : 5;
+  const toggleButtonIndex = mode === 'register' ? 4 : 3;
+  const offlineButtonIndex = mode === 'register' ? 5 : 4;
 
   // Estilos web-only para TextInput (outlineStyle y transition no son válidos en StyleSheet.create)
   const webInputStyle: any = Platform.OS === 'web'
@@ -444,8 +439,8 @@ export default function OnlineAuthView({
           {isLinked
             ? t('settings.onlineAccount')
             : mode === 'login'
-            ? t('account.manualLoginTitle')
-            : t('account.createAccount')}
+              ? t('account.manualLoginTitle')
+              : t('account.createAccount')}
         </Text>
       </View>
 
@@ -567,8 +562,8 @@ export default function OnlineAuthView({
               {/* COLUMNA IZQUIERDA: LOGO PLAYSTATION Y DESCRIPCION */}
               <View style={[styles.leftColumn, { flex: 1 }]}>
                 <View style={[styles.brandRow, { gap: s(14), marginBottom: s(20) }]}>
-                  <PlayStationVectorLogo size={s(38)} />
-                  <Text style={[styles.brandText, { fontSize: s(32) }]}>PlayStation</Text>
+                  <Wps5VectorLogo size={s(38)} />
+                  <Text style={[styles.brandText, { fontSize: s(32) }]}>WPS5</Text>
                 </View>
                 <Text style={[styles.brandDescription, { fontSize: s(16), lineHeight: s(26) }]}>
                   {mode === 'login' ? t('account.manualLoginDesc') : t('account.authBrandDesc')}
@@ -712,29 +707,7 @@ export default function OnlineAuthView({
               </Text>
 
               <View style={[styles.bottomButtonsRow, { gap: s(16) }]}>
-                {/* BOTON 1: INICIAR SESION CON CODIGO */}
-                <TouchableOpacity
-                  style={[
-                    styles.pillButton,
-                    {
-                      height: s(42),
-                      paddingHorizontal: s(24),
-                      borderRadius: s(21),
-                    },
-                    focusedIndex === codeButtonIndex && styles.pillButtonFocused,
-                  ]}
-                  onPress={() => {
-                    soundService.playActivation?.();
-                    setShowCodeModal(true);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.pillButtonText, { fontSize: s(14) }]}>
-                    {t('account.loginWithCode')}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* BOTON 2: CREAR UNA CUENTA / YA TENGO CUENTA */}
+                {/* BOTON 1: CREAR UNA CUENTA / YA TENGO CUENTA */}
                 <TouchableOpacity
                   style={[
                     styles.pillButton,
@@ -757,7 +730,7 @@ export default function OnlineAuthView({
                   </Text>
                 </TouchableOpacity>
 
-                {/* BOTON 3: OMITIR Y JUGAR OFFLINE */}
+                {/* BOTON 2: OMITIR Y JUGAR OFFLINE */}
                 <TouchableOpacity
                   style={[
                     styles.pillButton,
@@ -800,34 +773,6 @@ export default function OnlineAuthView({
           </View>
         )}
       </ScrollView>
-
-      {/* MODAL: CODIGO O VINCULACION CON APP */}
-      <Modal visible={showCodeModal} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { width: s(520), padding: s(32), borderRadius: s(16) }]}>
-            <Text style={[styles.modalTitle, { fontSize: s(22), marginBottom: s(14) }]}>
-              {t('account.codeModalTitle')}
-            </Text>
-            <Text style={[styles.modalDesc, { fontSize: s(15), lineHeight: s(24), marginBottom: s(24) }]}>
-              {t('account.codeModalDesc')}
-            </Text>
-
-            {/* Código generado en caja destacada */}
-            <View style={[styles.codeDisplayBox, { paddingVertical: s(18), borderRadius: s(10), marginBottom: s(28) }]}>
-              <Text style={[styles.codeDisplayText, { fontSize: s(34) }]}>WPS5-8942</Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.modalActionButton, { height: s(46), borderRadius: s(23) }]}
-              onPress={() => setShowCodeModal(false)}
-            >
-              <Text style={[styles.modalActionButtonText, { fontSize: s(15) }]}>
-                {t('account.understood')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* MODAL: ASISTENCIA Y AYUDA "¿NO PUEDES INICIAR SESIÓN?" */}
       <Modal visible={showHelpModal} transparent animationType="fade">
@@ -925,7 +870,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.18)',
     color: '#FFFFFF',
-    fontFamily: 'SSTRegular',
+    fontFamily: 'SSTLight',
   },
   inputFieldFocused: {
     borderColor: 'rgba(255, 255, 255, 0.95)',
@@ -951,8 +896,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     ...(Platform.OS === 'web'
       ? {
-          transition: 'all 0.2s ease',
-        }
+        transition: 'all 0.2s ease',
+      }
       : {}),
   },
   submitButtonFocused: {
@@ -960,8 +905,8 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     ...(Platform.OS === 'web'
       ? {
-          boxShadow: '0 0 20px rgba(255, 255, 255, 0.5)',
-        }
+        boxShadow: '0 0 20px rgba(255, 255, 255, 0.5)',
+      }
       : {}),
   },
   submitButtonText: {
@@ -997,8 +942,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...(Platform.OS === 'web'
       ? {
-          transition: 'all 0.2s ease',
-        }
+        transition: 'all 0.2s ease',
+      }
       : {}),
   },
   pillButtonFocused: {
@@ -1006,8 +951,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.16)',
     ...(Platform.OS === 'web'
       ? {
-          boxShadow: '0 0 14px rgba(255, 255, 255, 0.3)',
-        }
+        boxShadow: '0 0 14px rgba(255, 255, 255, 0.3)',
+      }
       : {}),
   },
   pillButtonText: {

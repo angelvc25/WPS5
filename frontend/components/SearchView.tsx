@@ -18,10 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
 import { StoreOffer } from '@/services/storeService';
 import { getOnlineSession } from '@/services/onlineAccountService';
-import { searchOnlineUsers } from '@/services/onlineFriendsService';
+import { fetchOnlineDiscover, searchOnlineUsers } from '@/services/onlineFriendsService';
 import type { OnlineUser } from '@/services/onlineAccountService';
 import { isRetroPlatform } from '@/constants/platforms';
-import { UserProfile } from '@/components/UserSelectScreen';
 import { useTranslation } from '@/contexts/LanguageContext';
 import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
@@ -49,7 +48,6 @@ interface SearchEntry {
   kind: 'library' | 'store' | 'media' | 'player' | 'subscription';
   item?: SearchGameItem;
   offer?: StoreOffer;
-  user?: UserProfile;
   onlineUser?: OnlineUser;
   url?: string;
 }
@@ -60,7 +58,6 @@ interface SearchViewProps {
   libraryGames: SearchGameItem[];
   mediaItems: SearchGameItem[];
   storeOffers: StoreOffer[];
-  users: UserProfile[];
   onOpenGameDetail: (item: SearchGameItem) => void;
   onOpenOnlineUser?: (username: string) => void;
 }
@@ -246,7 +243,6 @@ const SearchView: React.FC<SearchViewProps> = ({
   libraryGames,
   mediaItems,
   storeOffers,
-  users,
   onOpenGameDetail,
   onOpenOnlineUser,
 }) => {
@@ -287,18 +283,31 @@ const SearchView: React.FC<SearchViewProps> = ({
     return map;
   }, [libraryGames]);
 
-  // Jugadores online (solo con sesión): búsqueda con debounce en el Worker.
+  // Jugadores online: sin buscar muestra hasta 10 sugeridos (descubrir);
+  // con 2+ letras busca en el servidor. Los perfiles locales no salen aquí.
   useEffect(() => {
     if (!visible || activeTab !== 'players') {
       setOnlinePlayers([]);
       return;
     }
-    const q = query.trim();
-    if (q.length < 2 || !getOnlineSession()) {
+    if (!getOnlineSession()) {
       setOnlinePlayers([]);
       return;
     }
+    const q = query.trim();
     let cancelled = false;
+    if (q.length < 2) {
+      fetchOnlineDiscover(10)
+        .then((res) => {
+          if (!cancelled) setOnlinePlayers(res);
+        })
+        .catch(() => {
+          if (!cancelled) setOnlinePlayers([]);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
     const timer = setTimeout(() => {
       searchOnlineUsers(q)
         .then((res) => {
@@ -343,16 +352,6 @@ const SearchView: React.FC<SearchViewProps> = ({
       }));
     }
     return [
-      ...users.map(user => ({
-        id: user.id,
-        title: user.name,
-        subtitle: t('search.player'),
-        image: user.avatarBase64 ? { uri: user.avatarBase64 } : (user.avatar?.startsWith('http') || user.avatar?.startsWith('local-file')
-          ? { uri: user.avatar }
-          : require('@/assets/images/ProfilePicture.png')),
-        kind: 'player' as const,
-        user,
-      })),
       ...onlinePlayers.map(user => ({
         id: `online-${user.id}`,
         title: user.displayName,
@@ -364,7 +363,7 @@ const SearchView: React.FC<SearchViewProps> = ({
         onlineUser: user,
       })),
     ];
-  }, [activeTab, storeOffers, libraryByTitle, mediaItems, users, onlinePlayers]);
+  }, [activeTab, storeOffers, libraryByTitle, mediaItems, onlinePlayers]);
 
   const searchResults = useMemo((): SearchEntry[] => {
     const q = query.trim();
@@ -427,31 +426,17 @@ const SearchView: React.FC<SearchViewProps> = ({
         }));
     }
 
-    return [
-      ...users
-        .filter(user => matchesQuery(user.name, q))
-        .map(user => ({
-          id: user.id,
-          title: user.name,
-          subtitle: t('search.player'),
-          image: user.avatarBase64 ? { uri: user.avatarBase64 } : (user.avatar?.startsWith('http') || user.avatar?.startsWith('local-file')
-            ? { uri: user.avatar }
-            : require('@/assets/images/ProfilePicture.png')),
-          kind: 'player' as const,
-          user,
-        })),
-      ...onlinePlayers.map(user => ({
-        id: `online-${user.id}`,
-        title: user.displayName,
-        subtitle: `@${user.username}`,
-        image: user.avatarUrl
-          ? { uri: user.avatarUrl }
-          : require('@/assets/images/ProfilePicture.png'),
-        kind: 'player' as const,
-        onlineUser: user,
-      })),
-    ];
-  }, [query, activeTab, trendingEntries, libraryGames, storeOffers, mediaItems, users, onlinePlayers]);
+    return onlinePlayers.map(user => ({
+      id: `online-${user.id}`,
+      title: user.displayName,
+      subtitle: `@${user.username}`,
+      image: user.avatarUrl
+        ? { uri: user.avatarUrl }
+        : require('@/assets/images/ProfilePicture.png'),
+      kind: 'player' as const,
+      onlineUser: user,
+    }));
+  }, [query, activeTab, trendingEntries, libraryGames, storeOffers, mediaItems, onlinePlayers]);
 
   resultsRef.current = searchResults;
 

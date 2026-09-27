@@ -40,6 +40,13 @@ export async function searchOnlineUsers(query: string): Promise<OnlineUser[]> {
   return Array.isArray(data.users) ? data.users : [];
 }
 
+/** Sugerencias antes de buscar: últimos usuarios activos (máx. 20). */
+export async function fetchOnlineDiscover(limit = 10): Promise<OnlineUser[]> {
+  const n = Math.min(Math.max(Math.floor(limit) || 10, 1), 20);
+  const data = await call<{ users: OnlineUser[] }>(`/users/discover?limit=${n}`);
+  return Array.isArray(data.users) ? data.users : [];
+}
+
 export async function fetchOnlineUserProfile(username: string): Promise<UserProfileResult> {
   const data = await call<UserProfileResult>(`/users/${encodeURIComponent(username.trim().toLowerCase())}`);
   return data;

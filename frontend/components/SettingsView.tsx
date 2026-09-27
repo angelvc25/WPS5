@@ -247,6 +247,7 @@ interface SettingsViewProps {
   onSelectRpcs3Folder: () => void;
   onOpenAvatarModal?: () => void;
   onSelectAvatarFolder?: () => void;
+  onToggleSteamAvatar?: () => void;
   initialScreen?: SettingsScreenType;
   // Se dispara al presionar Enter / tocar un juego en el perfil (Actividad
   // reciente o Biblioteca). Opcional: si no se pasa, esos items solo se enfocan.
@@ -272,6 +273,7 @@ export default function SettingsView({
   onSelectRpcs3Folder,
   onOpenAvatarModal,
   onSelectAvatarFolder,
+  onToggleSteamAvatar,
   initialScreen = 'main',
   onGamePress,
   onGamesImported,
@@ -3366,6 +3368,22 @@ export default function SettingsView({
                       <Ionicons name="image-outline" size={s(18)} color="#FFF" />
                       <Text style={styles.actionBtnSecondaryText}>{t('settings.profilePhoto')}</Text>
                     </TouchableOpacity>
+                    {!!activeUser?.settings?.steamId && (
+                      <TouchableOpacity
+                        style={[
+                          styles.actionBtnSecondary,
+                          styles.actionBtnStretch,
+                          activeUser?.settings?.useSteamAvatar && { borderColor: '#1DB954' },
+                        ]}
+                        onPress={() => onToggleSteamAvatar?.()}
+                      >
+                        <Ionicons name="logo-steam" size={s(18)} color="#FFF" />
+                        <Text style={styles.actionBtnSecondaryText}>
+                          {t('settings.useSteamAvatar')}
+                          {activeUser?.settings?.useSteamAvatar ? ' ✓' : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               </View>
