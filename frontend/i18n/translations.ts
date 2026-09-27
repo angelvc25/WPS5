@@ -200,6 +200,9 @@ const es = {
   'profile.updatingOnline': 'Actualizando…',
   'profile.onlineNameUpdated': 'Nombre actualizado en línea.',
   'profile.onlineNameLength': 'El nombre debe tener entre 1 y 50 caracteres.',
+  'profile.updateOnlineBio': 'Actualizar bio en línea',
+  'profile.onlineBioUpdated': 'Bio actualizada en línea.',
+  'profile.onlineBioLength': 'La bio admite hasta 500 caracteres.',
 
   'common.cancel': 'Cancelar',
   'common.open': 'Abrir',
@@ -1122,6 +1125,9 @@ const en: Record<TranslationKey, string> = {
   'profile.updatingOnline': 'Updating…',
   'profile.onlineNameUpdated': 'Online name updated.',
   'profile.onlineNameLength': 'Name must be between 1 and 50 characters.',
+  'profile.updateOnlineBio': 'Update online bio',
+  'profile.onlineBioUpdated': 'Online bio updated.',
+  'profile.onlineBioLength': 'Bio supports up to 500 characters.',
 
   'common.cancel': 'Cancel',
   'common.open': 'Open',
@@ -2039,6 +2045,9 @@ const pt: Record<TranslationKey, string> = {
   'profile.updatingOnline': 'Atualizando…',
   'profile.onlineNameUpdated': 'Nome online atualizado.',
   'profile.onlineNameLength': 'O nome deve ter entre 1 e 50 caracteres.',
+  'profile.updateOnlineBio': 'Atualizar bio online',
+  'profile.onlineBioUpdated': 'Bio online atualizada.',
+  'profile.onlineBioLength': 'A bio admite até 500 caracteres.',
 
   'common.cancel': 'Cancelar',
   'common.open': 'Abrir',

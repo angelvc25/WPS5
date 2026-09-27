@@ -339,6 +339,8 @@ export default function SettingsView({
   const [namePushError, setNamePushError] = useState<string | null>(null);
   const [editOnlineId, setEditOnlineId] = useState(activeUser?.onlineId || '');
   const [editAbout, setEditAbout] = useState(activeUser?.about || '');
+  const [bioPushBusy, setBioPushBusy] = useState(false);
+  const [bioPushError, setBioPushError] = useState<string | null>(null);
   const [editCoverImage, setEditCoverImage] = useState(activeUser?.coverImage || '');
 
   // Buscador de portada online (SteamGridDB, solo heroes panorámicos).
@@ -900,6 +902,38 @@ export default function SettingsView({
       soundService.playBack?.();
     } finally {
       setNamePushBusy(false);
+    }
+  };
+
+  // ── Bio online: subir bio al servidor ─────────────────────────────────
+  const handlePushBio = async () => {
+    if (bioPushBusy || !isProfileOnlineLinked) return;
+    const v = editAbout.trim();
+    if (v.length > 500) {
+      setBioPushError(t('profile.onlineBioLength'));
+      soundService.playBack?.();
+      return;
+    }
+    setBioPushBusy(true);
+    setBioPushError(null);
+    try {
+      const user = await updateOnlineProfile({ bio: v });
+      setEditAbout(user.bio || '');
+      updateUser({ about: user.bio || '' });
+      soundService.playActivation?.();
+      toastService.show(t('profile.onlineBioUpdated'));
+    } catch (e: any) {
+      const msg = e?.message || 'network';
+      setBioPushError(
+        msg === 'bio must contain up to 500 characters'
+          ? t('profile.onlineBioLength')
+          : msg === 'network'
+            ? t('account.errorNetwork')
+            : (msg || t('account.errorGeneric'))
+      );
+      soundService.playBack?.();
+    } finally {
+      setBioPushBusy(false);
     }
   };
 
@@ -3727,11 +3761,31 @@ export default function SettingsView({
                   multiline
                   onChangeText={(text) => {
                     setEditAbout(text);
+                    setBioPushError(null);
                     updateUser({ about: text });
                   }}
                   placeholder={t('profile.aboutPlaceholder')}
                   placeholderTextColor="#666"
                 />
+                {isProfileOnlineLinked && (
+                  <View style={{ marginTop: s(12) }}>
+                    <TouchableOpacity
+                      style={[styles.actionBtnSecondary, styles.actionBtnStretch]}
+                      onPress={handlePushBio}
+                      disabled={bioPushBusy}
+                    >
+                      <Ionicons name="cloud-upload-outline" size={s(18)} color="#FFF" />
+                      <Text style={styles.actionBtnSecondaryText}>
+                        {bioPushBusy ? t('profile.updatingOnline') : t('profile.updateOnlineBio')}
+                      </Text>
+                    </TouchableOpacity>
+                    {!!bioPushError && (
+                      <Text style={{ color: '#FF5252', fontSize: s(13), marginTop: s(8) }}>
+                        {bioPushError}
+                      </Text>
+                    )}
+                  </View>
+                )}
               </View>
             )}
 

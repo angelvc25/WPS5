@@ -170,9 +170,13 @@ export default function OnlineAuthView({
               onlineUsername: restored.user.username,
             };
           }
-          // El nombre local sigue al displayName de la cuenta online.
+          // El nombre y la bio locales siguen a la cuenta online (la bio
+          // solo si el servidor trae una, para no borrar texto local).
           if (restored.user.displayName && restored.user.displayName !== activeUser?.name) {
             patch.name = restored.user.displayName;
+          }
+          if (restored.user.bio && restored.user.bio !== activeUser?.about) {
+            patch.about = restored.user.bio;
           }
           if (Object.keys(patch).length > 0) updateUser(patch);
         } else if (linkedId) {
@@ -338,8 +342,10 @@ export default function OnlineAuthView({
       setRecoveryCode(null);
       syncProfileMediaToOnline(activeUser || {}).catch(() => {});
       updateUser({
-        // El nombre local sigue al displayName de la cuenta online.
+        // El nombre y la bio locales siguen a la cuenta online (la bio
+        // solo si el servidor trae una, para no borrar texto local).
         name: result.session.user.displayName || username.trim(),
+        ...(result.session.user.bio ? { about: result.session.user.bio } : {}),
         settings: {
           ...activeUser?.settings,
           onlineUserId: result.session.user.id,
