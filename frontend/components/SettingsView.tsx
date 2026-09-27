@@ -1369,7 +1369,7 @@ export default function SettingsView({
         if (accessibilityFocusArea === 'left') {
           if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 7));
+            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 8));
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
