@@ -161,15 +161,21 @@ export default function OnlineAuthView({
         if (cancelled) return;
         setSession(restored);
         const linkedId = (activeUser?.settings as any)?.onlineUserId;
-        if (restored && restored.user.id !== linkedId) {
-          updateUser({
-            settings: {
+        if (restored) {
+          const patch: any = {};
+          if (restored.user.id !== linkedId) {
+            patch.settings = {
               ...activeUser?.settings,
               onlineUserId: restored.user.id,
               onlineUsername: restored.user.username,
-            } as any,
-          });
-        } else if (!restored && linkedId) {
+            };
+          }
+          // El nombre local sigue al displayName de la cuenta online.
+          if (restored.user.displayName && restored.user.displayName !== activeUser?.name) {
+            patch.name = restored.user.displayName;
+          }
+          if (Object.keys(patch).length > 0) updateUser(patch);
+        } else if (linkedId) {
           updateUser({
             settings: { ...activeUser?.settings, onlineUserId: '', onlineUsername: '' } as any,
           });
@@ -332,6 +338,8 @@ export default function OnlineAuthView({
       setRecoveryCode(null);
       syncProfileMediaToOnline(activeUser || {}).catch(() => {});
       updateUser({
+        // El nombre local sigue al displayName de la cuenta online.
+        name: result.session.user.displayName || username.trim(),
         settings: {
           ...activeUser?.settings,
           onlineUserId: result.session.user.id,

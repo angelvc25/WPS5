@@ -196,6 +196,10 @@ const es = {
   'profile.coverSavedLocal': 'Portada guardada (solo este dispositivo).',
   'profile.coverSynced': 'Portada actualizada y visible para otros usuarios.',
   'profile.coverSyncFailed': 'Portada guardada local; no se pudo sincronizar.',
+  'profile.updateOnlineName': 'Actualizar nombre en línea',
+  'profile.updatingOnline': 'Actualizando…',
+  'profile.onlineNameUpdated': 'Nombre actualizado en línea.',
+  'profile.onlineNameLength': 'El nombre debe tener entre 1 y 50 caracteres.',
 
   'common.cancel': 'Cancelar',
   'common.open': 'Abrir',
@@ -1114,6 +1118,10 @@ const en: Record<TranslationKey, string> = {
   'profile.coverSavedLocal': 'Cover saved (this device only).',
   'profile.coverSynced': 'Cover updated and visible to other users.',
   'profile.coverSyncFailed': 'Cover saved locally; sync failed.',
+  'profile.updateOnlineName': 'Update online name',
+  'profile.updatingOnline': 'Updating…',
+  'profile.onlineNameUpdated': 'Online name updated.',
+  'profile.onlineNameLength': 'Name must be between 1 and 50 characters.',
 
   'common.cancel': 'Cancel',
   'common.open': 'Open',
@@ -2027,6 +2035,10 @@ const pt: Record<TranslationKey, string> = {
   'profile.coverSavedLocal': 'Capa salva (somente neste dispositivo).',
   'profile.coverSynced': 'Capa atualizada e visível para outros usuários.',
   'profile.coverSyncFailed': 'Capa salva localmente; falha na sincronização.',
+  'profile.updateOnlineName': 'Atualizar nome online',
+  'profile.updatingOnline': 'Atualizando…',
+  'profile.onlineNameUpdated': 'Nome online atualizado.',
+  'profile.onlineNameLength': 'O nome deve ter entre 1 e 50 caracteres.',
 
   'common.cancel': 'Cancelar',
   'common.open': 'Abrir',

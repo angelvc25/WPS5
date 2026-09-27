@@ -335,6 +335,8 @@ export default function SettingsView({
 
   // Profile edit fields
   const [editName, setEditName] = useState(activeUser?.name || '');
+  const [namePushBusy, setNamePushBusy] = useState(false);
+  const [namePushError, setNamePushError] = useState<string | null>(null);
   const [editOnlineId, setEditOnlineId] = useState(activeUser?.onlineId || '');
   const [editAbout, setEditAbout] = useState(activeUser?.about || '');
   const [editCoverImage, setEditCoverImage] = useState(activeUser?.coverImage || '');
@@ -860,6 +862,44 @@ export default function SettingsView({
         }
       };
       input.click();
+    }
+  };
+
+  // ¿Perfil vinculado a la cuenta online? (el nombre se guarda en el servidor)
+  const isProfileOnlineLinked = (() => {
+    const sess = getOnlineSession();
+    return !!sess && (activeUser?.settings as any)?.onlineUserId === sess.user.id;
+  })();
+
+  // ── Nombre online: subir displayName al servidor ──────────────────────
+  const handlePushDisplayName = async () => {
+    if (namePushBusy || !isProfileOnlineLinked) return;
+    const v = editName.trim();
+    if (!v) {
+      setNamePushError(t('account.errorMissing'));
+      soundService.playBack?.();
+      return;
+    }
+    setNamePushBusy(true);
+    setNamePushError(null);
+    try {
+      const user = await updateOnlineProfile({ displayName: v });
+      setEditName(user.displayName);
+      updateUser({ name: user.displayName });
+      soundService.playActivation?.();
+      toastService.show(t('profile.onlineNameUpdated'));
+    } catch (e: any) {
+      const msg = e?.message || 'network';
+      setNamePushError(
+        msg === 'displayName must contain between 1 and 50 characters'
+          ? t('profile.onlineNameLength')
+          : msg === 'network'
+            ? t('account.errorNetwork')
+            : (msg || t('account.errorGeneric'))
+      );
+      soundService.playBack?.();
+    } finally {
+      setNamePushBusy(false);
     }
   };
 
@@ -3440,11 +3480,31 @@ export default function SettingsView({
                   value={editName}
                   onChangeText={(text) => {
                     setEditName(text);
+                    setNamePushError(null);
                     updateUser({ name: text });
                   }}
                   placeholder={t('settings.usernamePlaceholder')}
                   placeholderTextColor="#666"
                 />
+                {isProfileOnlineLinked && (
+                  <View style={{ marginTop: s(12) }}>
+                    <TouchableOpacity
+                      style={[styles.actionBtnSecondary, styles.actionBtnStretch]}
+                      onPress={handlePushDisplayName}
+                      disabled={namePushBusy}
+                    >
+                      <Ionicons name="cloud-upload-outline" size={s(18)} color="#FFF" />
+                      <Text style={styles.actionBtnSecondaryText}>
+                        {namePushBusy ? t('profile.updatingOnline') : t('profile.updateOnlineName')}
+                      </Text>
+                    </TouchableOpacity>
+                    {!!namePushError && (
+                      <Text style={{ color: '#FF5252', fontSize: s(13), marginTop: s(8) }}>
+                        {namePushError}
+                      </Text>
+                    )}
+                  </View>
+                )}
               </View>
             )}
 
