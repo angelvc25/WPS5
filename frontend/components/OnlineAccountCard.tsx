@@ -37,6 +37,8 @@ interface OnlineAccountCardProps {
 export interface OnlineAccountCardHandle {
   /** Activa la fila enfocada por mando/teclado (0 = pestañas, 1 = acción). */
   activateRow: (index: number) => void;
+  /** Cambia a la pestaña de login o registro. */
+  setMode: (mode: 'login' | 'register') => void;
 }
 
 function mapAuthError(t: (key: any, params?: any) => string, error?: string): string {
@@ -132,6 +134,10 @@ export const OnlineAccountCard = forwardRef<OnlineAccountCardHandle, OnlineAccou
         if (isLinked) handleLogout();
         else handleSubmit();
       }
+    },
+    setMode: (next: 'login' | 'register') => {
+      setMode(next);
+      setError(null);
     },
   }));
 

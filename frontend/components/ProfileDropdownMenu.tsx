@@ -94,6 +94,8 @@ export default function ProfileDropdownMenu({
   const s = (v: number) => Math.max(1, Math.round(v * scale));
   const MENU_WIDTH = s(BASE_MENU_WIDTH);
 
+  const isLinked = !!(activeUser?.settings as any)?.onlineUserId;
+
   const options = [
     {
       labelKey: 'profile.onlineStatus' as TranslationKey,
@@ -106,8 +108,9 @@ export default function ProfileDropdownMenu({
       ),
     },
     {
-      labelKey: 'profile.profile' as TranslationKey,
-      image: require('@/assets/images/ProfilePicture.png'),
+      labelKey: (isLinked ? 'profile.profile' : 'profile.signIn') as TranslationKey,
+      image: isLinked ? require('@/assets/images/ProfilePicture.png') : undefined,
+      icon: isLinked ? undefined : ('log-in-outline' as const),
     },
     {
       labelKey: 'profile.trophies' as TranslationKey,

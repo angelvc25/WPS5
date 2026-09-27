@@ -42,7 +42,7 @@ import BackgroundPickerModal from '@/components/BackgroundPickerModal';
 import ConsoleCarousel from '@/components/ConsoleCarousel';
 import GameInfoPanel from '@/components/GameInfoPanel';
 import SearchView from '@/components/SearchView';
-import { OnlineUserProfileModal } from '@/components/OnlineUserProfileModal';
+import { OnlineUserFullProfile } from '@/components/OnlineUserFullProfile';
 import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
 import { UserProfile } from '@/components/UserSelectScreen';
@@ -2169,8 +2169,14 @@ export default function ConsoleHome() {
       setIsOnline(prev => !prev);
       soundService.playNavigation();
     } else if (idx === 1) {
-      // Perfil (Abre Configuración -> Perfil)
-      setSettingsInitialScreen('users_and_accounts');
+      const isLinked = !!(activeUser?.settings as any)?.onlineUserId;
+      if (isLinked) {
+        // Perfil (Abre Configuración -> Perfil)
+        setSettingsInitialScreen('users_and_accounts');
+      } else {
+        // Iniciar sesión (Abre pantalla de autenticación online con diseño manual PS5)
+        setSettingsInitialScreen('online_auth');
+      }
       setSettingsVisible(true);
       soundService.playActivation?.();
     } else if (idx === 2) {
@@ -4532,7 +4538,7 @@ export default function ConsoleHome() {
         onOpenOnlineUser={(username) => setOnlineProfileUsername(username)}
       />
 
-      <OnlineUserProfileModal
+      <OnlineUserFullProfile
         username={onlineProfileUsername}
         onClose={() => setOnlineProfileUsername(null)}
       />

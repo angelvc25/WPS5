@@ -35,9 +35,10 @@ import {
 } from '../services/metadataPreferences';
 import BackgroundVideo from './BackgroundVideo';
 import { EmulationView } from './EmulationView';
-import { OnlineAccountCard, type OnlineAccountCardHandle } from './OnlineAccountCard';
+
+import OnlineAuthView from './OnlineAuthView';
 import { OnlineFriendsPanel } from './OnlineFriendsPanel';
-import { OnlineUserProfileModal } from './OnlineUserProfileModal';
+import { OnlineUserFullProfile } from './OnlineUserFullProfile';
 import PSIcon from './PSIcon';
 import { UserProfile } from './UserSelectScreen';
 import SpinningBorderSearch from './SpinningBorderSearch';
@@ -63,6 +64,7 @@ export type SettingsScreenType =
   | 'users_and_accounts'
   | 'profile_edit'
   | 'profile_edit_detail'
+  | 'online_auth'
   | 'emulation'
   | 'system';
 
@@ -306,7 +308,7 @@ export default function SettingsView({
   const [mainFocusIndex, setMainFocusIndex] = useState(0);
   const [subFocusIndex, setSubFocusIndex] = useState(0);
   const [accessibilityLeftIndex, setAccessibilityLeftIndex] = useState(0);
-  const onlineCardRef = useRef<OnlineAccountCardHandle | null>(null);
+
   const [accessibilityFocusArea, setAccessibilityFocusArea] = useState<'left' | 'right'>('left');
   const [systemLeftIndex, setSystemLeftIndex] = useState(0);
   const [systemFocusArea, setSystemFocusArea] = useState<'left' | 'right'>('left');
@@ -315,6 +317,7 @@ export default function SettingsView({
   const [profileActionIndex, setProfileActionIndex] = useState(0);
   const [onlineProfileUsername, setOnlineProfileUsername] = useState<string | null>(null);
   const [friendsVersion, setFriendsVersion] = useState(0);
+
   const [profileEditSection, setProfileEditSection] = useState<ProfileEditSection>('name');
   // Foco dentro del contenido del perfil: sección (índice en profileSections)
   // e item dentro de esa sección (fila en listas verticales, columna en la
@@ -866,7 +869,6 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 6) return 1; // Panel del juego: 2 toggles
     if (accessibilityLeftIndex === 7) return 1; // Overlay: toggle + combo
     if (accessibilityLeftIndex === 8) return 0; // Splash Videos: navegación por mouse/touch en la grilla
-    if (accessibilityLeftIndex === 9) return 1; // Cuenta online: pestañas + acción
     return 0;
   };
 
@@ -1071,11 +1073,6 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 8) {
       // Splash Videos — la búsqueda, filtros y tarjetas se manejan con
       // mouse/touch directamente (onPress de cada control).
-      return;
-    }
-
-    if (accessibilityLeftIndex === 9) {
-      onlineCardRef.current?.activateRow(subFocusIndex);
       return;
     }
   };
@@ -1465,7 +1462,7 @@ export default function SettingsView({
           if (profileFocusArea === 'tabs') {
             switchProfileTab(1);
           } else if (profileFocusArea === 'header_actions') {
-            const maxAction = allUsers.length > 1 ? 1 : 0;
+            const maxAction = allUsers.length > 1 ? 2 : 1;
             setProfileActionIndex((prev) => Math.min(prev + 1, maxAction));
             soundService.playNavigation();
           }
@@ -1480,11 +1477,19 @@ export default function SettingsView({
         } else if (e.key === 'Enter') {
           e.preventDefault();
           if (profileFocusArea === 'header_actions') {
-            if (profileActionIndex === 0) {
+            const actions: ('edit' | 'switch' | 'account')[] = [
+              'edit',
+              ...(allUsers.length > 1 ? ['switch' as const] : []),
+              'account',
+            ];
+            const action = actions[profileActionIndex];
+            if (action === 'edit') {
               navigateToScreen('profile_edit');
-            } else if (profileActionIndex === 1) {
+            } else if (action === 'switch') {
               const nextUser = allUsers.find((u) => u.id !== activeUser?.id);
               if (nextUser && onSwitchUser) onSwitchUser(nextUser);
+            } else if (action === 'account') {
+              navigateToScreen('online_auth');
             }
           }
         }
@@ -1564,6 +1569,8 @@ export default function SettingsView({
   // ==========================================
   // SCREEN: MAIN (Vertical PS5 Settings List)
   // ==========================================
+
+
   const renderMainScreen = () => {
     const mainMenuItems = [
       {
@@ -1743,7 +1750,6 @@ export default function SettingsView({
       { id: 'gamepanel', title: t('settings.gamePanel') },
       { id: 'overlay', title: t('settings.overlay') },
       { id: 'splash', title: t('settings.steamDeckRepo') },
-      { id: 'online', title: t('settings.onlineAccount') },
     ];
 
     return (
@@ -2724,21 +2730,6 @@ export default function SettingsView({
               );
             })()}
 
-            {accessibilityLeftIndex === 9 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.rightSectionTitle}>{t('settings.onlineAccount')}</Text>
-                <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.onlineAccountDesc')}</Text>
-                <OnlineAccountCard
-                  ref={onlineCardRef}
-                  activeUser={activeUser}
-                  updateUser={updateUser}
-                  libraryGames={libraryGames}
-                  isRightFocused={accessibilityFocusArea === 'right'}
-                  subFocusIndex={subFocusIndex}
-                />
-              </ScrollView>
-            )}
-
             {accessibilityLeftIndex === 5 && (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.rightSectionTitle}>{t('settings.smartSync')}</Text>
@@ -2925,35 +2916,61 @@ export default function SettingsView({
               </View>
             </View>
 
-            {/* Header Action Buttons on Right (Edit Profile, etc.) */}
+            {/* Header Action Buttons on Right (Edit Profile, Online Account, etc.) */}
             <View style={styles.profileHeaderActions}>
-              <TouchableOpacity
-                style={[
-                  styles.profileActionButtonRound,
-                  profileFocusArea === 'header_actions' && profileActionIndex === 0 && styles.profileActionButtonFocused,
-                ]}
-                onPress={() => navigateToScreen('profile_edit')}
-              >
-                {profileFocusArea === 'header_actions' && profileActionIndex === 0 && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
-                <Ionicons name="pencil" size={s(20)} color="#FFF" />
-                <Text style={styles.profileActionButtonLabel}>{t('profile.editProfile')}</Text>
-              </TouchableOpacity>
-
-              {allUsers.length > 1 && (
-                <TouchableOpacity
-                  style={[
-                    styles.profileActionButtonRoundSmall,
-                    profileFocusArea === 'header_actions' && profileActionIndex === 1 && styles.profileActionButtonFocused,
-                  ]}
-                  onPress={() => {
-                    const nextUser = allUsers.find((u) => u.id !== activeUser?.id);
-                    if (nextUser && onSwitchUser) onSwitchUser(nextUser);
-                  }}
-                >
-                  {profileFocusArea === 'header_actions' && profileActionIndex === 1 && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
-                  <Ionicons name="people-outline" size={s(20)} color="#FFF" />
-                </TouchableOpacity>
-              )}
+              {(() => {
+                const linkedOnline = !!(activeUser?.settings as any)?.onlineUserId;
+                const actions: ('edit' | 'switch' | 'account')[] = [
+                  'edit',
+                  ...(allUsers.length > 1 ? ['switch' as const] : []),
+                  'account',
+                ];
+                return actions.map((actionId, actionIdx) => {
+                  const isFocused = profileFocusArea === 'header_actions' && profileActionIndex === actionIdx;
+                  if (actionId === 'edit') {
+                    return (
+                      <TouchableOpacity
+                        key="edit"
+                        style={[styles.profileActionButtonRound, isFocused && styles.profileActionButtonFocused]}
+                        onPress={() => navigateToScreen('profile_edit')}
+                      >
+                        {isFocused && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
+                        <Ionicons name="pencil" size={s(20)} color="#FFF" />
+                        <Text style={styles.profileActionButtonLabel}>{t('profile.editProfile')}</Text>
+                      </TouchableOpacity>
+                    );
+                  }
+                  if (actionId === 'switch') {
+                    return (
+                      <TouchableOpacity
+                        key="switch"
+                        style={[styles.profileActionButtonRoundSmall, isFocused && styles.profileActionButtonFocused]}
+                        onPress={() => {
+                          const nextUser = allUsers.find((u) => u.id !== activeUser?.id);
+                          if (nextUser && onSwitchUser) onSwitchUser(nextUser);
+                        }}
+                      >
+                        {isFocused && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
+                        <Ionicons name="people-outline" size={s(20)} color="#FFF" />
+                      </TouchableOpacity>
+                    );
+                  }
+                  return (
+                    <TouchableOpacity
+                      key="account"
+                      style={[styles.profileActionButtonRoundSmall, isFocused && styles.profileActionButtonFocused]}
+                      onPress={() => navigateToScreen('online_auth')}
+                    >
+                      {isFocused && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
+                      <Ionicons
+                        name={linkedOnline ? 'cloud-done-outline' : 'log-in-outline'}
+                        size={s(20)}
+                        color="#FFF"
+                      />
+                    </TouchableOpacity>
+                  );
+                });
+              })()}
             </View>
           </View>
 
@@ -3765,10 +3782,18 @@ export default function SettingsView({
             onGamesImported={onGamesImported}
           />
         )}
+        {currentScreen === 'online_auth' && (
+          <OnlineAuthView
+            activeUser={activeUser}
+            updateUser={updateUser}
+            libraryGames={libraryGames}
+            onBack={handleBack}
+          />
+        )}
         {currentScreen === 'system' && renderSystemScreen()}
       </View>
 
-      <OnlineUserProfileModal
+      <OnlineUserFullProfile
         username={onlineProfileUsername}
         onClose={() => setOnlineProfileUsername(null)}
         onChanged={() => setFriendsVersion((v) => v + 1)}
@@ -3908,6 +3933,63 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     color: '#FFF',
     fontSize: s(26),
     fontFamily: 'SSTLight',
+  },
+
+  // Pantalla de cuenta online (vista aparte estilo login de consola)
+  authSplit: {
+    flexDirection: 'row',
+    gap: s(48),
+    marginTop: s(24),
+    alignItems: 'flex-start',
+  },
+  authBrand: {
+    flex: 1,
+    paddingTop: s(40),
+  },
+  authBrandLogo: {
+    color: '#FFF',
+    fontFamily: 'SSTBold',
+    letterSpacing: 4,
+    marginBottom: s(16),
+  },
+  authBrandDesc: {
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: 'SSTLight',
+    lineHeight: s(26),
+  },
+  authCardWrap: {
+    flex: 1,
+    maxWidth: 560,
+  },
+  authFooter: {
+    alignItems: 'center',
+    marginTop: s(32),
+  },
+  authFooterHint: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: s(14),
+    fontFamily: 'SSTLight',
+    marginBottom: s(12),
+  },
+  authFooterBtns: {
+    flexDirection: 'row',
+    gap: s(16),
+  },
+  authFooterBtn: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+    paddingHorizontal: s(28),
+    paddingVertical: s(12),
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  authFooterBtnFocused: {
+    borderColor: 'rgba(255,255,255,0.9)',
+  },
+  authFooterBtnText: {
+    color: '#FFF',
+    fontSize: s(15),
+    fontFamily: 'SSTMedium',
   },
 
   // Main Vertical List (PS5 style: centered, elongated)

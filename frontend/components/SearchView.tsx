@@ -490,6 +490,9 @@ const SearchView: React.FC<SearchViewProps> = ({
       return;
     }
     if (entry.kind === 'player' && entry.onlineUser && onOpenOnlineUser) {
+      // Se cierra el buscador primero para que el perfil quede encima
+      // (dos modales apilados pelean el z-order en web).
+      onClose();
       onOpenOnlineUser(entry.onlineUser.username);
       return;
     }
