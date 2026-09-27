@@ -270,7 +270,7 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                     {profile.friendship === 'accepted' ? (
                       <>
                         <View style={styles.friendBadge}>
-                          <Ionicons name="checkmark" size={14} color="#7BDD7B" />
+                          {/* <Ionicons name="checkmark" size={14} color="#7BDD7B" /> */}
                           <Text style={styles.friendBadgeText}>{t('onlineProfile.friend')}</Text>
                         </View>
                         {friendshipId && (
@@ -302,7 +302,7 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                       </>
                     ) : profile.friendship === 'pending' ? (
                       <View style={styles.friendBadge}>
-                        <Ionicons name="time-outline" size={14} color="#FFB300" />
+                        {/* <Ionicons name="time-outline" size={14} color="#FFB300" /> */}
                         <Text style={[styles.friendBadgeText, { color: '#FFB300' }]}>{t('onlineProfile.pending')}</Text>
                       </View>
                     ) : (
@@ -311,7 +311,7 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                         disabled={busy}
                         onPress={() => runAction(() => sendOnlineFriendRequest(profile.user.id), t('friends.requestSent'))}
                       >
-                        <Ionicons name="person-add-outline" size={16} color="#111" />
+                        {/* <Ionicons name="person-add-outline" size={16} color="#ffffffff" /> */}
                         <Text style={styles.btnPrimaryText}>{t('onlineProfile.addFriend')}</Text>
                       </TouchableOpacity>
                     )}
@@ -503,7 +503,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#141414ff',
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 94,
+    paddingBottom: 28,
   },
   banner: {
     height: 320,
@@ -523,14 +524,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 110,
+    height: 210,
   },
   bannerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    paddingHorizontal: 24,
-    paddingBottom: 18,
+    paddingHorizontal: 94,
+    paddingBottom: 28,
   },
   backBtn: {
     position: 'absolute',
@@ -550,7 +551,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   error: {
-    color: '#FF8899',
+    color: '#e2e2e2ff',
     fontSize: 14,
   },
   avatar: {
@@ -579,16 +580,15 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     backgroundColor: '#4CAF50',
-    borderWidth: 2,
-    borderColor: '#0d1015',
   },
   displayName: {
     color: '#FFF',
     fontSize: 26,
-    fontFamily: 'SSTMedium',
+    fontFamily: 'SSTLight',
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
+    marginLeft: 10
   },
   username: {
     color: 'rgba(255,255,255,0.75)',
@@ -597,6 +597,7 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
+    marginLeft: 10
   },
   bio: {
     color: 'rgba(255,255,255,0.75)',
@@ -614,18 +615,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FFF',
+    backgroundColor: '#ffffff0e',
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   btnPrimaryText: {
-    color: '#111',
+    color: '#ffffffff',
     fontSize: 14,
     fontFamily: 'SSTBold',
   },
   btnSecondary: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#ffffff0e',
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -633,7 +634,7 @@ const styles = StyleSheet.create({
   btnSecondaryText: {
     color: '#FFF',
     fontSize: 14,
-    fontFamily: 'SSTMedium',
+    fontFamily: 'SSTLight',
   },
   btnGhost: {
     paddingHorizontal: 12,
@@ -642,7 +643,7 @@ const styles = StyleSheet.create({
   btnGhostText: {
     color: '#FF8899',
     fontSize: 13,
-    fontFamily: 'SSTMedium',
+    fontFamily: 'SSTLight',
   },
   friendBadge: {
     flexDirection: 'row',
@@ -654,9 +655,9 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   friendBadgeText: {
-    color: '#7BDD7B',
+    color: '#d4d4d4ff',
     fontSize: 13,
-    fontFamily: 'SSTMedium',
+    fontFamily: 'SSTLight',
   },
   tabsBar: {
     flexDirection: 'row',
@@ -672,12 +673,14 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabItemActive: {
-    borderBottomColor: '#FFF',
+    borderColor: '#ffffffc2',
+    borderWidth: 1,
+    borderBottomColor: '#ffffffc2',
   },
   tabText: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 15,
-    fontFamily: 'SSTMedium',
+    fontFamily: 'SSTLight',
   },
   tabTextActive: {
     color: '#FFF',
@@ -750,14 +753,14 @@ const styles = StyleSheet.create({
   },
   recentCard: {
     backgroundColor: '#000000',
-    borderRadius: 14,
+    borderRadius: 0,
     padding: 14,
     marginTop: 20,
   },
   recentCardTitle: {
     color: '#FFF',
     fontSize: 15,
-    fontFamily: 'SSTMedium',
+    fontFamily: 'SSTLight',
     marginTop: 10,
     paddingTop: 12,
     borderTopWidth: 1,
@@ -777,9 +780,9 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   gameCover: {
-    width: 52,
-    height: 52,
-    borderRadius: 8,
+    width: 62,
+    height: 62,
+    borderRadius: 0,
   },
   gameCoverEmpty: {
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -789,7 +792,7 @@ const styles = StyleSheet.create({
   gameName: {
     color: '#FFF',
     fontSize: 15,
-    fontFamily: 'SSTMedium',
+    fontFamily: 'SSTLight',
   },
   gameSub: {
     color: 'rgba(255,255,255,0.5)',
