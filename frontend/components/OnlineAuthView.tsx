@@ -327,6 +327,9 @@ export default function OnlineAuthView({
       }
 
       setSession(result.session);
+      // Sesión nueva: descartar códigos en pantalla (el servidor rota y los viejos ya no valen).
+      setShownRecoveryCode(null);
+      setRecoveryCode(null);
       syncProfileMediaToOnline(activeUser || {}).catch(() => {});
       updateUser({
         settings: {
@@ -355,6 +358,8 @@ export default function OnlineAuthView({
     try {
       await logoutOnlineAccount();
       setSession(null);
+      setShownRecoveryCode(null);
+      setRecoveryCode(null);
       updateUser({
         settings: { ...activeUser?.settings, onlineUserId: '', onlineUsername: '' } as any,
       });
@@ -375,8 +380,9 @@ export default function OnlineAuthView({
         soundService.playBack?.();
         return;
       }
-      // El código rota: mostrar el nuevo para guardar.
+      // El código rota: mostrar el nuevo para guardar y descartar el viejo en pantalla.
       setRecDoneCode(result.recoveryCode || null);
+      setShownRecoveryCode(null);
       setRecNewPass('');
       soundService.playActivation?.();
     } finally {
@@ -572,7 +578,7 @@ export default function OnlineAuthView({
                 <View style={[styles.codeDisplayBox, { paddingVertical: s(16), borderRadius: s(10), marginTop: s(20), alignItems: 'center' }]}>
                   <Text style={[styles.codeDisplayText, { fontSize: s(26) }]} selectable>{shownRecoveryCode}</Text>
                   <Text style={[styles.modalDesc, { fontSize: s(12), marginTop: s(8), textAlign: 'center' }]}>
-                    {t('account.recoveryDesc')}
+                    {t('account.regenerateWarning')}
                   </Text>
                   <TouchableOpacity
                     style={{ marginTop: s(8) }}
