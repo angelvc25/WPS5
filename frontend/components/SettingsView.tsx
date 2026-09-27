@@ -20,6 +20,9 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { toastService } from '../services/toastService';
+import { getOnlineSession, updateOnlineProfile } from '../services/onlineAccountService';
+import { fetchSteamGridAssets } from '../services/steamGridService';
+import type { SteamGridAsset } from '../services/steamGridService';
 import { formatPlaytime } from '../services/playtimeService';
 import {
   searchSteamDeckRepo,
@@ -335,6 +338,16 @@ export default function SettingsView({
   const [editOnlineId, setEditOnlineId] = useState(activeUser?.onlineId || '');
   const [editAbout, setEditAbout] = useState(activeUser?.about || '');
   const [editCoverImage, setEditCoverImage] = useState(activeUser?.coverImage || '');
+
+  // Buscador de portada online (SteamGridDB, solo heroes panorámicos).
+  const [coverSearchVisible, setCoverSearchVisible] = useState(false);
+  const [coverSearchQuery, setCoverSearchQuery] = useState('');
+  const [coverSearchBusy, setCoverSearchBusy] = useState(false);
+  const [coverSearchDone, setCoverSearchDone] = useState(false);
+  const [coverHeroes, setCoverHeroes] = useState<SteamGridAsset[]>([]);
+  const [coverSavingUrl, setCoverSavingUrl] = useState<string | null>(null);
+  const [coverSelIndex, setCoverSelIndex] = useState(0);
+  const coverSearchInputRef = useRef<TextInput>(null);
 
   // HDMI toggles state for System sub-screen
   const [hdmiDeviceLink, setHdmiDeviceLink] = useState(true);
@@ -849,6 +862,119 @@ export default function SettingsView({
       input.click();
     }
   };
+
+  // ── Portada online: buscar heroes en SteamGridDB ──────────────────────
+  const openCoverSearch = () => {
+    soundService.playActivation?.();
+    setCoverSearchQuery('');
+    setCoverHeroes([]);
+    setCoverSearchDone(false);
+    setCoverSelIndex(0);
+    setCoverSearchVisible(true);
+  };
+
+  const runCoverSearch = async () => {
+    const q = coverSearchQuery.trim();
+    if (!q || coverSearchBusy) return;
+    soundService.playActivation?.();
+    setCoverSearchBusy(true);
+    setCoverSearchDone(false);
+    try {
+      const res = await fetchSteamGridAssets(q);
+      const heroes = (res.heroes || []).filter(
+        (h) => h.url && /^https?:\/\//i.test(h.url)
+      );
+      setCoverHeroes(heroes);
+      setCoverSelIndex(heroes.length > 0 ? 2 : 1);
+    } catch {
+      setCoverHeroes([]);
+    } finally {
+      setCoverSearchBusy(false);
+      setCoverSearchDone(true);
+    }
+  };
+
+  const handlePickCoverHero = async (url: string) => {
+    if (!url || coverSavingUrl) return;
+    setCoverSavingUrl(url);
+    try {
+      setEditCoverImage(url);
+      updateUser({ coverImage: url });
+      if (getOnlineSession()) {
+        try {
+          await updateOnlineProfile({ coverUrl: url });
+          toastService.show(t('profile.coverSynced'));
+        } catch {
+          toastService.show(t('profile.coverSyncFailed'));
+        }
+      } else {
+        toastService.show(t('profile.coverSavedLocal'));
+      }
+      soundService.playActivation?.();
+      setCoverSearchVisible(false);
+    } finally {
+      setCoverSavingUrl(null);
+    }
+  };
+
+  // Navegación por teclado/mando dentro del modal de portada (fase de
+  // captura para no mover el foco de la pantalla de detrás).
+  useEffect(() => {
+    if (!coverSearchVisible || Platform.OS !== 'web') return;
+    const timer = setTimeout(() => coverSearchInputRef.current?.focus(), 80);
+    const onKey = (e: any) => {
+      const target = e.target as any;
+      const inInput = !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        setCoverSearchVisible(false);
+        return;
+      }
+      if (inInput) {
+        if (e.key === 'Enter') {
+          e.stopPropagation();
+          e.preventDefault();
+          runCoverSearch();
+        } else if (e.key === 'ArrowDown') {
+          e.stopPropagation();
+          e.preventDefault();
+          setCoverSelIndex(1);
+        }
+        return;
+      }
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Tab', ' '].includes(e.key)) return;
+      e.stopPropagation();
+      e.preventDefault();
+      // 0=input, 1=buscar, 2..n+1=heroes, n+2=cerrar.
+      const total = 3 + coverHeroes.length;
+      const last = total - 1;
+      const cols = 2;
+      let i = coverSelIndex;
+      if (e.key === 'ArrowRight') i = Math.min(last, i + 1);
+      else if (e.key === 'ArrowLeft') i = Math.max(0, i - 1);
+      else if (e.key === 'ArrowDown') i = Math.min(last, i + (i === 0 ? 1 : cols));
+      else if (e.key === 'ArrowUp') i = Math.max(0, i - (i <= 1 ? 1 : cols));
+      else if (e.key === 'Tab') i = (i + (e.shiftKey ? last : 1)) % total;
+      else if (e.key === 'Enter' || e.key === ' ') {
+        if (i === 0) coverSearchInputRef.current?.focus();
+        else if (i === 1) runCoverSearch();
+        else if (i === last) setCoverSearchVisible(false);
+        else {
+          const hero = coverHeroes[i - 2];
+          if (hero) handlePickCoverHero(hero.url);
+        }
+        return;
+      }
+      setCoverSelIndex(i);
+      if (i === 0) coverSearchInputRef.current?.focus();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      clearTimeout(timer);
+    };
+  }, [coverSearchVisible, coverHeroes, coverSelIndex, coverSearchQuery, coverSearchBusy]);
 
   // ── Accessibility screen: right-column focus helpers ─────────────────────
   const getAccessibilityRightMaxIndex = () => {
@@ -3418,6 +3544,10 @@ export default function SettingsView({
                     <Ionicons name="image-outline" size={s(18)} color="#FFF" />
                     <Text style={styles.actionBtnSecondaryText}>{t('profile.coverImage')}</Text>
                   </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtnSecondary, styles.actionBtnStretch]} onPress={openCoverSearch}>
+                    <Ionicons name="cloud-download-outline" size={s(18)} color="#FFF" />
+                    <Text style={styles.actionBtnSecondaryText}>{t('profile.coverSearchOnline')}</Text>
+                  </TouchableOpacity>
                   {activeUser?.coverImage ? (
                     <TouchableOpacity
                       style={[
@@ -3437,6 +3567,93 @@ export default function SettingsView({
                     </TouchableOpacity>
                   ) : null}
                 </View>
+                {coverSearchVisible && (
+                  <Modal
+                    visible
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setCoverSearchVisible(false)}
+                  >
+                    <View style={styles.splashModalOverlay}>
+                      <View style={[styles.splashModalCard, { padding: s(24), maxWidth: s(860) }]}>
+                        <Text style={styles.editListLabel}>{t('profile.coverSearchTitle')}</Text>
+                        <Text style={[styles.pathDesc, { marginBottom: s(14) }]}>
+                          {t('profile.coverSearchHint')}
+                        </Text>
+                        <View style={styles.coverSearchRow}>
+                          <TextInput
+                            ref={coverSearchInputRef}
+                            style={[styles.editInputWide, { flex: 1, width: undefined }]}
+                            value={coverSearchQuery}
+                            onChangeText={setCoverSearchQuery}
+                            placeholder={t('profile.coverSearchPlaceholder')}
+                            placeholderTextColor="#666"
+                            returnKeyType="search"
+                            onSubmitEditing={runCoverSearch}
+                            editable={!coverSearchBusy}
+                          />
+                          <TouchableOpacity
+                            style={[
+                              styles.actionBtnSecondary,
+                              coverSelIndex === 1 && styles.rightItemFocused,
+                              (!coverSearchQuery.trim() || coverSearchBusy) && { opacity: 0.5 },
+                            ]}
+                            onPress={runCoverSearch}
+                            disabled={!coverSearchQuery.trim() || coverSearchBusy}
+                          >
+                            <Ionicons name="search" size={s(18)} color="#FFF" />
+                            <Text style={styles.actionBtnSecondaryText}>
+                              {coverSearchBusy ? t('profile.coverSearchBusy') : t('profile.coverSearchButton')}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.coverSearchResults}>
+                          <View style={styles.coverSearchGrid}>
+                            {coverHeroes.map((hero, idx) => {
+                              const selIdx = idx + 2;
+                              const focused = coverSelIndex === selIdx;
+                              const saving = coverSavingUrl === hero.url;
+                              return (
+                                <TouchableOpacity
+                                  key={hero.id || hero.url}
+                                  style={[
+                                    styles.coverSearchItem,
+                                    focused && styles.rightItemFocused,
+                                    { opacity: coverSavingUrl && !saving ? 0.5 : 1 },
+                                  ]}
+                                  onPress={() => handlePickCoverHero(hero.url)}
+                                  disabled={!!coverSavingUrl}
+                                >
+                                  <Image
+                                    source={{ uri: hero.thumb || hero.url }}
+                                    style={styles.coverSearchThumb}
+                                    contentFit="cover"
+                                  />
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                          {coverSearchDone && !coverSearchBusy && coverHeroes.length === 0 && (
+                            <Text style={[styles.pathDesc, { marginTop: s(8) }]}>
+                              {t('profile.coverSearchEmpty')}
+                            </Text>
+                          )}
+                        </ScrollView>
+                        <View style={{ alignItems: 'flex-end', marginTop: s(12) }}>
+                          <TouchableOpacity
+                            style={[
+                              styles.actionBtnSecondary,
+                              coverSelIndex === 2 + coverHeroes.length && styles.rightItemFocused,
+                            ]}
+                            onPress={() => setCoverSearchVisible(false)}
+                          >
+                            <Text style={styles.actionBtnSecondaryText}>{t('common.cancel')}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  </Modal>
+                )}
               </View>
             )}
 
@@ -4881,6 +5098,34 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   coverActionsRow: {
     flexDirection: 'row',
     gap: s(12),
+  },
+  coverSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(12),
+    marginBottom: s(14),
+  },
+  coverSearchResults: {
+    maxHeight: s(380),
+  },
+  coverSearchGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: s(10),
+  },
+  coverSearchItem: {
+    width: '48%',
+    flexGrow: 1,
+    aspectRatio: 3,
+    borderRadius: s(8),
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  coverSearchThumb: {
+    width: '100%',
+    height: '100%',
   },
   languagePillsRow: {
     flexDirection: 'row',
