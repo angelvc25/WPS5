@@ -1869,7 +1869,7 @@ export default function ConsoleHome() {
           : gamesList;
         const pinnedGames = gamesWithoutLastPlayed.filter((g: any) => g.isPinned);
         const gamesWithHistory = gamesWithoutLastPlayed
-          .filter((g: any) => g.lastPlayed)
+          .filter((g: any) => g.lastPlayed && !g.isPinned)
           .sort((a: any, b: any) => b.lastPlayed - a.lastPlayed);
         const gamesWithoutHistory = gamesWithoutLastPlayed.filter((g: any) => !g.lastPlayed && !g.isPinned);
         const sortedGames = [...pinnedGames, ...gamesWithHistory, ...gamesWithoutHistory];
