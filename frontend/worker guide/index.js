@@ -57,6 +57,8 @@ export default {
           "/auth/login",
           "/auth/logout",
           "/auth/me",
+          "/auth/recover",
+          "/auth/recovery-code",
           "/users/search?q=...",
           "/users/discover?limit=10",
           "/users/:username",
@@ -111,6 +113,14 @@ export default {
 
     if (url.pathname === "/auth/me") {
       return handleMe(request, env);
+    }
+
+    if (url.pathname === "/auth/recover") {
+      return handleRecover(request, env);
+    }
+
+    if (url.pathname === "/auth/recovery-code") {
+      return handleRegenerateRecoveryCode(request, env);
     }
 
     // ============================================
@@ -254,6 +264,14 @@ async function handleRegister(request, env) {
 
     const token = await createSession(env.DB, id);
 
+    // Código de respaldo: se muestra UNA sola vez al registrarse.
+    let recoveryCode = null;
+    try {
+      recoveryCode = await storeRecoveryCode(env.DB, id);
+    } catch (error) {
+      console.error("Recovery code error:", error);
+    }
+
     return jsonResponse({
       success: true,
       user: publicUser({
@@ -266,6 +284,7 @@ async function handleRegister(request, env) {
       }),
       token,
       expiresIn: AUTH.sessionDays * 24 * 60 * 60,
+      ...(recoveryCode ? { recoveryCode } : {}),
     }, 201);
   } catch (error) {
     console.error("Register error:", error);
@@ -359,6 +378,113 @@ async function handleMe(request, env) {
     success: true,
     user: publicUser(auth.user),
   });
+}
+
+// ── Códigos de respaldo (recuperar contraseña sin email) ───────────────────
+// Solo se muestra el código UNA vez (al crear/regenerar); en D1 vive el hash.
+
+const RECOVERY_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+function generateRecoveryCode() {
+  const rand = crypto.getRandomValues(new Uint8Array(8));
+  let part = "";
+  for (let i = 0; i < 8; i++) {
+    part += RECOVERY_CODE_ALPHABET[rand[i] % RECOVERY_CODE_ALPHABET.length];
+  }
+  return `WPS5-${part.slice(0, 4)}-${part.slice(4)}`;
+}
+
+function normalizeRecoveryCode(value) {
+  return String(value || "").toUpperCase().replace(/[\s-]/g, "");
+}
+
+async function storeRecoveryCode(db, userId) {
+  const code = generateRecoveryCode();
+  const codeHash = await sha256(normalizeRecoveryCode(code));
+  const now = new Date().toISOString();
+  await db.prepare(`
+    INSERT INTO recovery_codes (user_id, code_hash, created_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      code_hash = excluded.code_hash,
+      created_at = excluded.created_at
+  `).bind(userId, codeHash, now).run();
+  return code;
+}
+
+async function handleRecover(request, env) {
+  if (request.method !== "POST") return methodNotAllowed(["POST", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const username = normalizeUsername(body.data.username);
+  const code = normalizeRecoveryCode(body.data.recoveryCode);
+  const newPassword = typeof body.data.newPassword === "string" ? body.data.newPassword : "";
+
+  if (!username.valid || !code) {
+    return jsonResponse({ success: false, error: "Invalid username or recovery code" }, 401);
+  }
+
+  if (newPassword.length < 8 || newPassword.length > 128) {
+    return jsonResponse(
+      { success: false, error: "Password must contain between 8 and 128 characters" },
+      400
+    );
+  }
+
+  try {
+    const user = await env.DB.prepare(
+      "SELECT id FROM users WHERE username = ? LIMIT 1"
+    ).bind(username.value).first();
+
+    if (!user) {
+      return jsonResponse({ success: false, error: "Invalid username or recovery code" }, 401);
+    }
+
+    const stored = await env.DB.prepare(
+      "SELECT code_hash FROM recovery_codes WHERE user_id = ? LIMIT 1"
+    ).bind(user.id).first();
+
+    const candidateHash = await sha256(code);
+    if (!stored || !timingSafeEqualString(candidateHash, stored.code_hash)) {
+      return jsonResponse({ success: false, error: "Invalid username or recovery code" }, 401);
+    }
+
+    const passwordSalt = randomBytes(16);
+    const passwordHash = await hashPassword(newPassword, passwordSalt);
+    const now = new Date().toISOString();
+
+    await env.DB.prepare(
+      "UPDATE users SET password_hash = ?, password_salt = ?, updated_at = ? WHERE id = ?"
+    ).bind(passwordHash, bytesToBase64(passwordSalt), now, user.id).run();
+
+    // Cerrar todas las sesiones + rotar el código (un solo uso).
+    await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run();
+    const nextCode = await storeRecoveryCode(env.DB, user.id);
+
+    return jsonResponse({ success: true, recoveryCode: nextCode });
+  } catch (error) {
+    console.error("Recover error:", error);
+    return jsonResponse({ success: false, error: "Failed to reset password" }, 500);
+  }
+}
+
+async function handleRegenerateRecoveryCode(request, env) {
+  if (request.method !== "POST") return methodNotAllowed(["POST", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  try {
+    const code = await storeRecoveryCode(env.DB, auth.user.id);
+    return jsonResponse({ success: true, recoveryCode: code });
+  } catch (error) {
+    console.error("Regenerate recovery code error:", error);
+    return jsonResponse({ success: false, error: "Failed to generate code" }, 500);
+  }
 }
 
 async function handleUserSearch(request, url, env) {
@@ -1199,6 +1325,11 @@ async function touchLastSeen(db, userId) {
 //     user_id TEXT PRIMARY KEY,
 //     library_json TEXT NOT NULL DEFAULT '[]',
 //     updated_at TEXT NOT NULL
+//   );
+//   CREATE TABLE IF NOT EXISTS recovery_codes (
+//     user_id TEXT PRIMARY KEY,
+//     code_hash TEXT NOT NULL,
+//     created_at TEXT NOT NULL
 //   );
 function publicUser(user) {
   return {

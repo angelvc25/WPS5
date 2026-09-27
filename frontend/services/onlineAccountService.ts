@@ -35,6 +35,8 @@ export interface OnlineSession {
 export interface AuthResult {
   ok: boolean;
   session?: OnlineSession;
+  /** Código de respaldo (solo al registrar o rotar; se muestra una vez). */
+  recoveryCode?: string;
   /** Mensaje de error del servidor (inglés) o 'network'. */
   error?: string;
   status?: number;
@@ -162,7 +164,7 @@ export async function registerOnlineAccount(
   const passwordError = validatePassword(password);
   if (passwordError) return { ok: false, error: 'Password length' };
   try {
-    const data = await request<{ user: OnlineUser; token: string; expiresIn: number }>('/auth/register', {
+    const data = await request<{ user: OnlineUser; token: string; expiresIn: number; recoveryCode?: string }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         username: username.trim().toLowerCase(),
@@ -172,6 +174,7 @@ export async function registerOnlineAccount(
     });
     const session = toSession(data);
     writeStoredSession(session);
+    if (data.recoveryCode) return { ok: true, session, recoveryCode: data.recoveryCode };
     return { ok: true, session };
   } catch (error: any) {
     return { ok: false, error: error?.message || 'network', status: error?.status };
@@ -188,6 +191,45 @@ export async function loginOnlineAccount(username: string, password: string): Pr
     const session = toSession(data);
     writeStoredSession(session);
     return { ok: true, session };
+  } catch (error: any) {
+    return { ok: false, error: error?.message || 'network', status: error?.status };
+  }
+}
+
+/**
+ * Restablece la contraseña con el código de respaldo. El código rota
+ * (un solo uso): la respuesta trae el nuevo para guardar.
+ */
+export async function recoverOnlineAccount(
+  username: string,
+  recoveryCode: string,
+  newPassword: string,
+): Promise<AuthResult> {
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) return { ok: false, error: 'Password length' };
+  if (!username.trim() || !recoveryCode.trim()) return { ok: false, error: 'Missing credentials' };
+  try {
+    const data = await request<{ recoveryCode?: string }>('/auth/recover', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: username.trim().toLowerCase(),
+        recoveryCode: recoveryCode.trim(),
+        newPassword,
+      }),
+    });
+    return { ok: true, recoveryCode: data.recoveryCode };
+  } catch (error: any) {
+    return { ok: false, error: error?.message || 'network', status: error?.status };
+  }
+}
+
+/** Genera un código nuevo (requiere sesión). Se muestra una sola vez. */
+export async function regenerateRecoveryCode(): Promise<AuthResult> {
+  try {
+    const data = await authedOnlineRequest<{ recoveryCode?: string }>('/auth/recovery-code', {
+      method: 'POST',
+    });
+    return { ok: true, recoveryCode: data.recoveryCode };
   } catch (error: any) {
     return { ok: false, error: error?.message || 'network', status: error?.status };
   }

@@ -22,6 +22,8 @@ import {
   getOnlineSession,
   loginOnlineAccount,
   logoutOnlineAccount,
+  recoverOnlineAccount,
+  regenerateRecoveryCode,
   registerOnlineAccount,
   restoreOnlineSession,
   subscribeOnlineSession,
@@ -45,6 +47,8 @@ function mapAuthError(t: (key: any, params?: any) => string, error?: string): st
     case 'Username already exists':
       return t('account.errorTaken');
     case 'Invalid username or password':
+      return t('account.errorInvalid');
+    case 'Invalid username or recovery code':
       return t('account.errorInvalid');
     case 'Password must contain between 8 and 128 characters':
     case 'Password length':
@@ -113,6 +117,17 @@ export default function OnlineAuthView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Paso post-registro: mostrar el código de respaldo una sola vez.
+  const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  // Formulario de recuperación dentro del modal de ayuda.
+  const [recUsername, setRecUsername] = useState('');
+  const [recCode, setRecCode] = useState('');
+  const [recNewPass, setRecNewPass] = useState('');
+  const [recBusy, setRecBusy] = useState(false);
+  const [recError, setRecError] = useState<string | null>(null);
+  const [recDoneCode, setRecDoneCode] = useState<string | null>(null);
+  const [helpMode, setHelpMode] = useState<'help' | 'recover'>('help');
+
   // Focus navigation state
   // 0: username input, 1: password input, 2: displayName (register only), 3: submit button,
   // 4: create/toggle button, 5: play offline button
@@ -126,6 +141,8 @@ export default function OnlineAuthView({
   const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [savingVisibility, setSavingVisibility] = useState(false);
+  const [shownRecoveryCode, setShownRecoveryCode] = useState<string | null>(null);
+  const [loadingRecoveryCode, setLoadingRecoveryCode] = useState(false);
 
   // Input refs
   const usernameInputRef = useRef<TextInput | null>(null);
@@ -310,7 +327,7 @@ export default function OnlineAuthView({
       }
 
       setSession(result.session);
-      syncProfileMediaToOnline(activeUser || {}).catch(() => { });
+      syncProfileMediaToOnline(activeUser || {}).catch(() => {});
       updateUser({
         settings: {
           ...activeUser?.settings,
@@ -321,6 +338,11 @@ export default function OnlineAuthView({
       setPassword('');
       soundService.playActivation?.();
       toastService.show(t('account.online'));
+      // Al registrar, mostrar el código de respaldo antes de continuar.
+      if (mode === 'register' && result.recoveryCode) {
+        setRecoveryCode(result.recoveryCode);
+        return;
+      }
       if (onSuccess) onSuccess();
     } finally {
       setBusy(false);
@@ -340,6 +362,34 @@ export default function OnlineAuthView({
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleRecover = async () => {
+    if (recBusy) return;
+    setRecBusy(true);
+    setRecError(null);
+    try {
+      const result = await recoverOnlineAccount(recUsername, recCode, recNewPass);
+      if (!result.ok) {
+        setRecError(mapAuthError(t, result.error));
+        soundService.playBack?.();
+        return;
+      }
+      // El código rota: mostrar el nuevo para guardar.
+      setRecDoneCode(result.recoveryCode || null);
+      setRecNewPass('');
+      soundService.playActivation?.();
+    } finally {
+      setRecBusy(false);
+    }
+  };
+
+  const openHelp = (helpModeValue: 'help' | 'recover') => {
+    setHelpMode(helpModeValue);
+    setRecError(null);
+    setRecDoneCode(null);
+    if (helpModeValue === 'recover' && !recUsername) setRecUsername(username);
+    setShowHelpModal(true);
   };
 
   const handleRefresh = async () => {
@@ -495,7 +545,45 @@ export default function OnlineAuthView({
                   <Ionicons name="log-out-outline" size={s(16)} color="#FF5252" style={{ marginRight: s(8) }} />
                   <Text style={[styles.btnDangerText, { fontSize: s(14) }]}>{t('account.logout')}</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btnSecondary, { paddingHorizontal: s(20), paddingVertical: s(10), borderRadius: s(20) }]}
+                  onPress={async () => {
+                    if (loadingRecoveryCode) return;
+                    setLoadingRecoveryCode(true);
+                    try {
+                      const result = await regenerateRecoveryCode();
+                      if (result.ok && result.recoveryCode) {
+                        setShownRecoveryCode(result.recoveryCode);
+                      } else {
+                        toastService.show(t('onlineLibrary.visibilityError'));
+                      }
+                    } finally {
+                      setLoadingRecoveryCode(false);
+                    }
+                  }}
+                  disabled={loadingRecoveryCode}
+                >
+                  <Ionicons name="key-outline" size={s(16)} color="#FFF" style={{ marginRight: s(8) }} />
+                  <Text style={[styles.btnSecondaryText, { fontSize: s(14) }]}>{t('account.showRecoveryCode')}</Text>
+                </TouchableOpacity>
               </View>
+
+              {shownRecoveryCode && (
+                <View style={[styles.codeDisplayBox, { paddingVertical: s(16), borderRadius: s(10), marginTop: s(20), alignItems: 'center' }]}>
+                  <Text style={[styles.codeDisplayText, { fontSize: s(26) }]} selectable>{shownRecoveryCode}</Text>
+                  <Text style={[styles.modalDesc, { fontSize: s(12), marginTop: s(8), textAlign: 'center' }]}>
+                    {t('account.recoveryDesc')}
+                  </Text>
+                  <TouchableOpacity
+                    style={{ marginTop: s(8) }}
+                    onPress={() => setShownRecoveryCode(null)}
+                  >
+                    <Text style={[styles.modalActionButtonText, { fontSize: s(13) }]}>
+                      {t('account.hideCode')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* SINCRONIZACION DE BIBLIOTECA */}
               <View style={[styles.libraryBox, { marginTop: s(24), padding: s(20), borderRadius: s(10) }]}>
@@ -555,7 +643,37 @@ export default function OnlineAuthView({
         )}
 
         {/* CASO: LOGIN / REGISTRO MANUAL CON EL DISENO PS5 EXACTO */}
-        {!isLinked && !validating && (
+        {!isLinked && !validating && recoveryCode && (
+          <View style={[styles.authMainContainer, { marginTop: s(28), alignItems: 'center' }]}>
+            <View style={[styles.modalCard, { width: s(560), padding: s(36), borderRadius: s(16), alignItems: 'center' }]}>
+              <Ionicons name="shield-checkmark-outline" size={s(48)} color="#4CAF50" style={{ marginBottom: s(16) }} />
+              <Text style={[styles.modalTitle, { fontSize: s(24), marginBottom: s(12), textAlign: 'center' }]}>
+                {t('account.recoveryTitle')}
+              </Text>
+              <Text style={[styles.modalDesc, { fontSize: s(15), lineHeight: s(24), marginBottom: s(24), textAlign: 'center' }]}>
+                {t('account.recoveryDesc')}
+              </Text>
+              <View style={[styles.codeDisplayBox, { paddingVertical: s(18), borderRadius: s(10), marginBottom: s(28), alignSelf: 'stretch', alignItems: 'center' }]}>
+                <Text style={[styles.codeDisplayText, { fontSize: s(32) }]} selectable>{recoveryCode}</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.modalActionButton, { height: s(48), borderRadius: s(24), alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' }]}
+                onPress={() => {
+                  soundService.playActivation?.();
+                  setRecoveryCode(null);
+                  if (onSuccess) onSuccess();
+                }}
+              >
+                <Text style={[styles.modalActionButtonText, { fontSize: s(15) }]}>
+                  {t('account.recoverySaved')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* CASO: LOGIN / REGISTRO MANUAL CON EL DISENO PS5 EXACTO */}
+        {!isLinked && !validating && !recoveryCode && (
           <View style={[styles.authMainContainer, { marginTop: s(28) }]}>
             {/* DOS COLUMNAS */}
             <View style={[styles.twoColumns, { gap: s(64) }]}>
@@ -760,7 +878,7 @@ export default function OnlineAuthView({
                 style={[styles.helpTrigger, { gap: s(8) }]}
                 onPress={() => {
                   soundService.playActivation?.();
-                  setShowHelpModal(true);
+                  openHelp('help');
                 }}
                 activeOpacity={0.8}
               >
@@ -778,6 +896,116 @@ export default function OnlineAuthView({
       <Modal visible={showHelpModal} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { width: s(520), padding: s(32), borderRadius: s(16) }]}>
+            {helpMode === 'recover' ? (
+              recDoneCode ? (
+              <>
+                <View style={{ alignItems: 'center' }}>
+                  <Ionicons name="checkmark-circle" size={s(48)} color="#4CAF50" style={{ marginBottom: s(14) }} />
+                </View>
+                <Text style={[styles.modalTitle, { fontSize: s(22), marginBottom: s(8), textAlign: 'center' }]}>
+                  {t('account.recoverSuccessTitle')}
+                </Text>
+                <Text style={[styles.modalDesc, { fontSize: s(14), lineHeight: s(22), marginBottom: s(18), textAlign: 'center' }]}>
+                  {t('account.recoverSuccessDesc')}
+                </Text>
+                <View style={[styles.codeDisplayBox, { paddingVertical: s(14), borderRadius: s(10), marginBottom: s(20), alignItems: 'center' }]}>
+                  <Text style={[styles.codeDisplayText, { fontSize: s(24) }]} selectable>{recDoneCode}</Text>
+                  <Text style={[styles.modalDesc, { fontSize: s(12), marginTop: s(8), textAlign: 'center' }]}>
+                    {t('account.recoveryRotated')}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.modalActionButton, { height: s(46), borderRadius: s(23) }]}
+                  onPress={() => {
+                    soundService.playActivation?.();
+                    setUsername(recUsername);
+                    setPassword('');
+                    setMode('login');
+                    setRecUsername('');
+                    setRecCode('');
+                    setRecNewPass('');
+                    setRecError(null);
+                    setRecDoneCode(null);
+                    setHelpMode('help');
+                    setShowHelpModal(false);
+                  }}
+                >
+                  <Text style={[styles.modalActionButtonText, { fontSize: s(15) }]}>
+                    {t('account.recoverDoneButton')}
+                  </Text>
+                </TouchableOpacity>
+              </>
+              ) : (
+              <>
+                <Text style={[styles.modalTitle, { fontSize: s(22), marginBottom: s(8) }]}>
+                  {t('account.recoverTitle')}
+                </Text>
+                <Text style={[styles.modalDesc, { fontSize: s(14), lineHeight: s(22), marginBottom: s(18) }]}>
+                  {t('account.recoverDesc')}
+                </Text>
+
+                <Text style={[styles.fieldLabel, { fontSize: s(13), marginBottom: s(6) }]}>
+                  {t('account.username')}
+                </Text>
+                <TextInput
+                  style={[styles.inputField, webInputStyle, { height: s(46), borderRadius: s(6), paddingHorizontal: s(14), fontSize: s(14), marginBottom: s(12) }]}
+                  value={recUsername}
+                  onChangeText={(v) => setRecUsername(v.toLowerCase().replace(/\s+/g, ''))}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <Text style={[styles.fieldLabel, { fontSize: s(13), marginBottom: s(6) }]}>
+                  {t('account.recoveryCodeLabel')}
+                </Text>
+                <TextInput
+                  style={[styles.inputField, webInputStyle, { height: s(46), borderRadius: s(6), paddingHorizontal: s(14), fontSize: s(14), marginBottom: s(12) }]}
+                  value={recCode}
+                  onChangeText={(v) => setRecCode(v.toUpperCase().replace(/\s+/g, ''))}
+                  placeholder="WPS5-XXXX-XXXX"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+                <Text style={[styles.fieldLabel, { fontSize: s(13), marginBottom: s(6) }]}>
+                  {t('account.newPassword')}
+                </Text>
+                <TextInput
+                  style={[styles.inputField, webInputStyle, { height: s(46), borderRadius: s(6), paddingHorizontal: s(14), fontSize: s(14), marginBottom: s(12) }]}
+                  value={recNewPass}
+                  onChangeText={setRecNewPass}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                {recError ? (
+                  <Text style={{ color: '#FF5252', fontSize: s(13), marginBottom: s(12) }}>{recError}</Text>
+                ) : null}
+
+                <TouchableOpacity
+                  style={[styles.modalActionButton, { height: s(46), borderRadius: s(23), marginBottom: s(10) }]}
+                  onPress={handleRecover}
+                  disabled={recBusy}
+                >
+                  <Text style={[styles.modalActionButtonText, { fontSize: s(15) }]}>
+                    {recBusy ? '...' : t('account.recoverButton')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalActionButton, { height: s(46), borderRadius: s(23) }]}
+                  onPress={() => {
+                    setHelpMode('help');
+                    setRecError(null);
+                    setRecDoneCode(null);
+                  }}
+                >
+                  <Text style={[styles.modalActionButtonText, { fontSize: s(15) }]}>
+                    {t('account.back')}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )) : (
+              <>
             <View style={[styles.helpIconCircle, { width: s(54), height: s(54), borderRadius: s(27), marginBottom: s(18) }]}>
               <PSIcon char={PSIcons.triangle} size={s(26)} color="#FFFFFF" />
             </View>
@@ -789,6 +1017,14 @@ export default function OnlineAuthView({
             </Text>
 
             <TouchableOpacity
+              style={[styles.modalActionButton, { height: s(46), borderRadius: s(23), marginBottom: s(10) }]}
+              onPress={() => openHelp('recover')}
+            >
+              <Text style={[styles.modalActionButtonText, { fontSize: s(15) }]}>
+                {t('account.useRecoveryCode')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.modalActionButton, { height: s(46), borderRadius: s(23) }]}
               onPress={() => setShowHelpModal(false)}
             >
@@ -796,6 +1032,8 @@ export default function OnlineAuthView({
                 {t('account.understood')}
               </Text>
             </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>
