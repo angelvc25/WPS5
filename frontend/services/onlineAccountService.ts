@@ -327,8 +327,14 @@ export interface LocalProfileMedia {
 export async function syncProfileMediaToOnline(local: LocalProfileMedia): Promise<boolean> {
   const session = getOnlineSession();
   if (!session) return false;
-  const avatar = httpMediaUrl(local.avatar)
-    || (local.useSteamAvatar ? httpMediaUrl(local.steamAvatarUrl) : null);
+  const settings = (local as any)?.settings ?? {};
+  // El flag y la URL de Steam viven en settings (también se aceptan a nivel
+  // superior por compatibilidad). Si Steam está activado, manda sobre el
+  // avatar local, igual que al mostrarlo en la app.
+  const useSteamAvatar = (local as any)?.useSteamAvatar ?? settings?.useSteamAvatar;
+  const steamAvatarUrl = (local as any)?.steamAvatarUrl ?? settings?.steamAvatarUrl;
+  const avatar = (useSteamAvatar ? httpMediaUrl(steamAvatarUrl) : null)
+    || httpMediaUrl(local.avatar);
   const cover = httpMediaUrl(local.coverImage);
   const rawSteamId = (local as any)?.settings?.steamId;
   const steamId = typeof rawSteamId === 'string' && /^\d{17}$/.test(rawSteamId.trim())
