@@ -18,6 +18,7 @@ import { UserContext } from '@/contexts/UserContext';
 import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
 import { isLanguage } from '@/i18n/translations';
 import { openWebLink } from '@/services/linkService';
+import { setCurrentOnlineProfileId } from '@/services/onlineAccountService';
 import ToastHost from '@/components/ToastHost';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import OverlayScreen from './overlay';
@@ -167,6 +168,15 @@ function RootLayoutInner() {
     };
   }, []);
 
+  // La sesión online es por perfil local: al cambiar de perfil se conmuta
+  // a su propia sesión (cada uno puede estar logueado con su cuenta).
+  useEffect(() => {
+    setCurrentOnlineProfileId(
+      activeUser?.id ?? null,
+      (activeUser?.settings as any)?.onlineUserId ?? null,
+    );
+  }, [activeUser?.id, (activeUser?.settings as any)?.onlineUserId]);
+
   // Animación de Entrada (solo para la app principal, no para el overlay).
   //
   // - Sin video de boot (o si falló): mantenemos el timing fijo de siempre.
@@ -225,6 +235,9 @@ function RootLayoutInner() {
         }} />
 
         <UserSelectScreen onUserSelected={(user) => {
+          // Fijar el ámbito online ANTES de montar la app del perfil para que
+          // nunca herede la sesión de otro perfil.
+          setCurrentOnlineProfileId(user.id, (user.settings as any)?.onlineUserId ?? null);
           setActiveUser(user);
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
             localStorage.setItem(LAST_USER_STORAGE_KEY, user.id);

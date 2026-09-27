@@ -20,12 +20,14 @@ import { PSIcons } from '@/constants/psIcons';
 import {
   fetchOnlineMe,
   getOnlineSession,
+  isOnlineProfileScopeReady,
   loginOnlineAccount,
   logoutOnlineAccount,
   recoverOnlineAccount,
   regenerateRecoveryCode,
   registerOnlineAccount,
   restoreOnlineSession,
+  subscribeOnlineProfileScope,
   subscribeOnlineSession,
   syncProfileMediaToOnline,
   updateOnlineProfile,
@@ -149,12 +151,19 @@ export default function OnlineAuthView({
   const passwordInputRef = useRef<TextInput | null>(null);
   const displayNameInputRef = useRef<TextInput | null>(null);
 
-  // Listen to session changes
+  // Listen to session changes (también al conmutar de perfil local)
+  const [scopeTick, setScopeTick] = useState(0);
   useEffect(() => subscribeOnlineSession(setSession), []);
+  useEffect(() => subscribeOnlineProfileScope(() => setScopeTick((v) => v + 1)), []);
 
-  // Validate saved session
+  // Validate saved session (espera al ámbito por perfil para no heredar ni
+  // renombrar con la sesión de otro perfil)
   useEffect(() => {
     let cancelled = false;
+    if (!isOnlineProfileScopeReady()) {
+      setValidating(false);
+      return () => { cancelled = true; };
+    }
     setValidating(true);
     restoreOnlineSession()
       .then((restored) => {
@@ -193,7 +202,7 @@ export default function OnlineAuthView({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [scopeTick]);
 
   const linkedUserId = (activeUser?.settings as any)?.onlineUserId || '';
   const isLinked = !!linkedUserId && !!session && session.user.id === linkedUserId;

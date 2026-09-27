@@ -47,9 +47,49 @@ export interface AuthResult {
 type SessionListener = (session: OnlineSession | null) => void;
 
 const listeners = new Set<SessionListener>();
+const scopeListeners = new Set<() => void>();
 let memorySession: OnlineSession | null | undefined;
 
-function readStoredSession(): OnlineSession | null {
+/**
+ * Sesiones por perfil local: cada perfil de la consola tiene su propia
+ * sesión online (`wps5_online_sessions_v1`), en vez de una sola global que
+ * se heredaba al cambiar de perfil. La clave anterior se conserva solo como
+ * legado para migrar una vez (nunca se hereda entre perfiles).
+ */
+const SESSIONS_KEY = 'wps5_online_sessions_v1';
+let currentProfileId: string | null = null;
+let memorySessions: Record<string, OnlineSession> | undefined;
+
+function isValidSession(s: any): s is OnlineSession {
+  return !!s && typeof s?.token === 'string' && !!s?.user;
+}
+
+function readSessionMap(): Record<string, OnlineSession> {
+  if (memorySessions !== undefined) return memorySessions;
+  let parsed: Record<string, OnlineSession> = {};
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(SESSIONS_KEY) : null;
+    const json = raw ? JSON.parse(raw) : {};
+    if (json && typeof json === 'object') parsed = json;
+  } catch {
+    /* almacenamiento no disponible */
+  }
+  memorySessions = parsed;
+  return parsed;
+}
+
+function persistSessionMap() {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const keys = memorySessions ? Object.keys(memorySessions) : [];
+    if (keys.length > 0) localStorage.setItem(SESSIONS_KEY, JSON.stringify(memorySessions));
+    else localStorage.removeItem(SESSIONS_KEY);
+  } catch {
+    /* almacenamiento no disponible */
+  }
+}
+
+function readLegacySession(): OnlineSession | null {
   if (memorySession !== undefined) return memorySession;
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(SESSION_KEY) : null;
@@ -58,7 +98,7 @@ function readStoredSession(): OnlineSession | null {
       return null;
     }
     const parsed = JSON.parse(raw) as OnlineSession;
-    if (!parsed?.token || !parsed?.user) {
+    if (!isValidSession(parsed)) {
       memorySession = null;
       return null;
     }
@@ -70,15 +110,16 @@ function readStoredSession(): OnlineSession | null {
   }
 }
 
-function writeStoredSession(session: OnlineSession | null) {
-  memorySession = session;
+function removeLegacySession() {
+  memorySession = null;
   try {
-    if (typeof localStorage === 'undefined') return;
-    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else localStorage.removeItem(SESSION_KEY);
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(SESSION_KEY);
   } catch {
-    /* almacenamiento no disponible */
+    /* noop */
   }
+}
+
+function emitSession(session: OnlineSession | null) {
   listeners.forEach((fn) => {
     try {
       fn(session);
@@ -88,10 +129,78 @@ function writeStoredSession(session: OnlineSession | null) {
   });
 }
 
+/**
+ * Fija el perfil local activo. Emite su sesión a los suscriptores.
+ * Si se indica la cuenta vinculada y no hay sesión para este perfil, se
+ * adopta la sesión legada SOLO si coincide con esa cuenta.
+ */
+export function setCurrentOnlineProfileId(profileId: string | null, linkedOnlineUserId?: string | null) {
+  currentProfileId = profileId;
+  if (profileId && linkedOnlineUserId) {
+    const map = readSessionMap();
+    if (!map[profileId]) {
+      const legacy = readLegacySession();
+      if (legacy && legacy.user.id === linkedOnlineUserId) {
+        map[profileId] = legacy;
+        persistSessionMap();
+        removeLegacySession();
+      }
+    }
+  }
+  emitSession(profileId ? (readSessionMap()[profileId] || null) : null);
+  scopeListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+      /* noop */
+    }
+  });
+}
+
+/** ¿Ya se fijó el perfil activo? (las pantallas esperan a esto al arrancar). */
+export function isOnlineProfileScopeReady(): boolean {
+  return currentProfileId !== null;
+}
+
+function readStoredSession(): OnlineSession | null {
+  if (currentProfileId) {
+    const s = readSessionMap()[currentProfileId] || null;
+    return isValidSession(s) ? s : null;
+  }
+  return readLegacySession();
+}
+
+function writeStoredSession(session: OnlineSession | null) {
+  if (currentProfileId) {
+    const map = readSessionMap();
+    if (session) map[currentProfileId] = session;
+    else delete map[currentProfileId];
+    persistSessionMap();
+  } else {
+    memorySession = session;
+    try {
+      if (typeof localStorage === 'undefined') return;
+      if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* almacenamiento no disponible */
+    }
+  }
+  emitSession(session);
+}
+
 export function subscribeOnlineSession(fn: SessionListener): () => void {
   listeners.add(fn);
   return () => {
     listeners.delete(fn);
+  };
+}
+
+/** Avisa solo cuando cambia el perfil activo (no en cada escritura de sesión). */
+export function subscribeOnlineProfileScope(fn: () => void): () => void {
+  scopeListeners.add(fn);
+  return () => {
+    scopeListeners.delete(fn);
   };
 }
 
