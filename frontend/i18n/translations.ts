@@ -821,6 +821,8 @@ const es = {
 
   'friends.title': 'Amigos',
   'friends.myFriends': 'Mis amigos',
+  'friends.sourceSteam': 'Steam',
+  'friends.sourceWps5': 'WPS5',
   'friends.searchPlayers': 'Buscar jugadores',
   'friends.messages': 'Mensajes',
   'friends.comingSoon': 'Próximamente',
@@ -1745,6 +1747,8 @@ const en: Record<TranslationKey, string> = {
   'cc.typeGame': 'Game',
   'friends.title': 'Friends',
   'friends.myFriends': 'My friends',
+  'friends.sourceSteam': 'Steam',
+  'friends.sourceWps5': 'WPS5',
   'friends.searchPlayers': 'Search players',
   'friends.messages': 'Messages',
   'friends.comingSoon': 'Coming soon',
@@ -2667,6 +2671,8 @@ const pt: Record<TranslationKey, string> = {
 
   'friends.title': 'Amigos',
   'friends.myFriends': 'Meus amigos',
+  'friends.sourceSteam': 'Steam',
+  'friends.sourceWps5': 'WPS5',
   'friends.searchPlayers': 'Buscar jogadores',
   'friends.messages': 'Mensagens',
   'friends.comingSoon': 'Em breve',

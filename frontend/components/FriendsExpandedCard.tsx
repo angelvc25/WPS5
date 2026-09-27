@@ -25,6 +25,9 @@ import Animated, {
 import { useUser } from '@/contexts/UserContext';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { fetchSteamFriends, SteamFriend } from '@/services/steamFriendsService';
+import { fetchOnlineFriends, type FriendItem } from '@/services/onlineFriendsService';
+import { getOnlineSession, type OnlineUser } from '@/services/onlineAccountService';
+import { OnlineUserFullProfile } from './OnlineUserFullProfile';
 import { openWebLink } from '@/services/linkService';
 import { toastService } from '@/services/toastService';
 import { buildSteamRunUrl } from '@/services/steamLaunchService';
@@ -53,6 +56,29 @@ function isOnline(friend: SteamFriend) {
   return !!friend.gameextrainfo || friend.personastate > 0;
 }
 
+// Amigos WPS5: en línea si vio actividad hace menos de 5 min (el worker no
+// rastrea a qué se juega; si el amigo vinculó Steam se usa su presencia).
+const WPS5_ONLINE_MS = 5 * 60 * 1000;
+function isWps5Online(user: OnlineUser) {
+  if (!user.lastSeenAt) return false;
+  const ms = Date.parse(user.lastSeenAt);
+  return Number.isFinite(ms) && Date.now() - ms < WPS5_ONLINE_MS;
+}
+function formatWps5LastSeen(t: (k: any, p?: any) => string, iso: string | null): string | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const absSec = Math.abs(Math.round((ms - Date.now()) / 1000));
+  if (absSec < 60) return t('common.justNow');
+  if (absSec < 3600) return `${Math.floor(absSec / 60)} ${t('common.minutesAgo')}`;
+  if (absSec < 86400) return `${Math.floor(absSec / 3600)} ${t('common.hoursAgo')}`;
+  return `${Math.floor(absSec / 86400)} ${t('common.daysAgo')}`;
+}
+function getWps5StatusText(user: OnlineUser, t: (k: any, p?: any) => string) {
+  if (isWps5Online(user)) return t('widgets.online');
+  return formatWps5LastSeen(t, user.lastSeenAt) || t('widgets.disconnected');
+}
+
 export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpandedCardProps) {
   const { t } = useTranslation();
   const { activeUser } = useUser();
@@ -69,7 +95,12 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'friends' | 'messages'>('friends');
+  const [sourceTab, setSourceTab] = useState<'steam' | 'wps5'>('steam');
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [wps5Friends, setWps5Friends] = useState<FriendItem[]>([]);
+  const [loadingWps5, setLoadingWps5] = useState(false);
+  const [hasOnlineSession, setHasOnlineSession] = useState(false);
+  const [wps5ProfileUsername, setWps5ProfileUsername] = useState<string | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
   const searchInputRef = useRef<TextInput>(null);
@@ -127,6 +158,25 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
     return () => { cancelled = true; clearInterval(interval); };
   }, [steamId, isOpen]);
 
+  // fetch amigos WPS5 (worker) – solo con sesión online
+  useEffect(() => {
+    if (!isOpen) return;
+    const session = getOnlineSession();
+    setHasOnlineSession(!!session);
+    if (!session) { setWps5Friends([]); return; }
+    let cancelled = false;
+    const load = (showLoading: boolean) => {
+      if (showLoading) setLoadingWps5(true);
+      fetchOnlineFriends()
+        .then((data) => { if (!cancelled) setWps5Friends(data); })
+        .catch(() => { if (!cancelled) setWps5Friends([]); })
+        .finally(() => { if (!cancelled && showLoading) setLoadingWps5(false); });
+    };
+    load(true);
+    const interval = setInterval(() => load(false), 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [isOpen]);
+
   // filtro búsqueda
   const filteredFriends = useMemo(() => {
     if (!searchQuery.trim()) return friends;
@@ -136,10 +186,45 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
 
   const onlineCount = useMemo(() => friends.filter(isOnline).length, [friends]);
 
+  // Matcheo Steam <-> WPS5 por SteamID64 (el worker guarda el steamId de cada usuario).
+  const steamById = useMemo(() => {
+    const m = new Map<string, SteamFriend>();
+    for (const f of friends) m.set(f.steamid, f);
+    return m;
+  }, [friends]);
+  const wps5BySteamId = useMemo(() => {
+    const m = new Map<string, FriendItem>();
+    for (const f of wps5Friends) {
+      const sid = f.user.steamId;
+      if (sid && /^\d{17}$/.test(sid)) m.set(sid, f);
+    }
+    return m;
+  }, [wps5Friends]);
+
+  const filteredWps5 = useMemo(() => {
+    const list = [...wps5Friends].sort((a, b) => Number(isWps5Online(b.user)) - Number(isWps5Online(a.user)));
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((f) => f.user.displayName.toLowerCase().includes(q) || f.user.username.toLowerCase().includes(q));
+  }, [wps5Friends, searchQuery]);
+  const wps5OnlineCount = useMemo(() => wps5Friends.filter((f) => isWps5Online(f.user)).length, [wps5Friends]);
+
+  interface DisplayRow {
+    key: string;
+    kind: 'steam' | 'wps5';
+    steam?: SteamFriend;
+    wps5?: FriendItem;
+  }
+  const displayedRows: DisplayRow[] = useMemo(() => (
+    sourceTab === 'steam'
+      ? filteredFriends.map((f) => ({ key: `steam:${f.steamid}`, kind: 'steam' as const, steam: f }))
+      : filteredWps5.map((f) => ({ key: `wps5:${f.friendshipId}`, kind: 'wps5' as const, wps5: f }))
+  ), [sourceTab, filteredFriends, filteredWps5]);
+
   useEffect(() => {
-    // clamp foco cuando cambia filtro
-    if (focusedIndex > Math.max(0, filteredFriends.length - 1)) setFocusedIndex(0);
-  }, [filteredFriends.length, focusedIndex]);
+    // clamp foco cuando cambia filtro o pestaña
+    if (focusedIndex > Math.max(0, displayedRows.length - 1)) setFocusedIndex(0);
+  }, [displayedRows.length, focusedIndex, sourceTab]);
 
   // auto-scroll al amigo enfocado
   useEffect(() => {
@@ -166,20 +251,42 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
         soundService.playNavigation();
       } else if (e.key === 'Enter' || e.key === 'x' || e.key === 'X') {
         e.preventDefault(); e.stopPropagation();
-        const friend = filteredFriends[focusedIndex];
-        if (friend) {
+        const row = displayedRows[focusedIndex];
+        if (row) {
           soundService.playActivation?.();
-          handleFriendAction(friend);
-        } else if (filteredFriends.length === 0 && searchQuery) {
-          // sin resultados – nada
+          handleDisplayRowAction(row);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, filteredFriends, focusedIndex, searchQuery, onClose]);
+  }, [isOpen, displayedRows, focusedIndex, searchQuery, onClose]);
 
-  const handleFriendAction = async (friend: SteamFriend | null) => {
+  const openWps5Profile = (username: string) => {
+    soundService.playActivation?.();
+    setWps5ProfileUsername(username);
+  };
+
+  const handleDisplayRowAction = async (row: DisplayRow) => {
+    if (row.kind === 'wps5' && row.wps5) {
+      openWps5Profile(row.wps5.user.username);
+      return;
+    }
+    const friend = row.steam;
+    if (!friend) {
+      await handleSteamFriendAction(null);
+      return;
+    }
+    // Amigo matcheado: abrir su perfil WPS5 en vez de la página de Steam.
+    const match = wps5BySteamId.get(friend.steamid);
+    if (match) {
+      openWps5Profile(match.user.username);
+      return;
+    }
+    await handleSteamFriendAction(friend);
+  };
+
+  const handleSteamFriendAction = async (friend: SteamFriend | null) => {
     if (!friend) {
       const ok = await openWebLink('steam://friends/status');
       if (!ok) toastService.show('No se pudo abrir Steam. ¿Está instalado y con sesión iniciada?', { source: 'steam' });
@@ -202,6 +309,7 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
       // si hay texto, ya filtra localmente; Enter sobre lista ya maneja
       return;
     }
+    if (sourceTab !== 'steam') return;
     const ok = await openWebLink('steam://friends/status');
     if (!ok) toastService.show('No se pudo abrir Steam.', { source: 'steam' });
   };
@@ -273,6 +381,22 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
 
             {/* Barra Buscar jugadores */}
             {activeTab === 'friends' && (
+              <View style={styles.sourceRow}>
+                {(['steam', 'wps5'] as const).map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    activeOpacity={0.8}
+                    onPress={() => { setSourceTab(s); setFocusedIndex(0); soundService.playNavigation(); }}
+                    style={[styles.sourcePill, sourceTab === s && styles.sourcePillActive]}
+                  >
+                    <Text style={[styles.sourcePillText, sourceTab === s && styles.sourcePillTextActive]}>
+                      {s === 'steam' ? t('friends.sourceSteam') : t('friends.sourceWps5')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {activeTab === 'friends' && (
               <View style={styles.searchRow}>
                 <Pressable
                   style={styles.searchPill}
@@ -302,6 +426,99 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
                   <Ionicons name="chatbubbles-outline" size={36} color="rgba(255,255,255,0.18)" />
                   <Text style={styles.emptyText}>Menssages soon</Text>
                 </View>
+              ) : sourceTab === 'wps5' ? (
+                !hasOnlineSession ? (
+                  <View style={styles.emptyWrap}>
+                    <Ionicons name="cloud-outline" size={36} color="rgba(255,255,255,0.18)" />
+                    <Text style={styles.emptyText}>{t('friends.needAccount')}</Text>
+                    <Text style={[styles.emptyText, { fontSize: 12 }]}>{t('friends.needAccountHint')}</Text>
+                  </View>
+                ) : loadingWps5 && wps5Friends.length === 0 ? (
+                  <View style={styles.emptyWrap}>
+                    <Text style={styles.emptyText}>{t('widgets.loadingFriends')}</Text>
+                  </View>
+                ) : displayedRows.length === 0 ? (
+                  <View style={styles.emptyWrap}>
+                    <Text style={styles.emptyText}>
+                      {searchQuery ? 'No results found for "' + searchQuery + '"' : t('friends.empty')}
+                    </Text>
+                    {wps5OnlineCount > 0 && !searchQuery && (
+                      <Text style={styles.emptySub}>{wps5OnlineCount} Online</Text>
+                    )}
+                  </View>
+                ) : (
+                  <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ paddingBottom: 8 }}
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                  >
+                    {displayedRows.map((row, idx) => {
+                      const friend = row.wps5!;
+                      const isFocused = idx === focusedIndex;
+                      const linked = friend.user.steamId ? steamById.get(friend.user.steamId) : undefined;
+                      const playing = linked?.gameextrainfo;
+                      const online = isWps5Online(friend.user) || !!playing;
+                      const statusText = playing
+                        ? t('widgets.playing', { game: playing } as any)
+                        : getWps5StatusText(friend.user, t as any);
+                      const statusColor = playing ? '#4CD964' : online ? '#007AFF' : 'rgba(255,255,255,0.22)';
+                      return (
+                        <TouchableOpacity
+                          key={row.key}
+                          activeOpacity={0.85}
+                          onPress={() => {
+                            setFocusedIndex(idx);
+                            openWps5Profile(friend.user.username);
+                          }}
+                          style={[styles.friendRow, isFocused && styles.friendRowFocused]}
+                        >
+                          <View style={styles.avatarWrap}>
+                            {friend.user.avatarUrl && /^https?:\/\//i.test(friend.user.avatarUrl) ? (
+                              <Image
+                                source={{ uri: friend.user.avatarUrl }}
+                                style={styles.avatar}
+                                contentFit="cover"
+                                transition={200}
+                              />
+                            ) : (
+                              <View style={[styles.avatar, { alignItems: 'center', justifyContent: 'center' }]}>
+                                <Text style={{ color: '#fff', fontSize: 16 }}>
+                                  {(friend.user.displayName || friend.user.username).slice(0, 1).toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                            <View style={[styles.statusDot, { backgroundColor: statusColor, borderColor: isFocused ? 'rgba(255,255,255,0.9)' : '#2a2a2e' }]} />
+                          </View>
+                          <View style={styles.friendMeta}>
+                            <Text style={[styles.friendName, !online && styles.friendNameOffline]} numberOfLines={1}>
+                              {friend.user.displayName}
+                            </Text>
+                            <Text style={[styles.friendStatus, online ? styles.friendStatusOnline : styles.friendStatusOffline]} numberOfLines={1}>
+                              @{friend.user.username} · {statusText}
+                            </Text>
+                          </View>
+                          {linked && (
+                            <View style={styles.wps5SteamBadge}>
+                              <Ionicons name="logo-steam" size={12} color="rgba(255,255,255,0.7)" />
+                            </View>
+                          )}
+                          <Ionicons name="chevron-forward" size={14} color={isFocused ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.22)'} />
+                          {isFocused && (
+                            <SpinningborderDiscover
+                              {...({
+                                width: '100%',
+                                height: '100%',
+                                borderRadius: 12,
+                                id: `wps5-${idx}`,
+                              } as any)}
+                            />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )
               ) : !steamId ? (
                 <View style={styles.emptyWrap}>
                   <Ionicons name="people-outline" size={36} color="rgba(255,255,255,0.18)" />
@@ -333,14 +550,18 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
                     const statusText = getFriendStatusText(friend, t as any);
                     const statusColor = getStatusColor(friend);
                     const online = isOnline(friend);
+                    const wps5Match = wps5BySteamId.get(friend.steamid);
                     return (
                       <TouchableOpacity
                         key={friend.steamid}
                         activeOpacity={0.85}
                         onPress={() => {
                           setFocusedIndex(idx);
-                          soundService.playActivation?.();
-                          handleFriendAction(friend);
+                          if (wps5Match) openWps5Profile(wps5Match.user.username);
+                          else {
+                            soundService.playActivation?.();
+                            handleSteamFriendAction(friend);
+                          }
                         }}
                         style={[styles.friendRow, isFocused && styles.friendRowFocused]}
                       >
@@ -363,6 +584,11 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
                           </Text>
                         </View>
                         {/* chevron / acción */}
+                        {wps5Match && (
+                          <View style={styles.wps5Badge}>
+                            <Text style={styles.wps5BadgeText}>WPS5</Text>
+                          </View>
+                        )}
                         <Ionicons name="chevron-forward" size={14} color={isFocused ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.22)'} />
                         {isFocused && (
                           <SpinningborderDiscover
@@ -401,7 +627,7 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
                 />
                 <Text style={styles.hintText}>{t('common.back')}</Text>
               </View>
-              {filteredFriends.length > 1 && (
+              {displayedRows.length > 1 && (
                 <View style={styles.hintItem}>
                   <PSIcon
                     char={PSIcons.dpadUp}
@@ -434,6 +660,13 @@ export default function FriendsExpandedCard({ isOpen, onClose }: FriendsExpanded
             background: 'radial-gradient(600px 400px at 70% 20%, rgba(255,255,255,0.04), transparent 60%)',
             zIndex: 1,
           }}
+        />
+      )}
+      {/* Perfil online WPS5 del amigo seleccionado */}
+      {wps5ProfileUsername && (
+        <OnlineUserFullProfile
+          username={wps5ProfileUsername}
+          onClose={() => setWps5ProfileUsername(null)}
         />
       )}
     </View>
@@ -523,6 +756,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     marginBottom: 14,
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  sourcePill: {
+    flex: 1,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  sourcePillActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  sourcePillText: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 13,
+    fontFamily: 'SSTMedium',
+  },
+  sourcePillTextActive: {
+    color: '#fff',
+  },
+  wps5Badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'rgba(76,217,100,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(76,217,100,0.45)',
+  },
+  wps5BadgeText: {
+    color: '#8ef0a0',
+    fontSize: 9,
+    fontFamily: 'SSTBold',
+  },
+  wps5SteamBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchPill: {
     flex: 1,

@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { toastService } from '../services/toastService';
-import { getOnlineSession, updateOnlineProfile } from '../services/onlineAccountService';
+import { getOnlineSession, syncProfileMediaToOnline, updateOnlineProfile } from '../services/onlineAccountService';
 import { fetchSteamGridAssets } from '../services/steamGridService';
 import type { SteamGridAsset } from '../services/steamGridService';
 import { formatPlaytime } from '../services/playtimeService';
@@ -837,6 +837,8 @@ export default function SettingsView({
       const res = await (window as any).electronAPI.steamLogin();
       if (res.success && res.steamId) {
         updateUser({ settings: { ...activeUser?.settings, steamId: res.steamId } as any });
+        // Sube el SteamID64 al perfil online para matchear amigos.
+        syncProfileMediaToOnline({ ...activeUser, settings: { ...activeUser?.settings, steamId: res.steamId } } as any).catch(() => {});
       } else if (res.error && res.error !== 'Ventana de inicio de sesión cerrada') {
         toastService.show(t('settings.steamLoginError', { error: res.error }));
       }

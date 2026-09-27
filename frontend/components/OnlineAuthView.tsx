@@ -179,6 +179,8 @@ export default function OnlineAuthView({
             patch.about = restored.user.bio;
           }
           if (Object.keys(patch).length > 0) updateUser(patch);
+          // Sube avatar/portada/Steam vinculados si cambiaron en local.
+          syncProfileMediaToOnline(activeUser || {}).catch(() => {});
         } else if (linkedId) {
           updateUser({
             settings: { ...activeUser?.settings, onlineUserId: '', onlineUsername: '' } as any,

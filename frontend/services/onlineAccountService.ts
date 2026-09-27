@@ -21,6 +21,8 @@ export interface OnlineUser {
   avatarUrl: string | null;
   coverUrl: string | null;
   bio: string | null;
+  /** SteamID64 vinculado (para matchear con amigos de Steam). */
+  steamId: string | null;
   libraryVisibility: string;
   createdAt: string | null;
   lastSeenAt: string | null;
@@ -289,6 +291,7 @@ export interface OnlineProfileUpdate {
   bio?: string;
   avatarUrl?: string | null;
   coverUrl?: string | null;
+  steamId?: string | null;
   libraryVisibility?: 'public' | 'friends' | 'private';
 }
 
@@ -327,9 +330,15 @@ export async function syncProfileMediaToOnline(local: LocalProfileMedia): Promis
   const avatar = httpMediaUrl(local.avatar)
     || (local.useSteamAvatar ? httpMediaUrl(local.steamAvatarUrl) : null);
   const cover = httpMediaUrl(local.coverImage);
+  const rawSteamId = (local as any)?.settings?.steamId;
+  const steamId = typeof rawSteamId === 'string' && /^\d{17}$/.test(rawSteamId.trim())
+    ? rawSteamId.trim()
+    : null;
   const input: OnlineProfileUpdate = {};
   if (avatar && avatar !== session.user.avatarUrl) input.avatarUrl = avatar;
   if (cover && cover !== session.user.coverUrl) input.coverUrl = cover;
+  // Solo se sube (nunca se borra solo): el Steam vinculado identifica al usuario.
+  if (steamId && steamId !== session.user.steamId) input.steamId = steamId;
   if (Object.keys(input).length === 0) return true;
   try {
     await updateOnlineProfile(input);
