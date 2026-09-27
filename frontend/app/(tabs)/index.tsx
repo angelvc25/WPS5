@@ -663,7 +663,14 @@ export default function ConsoleHome() {
       });
     }
 
-    setLastPlayedGame({ ...item, lastPlayed: now });
+    // Un juego fijado ya tiene su propio lugar permanente en Inicio (ver
+    // `pinnedManual`/`pinnedSteamGames`), así que no debe además tomar la
+    // tarjeta "Último Jugado" — si lo hiciera, se vería dos veces a la vez
+    // (una como fijado y otra como "Último Jugado"). Seguimos guardando su
+    // `lastPlayed` arriba por si se desfija más adelante.
+    if (!item.isPinned) {
+      setLastPlayedGame({ ...item, lastPlayed: now });
+    }
 
     // Los juegos manuales ya guardan lastPlayed vía main.js al lanzarlos;
     // para Steam/Epic evitamos crear un registro "fantasma" sin título/portada
@@ -1046,7 +1053,19 @@ export default function ConsoleHome() {
   const playedSteamGames = steamGames
     .filter(g => {
       if (!g.lastPlayed) return false;
+      if (g.isPinned) return false; // ya se muestra fijo, ver `pinnedSteamGames`
       if (lastPlayedGame && g.id === lastPlayedGame.id) return false; // ya está en "Último Jugado"
+      const appId = getSteamAppId(g as any);
+      return !(appId && downloadsByAppId.has(appId));
+    })
+    .map(g => ({ ...g, path: resolveLaunchPath(g) }));
+
+  // Juegos de Steam fijados: igual que `pinnedManual`, permanecen siempre en
+  // Inicio en vez de rotar con los demás recientes (excepto si ahora mismo
+  // se están descargando, que ya se muestran arriba en `downloadingSteamGames`).
+  const pinnedSteamGames = steamGames
+    .filter(g => {
+      if (!g.isPinned) return false;
       const appId = getSteamAppId(g as any);
       return !(appId && downloadsByAppId.has(appId));
     })
@@ -1060,7 +1079,7 @@ export default function ConsoleHome() {
   const combinedRecent = [...manualWithHistory, ...playedSteamGames]
     .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
 
-  const combinedOtherGames = [...pinnedManual, ...combinedRecent, ...manualWithoutHistory];
+  const combinedOtherGames = [...pinnedManual, ...pinnedSteamGames, ...combinedRecent, ...manualWithoutHistory];
 
   let currentData = currentRenderedTab === 'Games'
     ? [...baseCards, ...downloadingSteamGames, ...combinedOtherGames]
@@ -1190,7 +1209,9 @@ export default function ConsoleHome() {
   // aseguramos que la card de último jugado apunte a ese juego de Steam
   useEffect(() => {
     if (steamGames.length === 0) return;
-    const played = steamGames.filter(g => g.lastPlayed);
+    // Los juegos fijados no deben tomar la tarjeta "Último Jugado" (ya tienen
+    // su propio lugar fijo en Inicio, ver `pinnedSteamGames`).
+    const played = steamGames.filter(g => g.lastPlayed && !g.isPinned);
     if (played.length === 0) return;
     played.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
     const mostRecentSteam = played[0];
@@ -1821,7 +1842,11 @@ export default function ConsoleHome() {
           ...currentEpicGames,
         ];
         const sortedByLastPlayed = allFormatted
-          .filter((i: any) => i.lastPlayed && i.id !== '1' && i.id !== '5' && i.id !== 'last_played' && i.id !== 'more_library')
+          // Un juego fijado no debe convertirse en "Último Jugado": ya tiene
+          // su propio lugar fijo en Inicio, y si se le excluyera de
+          // `gamesList` más abajo (para "no duplicar" con esa tarjeta)
+          // desaparecería por completo de su lugar fijado.
+          .filter((i: any) => i.lastPlayed && !i.isPinned && i.id !== '1' && i.id !== '5' && i.id !== 'last_played' && i.id !== 'more_library')
           .sort((a: any, b: any) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
         let latestGame = sortedByLastPlayed[0] || null;
 
@@ -3579,7 +3604,7 @@ export default function ConsoleHome() {
     }
     // Si se activó, intentar subirla a la cuenta online (URL http visible).
     if (!isCurrentlyUsingSteam) {
-      syncProfileMediaToOnline({ ...activeUser, steamAvatarUrl: avatarUrl, settings: newSettings } as any).catch(() => {});
+      syncProfileMediaToOnline({ ...activeUser, steamAvatarUrl: avatarUrl, settings: newSettings } as any).catch(() => { });
     }
   };
 
@@ -3588,7 +3613,15 @@ export default function ConsoleHome() {
     if (!item) return;
     const newPinned = !item.isPinned;
 
-    setGames(prev => prev.map(g => g.id === item.id ? { ...g, isPinned: newPinned } : g));
+    // El ítem enfocado puede venir de `games` (manuales) o de `steamGames`
+    // (importados de Steam, ver `playedSteamGames`/`downloadingSteamGames`
+    // en `currentData`). Hay que actualizar el estado del que realmente
+    // proviene, o el toggle no tendrá efecto visible para juegos de Steam.
+    if (isSteamTrackedGame(item)) {
+      setSteamGames(prev => prev.map(g => g.id === item.id ? { ...g, isPinned: newPinned } : g));
+    } else {
+      setGames(prev => prev.map(g => g.id === item.id ? { ...g, isPinned: newPinned } : g));
+    }
 
     if (Platform.OS === 'web' && (window as any).electronAPI?.updateApp) {
       await (window as any).electronAPI.updateApp({ id: item.id, isPinned: newPinned });
