@@ -86,6 +86,14 @@ function formatCompactMinutes(minutes: number): string {
   return `${Math.max(0, Math.round(minutes))}m`;
 }
 
+/** Iconos propios de tiers de trofeos. */
+const TIER_ICONS = {
+  platinum: require('@/assets/images/platino.png'),
+  gold: require('@/assets/images/oro.png'),
+  silver: require('@/assets/images/plata.png'),
+  bronze: require('@/assets/images/bronce.png'),
+} as const;
+
 /** Normaliza títulos para detectar juegos en común entre bibliotecas. */
 function normalizeGameTitle(name: string): string {
   return (name || '')
@@ -258,7 +266,6 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
     (best, g) => (!best || g.playtimeMinutes > best.playtimeMinutes ? g : best),
     null,
   );
-  const recentGames = games.slice(0, 5);
 
   const trophyTotals = useMemo(() => {
     const acc = { total: 0, unlocked: 0, platinum: 0, gold: 0, silver: 0, bronze: 0 };
@@ -457,7 +464,7 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                         ) : (
                           <>
                             <View style={styles.trophyHead}>
-                              <Ionicons name="trophy" size={22} color="#FFD700" />
+                              <Image source={TIER_ICONS.gold} style={styles.trophyHeadIcon} contentFit="contain" />
                               <Text style={styles.trophyTotal}>{trophyTotals.unlocked}</Text>
                               <Text style={styles.trophyPct}>{trophyPct} %</Text>
                             </View>
@@ -465,15 +472,10 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                               <View style={[styles.trophyProgressFill, { width: `${trophyPct}%` }]} />
                             </View>
                             <View style={styles.trophyTiers}>
-                              {([
-                                ['platinum', trophyTotals.platinum, '#E5E4E2'],
-                                ['gold', trophyTotals.gold, '#FFD700'],
-                                ['silver', trophyTotals.silver, '#C0C0C0'],
-                                ['bronze', trophyTotals.bronze, '#CD7F32'],
-                              ] as const).map(([tier, count, color]) => (
+                              {(['platinum', 'gold', 'silver', 'bronze'] as const).map((tier) => (
                                 <View key={tier} style={styles.trophyTier}>
-                                  <Ionicons name="medal" size={14} color={color} />
-                                  <Text style={styles.trophyTierCount}>{count}</Text>
+                                  <Image source={TIER_ICONS[tier]} style={styles.trophyTierIcon} contentFit="contain" />
+                                  <Text style={styles.trophyTierCount}>{trophyTotals[tier]}</Text>
                                 </View>
                               ))}
                             </View>
@@ -570,20 +572,6 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                       </TouchableOpacity>
                     </View>
 
-                    <View style={styles.recentCard}>
-                      {libraryState === 'loading' ? (
-                        <ActivityIndicator color="#FFF" style={{ marginVertical: 12 }} />
-                      ) : libraryState !== 'ready' ? (
-                        <Text style={styles.hint}>{libraryHint(t, libraryState)}</Text>
-                      ) : recentGames.length === 0 ? (
-                        <Text style={styles.hint}>{t('onlineProfile.libraryEmpty')}</Text>
-                      ) : (
-                        recentGames.map((game) => (
-                          <GameRow key={game.id} game={game} t={t} />
-                        ))
-                      )}
-                      <Text style={styles.recentCardTitle}>{t('onlineProfile.recentlyAdded')}</Text>
-                    </View>
                   </>
                 )}
 
@@ -960,26 +948,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginTop: 12,
+    marginTop: 20,
+    paddingHorizontal: 20,
   },
   showcaseCard: {
     flex: 1,
-    minWidth: 160,
-    backgroundColor: 'rgba(0, 0, 0, 0.73)',
+    minWidth: 170,
+    minHeight: 210,
+    backgroundColor: 'rgba(0, 0, 0, 0.51)',
     borderRadius: 0,
-    padding: 14,
-    gap: 8,
+    padding: 16,
+    gap: 10,
     justifyContent: 'space-between',
   },
   showcaseLabel: {
     color: 'rgba(255,255,255,0.5)',
-    fontSize: 12,
+    fontSize: 15,
+    fontFamily: 'SSTLight',
     marginTop: 4,
   },
   showcaseHint: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: 'SSTLight',
   },
   trophyHead: {
     flexDirection: 'row',
@@ -987,7 +979,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   trophyTotal: {
-    color: '#FFF',
+    color: '#ffffffa6',
     fontSize: 24,
     fontFamily: 'SSTLight',
   },
@@ -1016,6 +1008,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
   },
+  trophyHeadIcon: {
+    width: 26,
+    height: 26,
+  },
+  trophyTierIcon: {
+    width: 22,
+    height: 22,
+  },
   trophyTierCount: {
     color: '#FFF',
     fontSize: 12,
@@ -1026,9 +1026,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   topPlayedCover: {
-    width: 30,
-    height: 30,
-    borderRadius: 5,
+    width: 46,
+    height: 46,
+    borderRadius: 6,
   },
   topPlayedName: {
     flex: 1,
@@ -1046,9 +1046,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   mutualCover: {
-    width: 44,
-    height: 58,
-    borderRadius: 6,
+    width: 66,
+    height: 88,
+    borderRadius: 7,
   },
   mutualAvatar: {
     width: 40,
@@ -1086,21 +1086,6 @@ const styles = StyleSheet.create({
     fontFamily: 'SSTMedium',
     marginTop: 22,
     marginBottom: 6,
-  },
-  recentCard: {
-    backgroundColor: '#000000',
-    borderRadius: 0,
-    padding: 14,
-    marginTop: 20,
-  },
-  recentCardTitle: {
-    color: '#FFF',
-    fontSize: 15,
-    fontFamily: 'SSTLight',
-    marginTop: 10,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   hint: {
     color: 'rgba(255,255,255,0.5)',
