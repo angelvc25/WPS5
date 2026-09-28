@@ -2,7 +2,7 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -25,7 +25,13 @@ import {
   sendOnlineFriendRequest,
   type UserProfileResult,
 } from '../services/onlineFriendsService';
-import { fetchOnlineUserLibrary, type OnlineLibraryGame } from '../services/onlineLibraryService';
+import { fetchOnlineUserLibrary, fetchOwnOnlineLibrary, type OnlineLibraryGame } from '../services/onlineLibraryService';
+import {
+  fetchMutualFriends,
+  fetchUserTrophies,
+  type TrophyGameSummary,
+} from '../services/onlineTrophiesService';
+import type { OnlineUser } from '../services/onlineAccountService';
 import { formatPlaytime } from '../services/playtimeService';
 import { toastService } from '../services/toastService';
 
@@ -80,6 +86,17 @@ function formatCompactMinutes(minutes: number): string {
   return `${Math.max(0, Math.round(minutes))}m`;
 }
 
+/** Normaliza títulos para detectar juegos en común entre bibliotecas. */
+function normalizeGameTitle(name: string): string {
+  return (name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUserFullProfileProps) => {
   const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
@@ -94,6 +111,10 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
   const [tab, setTab] = useState<'overview' | 'games' | 'friends'>('overview');
   const [games, setGames] = useState<LibraryGameView[]>([]);
   const [libraryState, setLibraryState] = useState<'idle' | 'loading' | 'hidden' | 'error' | 'ready'>('idle');
+  const [trophies, setTrophies] = useState<TrophyGameSummary[]>([]);
+  const [trophiesState, setTrophiesState] = useState<'idle' | 'loading' | 'hidden' | 'error' | 'ready'>('idle');
+  const [mutualFriends, setMutualFriends] = useState<OnlineUser[]>([]);
+  const [ownGameNames, setOwnGameNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +127,10 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
     setProfile(null);
     setGames([]);
     setLibraryState('idle');
+    setTrophies([]);
+    setTrophiesState('idle');
+    setMutualFriends([]);
+    setOwnGameNames([]);
     setTab('overview');
     setIncomingRequestId(null);
     setFriendshipId(null);
@@ -138,6 +163,33 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
           }
         } catch {
           if (!cancelled) setLibraryState('error');
+        }
+        // Trofeos + amigos en común + mi biblioteca (juegos en común).
+        setTrophiesState('loading');
+        try {
+          const [tRes, mRes, ownLib] = await Promise.all([
+            fetchUserTrophies(prof.user.id).catch(() => null),
+            prof.isSelf
+              ? Promise.resolve([] as OnlineUser[])
+              : fetchMutualFriends(prof.user.id).catch(() => [] as OnlineUser[]),
+            fetchOwnOnlineLibrary().catch(() => []),
+          ]);
+          if (cancelled) return;
+          if (!tRes || !tRes.visible) {
+            setTrophies([]);
+            setTrophiesState(!tRes ? 'error' : 'hidden');
+          } else {
+            setTrophies(tRes.trophies);
+            setTrophiesState('ready');
+          }
+          setMutualFriends(mRes || []);
+          setOwnGameNames((ownLib || []).map((g) => normalizeGameTitle(g.game_name)));
+        } catch {
+          if (!cancelled) {
+            setTrophies([]);
+            setTrophiesState('error');
+            setMutualFriends([]);
+          }
         }
       } catch (e: any) {
         if (!cancelled) setError(e?.message === 'network' ? t('onlineProfile.errorNetwork') : t('onlineProfile.errorLoad'));
@@ -207,6 +259,31 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
     null,
   );
   const recentGames = games.slice(0, 5);
+
+  const trophyTotals = useMemo(() => {
+    const acc = { total: 0, unlocked: 0, platinum: 0, gold: 0, silver: 0, bronze: 0 };
+    for (const g of trophies) {
+      acc.total += g.total;
+      acc.unlocked += g.unlocked;
+      acc.platinum += g.platinum;
+      acc.gold += g.gold;
+      acc.silver += g.silver;
+      acc.bronze += g.bronze;
+    }
+    return acc;
+  }, [trophies]);
+  const trophyPct = trophyTotals.total > 0
+    ? Math.round((trophyTotals.unlocked * 100) / trophyTotals.total)
+    : 0;
+  const topPlayed = useMemo(
+    () => [...games].sort((a, b) => b.playtimeMinutes - a.playtimeMinutes).slice(0, 3),
+    [games],
+  );
+  const mutualGames = useMemo(() => {
+    if (ownGameNames.length === 0 || games.length === 0) return [];
+    const mine = new Set(ownGameNames);
+    return games.filter((g) => mine.has(normalizeGameTitle(g.name)));
+  }, [games, ownGameNames]);
 
   return (
     <Modal visible={!!username} transparent={false} animationType="fade" onRequestClose={onClose}>
@@ -366,6 +443,133 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                       </View>
                     </View>
 
+                    {/* Vitrina estilo PSN: trofeos, más jugado y en común */}
+                    <View style={styles.showcaseRow}>
+                      <View style={styles.showcaseCard}>
+                        {trophiesState === 'loading' ? (
+                          <ActivityIndicator color="#FFF" style={{ marginVertical: 12 }} />
+                        ) : trophiesState !== 'ready' ? (
+                          <Text style={styles.showcaseHint}>
+                            {trophiesState === 'hidden'
+                              ? tr('onlineProfile.trophiesHidden', 'Private trophies')
+                              : tr('onlineProfile.noTrophies', 'No synced trophies')}
+                          </Text>
+                        ) : (
+                          <>
+                            <View style={styles.trophyHead}>
+                              <Ionicons name="trophy" size={22} color="#FFD700" />
+                              <Text style={styles.trophyTotal}>{trophyTotals.unlocked}</Text>
+                              <Text style={styles.trophyPct}>{trophyPct} %</Text>
+                            </View>
+                            <View style={styles.trophyProgressTrack}>
+                              <View style={[styles.trophyProgressFill, { width: `${trophyPct}%` }]} />
+                            </View>
+                            <View style={styles.trophyTiers}>
+                              {([
+                                ['platinum', trophyTotals.platinum, '#E5E4E2'],
+                                ['gold', trophyTotals.gold, '#FFD700'],
+                                ['silver', trophyTotals.silver, '#C0C0C0'],
+                                ['bronze', trophyTotals.bronze, '#CD7F32'],
+                              ] as const).map(([tier, count, color]) => (
+                                <View key={tier} style={styles.trophyTier}>
+                                  <Ionicons name="medal" size={14} color={color} />
+                                  <Text style={styles.trophyTierCount}>{count}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          </>
+                        )}
+                        <Text style={styles.showcaseLabel}>
+                          {tr('onlineProfile.trophiesWon', 'Trophies won')}
+                        </Text>
+                      </View>
+
+                      <View style={styles.showcaseCard}>
+                        {topPlayed.length === 0 ? (
+                          <Text style={styles.showcaseHint}>
+                            {tr('onlineProfile.noTrophies', 'No synced trophies')}
+                          </Text>
+                        ) : (
+                          topPlayed.map((g) => (
+                            <View key={g.id} style={styles.topPlayedRow}>
+                              {g.coverUrl ? (
+                                <Image source={{ uri: g.coverUrl }} style={styles.topPlayedCover} contentFit="cover" />
+                              ) : null}
+                              <Text style={styles.topPlayedName} numberOfLines={1}>{g.name}</Text>
+                              <Text style={styles.topPlayedHours}>
+                                {g.playtimeMinutes > 0 ? formatCompactMinutes(g.playtimeMinutes) : '--'}
+                              </Text>
+                            </View>
+                          ))
+                        )}
+                        <Text style={styles.showcaseLabel}>
+                          {tr('onlineProfile.mostPlayedTop', 'Most played')}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.showcaseCard}
+                        activeOpacity={0.8}
+                        onPress={() => setTab('games')}
+                      >
+                        {libraryState !== 'ready' ? (
+                          <Text style={styles.showcaseHint}>{libraryHint(t, libraryState)}</Text>
+                        ) : mutualGames.length === 0 ? (
+                          <Text style={styles.showcaseHint}>
+                            {tr('onlineProfile.noMutualGames', 'No mutual games')}
+                          </Text>
+                        ) : (
+                          <View style={styles.mutualPreviewRow}>
+                            {mutualGames.slice(0, 3).map((g) => (
+                              g.coverUrl ? (
+                                <Image key={g.id} source={{ uri: g.coverUrl }} style={styles.mutualCover} contentFit="cover" />
+                              ) : (
+                                <View key={g.id} style={[styles.mutualCover, styles.gameCoverEmpty]}>
+                                  <Ionicons name="game-controller-outline" size={16} color="rgba(255,255,255,0.4)" />
+                                </View>
+                              )
+                            ))}
+                          </View>
+                        )}
+                        <Text style={styles.showcaseLabel}>
+                          {tr('onlineProfile.mutualGames', 'Mutual games')}
+                          {libraryState === 'ready' ? `: ${mutualGames.length}` : ''}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.showcaseCard}
+                        activeOpacity={0.8}
+                        onPress={() => setTab('friends')}
+                      >
+                        {mutualFriends.length === 0 ? (
+                          <Text style={styles.showcaseHint}>
+                            {profile.isSelf
+                              ? t('friends.comingSoon')
+                              : tr('onlineProfile.noMutualFriends', 'No mutual friends')}
+                          </Text>
+                        ) : (
+                          <View style={styles.mutualPreviewRow}>
+                            {mutualFriends.slice(0, 3).map((u) => (
+                              u.avatarUrl && /^https?:\/\//i.test(u.avatarUrl) ? (
+                                <Image key={u.id} source={{ uri: u.avatarUrl }} style={styles.mutualAvatar} contentFit="cover" />
+                              ) : (
+                                <View key={u.id} style={[styles.mutualAvatar, styles.mutualAvatarEmpty]}>
+                                  <Text style={styles.mutualAvatarText}>
+                                    {(u.displayName || u.username).slice(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )
+                            ))}
+                          </View>
+                        )}
+                        <Text style={styles.showcaseLabel}>
+                          {tr('onlineProfile.mutualFriends', 'Mutual friends')}
+                          {profile.isSelf ? '' : `: ${mutualFriends.length}`}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
                     <View style={styles.recentCard}>
                       {libraryState === 'loading' ? (
                         <ActivityIndicator color="#FFF" style={{ marginVertical: 12 }} />
@@ -410,7 +614,31 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                 )}
 
                 {tab === 'friends' && (
-                  <Text style={styles.hint}>{t('friends.comingSoon')}</Text>
+                  <>
+                    {profile.isSelf ? (
+                      <Text style={styles.hint}>{t('friends.comingSoon')}</Text>
+                    ) : mutualFriends.length === 0 ? (
+                      <Text style={styles.hint}>{tr('onlineProfile.noMutualFriends', 'No mutual friends')}</Text>
+                    ) : (
+                      mutualFriends.map((u) => (
+                        <View key={u.id} style={styles.gameRow}>
+                          {u.avatarUrl && /^https?:\/\//i.test(u.avatarUrl) ? (
+                            <Image source={{ uri: u.avatarUrl }} style={styles.mutualAvatar} contentFit="cover" />
+                          ) : (
+                            <View style={[styles.mutualAvatar, styles.mutualAvatarEmpty]}>
+                              <Text style={styles.mutualAvatarText}>
+                                {(u.displayName || u.username).slice(0, 1).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.gameName} numberOfLines={1}>{u.displayName}</Text>
+                            <Text style={styles.gameSub} numberOfLines={1}>@{u.username}</Text>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -727,6 +955,114 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     textAlign: 'center',
+  },
+  showcaseRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 12,
+  },
+  showcaseCard: {
+    flex: 1,
+    minWidth: 160,
+    backgroundColor: 'rgba(0, 0, 0, 0.73)',
+    borderRadius: 0,
+    padding: 14,
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  showcaseLabel: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  showcaseHint: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  trophyHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  trophyTotal: {
+    color: '#FFF',
+    fontSize: 24,
+    fontFamily: 'SSTLight',
+  },
+  trophyPct: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    marginLeft: 'auto',
+  },
+  trophyProgressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
+  },
+  trophyProgressFill: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#4CD964',
+  },
+  trophyTiers: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  trophyTier: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  trophyTierCount: {
+    color: '#FFF',
+    fontSize: 12,
+  },
+  topPlayedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  topPlayedCover: {
+    width: 30,
+    height: 30,
+    borderRadius: 5,
+  },
+  topPlayedName: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 13,
+    fontFamily: 'SSTLight',
+  },
+  topPlayedHours: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+  },
+  mutualPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  mutualCover: {
+    width: 44,
+    height: 58,
+    borderRadius: 6,
+  },
+  mutualAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2a2a2e',
+  },
+  mutualAvatarEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mutualAvatarText: {
+    color: '#FFF',
+    fontSize: 16,
   },
   gamesTabHeader: {
     flexDirection: 'row',

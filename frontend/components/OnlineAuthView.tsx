@@ -34,6 +34,7 @@ import {
   type OnlineSession,
 } from '../services/onlineAccountService';
 import { syncLocalLibraryToOnline } from '../services/onlineLibraryService';
+import { syncLocalTrophiesToOnline } from '../services/onlineTrophiesService';
 import type { UserProfile } from './UserSelectScreen';
 
 export interface OnlineAuthViewProps {
@@ -448,6 +449,15 @@ export default function OnlineAuthView({
         setSyncProgress({ done, total })
       );
       setSyncResult(t('onlineLibrary.syncDone', { uploaded: result.uploaded, total: result.total }));
+      // Trofeos en segundo plano (Steam): no bloquean ni rompen el sync.
+      {
+        const settings: any = activeUser?.settings || {};
+        const steamId = settings.steamId;
+        const apiKey = settings.steamApiKey || (process.env as any)?.EXPO_PUBLIC_STEAM_API_KEY;
+        if (typeof steamId === 'string' && /^\d{17}$/.test(steamId) && apiKey) {
+          syncLocalTrophiesToOnline(libraryGames as any, { apiKey, steamId }).catch(() => {});
+        }
+      }
     } catch {
       setSyncResult(t('onlineLibrary.syncError'));
     } finally {

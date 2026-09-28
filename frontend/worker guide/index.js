@@ -69,6 +69,9 @@ export default {
           "/friends/reject",
           "/library",
           "/library/:userId",
+          "PUT /trophies",
+          "/trophies/:userId",
+          "/users/:userId/mutual-friends",
         ],
       });
     }
@@ -138,6 +141,12 @@ export default {
       return handleUserUpdate(request, env);
     }
 
+    const mutualMatch = url.pathname.match(/^\/users\/([^/]+)\/mutual-friends$/);
+    if (mutualMatch) {
+      const targetId = decodeURIComponent(mutualMatch[1]).trim();
+      if (targetId) return handleMutualFriends(request, targetId, env);
+    }
+
     if (url.pathname.startsWith("/users/")) {
       const username = decodeURIComponent(url.pathname.slice("/users/".length)).trim();
       if (username) {
@@ -183,6 +192,18 @@ export default {
     if (url.pathname.startsWith("/library/")) {
       const userId = decodeURIComponent(url.pathname.slice("/library/".length)).trim();
       if (userId) return handleUserLibrary(request, userId, env);
+    }
+
+    // ============================================
+    // TROPHIES
+    // ============================================
+    if (url.pathname === "/trophies") {
+      return handleTrophiesPut(request, env);
+    }
+
+    if (url.pathname.startsWith("/trophies/")) {
+      const userId = decodeURIComponent(url.pathname.slice("/trophies/".length)).trim();
+      if (userId) return handleUserTrophies(request, userId, env);
     }
 
     // ============================================
@@ -1226,6 +1247,208 @@ async function addLibraryGame(db, user, data) {
   } catch (error) {
     console.error("Library add error:", error);
     return jsonResponse({ success: false, error: "Failed to add game to library" }, 500);
+  }
+}
+
+// ── Trofeos: resumen por juego en un documento por usuario ───────────────
+// La visibilidad sigue a la biblioteca (library_visibility).
+//
+// Migración D1 (ejecutar una vez en la consola SQL):
+//   CREATE TABLE IF NOT EXISTS user_trophies (
+//     user_id TEXT PRIMARY KEY,
+//     trophies_json TEXT NOT NULL DEFAULT '[]',
+//     updated_at TEXT NOT NULL
+//   );
+//
+// Fila del documento: { game_id, game_name, total, unlocked,
+//   platinum, gold, silver, bronze, updated_at }
+
+async function readUserTrophiesDoc(db, userId) {
+  try {
+    const row = await db.prepare(
+      "SELECT trophies_json FROM user_trophies WHERE user_id = ? LIMIT 1"
+    ).bind(userId).first();
+    if (!row || !row.trophies_json) return [];
+    const parsed = JSON.parse(row.trophies_json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeUserTrophiesDoc(db, userId, games) {
+  const now = new Date().toISOString();
+  await db.prepare(`
+    INSERT INTO user_trophies (user_id, trophies_json, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      trophies_json = excluded.trophies_json,
+      updated_at = excluded.updated_at
+  `).bind(userId, JSON.stringify(games), now).run();
+}
+
+function toIntCount(v) {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function validateTrophyGame(data) {
+  const gameId = typeof data?.gameId === "string" ? data.gameId.trim() : "";
+  const gameName = typeof data?.gameName === "string" ? data.gameName.trim() : "";
+  if (!gameId || !gameName) {
+    return { ok: false, error: "gameId and gameName are required" };
+  }
+  if (gameId.length > 150 || gameName.length > 200) {
+    return { ok: false, error: "Game data is too long" };
+  }
+  const total = toIntCount(data?.total);
+  const unlocked = Math.min(toIntCount(data?.unlocked), total);
+  const platinum = Math.min(toIntCount(data?.platinum), unlocked);
+  const gold = Math.min(toIntCount(data?.gold), unlocked);
+  const silver = Math.min(toIntCount(data?.silver), unlocked);
+  const bronze = Math.min(toIntCount(data?.bronze), unlocked);
+  return { ok: true, game: { game_id: gameId, game_name: gameName, total, unlocked, platinum, gold, silver, bronze } };
+}
+
+async function handleTrophiesPut(request, env) {
+  if (request.method !== "PUT") return methodNotAllowed(["PUT", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+  const games = body.data?.games;
+  if (!Array.isArray(games) || games.length === 0 || games.length > 1000) {
+    return jsonResponse({ success: false, error: "games must contain between 1 and 1000 items" }, 400);
+  }
+
+  const now = new Date().toISOString();
+  const rows = [];
+  const errors = [];
+  for (let i = 0; i < games.length; i++) {
+    const validated = validateTrophyGame(games[i]);
+    if (!validated.ok) {
+      if (errors.length < 10) errors.push({ index: i, error: validated.error });
+      continue;
+    }
+    rows.push({ ...validated.game, updated_at: now });
+  }
+
+  try {
+    if (JSON.stringify(rows).length > 1024 * 1024) {
+      return jsonResponse({ success: false, error: "Trophies payload is too large" }, 413);
+    }
+    await writeUserTrophiesDoc(env.DB, auth.user.id, rows);
+  } catch (error) {
+    console.error("Trophies write error:", error);
+    return jsonResponse({ success: false, error: "Failed to save trophies" }, 500);
+  }
+
+  return jsonResponse({ success: true, upserted: rows.length, total: games.length, errors });
+}
+
+function toTrophyRow(g) {
+  return {
+    gameId: g.game_id,
+    gameName: g.game_name,
+    total: g.total ?? 0,
+    unlocked: g.unlocked ?? 0,
+    platinum: g.platinum ?? 0,
+    gold: g.gold ?? 0,
+    silver: g.silver ?? 0,
+    bronze: g.bronze ?? 0,
+    updatedAt: g.updated_at ?? null,
+  };
+}
+
+async function handleUserTrophies(request, userId, env) {
+  if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  const target = await env.DB.prepare(
+    "SELECT id, username, library_visibility FROM users WHERE id = ? LIMIT 1"
+  ).bind(userId).first();
+
+  if (!target) {
+    return jsonResponse({ success: false, error: "User not found" }, 404);
+  }
+
+  const visibility = target.library_visibility || "friends";
+  if (target.id !== auth.user.id && visibility === "private") {
+    return jsonResponse({ success: true, visible: false, reason: "private", trophies: [] });
+  }
+  if (target.id !== auth.user.id && visibility === "friends") {
+    const friendship = await getFriendship(env.DB, auth.user.id, target.id);
+    if (friendship?.status !== "accepted") {
+      return jsonResponse({ success: true, visible: false, reason: "friends_only", trophies: [] });
+    }
+  }
+
+  try {
+    const rows = await readUserTrophiesDoc(env.DB, target.id);
+    return jsonResponse({
+      success: true,
+      visible: true,
+      userId: target.id,
+      username: target.username,
+      trophies: rows.map(toTrophyRow),
+    });
+  } catch (error) {
+    console.error("Trophies read error:", error);
+    return jsonResponse({ success: false, error: "Failed to load trophies" }, 500);
+  }
+}
+
+// ── Amigos en común: intersección calculada en el servidor ───────────────
+// Solo se devuelven los mutuos (ambos ya los conocen); nadie expone su lista.
+async function handleMutualFriends(request, userId, env) {
+  if (request.method !== "GET") return methodNotAllowed(["GET", "OPTIONS"]);
+  if (!env.DB) return databaseNotConfigured();
+
+  const auth = await requireAuth(request, env.DB);
+  if (!auth.ok) return auth.response;
+
+  const target = await env.DB.prepare(
+    "SELECT id FROM users WHERE id = ? LIMIT 1"
+  ).bind(userId).first();
+
+  if (!target) {
+    return jsonResponse({ success: false, error: "User not found" }, 404);
+  }
+  if (target.id === auth.user.id) {
+    return jsonResponse({ success: true, mutual: [] });
+  }
+
+  try {
+    const friendIds = async (uid) => {
+      const res = await env.DB.prepare(`
+        SELECT CASE WHEN requester_id = ? THEN addressee_id ELSE requester_id END AS fid
+        FROM friendships
+        WHERE (requester_id = ? OR addressee_id = ?) AND status = 'accepted'
+      `).bind(uid, uid, uid).all();
+      return new Set((res.results || []).map((r) => r.fid));
+    };
+    const mine = await friendIds(auth.user.id);
+    const theirs = await friendIds(target.id);
+    const mutualIds = [...mine].filter((id) => theirs.has(id)).slice(0, 200);
+    if (mutualIds.length === 0) {
+      return jsonResponse({ success: true, mutual: [] });
+    }
+    const placeholders = mutualIds.map(() => "?").join(",");
+    const rows = await env.DB.prepare(`
+      SELECT id, username, display_name, avatar_url, cover_url, bio, steam_id, library_visibility, created_at, last_seen_at
+      FROM users WHERE id IN (${placeholders})
+      ORDER BY display_name ASC
+    `).bind(...mutualIds).all();
+    return jsonResponse({ success: true, mutual: (rows.results || []).map(publicUser) });
+  } catch (error) {
+    console.error("Mutual friends error:", error);
+    return jsonResponse({ success: false, error: "Failed to load mutual friends" }, 500);
   }
 }
 
