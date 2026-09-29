@@ -194,6 +194,7 @@ export default function SettingsView({
   // Focus navigation state
   const [mainFocusIndex, setMainFocusIndex] = useState(0);
   const [subFocusIndex, setSubFocusIndex] = useState(0);
+  const [subColumnIndex, setSubColumnIndex] = useState(0); // columna dentro de la fila (para filas con 2 botones)
   const [accessibilityLeftIndex, setAccessibilityLeftIndex] = useState(0);
 
   const [accessibilityFocusArea, setAccessibilityFocusArea] = useState<'left' | 'right'>('left');
@@ -319,6 +320,9 @@ export default function SettingsView({
   // posición en la grilla) para poder hacer scroll automático hacia la
   // tarjeta enfocada por mando/teclado.
   const splashCardRefs = useRef<Record<number, any>>({});
+  // Refs para scroll automático al cambiar de zona (filtros / pager)
+  const splashFiltersRef = useRef<any>(null);
+  const splashPagerRef = useRef<any>(null);
 
   useEffect(() => {
     if (visible) {
@@ -326,6 +330,7 @@ export default function SettingsView({
       setScreenHistory([]);
       setMainFocusIndex(0);
       setSubFocusIndex(0);
+      setSubColumnIndex(0);
       setAccessibilityLeftIndex(0);
       setAccessibilityFocusArea('left');
       setSystemLeftIndex(0);
@@ -428,6 +433,22 @@ export default function SettingsView({
       node.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
   }, [accessibilityLeftIndex, splashFocusZone, splashGridFlatIndex, displayedSplashItems]);
+
+  // Scroll automático a la zona de filtros o pager cuando el foco cambia entre zonas.
+  useEffect(() => {
+    if (accessibilityLeftIndex !== 8) return;
+    if (splashFocusZone === 'filters') {
+      const node = splashFiltersRef.current;
+      if (node && typeof node.scrollIntoView === 'function') {
+        node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    } else if (splashFocusZone === 'pager') {
+      const node = splashPagerRef.current;
+      if (node && typeof node.scrollIntoView === 'function') {
+        node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [accessibilityLeftIndex, splashFocusZone]);
 
   /**
    * Descarga un video de SteamDeckRepo vía Electron IPC y lo asigna
@@ -547,16 +568,12 @@ export default function SettingsView({
   const getAccessibilityRightMaxIndex = () => {
     if (accessibilityLeftIndex === 0) return 2;
     if (accessibilityLeftIndex === 1) {
-      const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
-      const hasCapturePath = !!activeUser?.settings?.capturePath;
-      const hasRpcs3Path = !!(activeUser?.settings as any)?.rpcs3Path;
-      const count = 2 + (hasWallpaperPath ? 1 : 0) + 1 + (hasCapturePath ? 1 : 0) + 1 + (hasRpcs3Path ? 1 : 0);
-      return Math.max(0, count - 1);
+      // Filas: 0=ChooseWallpaper, 1=WallpaperFolder, 2=CapturesFolder, 3=RPCS3Folder
+      return 3;
     }
     if (accessibilityLeftIndex === 2) {
-      const hasAvatarPath = !!activeUser?.settings?.avatarPath;
-      const count = 2 + (hasAvatarPath ? 1 : 0);
-      return Math.max(0, count - 1);
+      // Filas: 0=ChooseAvatar, 1=AvatarFolder
+      return 1;
     }
     if (accessibilityLeftIndex === 3) return 0; // Steam: conectar/desvincular
     if (accessibilityLeftIndex === 4) return 1; // RetroAchievements: 2 inputs
@@ -616,58 +633,40 @@ export default function SettingsView({
     }
 
     if (accessibilityLeftIndex === 1) {
+      // Modelo fila/columna:
+      //   fila 0 = Choose Wallpaper (1 botón)
+      //   fila 1 = Wallpaper Folder: col 0=Select, col 1=Restore (si existe)
+      //   fila 2 = Captures Folder:  col 0=Select, col 1=Restore (si existe)
+      //   fila 3 = RPCS3 Folder:     col 0=Select, col 1=Restore (si existe)
       const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
       const hasCapturePath = !!activeUser?.settings?.capturePath;
       const hasRpcs3Path = !!(activeUser?.settings as any)?.rpcs3Path;
-      let idx = 0;
 
-      if (subFocusIndex === idx) {
+      if (subFocusIndex === 0) {
         onClose();
         onOpenBgModal();
         return;
       }
-      idx++;
-
-      if (subFocusIndex === idx) {
-        onSelectWallpaperFolder();
-        return;
-      }
-      idx++;
-
-      if (hasWallpaperPath) {
-        if (subFocusIndex === idx) {
+      if (subFocusIndex === 1) {
+        if (subColumnIndex === 0) { onSelectWallpaperFolder(); }
+        else if (subColumnIndex === 1 && hasWallpaperPath) {
           updateUser({ settings: { ...activeUser?.settings, wallpaperPath: '' } as any });
-          return;
         }
-        idx++;
-      }
-
-      if (subFocusIndex === idx) {
-        onSelectCaptureFolder();
         return;
       }
-      idx++;
-
-      if (hasCapturePath) {
-        if (subFocusIndex === idx) {
+      if (subFocusIndex === 2) {
+        if (subColumnIndex === 0) { onSelectCaptureFolder(); }
+        else if (subColumnIndex === 1 && hasCapturePath) {
           updateUser({ settings: { ...activeUser?.settings, capturePath: '' } as any });
-          return;
         }
-        idx++;
-      }
-
-      if (subFocusIndex === idx) {
-        onSelectRpcs3Folder();
         return;
       }
-      idx++;
-
-      if (hasRpcs3Path) {
-        if (subFocusIndex === idx) {
+      if (subFocusIndex === 3) {
+        if (subColumnIndex === 0) { onSelectRpcs3Folder(); }
+        else if (subColumnIndex === 1 && hasRpcs3Path) {
           updateUser({ settings: { ...activeUser?.settings, rpcs3Path: '' } as any });
-          return;
         }
-        idx++;
+        return;
       }
       return;
     }
@@ -679,27 +678,17 @@ export default function SettingsView({
 
     if (accessibilityLeftIndex === 2) {
       const hasAvatarPath = !!activeUser?.settings?.avatarPath;
-      let idx = 0;
-
-      if (subFocusIndex === idx) {
+      if (subFocusIndex === 0) {
         onClose();
         onOpenAvatarModal?.();
         return;
       }
-      idx++;
-
-      if (subFocusIndex === idx) {
-        onSelectAvatarFolder?.();
-        return;
-      }
-      idx++;
-
-      if (hasAvatarPath) {
-        if (subFocusIndex === idx) {
+      if (subFocusIndex === 1) {
+        if (subColumnIndex === 0) { onSelectAvatarFolder?.(); }
+        else if (subColumnIndex === 1 && hasAvatarPath) {
           updateUser({ settings: { ...activeUser?.settings, avatarPath: '' } as any });
-          return;
         }
-        idx++;
+        return;
       }
       return;
     }
@@ -864,15 +853,20 @@ export default function SettingsView({
           if (e.key === 'ArrowDown') {
             e.preventDefault();
             setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 8));
+            setSubFocusIndex(0);
+            setSubColumnIndex(0);
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             setAccessibilityLeftIndex((prev) => Math.max(prev - 1, 0));
+            setSubFocusIndex(0);
+            setSubColumnIndex(0);
             soundService.playNavigation();
           } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
             e.preventDefault();
             setAccessibilityFocusArea('right');
             setSubFocusIndex(0);
+            setSubColumnIndex(0);
             soundService.playNavigation();
           }
         } else if (accessibilityLeftIndex === 8) {
@@ -985,16 +979,42 @@ export default function SettingsView({
         } else {
           if (e.key === 'ArrowLeft') {
             e.preventDefault();
-            setAccessibilityFocusArea('left');
+            // Si estamos en sección con filas de 2 botones y hay columna derecha activa, ir a columna izquierda
+            if ((accessibilityLeftIndex === 1 || accessibilityLeftIndex === 2) && subFocusIndex > 0 && subColumnIndex > 0) {
+              setSubColumnIndex(0);
+            } else {
+              setAccessibilityFocusArea('left');
+            }
+            soundService.playNavigation();
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            // En sección Wallpapers, filas 1-3 tienen botón derecho (Restore): ir a columna 1
+            if (accessibilityLeftIndex === 1 && subFocusIndex >= 1 && subColumnIndex === 0) {
+              const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
+              const hasCapturePath = !!activeUser?.settings?.capturePath;
+              const hasRpcs3Path = !!(activeUser?.settings as any)?.rpcs3Path;
+              const rowHasSecond =
+                (subFocusIndex === 1 && hasWallpaperPath) ||
+                (subFocusIndex === 2 && hasCapturePath) ||
+                (subFocusIndex === 3 && hasRpcs3Path);
+              if (rowHasSecond) setSubColumnIndex(1);
+            }
+            // En sección Avatares, fila 1 tiene botón Restore
+            if (accessibilityLeftIndex === 2 && subFocusIndex === 1 && subColumnIndex === 0) {
+              const hasAvatarPath = !!activeUser?.settings?.avatarPath;
+              if (hasAvatarPath) setSubColumnIndex(1);
+            }
             soundService.playNavigation();
           } else if (e.key === 'ArrowDown') {
             e.preventDefault();
             const maxIdx = getAccessibilityRightMaxIndex();
             setSubFocusIndex((prev) => Math.min(prev + 1, maxIdx));
+            setSubColumnIndex(0); // reset columna al cambiar de fila
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             setSubFocusIndex((prev) => Math.max(prev - 1, 0));
+            setSubColumnIndex(0); // reset columna al cambiar de fila
             soundService.playNavigation();
           } else if (e.key === 'Enter') {
             e.preventDefault();
@@ -1059,6 +1079,7 @@ export default function SettingsView({
     currentScreen,
     mainFocusIndex,
     subFocusIndex,
+    subColumnIndex,
     accessibilityLeftIndex,
     accessibilityFocusArea,
     splashFocusZone,
@@ -1442,15 +1463,10 @@ export default function SettingsView({
               const hasWallpaperPath = !!activeUser?.settings?.wallpaperPath;
               const hasCapturePath = !!activeUser?.settings?.capturePath;
               const hasRpcs3Path = !!(activeUser?.settings as any)?.rpcs3Path;
-              let wpIdx = 0;
-              const chooseWallpaperIdx = wpIdx++;
-              const selectWallpaperFolderIdx = wpIdx++;
-              const restoreWallpaperIdx = hasWallpaperPath ? wpIdx++ : -1;
-              const selectCaptureFolderIdx = wpIdx++;
-              const restoreCaptureIdx = hasCapturePath ? wpIdx++ : -1;
-              const selectRpcs3FolderIdx = wpIdx++;
-              const restoreRpcs3Idx = hasRpcs3Path ? wpIdx++ : -1;
               const isRightFocused = accessibilityFocusArea === 'right';
+              // Helper: ¿está enfocado el botón en (fila, col)?
+              const isFocused = (row: number, col: number) =>
+                isRightFocused && subFocusIndex === row && subColumnIndex === col;
 
               return (
                 <ScrollView showsVerticalScrollIndicator={false}>
@@ -1462,14 +1478,14 @@ export default function SettingsView({
                     <TouchableOpacity
                       style={[
                         styles.actionBtnSecondary,
-                        isRightFocused && subFocusIndex === chooseWallpaperIdx && styles.rightItemFocused,
+                        isFocused(0, 0) && styles.rightItemFocused,
                       ]}
                       onPress={() => {
                         onClose();
                         onOpenBgModal();
                       }}
                     >
-                      {isRightFocused && subFocusIndex === chooseWallpaperIdx && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
+                      {isFocused(0, 0) && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
                       <Ionicons name="image-outline" size={s(20)} color="#FFF" />
                       <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseWallpaper')}</Text>
                     </TouchableOpacity>
@@ -1487,11 +1503,11 @@ export default function SettingsView({
                       <TouchableOpacity
                         style={[
                           styles.actionBtnSecondary,
-                          isRightFocused && subFocusIndex === selectWallpaperFolderIdx && styles.rightItemFocused,
+                          isFocused(1, 0) && styles.rightItemFocused,
                         ]}
                         onPress={onSelectWallpaperFolder}
                       >
-                        {isRightFocused && subFocusIndex === selectWallpaperFolderIdx && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
+                        {isFocused(1, 0) && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
                         <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
@@ -1500,7 +1516,7 @@ export default function SettingsView({
                           style={[
                             styles.actionBtnSecondary,
                             { backgroundColor: '#3D1E24', borderColor: '#772233' },
-                            isRightFocused && subFocusIndex === restoreWallpaperIdx && styles.rightItemFocused,
+                            isFocused(1, 1) && styles.rightItemFocused,
                           ]}
                           onPress={() =>
                             updateUser({
@@ -1508,7 +1524,7 @@ export default function SettingsView({
                             })
                           }
                         >
-                          {isRightFocused && subFocusIndex === restoreWallpaperIdx && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
+                          {isFocused(1, 1) && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
                           <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
@@ -1530,11 +1546,11 @@ export default function SettingsView({
                       <TouchableOpacity
                         style={[
                           styles.actionBtnSecondary,
-                          isRightFocused && subFocusIndex === selectCaptureFolderIdx && styles.rightItemFocused,
+                          isFocused(2, 0) && styles.rightItemFocused,
                         ]}
                         onPress={onSelectCaptureFolder}
                       >
-                        {isRightFocused && subFocusIndex === selectCaptureFolderIdx && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
+                        {isFocused(2, 0) && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
                         <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
@@ -1543,7 +1559,7 @@ export default function SettingsView({
                           style={[
                             styles.actionBtnSecondary,
                             { backgroundColor: '#3D1E24', borderColor: '#772233' },
-                            isRightFocused && subFocusIndex === restoreCaptureIdx && styles.rightItemFocused,
+                            isFocused(2, 1) && styles.rightItemFocused,
                           ]}
                           onPress={() =>
                             updateUser({
@@ -1551,7 +1567,7 @@ export default function SettingsView({
                             })
                           }
                         >
-                          {isRightFocused && subFocusIndex === restoreCaptureIdx && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
+                          {isFocused(2, 1) && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
                           <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
@@ -1576,11 +1592,11 @@ export default function SettingsView({
                       <TouchableOpacity
                         style={[
                           styles.actionBtnSecondary,
-                          isRightFocused && subFocusIndex === selectRpcs3FolderIdx && styles.rightItemFocused,
+                          isFocused(3, 0) && styles.rightItemFocused,
                         ]}
                         onPress={onSelectRpcs3Folder}
                       >
-                        {isRightFocused && subFocusIndex === selectRpcs3FolderIdx && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
+                        {isFocused(3, 0) && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
                         <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
@@ -1589,7 +1605,7 @@ export default function SettingsView({
                           style={[
                             styles.actionBtnSecondary,
                             { backgroundColor: '#3D1E24', borderColor: '#772233' },
-                            isRightFocused && subFocusIndex === restoreRpcs3Idx && styles.rightItemFocused,
+                            isFocused(3, 1) && styles.rightItemFocused,
                           ]}
                           onPress={() =>
                             updateUser({
@@ -1597,7 +1613,7 @@ export default function SettingsView({
                             })
                           }
                         >
-                          {isRightFocused && subFocusIndex === restoreRpcs3Idx && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
+                          {isFocused(3, 1) && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
                           <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
@@ -1612,11 +1628,9 @@ export default function SettingsView({
 
             {accessibilityLeftIndex === 2 && (() => {
               const hasAvatarPath = !!activeUser?.settings?.avatarPath;
-              let idx = 0;
-              const chooseAvatarIdx = idx++;
-              const selectAvatarFolderIdx = idx++;
-              const restoreAvatarIdx = hasAvatarPath ? idx++ : -1;
               const isRightFocused = accessibilityFocusArea === 'right';
+              const isFocused = (row: number, col: number) =>
+                isRightFocused && subFocusIndex === row && subColumnIndex === col;
 
               return (
                 <ScrollView showsVerticalScrollIndicator={false}>
@@ -1632,14 +1646,14 @@ export default function SettingsView({
                     <TouchableOpacity
                       style={[
                         styles.actionBtnSecondary,
-                        isRightFocused && subFocusIndex === chooseAvatarIdx && styles.rightItemFocused,
+                        isFocused(0, 0) && styles.rightItemFocused,
                       ]}
                       onPress={() => {
                         onClose();
                         onOpenAvatarModal?.();
                       }}
                     >
-                      {isRightFocused && subFocusIndex === chooseAvatarIdx && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
+                      {isFocused(0, 0) && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
                       <Ionicons name="person-circle-outline" size={s(20)} color="#FFF" />
                       <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseAvatar')}</Text>
                     </TouchableOpacity>
@@ -1657,11 +1671,11 @@ export default function SettingsView({
                       <TouchableOpacity
                         style={[
                           styles.actionBtnSecondary,
-                          isRightFocused && subFocusIndex === selectAvatarFolderIdx && styles.rightItemFocused,
+                          isFocused(1, 0) && styles.rightItemFocused,
                         ]}
                         onPress={onSelectAvatarFolder}
                       >
-                        {isRightFocused && subFocusIndex === selectAvatarFolderIdx && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
+                        {isFocused(1, 0) && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
                         <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                         <Text style={styles.actionBtnSecondaryText}>{t('settings.selectFolder')}</Text>
                       </TouchableOpacity>
@@ -1670,7 +1684,7 @@ export default function SettingsView({
                           style={[
                             styles.actionBtnSecondary,
                             { backgroundColor: '#3D1E24', borderColor: '#772233' },
-                            isRightFocused && subFocusIndex === restoreAvatarIdx && styles.rightItemFocused,
+                            isFocused(1, 1) && styles.rightItemFocused,
                           ]}
                           onPress={() =>
                             updateUser({
@@ -1678,7 +1692,7 @@ export default function SettingsView({
                             })
                           }
                         >
-                          {isRightFocused && subFocusIndex === restoreAvatarIdx && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
+                          {isFocused(1, 1) && <SpinningBorderSettings size={s(180)} spread={1.5} borderRadius={8} />}
                           <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
                           <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
                             {t('settings.restoreDefault')}
@@ -2001,7 +2015,7 @@ export default function SettingsView({
                     />
 
                     {/* Filtro por tipo + orden, aplanados para navegación con mando */}
-                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                    <View ref={splashFiltersRef} style={{ flexDirection: 'row', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
                       {SPLASH_TYPE_FILTERS.map((opt, i) => {
                         const isActive = splashType === opt.id;
                         const isFocused = isFiltersFocused && splashFilterIndex === i;
@@ -2127,7 +2141,7 @@ export default function SettingsView({
                   {/* Paginación (solo aplica a resultados de la API; el
                       historial local de "Descargados" no pagina). */}
                   {!isShowingDownloadedSplash && splashTotalPages > 1 && (
-                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 16, alignItems: 'center' }}>
+                    <View ref={splashPagerRef} style={{ flexDirection: 'row', gap: 12, marginTop: 16, alignItems: 'center' }}>
                       <TouchableOpacity
                         style={[
                           styles.actionBtnSecondary,
