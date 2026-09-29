@@ -204,6 +204,10 @@ export default function SettingsView({
   const [hdmiDeviceLink, setHdmiDeviceLink] = useState(true);
   const [hdmiHdcp, setHdmiHdcp] = useState(false);
 
+  // GPU / Hardware Acceleration info
+  const [gpuInfo, setGpuInfo] = useState<any>(null);
+  const [gpuLoading, setGpuLoading] = useState(false);
+
   // Splash Videos (SteamDeckRepo) state
   const [splashQuery, setSplashQuery] = useState('');
   const [splashType, setSplashType] = useState<SplashFilterType>('all');
@@ -1002,7 +1006,7 @@ export default function SettingsView({
         if (systemFocusArea === 'left') {
           if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setSystemLeftIndex((prev) => Math.min(prev + 1, 4));
+            setSystemLeftIndex((prev) => Math.min(prev + 1, 5));
             soundService.playNavigation();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
@@ -2343,7 +2347,19 @@ export default function SettingsView({
       { id: 'language', title: t('settings.language') },
       { id: 'date_time', title: t('settings.dateAndTime') },
       { id: 'launcher_behavior', title: t('settings.launcherBehavior') },
+      { id: 'gpu', title: 'GPU & Performance' },
     ];
+
+    // Load GPU info when user navigates to GPU section
+    if (systemLeftIndex === 5 && !gpuInfo && !gpuLoading) {
+      setGpuLoading(true);
+      Promise.all([
+        (window as any).electronAPI?.getGpuInfo?.() ?? Promise.resolve(null),
+      ]).then(([info]) => {
+        setGpuInfo(info);
+        setGpuLoading(false);
+      }).catch(() => setGpuLoading(false));
+    }
 
     const currentLauncherBehavior: LauncherPlayBehavior =
       (activeUser?.settings as any)?.launcherPlayBehavior || 'hide';
@@ -2604,6 +2620,152 @@ export default function SettingsView({
                 </View>
               </ScrollView>
             )}
+
+            {systemLeftIndex === 5 && (() => {
+              const gpuData = gpuInfo?.gpu;
+              const summary = gpuData?.summary;
+              const isAccelerated = summary?.hardwareAccelerated;
+              return (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.rightSectionTitle}>GPU & Performance</Text>
+
+                {/* Hardware Acceleration Status Badge */}
+                <View
+                  style={[
+                    styles.infoRow,
+                    {
+                      backgroundColor: isAccelerated
+                        ? 'rgba(0,212,120,0.12)'
+                        : 'rgba(255,80,80,0.10)',
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: isAccelerated
+                        ? 'rgba(0,212,120,0.35)'
+                        : 'rgba(255,80,80,0.30)',
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      marginBottom: 4,
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.infoRowLabel, { fontSize: 13 }]}>Hardware Acceleration</Text>
+                    <Text style={{ color: '#aaa', fontSize: 11, marginTop: 2 }}>
+                      GPU-accelerated rendering for animations & video
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      backgroundColor: isAccelerated
+                        ? 'rgba(0,212,120,0.25)'
+                        : 'rgba(255,80,80,0.20)',
+                      borderRadius: 20,
+                      paddingHorizontal: 12,
+                      paddingVertical: 4,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: isAccelerated ? '#00D478' : '#FF5050',
+                      }}
+                    />
+                    <Text
+                      style={{
+                        color: isAccelerated ? '#00D478' : '#FF5050',
+                        fontSize: 13,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {gpuLoading
+                        ? 'Checking…'
+                        : isAccelerated
+                        ? 'Active'
+                        : gpuInfo
+                        ? 'Inactive'
+                        : 'Unavailable'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* GPU Device info */}
+                {gpuData?.gpuDevice && (
+                  <>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoRowLabel}>GPU Device</Text>
+                      <Text style={[styles.infoRowValue, { flexShrink: 1, textAlign: 'right', maxWidth: '60%' }]}>
+                        {gpuData.gpuDevice?.description || gpuData.gpuDevice?.vendorId || 'Unknown'}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoRowLabel}>Driver Version</Text>
+                      <Text style={styles.infoRowValue}>
+                        {gpuData.gpuDevice?.driverVersion || summary?.driverVersion || 'N/A'}
+                      </Text>
+                    </View>
+                  </>
+                )}
+                {summary?.renderer && summary.renderer !== 'Unknown' && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoRowLabel}>GL Renderer</Text>
+                    <Text style={[styles.infoRowValue, { flexShrink: 1, textAlign: 'right', maxWidth: '60%' }]}>
+                      {summary.renderer}
+                    </Text>
+                  </View>
+                )}
+                {summary?.vendor && summary.vendor !== 'Unknown' && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoRowLabel}>GL Vendor</Text>
+                    <Text style={styles.infoRowValue}>{summary.vendor}</Text>
+                  </View>
+                )}
+
+                {/* Feature Status */}
+                {gpuData?.featureStatus && (
+                  <>
+                    <Text style={[styles.rightSectionTitle, { marginTop: 20, fontSize: 13 }]}>Feature Status</Text>
+                    {[
+                      { key: 'gpu_compositing', label: 'GPU Compositing' },
+                      { key: 'rasterization', label: 'GPU Rasterization' },
+                      { key: 'oop_rasterization', label: 'OOP Rasterization' },
+                      { key: 'video_decode', label: 'Hardware Video Decode' },
+                      { key: 'video_encode', label: 'Hardware Video Encode' },
+                      { key: 'webgl', label: 'WebGL' },
+                      { key: 'webgl2', label: 'WebGL 2' },
+                      { key: 'webgpu', label: 'WebGPU' },
+                    ].map((feat) => {
+                      const raw: string = gpuData.featureStatus?.[feat.key] || 'unavailable';
+                      const isEnabled = raw.startsWith('enabled');
+                      return (
+                        <View key={feat.key} style={styles.infoRow}>
+                          <Text style={styles.infoRowLabel}>{feat.label}</Text>
+                          <Text
+                            style={[
+                              styles.infoRowValue,
+                              { color: isEnabled ? '#00D478' : '#FF7070', fontWeight: '600', fontSize: 11 },
+                            ]}
+                          >
+                            {raw}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </>
+                )}
+
+                {!gpuLoading && !gpuInfo && (
+                  <Text style={[styles.pathDesc, { marginTop: 20, textAlign: 'center' }]}>
+                    GPU info is only available in the Electron desktop app.
+                  </Text>
+                )}
+              </ScrollView>
+              );
+            })()}
           </View>
         </View>
       </View>

@@ -106,6 +106,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadSplashVideo: (url, target) => ipcRenderer.invoke('download-splash-video', url, target),
   // ── Galería de medios ────────────────────────────────────────────────────
   deleteImageFile: (filePath) => ipcRenderer.invoke('delete-image-file', filePath),
+  // ── Info de GPU / Aceleración por hardware ──────────────────────────────
+  getGpuInfo: () => ipcRenderer.invoke('get-gpu-info'),
 });
 
 // ── Detección de ventana overlay ────────────────────────────────────────────

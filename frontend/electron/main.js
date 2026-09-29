@@ -130,6 +130,71 @@ protocol.registerSchemesAsPrivileged([
 // que sin este switch el navegador simplemente lo silenciaría.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
+// ── Aceleración por hardware (GPU) ─────────────────────────────────────────
+// El launcher tiene animaciones CSS intensivas (rotaciones, blurs, gradientes,
+// transiciones), video de fondo, y muchas capas superpuestas (BlurView, modals,
+// overlays). Sin aceleración explícita, Chromium puede decidir rasterizar en
+// CPU (software), lo que provoca stuttering y caídas de FPS notables en
+// pantalla completa. Los siguientes switches fuerzan al compositor de Chromium
+// a delegar la mayor cantidad de trabajo posible a la GPU:
+
+// 1) Forzar que TODAS las capas se rasticen en GPU en vez de CPU.
+//    Esto es el cambio de mayor impacto: las animaciones CSS (transform,
+//    opacity, filter: blur) pasan de pintura por software a tiles GPU,
+//    eliminando el stuttering en transiciones de páginas y widgets.
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+
+// 2) Activar rasterización out-of-process (OOP-R): el rasterizado ocurre en
+//    el proceso GPU dedicado, no en el renderer, liberando el hilo principal
+//    para JavaScript y reduciendo jank durante scroll y animaciones.
+app.commandLine.appendSwitch('enable-oop-rasterization');
+
+// 3) Zero-copy rasterizer: los tiles rasterizados se comparten directamente
+//    con el compositor sin copias intermedias CPU→GPU, reduciendo latencia
+//    de frame y uso de memoria.
+app.commandLine.appendSwitch('enable-zero-copy');
+
+// 4) Aceleración nativa para <canvas 2D>: widgets con canvas (indicadores,
+//    gráficos de storage, barras de progreso) se renderizan en GPU.
+app.commandLine.appendSwitch('enable-accelerated-2d-canvas');
+
+// 5) Decodificación de video por hardware: los videos de fondo, splash y
+//    trailers de juegos se decodifican con el codec HW de la GPU (NVDEC,
+//    Intel QSV, AMD VCN) en vez de ffmpeg por software, ahorrando CPU y
+//    eliminando frame drops en video 1080p/4K.
+app.commandLine.appendSwitch('enable-hardware-overlays', 'single-fullscreen,single-on-top,underlay');
+
+// 6) Nunca caer a software renderer: si la GPU reporta un error leve,
+//    Chromium por defecto deshabilita la aceleración para esa sesión.
+//    Como estamos en un entorno controlado (consola/PC gaming con GPU
+//    dedicada), forzamos que siempre use HW.
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+
+// 7) Desactivar el frame-rate limiter del compositor: sin este switch,
+//    Chromium puede limitar a 60fps incluso si la pantalla soporta más.
+//    En un launcher fullscreen, queremos que el compositor entregue frames
+//    tan rápido como la GPU pueda.
+app.commandLine.appendSwitch('disable-frame-rate-limit');
+
+// 8) Desactivar throttling de animaciones en background: cuando la ventana
+//    pierde foco momentáneamente (ej. al abrir un modal del SO), Chromium
+//    throttlea las animaciones a ~1fps. Esto causa un "salto" visible al
+//    volver, especialmente en el video de fondo y los spinners de borde.
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+
+// 9) Activar Vulkan como backend gráfico en Windows cuando esté disponible.
+//    Vulkan tiene menos overhead de driver que OpenGL/ANGLE y da mejor
+//    throughput en operaciones de composición por capa. Si no hay driver
+//    Vulkan, Chromium cae automáticamente a D3D11.
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('use-angle', 'default');
+  app.commandLine.appendSwitch('enable-features',
+    'VaapiVideoDecoder,VaapiVideoEncoder,CanvasOopRasterization,Vulkan');
+}
+
+console.log('[GPU] Switches de aceleración por hardware aplicados');
+
 // ── Single-instance lock ──
 // Evita instancias duplicadas del launcher. Esto es especialmente importante
 // con front-ends tipo "Xbox Game Bar replacement" (ej. Omniconsola): al
@@ -582,10 +647,22 @@ function createWindow() {
     height: 700,
     fullscreen: true,
     show: false,
+    // ── Acelerar el primer paint: el renderer comienza a componer frames
+    // incluso mientras la ventana está oculta (show: false), así cuando
+    // se dispara 'ready-to-show' la UI ya está renderizada y no hay flash
+    // blanco ni demora visible al presentarla.
+    paintWhenInitiallyHidden: true,
     icon: path.join(__dirname, '../assets/icons/logo.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: false, // Permitir carga de assets locales y externos sin restricciones de CORS/CSP en este entorno de consola
+      // ── Desactivar throttling de background en el renderer ──
+      // Cuando la ventana pierde el foco (ej. al lanzar un juego y luego
+      // volver, o al abrir un diálogo nativo), Chromium reduce los timers
+      // y requestAnimationFrame a ~1fps. Esto congelaba las animaciones
+      // CSS (spinners, blurs, transiciones) y al volver se veía un "salto"
+      // brusco mientras el compositor re-renderizaba todas las capas.
+      backgroundThrottling: false,
     },
   });
 
@@ -2118,6 +2195,37 @@ app.whenReady().then(async () => {
     } catch (err) {
       console.error('Protocol error:', err);
       return new Response('Error loading local file', { status: 500 });
+    }
+  });
+
+  // ── IPC: Información de GPU y aceleración por hardware ──────────────────
+  // El renderer puede solicitar esta info para mostrar en Settings el estado
+  // de la aceleración HW (GPU activa, nombre, driver, features habilitadas).
+  ipcMain.handle('get-gpu-info', async () => {
+    try {
+      const gpuInfo = await app.getGPUInfo('complete');
+      const gpuFeatureStatus = app.getGPUFeatureStatus();
+      return {
+        success: true,
+        gpu: {
+          // Datos de la GPU principal
+          gpuDevice: gpuInfo.gpuDevice?.[0] || null,
+          auxAttributes: gpuInfo.auxAttributes || null,
+          // Feature status muestra qué está acelerado por HW y qué no
+          featureStatus: gpuFeatureStatus,
+          // Info resumida útil para la UI
+          summary: {
+            renderer: gpuInfo.auxAttributes?.glRenderer || 'Unknown',
+            vendor: gpuInfo.auxAttributes?.glVendor || 'Unknown',
+            driverVersion: gpuInfo.gpuDevice?.[0]?.driverVersion || 'Unknown',
+            hardwareAccelerated: gpuFeatureStatus?.gpu_compositing !== 'disabled'
+              && gpuFeatureStatus?.gpu_compositing !== 'disabled_software',
+          },
+        },
+      };
+    } catch (err) {
+      console.warn('[GPU] Error obteniendo info de GPU:', err.message);
+      return { success: false, error: err.message };
     }
   });
 
