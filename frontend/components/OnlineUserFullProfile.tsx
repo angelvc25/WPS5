@@ -35,6 +35,7 @@ import type { OnlineUser } from '../services/onlineAccountService';
 import { formatPlaytime } from '../services/playtimeService';
 import { soundService } from '../services/soundService';
 import { toastService } from '../services/toastService';
+import SpinningBorderSearch from './SpinningBorderSearch';
 
 interface OnlineUserFullProfileProps {
   username: string | null;
@@ -49,6 +50,7 @@ interface LibraryGameView {
   platform: string | null;
   playtimeMinutes: number;
   addedAt: string | null;
+  isFavorite: boolean;
 }
 
 function parseLibraryGame(entry: OnlineLibraryGame): LibraryGameView {
@@ -65,6 +67,7 @@ function parseLibraryGame(entry: OnlineLibraryGame): LibraryGameView {
     platform: typeof meta?.platform === 'string' ? meta.platform : null,
     playtimeMinutes: Number(meta?.playtimeMinutes) || 0,
     addedAt: entry.added_at,
+    isFavorite: meta?.isFavorite === true || meta?.favorite === true,
   };
 }
 
@@ -115,6 +118,13 @@ function normalizeGameTitle(name: string): string {
 export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUserFullProfileProps) => {
   const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
+  // Escala relativa a 1920px de ancho (los mismos valores base de UserProfileView).
+  // Si prefieres tamaños fijos, cambia por: const s = (px: number) => px;
+  const s = useMemo(() => {
+    const k = Math.max(0.6, Math.min(1.5, windowWidth / 1920));
+    return (px: number) => Math.round(px * k);
+  }, [windowWidth]);
+  const styles = useMemo(() => createStyles(s), [s]);
   // t() devuelve la clave si falta la traducción: respaldo en inglés.
   const tr = (key: string, fallback: string): string => {
     const value = (t as any)(key);
@@ -253,6 +263,9 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
 
   const session = getOnlineSession();
   const totalMinutes = games.reduce((acc, g) => acc + g.playtimeMinutes, 0);
+  const playedGames = games.filter((g) => g.playtimeMinutes > 0);
+  const averageMinutes = playedGames.length ? Math.round(totalMinutes / playedGames.length) : 0;
+  const favoritesCount = games.filter((g) => g.isFavorite).length;
 
   // ── Navegación por teclado/mando en fase de captura ───────────────────
   // Filas (arriba/abajo): atrás → acciones → pestañas → tarjetas (solo en Overview).
@@ -404,7 +417,8 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
     if (!rows.flat().includes(focusId)) setFocusId(`tab:${tab}`);
   }, [rows, focusId, tab]);
   const mostPlayed = games.reduce<LibraryGameView | null>(
-    (best, g) => (!best || g.playtimeMinutes > best.playtimeMinutes ? g : best),
+    (best, g) =>
+      g.playtimeMinutes > 0 && (!best || g.playtimeMinutes > best.playtimeMinutes) ? g : best,
     null,
   );
 
@@ -433,387 +447,463 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
     return games.filter((g) => mine.has(normalizeGameTitle(g.name)));
   }, [games, ownGameNames]);
 
+  // ── Piezas de la vista (mismo layout que UserProfileView) ──────────────
+  const coverUrl =
+    profile?.user.coverUrl && /^https?:\/\//i.test(profile.user.coverUrl) ? profile.user.coverUrl : null;
+  const avatarUrl =
+    profile?.user.avatarUrl && /^https?:\/\//i.test(profile.user.avatarUrl) ? profile.user.avatarUrl : null;
+
+  const cardStyle = (id: string) => [styles.profileCard, focusId === id && styles.profileCardFocused];
+
+  const actionButton = (
+    id: string,
+    icon: React.ComponentProps<typeof Ionicons>['name'],
+    label: string,
+    danger = false,
+  ) => {
+    const focused = focusId === id;
+    return (
+      <TouchableOpacity
+        key={id}
+        ref={setFocusRefById(id)}
+        style={[styles.profileActionButton, focused && styles.profileActionButtonFocused]}
+        disabled={busy}
+        onPress={() => {
+          setFocusId(id);
+          focusRunnerRef.current(id);
+        }}
+      >
+        {focused && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
+        <Ionicons name={icon} size={s(20)} color={danger ? '#FF8899' : '#FFF'} />
+        <Text style={[styles.profileActionButtonLabel, danger && { color: '#FF8899' }]}>{label}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderActions = () => {
+    if (!profile || profile.isSelf || !session) return null;
+    if (profile.friendship === 'accepted') {
+      return (
+        <View style={styles.profileHeaderActions}>
+          <View style={styles.profileStatusBadge}>
+            <Ionicons name="checkmark-circle-outline" size={s(20)} color="rgba(255,255,255,0.7)" />
+            <Text style={styles.profileStatusBadgeText}>{t('onlineProfile.friend')}</Text>
+          </View>
+          {friendshipId ? actionButton('action:remove', 'person-remove-outline', t('onlineProfile.remove'), true) : null}
+        </View>
+      );
+    }
+    if (profile.friendship === 'pending' && incomingRequestId) {
+      return (
+        <View style={styles.profileHeaderActions}>
+          {actionButton('action:accept', 'checkmark', t('onlineProfile.accept'))}
+          {actionButton('action:reject', 'close', t('onlineProfile.reject'))}
+        </View>
+      );
+    }
+    if (profile.friendship === 'pending') {
+      return (
+        <View style={styles.profileHeaderActions}>
+          <View style={styles.profileStatusBadge}>
+            <Ionicons name="time-outline" size={s(20)} color="#FFB300" />
+            <Text style={[styles.profileStatusBadgeText, { color: '#FFB300' }]}>{t('onlineProfile.pending')}</Text>
+          </View>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.profileHeaderActions}>
+        {actionButton('action:add', 'person-add-outline', t('onlineProfile.addFriend'))}
+      </View>
+    );
+  };
+
+  const statCell = (
+    icon: React.ComponentProps<typeof Ionicons>['name'],
+    color: string,
+    value: string | number,
+    label: string,
+  ) => (
+    <View style={[styles.statCell, { flex: 1 }]}>
+      <View style={styles.statCellBody}>
+        <Ionicons name={icon} size={s(28)} color={color} />
+        <Text style={styles.statNumber}>{value}</Text>
+      </View>
+      <View style={styles.statCellFooter}>
+        <Text style={styles.statLabel}>{label}</Text>
+      </View>
+    </View>
+  );
+
+  const renderAvatar = (u: OnlineUser, style: any, textStyle: any) => {
+    const url = u.avatarUrl && /^https?:\/\//i.test(u.avatarUrl) ? u.avatarUrl : null;
+    return (
+      <View style={style}>
+        {url ? (
+          <Image source={{ uri: url }} style={styles.cardAvatarImg} contentFit="cover" />
+        ) : (
+          <Text style={textStyle}>{(u.displayName || u.username).slice(0, 1).toUpperCase()}</Text>
+        )}
+      </View>
+    );
+  };
+
   return (
     <Modal visible={!!username} transparent={false} animationType="fade" onRequestClose={onClose}>
       <View style={styles.container}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-          {/* Banner con cabecera superpuesta (estilo PSN) */}
-          <View style={styles.banner}>
-            {profile?.user.coverUrl && /^https?:\/\//i.test(profile.user.coverUrl) ? (
-              <Image source={{ uri: profile.user.coverUrl }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.profilePageContent}>
+          {/* Banner a sangre que se funde con el gris base */}
+          <View style={styles.profileBannerContainer}>
+            {coverUrl ? (
+              <Image source={{ uri: coverUrl }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
             ) : (
-              <View style={styles.bannerGradient} />
+              <View
+                style={[
+                  styles.profileBannerGradient,
+                  {
+                    background: `linear-gradient(135deg, ${PROFILE_ACCENT}33 0%, rgba(20, 20, 30, 0.8) 100%)`,
+                  } as any,
+                ]}
+              />
             )}
-            <View style={styles.bannerOverlay} pointerEvents="none" />
+            <View style={styles.profileBannerOverlay} pointerEvents="none" />
             <LinearGradient
-              colors={['rgba(22, 22, 22, 0)', '#141414ff']}
-              style={styles.bannerFade}
+              colors={['rgba(20, 20, 20, 0)', PROFILE_BG]}
+              style={styles.profileBannerFade}
               pointerEvents="none"
             />
+
             <TouchableOpacity
               ref={setFocusRefById('back')}
-              style={[styles.backBtn, focusId === 'back' && styles.focusedRing]}
+              style={[styles.profileBackButton, focusId === 'back' && styles.focusedRing]}
               onPress={() => {
                 setFocusId('back');
                 focusRunnerRef.current('back');
               }}
             >
-              <Ionicons name="arrow-back" size={24} color="#FFF" />
+              <Ionicons name="arrow-back" size={s(22)} color="#FFF" />
             </TouchableOpacity>
 
+            {/* Avatar + nombre sobre el banner */}
             {profile && !loading ? (
-              <View style={styles.bannerHeader}>
-                {profile.user.avatarUrl && /^https?:\/\//i.test(profile.user.avatarUrl) ? (
-                  <View>
-                    <Image source={{ uri: profile.user.avatarUrl }} style={styles.avatarImg} contentFit="cover" />
-                    <View style={styles.onlineDot} />
+              <View style={styles.profileHeaderContent} pointerEvents="none">
+                <View style={styles.profileAvatarWrapper}>
+                  <View style={[styles.profileAvatarCircle, { borderColor: PROFILE_ACCENT }]}>
+                    {avatarUrl ? (
+                      <Image source={{ uri: avatarUrl }} style={styles.profileAvatarImg} contentFit="cover" />
+                    ) : (
+                      <Text style={styles.profileAvatarInitial}>
+                        {(profile.user.displayName || profile.user.username).slice(0, 1).toUpperCase()}
+                      </Text>
+                    )}
+                    <View style={styles.profileOnlineDot} />
                   </View>
-                ) : (
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {(profile.user.displayName || profile.user.username).slice(0, 1).toUpperCase()}
-                    </Text>
-                    <View style={styles.onlineDot} />
+
+                  <View style={styles.profileInfoDetails}>
+                    <View style={styles.profileNameRow}>
+                      <Text style={[styles.profileDisplayName, styles.profileTextShadow]}>
+                        {profile.user.displayName || profile.user.username}
+                      </Text>
+                      <View style={styles.profilePlusBadge}>
+                        <Ionicons name="add" size={s(14)} color="#000" />
+                      </View>
+                    </View>
+                    <View style={styles.profileHandleRow}>
+                      <Text style={[styles.profileHandleText, styles.profileTextShadow]}>
+                        @{profile.user.username}
+                      </Text>
+                      <Text style={styles.profileHandleSep}>|</Text>
+                      <Ionicons name="game-controller" size={s(14)} color="rgba(255,255,255,0.6)" />
+                      {profile.user.lastSeenAt ? (
+                        <Text style={[styles.profileHandleText, styles.profileTextShadow]}>
+                          {formatLastSeen(t, profile.user.lastSeenAt)}
+                        </Text>
+                      ) : null}
+                    </View>
                   </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.displayName}>{profile.user.displayName}</Text>
-                  <Text style={styles.username}>
-                    {profile.user.username}
-                    {profile.user.lastSeenAt ? `  |  ${formatLastSeen(t, profile.user.lastSeenAt)}` : ''}
-                  </Text>
                 </View>
               </View>
             ) : null}
           </View>
 
-          <View style={styles.content}>
-            {loading || !profile ? (
-              <View style={styles.center}>
-                {error ? <Text style={styles.error}>{error}</Text> : <ActivityIndicator color="#FFF" size="large" />}
-              </View>
-            ) : (
-              <>
-                {profile.user.bio ? <Text style={styles.bio} numberOfLines={2}>{profile.user.bio}</Text> : null}
+          {loading || !profile ? (
+            <View style={styles.center}>
+              {error ? <Text style={styles.error}>{error}</Text> : <ActivityIndicator color="#FFF" size="large" />}
+            </View>
+          ) : (
+            <>
+              {/* Acciones de amistad: debajo del usuario, encima de las pestañas */}
+              {renderActions()}
 
-                {/* Acciones */}
-                {!profile.isSelf && !!session && (
-                  <View style={styles.actions}>
-                    {profile.friendship === 'accepted' ? (
-                      <>
-                        <View style={styles.friendBadge}>
-                          {/* <Ionicons name="checkmark" size={14} color="#7BDD7B" /> */}
-                          <Text style={styles.friendBadgeText}>{t('onlineProfile.friend')}</Text>
-                        </View>
-                        {friendshipId && (
-                          <TouchableOpacity
-                            ref={setFocusRefById('action:remove')}
-                            style={[styles.btnGhost, focusId === 'action:remove' && styles.focusedRing]}
-                            disabled={busy}
-                            onPress={() => {
-                              setFocusId('action:remove');
-                              focusRunnerRef.current('action:remove');
-                            }}
-                          >
-                            <Text style={styles.btnGhostText}>{t('onlineProfile.remove')}</Text>
-                          </TouchableOpacity>
-                        )}
-                      </>
-                    ) : profile.friendship === 'pending' && incomingRequestId ? (
-                      <>
-                        <TouchableOpacity
-                          ref={setFocusRefById('action:accept')}
-                          style={[styles.btnPrimary, focusId === 'action:accept' && styles.focusedRing]}
-                          disabled={busy}
-                          onPress={() => {
-                            setFocusId('action:accept');
-                            focusRunnerRef.current('action:accept');
-                          }}
-                        >
-                          <Text style={styles.btnPrimaryText}>{t('onlineProfile.accept')}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          ref={setFocusRefById('action:reject')}
-                          style={[styles.btnSecondary, focusId === 'action:reject' && styles.focusedRing]}
-                          disabled={busy}
-                          onPress={() => {
-                            setFocusId('action:reject');
-                            focusRunnerRef.current('action:reject');
-                          }}
-                        >
-                          <Text style={styles.btnSecondaryText}>{t('onlineProfile.reject')}</Text>
-                        </TouchableOpacity>
-                      </>
-                    ) : profile.friendship === 'pending' ? (
-                      <View style={styles.friendBadge}>
-                        {/* <Ionicons name="time-outline" size={14} color="#FFB300" /> */}
-                        <Text style={[styles.friendBadgeText, { color: '#FFB300' }]}>{t('onlineProfile.pending')}</Text>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        ref={setFocusRefById('action:add')}
-                        style={[styles.btnPrimary, focusId === 'action:add' && styles.focusedRing]}
-                        disabled={busy}
-                        onPress={() => {
-                          setFocusId('action:add');
-                          focusRunnerRef.current('action:add');
-                        }}
-                      >
-                        {/* <Ionicons name="person-add-outline" size={16} color="#ffffffff" /> */}
-                        <Text style={styles.btnPrimaryText}>{t('onlineProfile.addFriend')}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-
-                {/* Pestañas */}
-                <View style={styles.tabsBar}>
-                  {(['overview', 'games', 'friends'] as const).map((key) => {
+              {/* Pestañas */}
+              <View style={styles.profileTabsRow}>
+                <View style={styles.profileTabsBar}>
+                  {TAB_KEYS.map((key) => {
                     const tabId = `tab:${key}`;
+                    const isActive = tab === key;
                     return (
                       <TouchableOpacity
                         key={key}
                         ref={setFocusRefById(tabId)}
-                        style={[styles.tabItem, tab === key && styles.tabItemActive, focusId === tabId && styles.focusedRing]}
+                        style={[styles.profileTabItem, isActive && styles.profileTabItemActive]}
                         onPress={() => {
                           setFocusId(tabId);
                           focusRunnerRef.current(tabId);
                         }}
                       >
-                        <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>
-                          {key === 'overview' ? t('profile.overview') : key === 'games' ? t('profile.games') : t('profile.friends')}
+                        {focusId === tabId && <SpinningBorderSearch size={s(180)} spread={0} borderRadius={1} />}
+                        <Text style={[styles.profileTabText, isActive && styles.profileTabTextActive]}>
+                          {t(`profile.${key}` as any)}
                         </Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
+              </View>
 
+              <View style={styles.profilePageBody}>
+                {/* ── Overview ── */}
                 {tab === 'overview' && (
-                  <>
+                  <View>
+                    {/* Barra de estadísticas: valor arriba, etiqueta abajo */}
                     <View style={styles.statsBar}>
-                      <View style={styles.statCell}>
-                        <Ionicons name="time-outline" size={20} color="rgba(255,255,255,0.5)" style={styles.statIcon} />
-                        <Text style={styles.statNumber}>{formatCompactMinutes(totalMinutes)}</Text>
-                        <Text style={styles.statLabel}>{t('profile.totalPlaytime')}</Text>
-                      </View>
-                      <View style={styles.statCell}>
-                        <Ionicons name="game-controller-outline" size={20} color="rgba(255,255,255,0.5)" style={styles.statIcon} />
-                        <Text style={styles.statNumber}>{games.length}</Text>
-                        <Text style={styles.statLabel}>{t('profile.gamesCount')}</Text>
-                      </View>
-                      <View style={[styles.statCell, styles.statCellWide]}>
-                        {mostPlayed ? (
-                          <>
-                            {mostPlayed.coverUrl ? (
-                              <Image source={{ uri: mostPlayed.coverUrl }} style={styles.statGameCover} contentFit="cover" />
-                            ) : null}
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.statGame} numberOfLines={1}>{mostPlayed.name}</Text>
-                              <Text style={styles.statLabel}>{tr('profile.topGame', 'Most played')}</Text>
-                            </View>
-                          </>
-                        ) : (
-                          <>
+                      {statCell('time-outline', '#FFCC00', formatCompactMinutes(totalMinutes), t('profile.totalPlaytime'))}
+                      {statCell('game-controller-outline', '#00D4FF', games.length, t('profile.gamesCount'))}
+                      {statCell(
+                        'hourglass-outline',
+                        '#B388FF',
+                        formatCompactMinutes(averageMinutes),
+                        tr('profile.averagePlaytime', 'Average playtime'),
+                      )}
+
+                      <View style={[styles.statCell, { flex: 2 }]}>
+                        <View style={[styles.statCellBody, styles.statCellBodyTopGame]}>
+                          {mostPlayed ? (
+                            <>
+                              <BlurredArt
+                                uri={mostPlayed.coverUrl}
+                                style={styles.topGameThumb}
+                                radius={s(8)}
+                                placeholderSize={s(22)}
+                              />
+                              <View style={styles.topGameInfo}>
+                                <Text style={styles.topGameTitle} numberOfLines={2}>{mostPlayed.name}</Text>
+                                <Text style={styles.topGamePlaytime}>
+                                  {formatPlaytime(mostPlayed.playtimeMinutes, t)}
+                                </Text>
+                              </View>
+                            </>
+                          ) : (
                             <Text style={styles.statNumber}>--</Text>
-                            <Text style={styles.statLabel}>{tr('profile.topGame', 'Most played')}</Text>
-                          </>
-                        )}
+                          )}
+                        </View>
+                        <View style={styles.statCellFooter}>
+                          <Text style={styles.statLabel}>{tr('profile.topGame', 'Most played')}</Text>
+                        </View>
                       </View>
+
+                      {statCell('heart-outline', '#FF3B30', favoritesCount, t('profile.favoriteGames'))}
                     </View>
 
-                    {/* Vitrina estilo PSN: trofeos, más jugado y en común */}
-                    <View style={styles.showcaseRow}>
-                      <View
-                        ref={setFocusRefById('card:trophies')}
-                        style={[styles.showcaseCard, focusId === 'card:trophies' && styles.focusedRing]}
-                      >
-                        {trophiesState === 'loading' ? (
-                          <ActivityIndicator color="#FFF" style={{ marginVertical: 12 }} />
-                        ) : trophiesState !== 'ready' ? (
-                          <Text style={styles.showcaseHint}>
-                            {trophiesState === 'hidden'
-                              ? tr('onlineProfile.trophiesHidden', 'Private trophies')
-                              : tr('onlineProfile.noTrophies', 'No synced trophies')}
-                          </Text>
-                        ) : (
-                          <>
-                            <View style={styles.trophyHead}>
-                              <Image source={TIER_ICONS.gold} style={styles.trophyHeadIcon} contentFit="contain" />
-                              <Text style={styles.trophyTotal}>{trophyTotals.unlocked}</Text>
-                              <Text style={styles.trophyPct}>{trophyPct} %</Text>
-                            </View>
-                            <View style={styles.trophyProgressTrack}>
-                              <View style={[styles.trophyProgressFill, { width: `${trophyPct}%` }]} />
-                            </View>
-                            <View style={styles.trophyTiers}>
-                              {(['platinum', 'gold', 'silver', 'bronze'] as const).map((tier) => (
-                                <View key={tier} style={styles.trophyTier}>
-                                  <Image source={TIER_ICONS[tier]} style={styles.trophyTierIcon} contentFit="contain" />
-                                  <Text style={styles.trophyTierCount}>{trophyTotals[tier]}</Text>
+                    {/* 4 tarjetas: trofeos · más jugados · juegos en común · amigos en común */}
+                    <View style={styles.profileCardsRow}>
+                      {/* 1) Trofeos */}
+                      <View ref={setFocusRefById('card:trophies')} style={cardStyle('card:trophies')}>
+                        <View style={styles.profileCardBody}>
+                          {trophiesState === 'loading' ? (
+                            <ActivityIndicator color="#FFF" />
+                          ) : trophiesState !== 'ready' ? (
+                            <Text style={styles.profileCardHint}>
+                              {trophiesState === 'hidden'
+                                ? tr('onlineProfile.trophiesHidden', 'Private trophies')
+                                : tr('onlineProfile.noTrophies', 'No synced trophies')}
+                            </Text>
+                          ) : (
+                            <>
+                              <View style={styles.trophyHeadRow}>
+                                <Image source={TIER_ICONS.bronze} style={styles.trophyHeadIcon} contentFit="contain" />
+                                <Text style={styles.trophyLevel}>{trophyTotals.unlocked}</Text>
+                                <View style={styles.trophyProgressCol}>
+                                  <Text style={styles.trophyProgressPct}>{trophyPct} %</Text>
+                                  <View style={styles.trophyProgressTrack}>
+                                    <View style={[styles.trophyProgressFill, { width: `${trophyPct}%` }]} />
+                                  </View>
                                 </View>
-                              ))}
-                            </View>
-                          </>
-                        )}
-                        <Text style={styles.showcaseLabel}>
-                          {tr('onlineProfile.trophiesWon', 'Trophies won')}
-                        </Text>
+                              </View>
+                              <View style={styles.trophyTiersRow}>
+                                {(['platinum', 'gold', 'silver', 'bronze'] as const).map((tier) => (
+                                  <View key={tier} style={styles.trophyTier}>
+                                    <Image source={TIER_ICONS[tier]} style={styles.trophyTierIcon} contentFit="contain" />
+                                    <Text style={styles.trophyTierCount}>{trophyTotals[tier]}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            </>
+                          )}
+                        </View>
+                        <View>
+                          <Text style={styles.profileCardLabel}>{tr('onlineProfile.trophiesWon', 'Trophies won')}:</Text>
+                          <Text style={styles.profileCardValue}>{trophiesState === 'ready' ? trophyTotals.unlocked : '--'}</Text>
+                        </View>
                       </View>
 
-                      <View
-                        ref={setFocusRefById('card:top')}
-                        style={[styles.showcaseCard, focusId === 'card:top' && styles.focusedRing]}
-                      >
-                        {topPlayed.length === 0 ? (
-                          <Text style={styles.showcaseHint}>
-                            {tr('onlineProfile.noTrophies', 'No synced trophies')}
-                          </Text>
-                        ) : (
-                          topPlayed.map((g) => (
-                            <View key={g.id} style={styles.topPlayedRow}>
-                              {g.coverUrl ? (
-                                <Image source={{ uri: g.coverUrl }} style={styles.topPlayedCover} contentFit="cover" />
-                              ) : null}
-                              <Text style={styles.topPlayedName} numberOfLines={1}>{g.name}</Text>
-                              <Text style={styles.topPlayedHours}>
-                                {g.playtimeMinutes > 0 ? formatCompactMinutes(g.playtimeMinutes) : '--'}
-                              </Text>
-                            </View>
-                          ))
-                        )}
-                        <Text style={styles.showcaseLabel}>
-                          {tr('onlineProfile.mostPlayedTop', 'Most played')}
-                        </Text>
-                      </View>
-
-                      <TouchableOpacity
-                        ref={setFocusRefById('card:games')}
-                        style={[styles.showcaseCard, focusId === 'card:games' && styles.focusedRing]}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          focusRunnerRef.current('card:games');
-                        }}
-                      >
-                        {libraryState !== 'ready' ? (
-                          <Text style={styles.showcaseHint}>{libraryHint(t, libraryState)}</Text>
-                        ) : mutualGames.length === 0 ? (
-                          <Text style={styles.showcaseHint}>
-                            {tr('onlineProfile.noMutualGames', 'No mutual games')}
-                          </Text>
-                        ) : (
-                          <View style={styles.mutualPreviewRow}>
-                            {mutualGames.slice(0, 3).map((g) => (
-                              g.coverUrl ? (
-                                <Image key={g.id} source={{ uri: g.coverUrl }} style={styles.mutualCover} contentFit="cover" />
-                              ) : (
-                                <View key={g.id} style={[styles.mutualCover, styles.gameCoverEmpty]}>
-                                  <Ionicons name="game-controller-outline" size={16} color="rgba(255,255,255,0.4)" />
-                                </View>
-                              )
-                            ))}
-                          </View>
-                        )}
-                        <Text style={styles.showcaseLabel}>
-                          {tr('onlineProfile.mutualGames', 'Mutual games')}
-                          {libraryState === 'ready' ? `: ${mutualGames.length}` : ''}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        ref={setFocusRefById('card:friends')}
-                        style={[styles.showcaseCard, focusId === 'card:friends' && styles.focusedRing]}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          focusRunnerRef.current('card:friends');
-                        }}
-                      >
-                        {mutualFriends.length === 0 ? (
-                          <Text style={styles.showcaseHint}>
-                            {profile.isSelf
-                              ? t('friends.comingSoon')
-                              : tr('onlineProfile.noMutualFriends', 'No mutual friends')}
-                          </Text>
-                        ) : (
-                          <View style={styles.mutualPreviewRow}>
-                            {mutualFriends.slice(0, 3).map((u) => (
-                              u.avatarUrl && /^https?:\/\//i.test(u.avatarUrl) ? (
-                                <Image key={u.id} source={{ uri: u.avatarUrl }} style={styles.mutualAvatar} contentFit="cover" />
-                              ) : (
-                                <View key={u.id} style={[styles.mutualAvatar, styles.mutualAvatarEmpty]}>
-                                  <Text style={styles.mutualAvatarText}>
-                                    {(u.displayName || u.username).slice(0, 1).toUpperCase()}
+                      {/* 2) Más jugados */}
+                      <View ref={setFocusRefById('card:top')} style={cardStyle('card:top')}>
+                        <View style={styles.cardRecentList}>
+                          {topPlayed.length > 0 ? (
+                            topPlayed.map((g) => (
+                              <View key={g.id} style={styles.cardRecentRow}>
+                                <BlurredArt
+                                  uri={g.coverUrl}
+                                  style={styles.cardRecentThumb}
+                                  radius={s(4)}
+                                  placeholderSize={s(18)}
+                                />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.cardRecentTitle} numberOfLines={2}>{g.name}</Text>
+                                  <Text style={styles.cardRecentSub} numberOfLines={1}>
+                                    {g.playtimeMinutes > 0 ? formatPlaytime(g.playtimeMinutes, t) : '--'}
                                   </Text>
                                 </View>
-                              )
-                            ))}
-                          </View>
-                        )}
-                        <Text style={styles.showcaseLabel}>
-                          {tr('onlineProfile.mutualFriends', 'Mutual friends')}
-                          {profile.isSelf ? '' : `: ${mutualFriends.length}`}
-                        </Text>
+                              </View>
+                            ))
+                          ) : (
+                            <View style={styles.profileCardBody}>
+                              <Text style={styles.profileCardHint}>{libraryHint(t, libraryState)}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.profileCardLabel}>{tr('onlineProfile.mostPlayedTop', 'Most played')}</Text>
+                      </View>
+
+                      {/* 3) Juegos en común; al abrirla va a la pestaña Games */}
+                      <TouchableOpacity
+                        ref={setFocusRefById('card:games')}
+                        style={cardStyle('card:games')}
+                        activeOpacity={0.85}
+                        onPress={() => focusRunnerRef.current('card:games')}
+                      >
+                        <View style={styles.cardCoverRow}>
+                          {libraryState !== 'ready' ? (
+                            <Text style={styles.profileCardHint}>{libraryHint(t, libraryState)}</Text>
+                          ) : mutualGames.length === 0 ? (
+                            <Text style={styles.profileCardHint}>{tr('onlineProfile.noMutualGames', 'No mutual games')}</Text>
+                          ) : (
+                            mutualGames.slice(0, PROFILE_LIBRARY_PREVIEW).map((g) => (
+                              <BlurredArt
+                                key={g.id}
+                                uri={g.coverUrl}
+                                style={styles.cardCover}
+                                radius={s(6)}
+                                placeholderSize={s(22)}
+                              />
+                            ))
+                          )}
+                        </View>
+                        <View>
+                          <Text style={styles.profileCardLabel}>{tr('onlineProfile.mutualGames', 'Mutual games')}:</Text>
+                          <Text style={styles.profileCardValue}>{libraryState === 'ready' ? mutualGames.length : '--'}</Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* 4) Amigos en común; al abrirla va a la pestaña Friends */}
+                      <TouchableOpacity
+                        ref={setFocusRefById('card:friends')}
+                        style={cardStyle('card:friends')}
+                        activeOpacity={0.85}
+                        onPress={() => focusRunnerRef.current('card:friends')}
+                      >
+                        <View style={styles.cardAvatarRow}>
+                          {mutualFriends.length > 0 ? (
+                            mutualFriends.slice(0, PROFILE_FRIENDS_PREVIEW).map((u, idx) => (
+                              <View key={u.id} style={idx > 0 ? { marginLeft: s(-10) } : undefined}>
+                                {renderAvatar(u, styles.cardAvatar, styles.cardAvatarInitial)}
+                              </View>
+                            ))
+                          ) : (
+                            <Text style={styles.profileCardHint}>
+                              {profile.isSelf
+                                ? t('friends.comingSoon')
+                                : tr('onlineProfile.noMutualFriends', 'No mutual friends')}
+                            </Text>
+                          )}
+                        </View>
+                        <View>
+                          <Text style={styles.profileCardLabel}>{tr('onlineProfile.mutualFriends', 'Mutual friends')}:</Text>
+                          <Text style={styles.profileCardValue}>{profile.isSelf ? '--' : mutualFriends.length}</Text>
+                        </View>
                       </TouchableOpacity>
                     </View>
 
-                  </>
+                    {/* Acerca de */}
+                    {profile.user.bio ? (
+                      <View style={styles.aboutCard}>
+                        <Text style={styles.aboutCardTitle}>{t('profile.about')}</Text>
+                        <Text style={styles.aboutCardText}>{profile.user.bio}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                 )}
 
+                {/* ── Games (biblioteca completa, lista vertical) ── */}
                 {tab === 'games' && (
-                  <>
+                  <View style={styles.profileSection}>
+                    <View style={styles.profileSectionHeader}>
+                      <Text style={styles.profileSectionTitle}>{t('profile.games')}</Text>
+                      {games.length > 0 && <Text style={styles.profileSectionCount}>{games.length}</Text>}
+                    </View>
                     {libraryState === 'loading' ? (
-                      <ActivityIndicator color="#FFF" style={{ marginTop: 12 }} />
+                      <ActivityIndicator color="#FFF" style={{ marginTop: s(12) }} />
                     ) : libraryState !== 'ready' ? (
                       <Text style={styles.hint}>{libraryHint(t, libraryState)}</Text>
                     ) : games.length === 0 ? (
                       <Text style={styles.hint}>{t('onlineProfile.libraryEmpty')}</Text>
                     ) : (
-                      <>
-                        <View style={styles.gamesTabHeader}>
-                          <Text style={styles.gamesTabCount}>
-                            {tr('profile.allGames', 'All games')}: {games.length}
-                          </Text>
-                          <Text style={styles.gamesTabSort}>
-                            {tr('profile.sortBy', 'Sort by')}: {tr('profile.lastPlayed', 'Last played')}
-                          </Text>
+                      games.map((game) => (
+                        <View key={game.id} style={styles.recentRow}>
+                          <BlurredArt uri={game.coverUrl} style={styles.recentThumb} radius={0} placeholderSize={s(30)} />
+                          <View style={styles.recentInfo}>
+                            <Text style={styles.recentTitle} numberOfLines={1}>{game.name}</Text>
+                            <Text style={styles.recentSub}>
+                              {game.playtimeMinutes > 0 ? formatPlaytime(game.playtimeMinutes, t) : t('lastPlayed.never')}
+                            </Text>
+                          </View>
+                          <Text style={styles.recentPlaytime}>{game.platform || ''}</Text>
                         </View>
-                        {games.map((game) => (
-                          <GameRow key={game.id} game={game} t={t} expanded />
-                        ))}
-                      </>
+                      ))
                     )}
-                  </>
+                  </View>
                 )}
 
+                {/* ── Friends (en común) ── */}
                 {tab === 'friends' && (
-                  <>
+                  <View style={styles.profileSection}>
+                    <View style={styles.profileSectionHeader}>
+                      <Text style={styles.profileSectionTitle}>{t('profile.friends')}</Text>
+                      {!profile.isSelf && mutualFriends.length > 0 && (
+                        <Text style={styles.profileSectionCount}>{mutualFriends.length}</Text>
+                      )}
+                    </View>
                     {profile.isSelf ? (
                       <Text style={styles.hint}>{t('friends.comingSoon')}</Text>
                     ) : mutualFriends.length === 0 ? (
                       <Text style={styles.hint}>{tr('onlineProfile.noMutualFriends', 'No mutual friends')}</Text>
                     ) : (
                       mutualFriends.map((u) => (
-                        <View key={u.id} style={styles.gameRow}>
-                          {u.avatarUrl && /^https?:\/\//i.test(u.avatarUrl) ? (
-                            <Image source={{ uri: u.avatarUrl }} style={styles.mutualAvatar} contentFit="cover" />
-                          ) : (
-                            <View style={[styles.mutualAvatar, styles.mutualAvatarEmpty]}>
-                              <Text style={styles.mutualAvatarText}>
-                                {(u.displayName || u.username).slice(0, 1).toUpperCase()}
-                              </Text>
-                            </View>
-                          )}
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.gameName} numberOfLines={1}>{u.displayName}</Text>
-                            <Text style={styles.gameSub} numberOfLines={1}>@{u.username}</Text>
+                        <View key={u.id} style={styles.recentRow}>
+                          {renderAvatar(u, styles.friendRowAvatar, styles.cardAvatarInitial)}
+                          <View style={styles.recentInfo}>
+                            <Text style={styles.recentTitle} numberOfLines={1}>{u.displayName}</Text>
+                            <Text style={styles.recentSub} numberOfLines={1}>@{u.username}</Text>
                           </View>
                         </View>
                       ))
                     )}
-                  </>
+                  </View>
                 )}
-              </>
-            )}
-          </View>
+              </View>
+            </>
+          )}
         </ScrollView>
       </View>
     </Modal>
@@ -826,523 +916,568 @@ function libraryHint(t: (key: any) => string, state: string): string {
   return t('onlineProfile.libraryEmpty');
 }
 
-function GameRow({
-  game,
-  t,
-  expanded,
-}: {
-  game: LibraryGameView;
-  t: (key: any, params?: any) => string;
-  expanded?: boolean;
-}) {
-  if (!expanded) {
-    return (
-      <View style={styles.gameRow}>
-        {game.coverUrl ? (
-          <Image source={{ uri: game.coverUrl }} style={styles.gameCover} contentFit="cover" />
-        ) : (
-          <View style={[styles.gameCover, styles.gameCoverEmpty]}>
-            <Ionicons name="game-controller-outline" size={22} color="rgba(255,255,255,0.4)" />
-          </View>
-        )}
-        <View style={{ flex: 1 }}>
-          <Text style={styles.gameName} numberOfLines={1}>{game.name}</Text>
-          <Text style={styles.gameSub} numberOfLines={1}>
-            {[game.platform, game.playtimeMinutes > 0 ? formatPlaytime(game.playtimeMinutes, t) : null]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
-        </View>
-      </View>
-    );
-  }
+// Gris base del perfil: el banner se funde hacia este color (igual que UserProfileView).
+const PROFILE_BG = '#141414';
+// Color de acento del avatar (mismo fallback que usa UserProfileView).
+const PROFILE_ACCENT = '#00D4FF';
+const PROFILE_LIBRARY_PREVIEW = 3; // portadas visibles en la tarjeta de juegos en común
+const PROFILE_FRIENDS_PREVIEW = 4; // avatares visibles en la tarjeta de amigos en común
 
-  // Fila estilo PSN: portada más grande, badge de plataforma y meta alineada a la derecha.
+// Portada con fondo difuminado de la misma imagen: se ve bien sin importar la
+// proporción del arte original (cuadrado, vertical o apaisado).
+// (Copia local de BlurredArt de UserProfileView; se duplica para no crear un
+// import circular, ya que UserProfileView importa este archivo.)
+function BlurredArt({
+  uri,
+  style,
+  radius = 8,
+  placeholderSize = 28,
+}: {
+  uri?: string | null;
+  style?: any;
+  radius?: number;
+  placeholderSize?: number;
+}) {
   return (
-    <View style={styles.gameRowExpanded}>
-      {game.coverUrl ? (
-        <Image source={{ uri: game.coverUrl }} style={styles.gameCoverLarge} contentFit="cover" />
+    <View
+      style={[
+        { overflow: 'hidden', borderRadius: radius, backgroundColor: 'rgba(255,255,255,0.06)' },
+        style,
+      ]}
+    >
+      {uri ? (
+        <>
+          <Image source={{ uri }} blurRadius={24} contentFit="cover" style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.25)' }]} />
+          <Image source={{ uri }} contentFit="contain" style={StyleSheet.absoluteFillObject} />
+        </>
       ) : (
-        <View style={[styles.gameCoverLarge, styles.gameCoverEmpty]}>
-          <Ionicons name="game-controller-outline" size={26} color="rgba(255,255,255,0.4)" />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="game-controller-outline" size={placeholderSize} color="rgba(255,255,255,0.3)" />
         </View>
       )}
-      <View style={{ flex: 1 }}>
-        {game.platform ? (
-          <View style={styles.platformBadge}>
-            <Text style={styles.platformBadgeText}>{game.platform}</Text>
-          </View>
-        ) : null}
-        <Text style={styles.gameName} numberOfLines={1}>{game.name}</Text>
-        {game.addedAt ? (
-          <Text style={styles.gameSub} numberOfLines={1}>
-            {tr(t, 'profile.playedAgo', 'Played')}: {formatLastSeen(t, game.addedAt)}
-          </Text>
-        ) : null}
-      </View>
-      <Text style={styles.gameHours} numberOfLines={1}>
-        {tr(t, 'profile.hoursPlayed', 'Hours played')}
-        {'\n'}
-        <Text style={styles.gameHoursValue}>
-          {game.playtimeMinutes > 0 ? formatPlaytime(game.playtimeMinutes, t) : '--'}
-        </Text>
-      </Text>
     </View>
   );
 }
 
-function tr(t: (key: any, params?: any) => string, key: string, fallback: string): string {
-  const value = (t as any)(key);
-  return !value || value === key ? fallback : value;
-}
+// Estilos escalados con `s` (mismos valores base que UserProfileView, pensado
+// para una pantalla de 1920px de ancho).
+const createStyles = (s: (px: number) => number) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: PROFILE_BG,
+    },
+    profilePageContent: {
+      paddingBottom: s(60),
+    },
+    center: {
+      padding: s(60),
+      alignItems: 'center',
+    },
+    error: {
+      color: '#e2e2e2ff',
+      fontSize: s(14),
+    },
+    hint: {
+      color: 'rgba(255,255,255,0.5)',
+      fontSize: s(14),
+      fontFamily: 'SSTLight',
+      marginTop: s(12),
+    },
+    focusedRing: {
+      // @ts-ignore sombra web sin mover el layout
+      boxShadow: '0 0 0 2px rgba(255,255,255,0.9)',
+    },
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#141414ff',
-  },
-  content: {
-    paddingHorizontal: 94,
-    paddingBottom: 28,
-  },
-  banner: {
-    height: 320,
-    backgroundColor: '#1f1f1fff',
-    justifyContent: 'flex-end',
-  },
-  bannerGradient: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0d0d0dff',
-  },
-  bannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 10, 10, 0.48)',
-  },
-  bannerFade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 210,
-  },
-  bannerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 94,
-    paddingBottom: 28,
-  },
-  backBtn: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-    opacity: 0.4
-  },
-  center: {
-    padding: 60,
-    alignItems: 'center',
-  },
-  error: {
-    color: '#e2e2e2ff',
-    fontSize: 14,
-  },
-  avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarImg: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-  },
-  avatarText: {
-    color: '#FFF',
-    fontSize: 32,
-    fontFamily: 'SSTBold',
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 4,
-    right: 4,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#4CAF50',
-  },
-  displayName: {
-    color: '#FFF',
-    fontSize: 26,
-    fontFamily: 'SSTLight',
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-    marginLeft: 10
-  },
-  username: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 14,
-    marginTop: 2,
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-    marginLeft: 10
-  },
-  bio: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 13,
-    marginTop: 14,
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 14,
-    flexWrap: 'wrap',
-  },
-  btnPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#ffffff0e',
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  btnPrimaryText: {
-    color: '#ffffffff',
-    fontSize: 14,
-    fontFamily: 'SSTBold',
-  },
-  btnSecondary: {
-    backgroundColor: '#ffffff0e',
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  btnSecondaryText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontFamily: 'SSTLight',
-  },
-  btnGhost: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  btnGhostText: {
-    color: '#FF8899',
-    fontSize: 13,
-    fontFamily: 'SSTLight',
-  },
-  friendBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(76,175,80,0.15)',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  friendBadgeText: {
-    color: '#d4d4d4ff',
-    fontSize: 13,
-    fontFamily: 'SSTLight',
-  },
-  tabsBar: {
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  tabItem: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabItemActive: {
-    borderColor: '#ffffffc2',
-    borderWidth: 1,
-    borderBottomColor: '#ffffffc2',
-  },
-  tabText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 15,
-    fontFamily: 'SSTLight',
-  },
-  tabTextActive: {
-    color: '#FFF',
-  },
-  statsBar: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  statCell: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  statCellWide: {
-    flex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  statIcon: {
-    marginBottom: 6,
-  },
-  statGameCover: {
-    width: 40,
-    height: 40,
-    borderRadius: 6,
-  },
-  statNumber: {
-    color: '#FFF',
-    fontSize: 26,
-    fontFamily: 'SSTLight',
-  },
-  statGame: {
-    color: '#FFF',
-    fontSize: 15,
-    fontFamily: 'SSTMedium',
-    textAlign: 'left',
-  },
-  statLabel: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 12,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  showcaseRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 20,
-    paddingHorizontal: 20,
-  },
-  showcaseCard: {
-    flex: 1,
-    minWidth: 170,
-    minHeight: 210,
-    backgroundColor: 'rgba(0, 0, 0, 0.51)',
-    borderRadius: 0,
-    padding: 16,
-    gap: 10,
-    justifyContent: 'space-between',
-  },
-  showcaseLabel: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 15,
-    fontFamily: 'SSTLight',
-    marginTop: 4,
-  },
-  showcaseHint: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    lineHeight: 18,
-    fontFamily: 'SSTLight',
-  },
-  trophyHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  trophyTotal: {
-    color: '#ffffffa6',
-    fontSize: 24,
-    fontFamily: 'SSTLight',
-  },
-  trophyPct: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 13,
-    marginLeft: 'auto',
-  },
-  trophyProgressTrack: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    overflow: 'hidden',
-  },
-  trophyProgressFill: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#4CD964',
-  },
-  trophyTiers: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  trophyTier: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  trophyHeadIcon: {
-    width: 26,
-    height: 26,
-  },
-  trophyTierIcon: {
-    width: 22,
-    height: 22,
-  },
-  trophyTierCount: {
-    color: '#FFF',
-    fontSize: 12,
-  },
-  topPlayedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  topPlayedCover: {
-    width: 46,
-    height: 46,
-    borderRadius: 6,
-  },
-  topPlayedName: {
-    flex: 1,
-    color: '#FFF',
-    fontSize: 13,
-    fontFamily: 'SSTLight',
-  },
-  topPlayedHours: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-  },
-  mutualPreviewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  mutualCover: {
-    width: 66,
-    height: 88,
-    borderRadius: 7,
-  },
-  mutualAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#2a2a2e',
-  },
-  mutualAvatarEmpty: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mutualAvatarText: {
-    color: '#FFF',
-    fontSize: 16,
-  },
-  focusedRing: {
-    // @ts-ignore sombra web sin mover el layout
-    boxShadow: '0 0 0 2px rgba(255,255,255,0.9)',
-  },
-  gamesTabHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginTop: 22,
-    marginBottom: 6,
-  },
-  gamesTabCount: {
-    color: '#FFF',
-    fontSize: 18,
-    fontFamily: 'SSTMedium',
-  },
-  gamesTabSort: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-  },
-  sectionTitle: {
-    color: '#FFF',
-    fontSize: 18,
-    fontFamily: 'SSTMedium',
-    marginTop: 22,
-    marginBottom: 6,
-  },
-  hint: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 14,
-    marginTop: 12,
-  },
-  gameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  gameCover: {
-    width: 62,
-    height: 62,
-    borderRadius: 0,
-  },
-  gameCoverEmpty: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gameName: {
-    color: '#FFF',
-    fontSize: 15,
-    fontFamily: 'SSTLight',
-  },
-  gameSub: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  gameRowExpanded: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  gameCoverLarge: {
-    width: 56,
-    height: 74,
-    borderRadius: 6,
-  },
-  platformBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginBottom: 4,
-  },
-  platformBadgeText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 10,
-    fontFamily: 'SSTMedium',
-    letterSpacing: 0.5,
-  },
-  gameHours: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 12,
-    textAlign: 'right',
-    lineHeight: 16,
-  },
-  gameHoursValue: {
-    color: '#FFF',
-    fontSize: 14,
-    fontFamily: 'SSTMedium',
-  },
-});
+    // ── Banner ──
+    profileBannerContainer: {
+      width: '100%',
+      height: s(340),
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    profileBannerGradient: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: '#0d0d0dff',
+    },
+    profileBannerOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    },
+    profileBannerFade: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: s(230),
+    },
+    profileBackButton: {
+      position: 'absolute',
+      top: s(28),
+      left: s(40),
+      width: s(38),
+      height: s(38),
+      borderRadius: s(19),
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 2,
+    },
+    profileHeaderContent: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: s(14),
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      paddingHorizontal: s(72),
+    },
+    profileAvatarWrapper: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: s(18),
+    },
+    profileAvatarCircle: {
+      width: s(90),
+      height: s(90),
+      borderRadius: s(45),
+      borderWidth: 3,
+      backgroundColor: 'rgba(255,255,255,0.14)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    profileAvatarImg: {
+      width: '100%',
+      height: '100%',
+      borderRadius: s(45),
+    },
+    profileAvatarInitial: {
+      color: '#FFF',
+      fontSize: s(36),
+      fontFamily: 'SSTBold',
+    },
+    profileOnlineDot: {
+      position: 'absolute',
+      bottom: s(4),
+      right: s(4),
+      width: s(14),
+      height: s(14),
+      borderRadius: s(7),
+      backgroundColor: '#4CD964',
+    },
+    profileInfoDetails: {
+      paddingBottom: s(6),
+      gap: s(4),
+    },
+    profileNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(8),
+    },
+    profileDisplayName: {
+      color: '#FFF',
+      fontSize: s(28),
+      fontFamily: 'SSTMedium',
+    },
+    profilePlusBadge: {
+      width: s(20),
+      height: s(20),
+      borderRadius: s(10),
+      backgroundColor: '#FFCC00',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    profileHandleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(8),
+    },
+    profileHandleText: {
+      color: 'rgba(255,255,255,0.75)',
+      fontSize: s(14),
+      fontFamily: 'SSTLight',
+    },
+    profileHandleSep: {
+      color: 'rgba(255,255,255,0.4)',
+      fontSize: s(14),
+    },
+    profileTextShadow: {
+      textShadowColor: 'rgba(0, 0, 0, 0.7)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 5,
+    },
+
+    // ── Pestañas + acciones ──
+    profileTabsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginHorizontal: s(72),
+      marginBottom: s(24),
+      borderBottomWidth: 1,
+      borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    profileTabsBar: {
+      flexDirection: 'row',
+    },
+    profileTabItem: {
+      paddingHorizontal: s(22),
+      paddingVertical: s(14),
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+      marginBottom: -1,
+    },
+    profileTabItemActive: {
+      borderBottomColor: '#FFF',
+    },
+    profileTabText: {
+      color: 'rgba(255,255,255,0.5)',
+      fontSize: s(16),
+      fontFamily: 'SSTLight',
+    },
+    profileTabTextActive: {
+      color: '#FFF',
+      fontFamily: 'SSTMedium',
+    },
+    profileHeaderActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(10),
+      marginHorizontal: s(72),
+      marginTop: s(4),
+      marginBottom: s(16),
+    },
+    profileActionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s(8),
+      height: s(44),
+      paddingHorizontal: s(20),
+      borderRadius: s(22),
+      backgroundColor: 'rgba(255,255,255,0.08)',
+    },
+    profileActionButtonFocused: {
+      backgroundColor: 'rgba(255,255,255,0.16)',
+    },
+    profileActionButtonLabel: {
+      color: '#FFF',
+      fontSize: s(14),
+      fontFamily: 'SSTMedium',
+    },
+    profileStatusBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(8),
+      height: s(44),
+      paddingHorizontal: s(12),
+    },
+    profileStatusBadgeText: {
+      color: 'rgba(255,255,255,0.75)',
+      fontSize: s(14),
+      fontFamily: 'SSTLight',
+    },
+    profilePageBody: {
+      paddingHorizontal: s(72),
+    },
+
+    // ── Barra de estadísticas ──
+    statsBar: {
+      flexDirection: 'row',
+      gap: s(12),
+      marginBottom: s(32),
+    },
+    statCell: {
+      borderRadius: s(8),
+      overflow: 'hidden',
+      backgroundColor: 'rgba(255,255,255,0.05)',
+    },
+    statCellBody: {
+      height: s(96),
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s(14),
+    },
+    statCellBodyTopGame: {
+      justifyContent: 'flex-start',
+      paddingHorizontal: s(16),
+    },
+    statCellFooter: {
+      height: s(40),
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.05)',
+    },
+    statNumber: {
+      color: '#FFF',
+      fontSize: s(32),
+      fontFamily: 'SSTMedium',
+    },
+    statLabel: {
+      color: 'rgba(255,255,255,0.7)',
+      fontSize: s(14),
+      fontFamily: 'SSTLight',
+    },
+    topGameThumb: {
+      width: s(64),
+      height: s(64),
+    },
+    topGameInfo: {
+      flex: 1,
+      gap: s(2),
+    },
+    topGameTitle: {
+      color: '#FFF',
+      fontSize: s(15),
+      fontFamily: 'SSTMedium',
+    },
+    topGamePlaytime: {
+      color: 'rgba(255,255,255,0.55)',
+      fontSize: s(13),
+      fontFamily: 'SSTLight',
+    },
+
+    // ── Tarjetas del Overview (estilo PS5) ──
+    profileCardsRow: {
+      flexDirection: 'row',
+      gap: s(12),
+    },
+    profileCard: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: s(300),
+      padding: s(18),
+      backgroundColor: 'rgba(0, 0, 0, 0.45)',
+      justifyContent: 'space-between',
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    profileCardFocused: {
+      borderColor: 'rgba(255, 255, 255, 0.92)',
+    },
+    profileCardBody: {
+      flex: 1,
+      justifyContent: 'center',
+      gap: s(14),
+    },
+    profileCardLabel: {
+      color: 'rgba(255, 255, 255, 0.6)',
+      fontSize: s(16),
+      fontFamily: 'SSTLight',
+    },
+    profileCardValue: {
+      color: '#FFF',
+      fontSize: s(24),
+      fontFamily: 'SSTMedium',
+      marginTop: s(2),
+    },
+    profileCardHint: {
+      color: 'rgba(255, 255, 255, 0.4)',
+      fontSize: s(14),
+      fontFamily: 'SSTLight',
+      textAlign: 'center',
+    },
+    // Trofeos
+    trophyHeadRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s(12),
+    },
+    trophyHeadIcon: {
+      width: s(34),
+      height: s(34),
+    },
+    trophyLevel: {
+      color: '#FFF',
+      fontSize: s(26),
+      fontFamily: 'SSTLight',
+    },
+    trophyProgressCol: {
+      width: s(90),
+      gap: s(4),
+    },
+    trophyProgressPct: {
+      color: 'rgba(255, 255, 255, 0.75)',
+      fontSize: s(13),
+      fontFamily: 'SSTLight',
+    },
+    trophyProgressTrack: {
+      height: s(3),
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      overflow: 'hidden',
+    },
+    trophyProgressFill: {
+      height: s(3),
+      backgroundColor: '#FFF',
+    },
+    trophyTiersRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+    },
+    trophyTier: {
+      alignItems: 'center',
+      gap: s(4),
+    },
+    trophyTierIcon: {
+      width: s(24),
+      height: s(24),
+    },
+    trophyTierCount: {
+      color: '#FFF',
+      fontSize: s(14),
+      fontFamily: 'SSTLight',
+    },
+    // Más jugados
+    cardRecentList: {
+      flex: 1,
+      gap: s(8),
+    },
+    cardRecentRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(12),
+      padding: s(4),
+      borderRadius: s(6),
+    },
+    cardRecentThumb: {
+      width: s(60),
+      height: s(60),
+    },
+    cardRecentTitle: {
+      color: '#FFF',
+      fontSize: s(15),
+      fontFamily: 'SSTMedium',
+    },
+    cardRecentSub: {
+      color: 'rgba(255, 255, 255, 0.55)',
+      fontSize: s(13),
+      fontFamily: 'SSTLight',
+      marginTop: s(2),
+    },
+    // Juegos en común
+    cardCoverRow: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: s(10),
+    },
+    cardCover: {
+      width: s(96),
+      height: s(96),
+    },
+    // Amigos en común
+    cardAvatarRow: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cardAvatar: {
+      width: s(64),
+      height: s(64),
+      borderRadius: s(32),
+      backgroundColor: '#2a2a2e',
+      borderWidth: 2,
+      borderColor: '#1a1a1a',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    cardAvatarImg: {
+      width: '100%',
+      height: '100%',
+    },
+    cardAvatarInitial: {
+      color: '#FFF',
+      fontSize: s(24),
+      fontFamily: 'SSTBold',
+    },
+
+    // ── Acerca de ──
+    aboutCard: {
+      marginTop: s(32),
+      padding: s(20),
+      borderRadius: s(12),
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.08)',
+      backgroundColor: 'rgba(255,255,255,0.04)',
+      gap: s(8),
+    },
+    aboutCardTitle: {
+      color: 'rgba(255,255,255,0.85)',
+      fontSize: s(15),
+      fontFamily: 'SSTBold',
+    },
+    aboutCardText: {
+      color: 'rgba(255,255,255,0.8)',
+      fontSize: s(15),
+      fontFamily: 'SSTLight',
+      lineHeight: s(22),
+    },
+
+    // ── Pestañas Games / Friends ──
+    profileSection: {
+      paddingBottom: s(20),
+    },
+    profileSectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: s(12),
+      marginBottom: s(16),
+    },
+    profileSectionTitle: {
+      color: '#FFF',
+      fontSize: s(22),
+      fontFamily: 'SSTMedium',
+    },
+    profileSectionCount: {
+      color: 'rgba(255,255,255,0.5)',
+      fontSize: s(18),
+      fontFamily: 'SSTLight',
+    },
+    recentRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(16),
+      paddingVertical: s(8),
+      borderBottomWidth: 1,
+      borderBottomColor: 'rgba(255,255,255,0.06)',
+    },
+    recentThumb: {
+      width: s(72),
+      height: s(72),
+    },
+    friendRowAvatar: {
+      width: s(64),
+      height: s(64),
+      borderRadius: s(32),
+      backgroundColor: '#2a2a2e',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    recentInfo: {
+      flex: 1,
+      gap: s(4),
+    },
+    recentTitle: {
+      color: '#FFF',
+      fontSize: s(16),
+      fontFamily: 'SSTMedium',
+    },
+    recentSub: {
+      color: 'rgba(255,255,255,0.55)',
+      fontSize: s(14),
+      fontFamily: 'SSTLight',
+    },
+    recentPlaytime: {
+      color: 'rgba(255,255,255,0.5)',
+      fontSize: s(14),
+      fontFamily: 'SSTLight',
+    },
+  });

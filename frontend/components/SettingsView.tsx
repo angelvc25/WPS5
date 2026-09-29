@@ -20,10 +20,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { toastService } from '../services/toastService';
-import { getOnlineSession, syncProfileMediaToOnline, updateOnlineProfile } from '../services/onlineAccountService';
-import { fetchSteamGridAssets } from '../services/steamGridService';
-import type { SteamGridAsset } from '../services/steamGridService';
-import { formatPlaytime } from '../services/playtimeService';
+import { syncProfileMediaToOnline } from '../services/onlineAccountService';
 import {
   searchSteamDeckRepo,
   SteamDeckRepoPost,
@@ -40,11 +37,10 @@ import BackgroundVideo from './BackgroundVideo';
 import { EmulationView } from './EmulationView';
 
 import OnlineAuthView from './OnlineAuthView';
-import { OnlineFriendsPanel } from './OnlineFriendsPanel';
-import { OnlineUserFullProfile } from './OnlineUserFullProfile';
 import PSIcon from './PSIcon';
 import { UserProfile } from './UserSelectScreen';
 import SpinningBorderSearch from './SpinningBorderSearch';
+import UserProfileView, { resolveImageSource } from './UserProfileView';
 
 function compareVersions(a: string, b: string): number {
   const aParts = a.split('.').map(Number);
@@ -70,25 +66,6 @@ export type SettingsScreenType =
   | 'online_auth'
   | 'emulation'
   | 'system';
-
-type ProfileEditSection =
-  | 'name'
-  | 'onlineId'
-  | 'picture'
-  | 'avatar'
-  | 'cover'
-  | 'about'
-  | 'languages';
-
-const PROFILE_EDIT_SECTIONS: ProfileEditSection[] = [
-  'name',
-  'onlineId',
-  'picture',
-  'avatar',
-  'cover',
-  'about',
-  'languages',
-];
 
 const OVERLAY_COMBO_OPTIONS = [
   { id: 'SELECT_START', labelKey: 'settings.comboSelectStart' },
@@ -140,98 +117,9 @@ function applyLauncherBehaviorToElectron(behavior: LauncherPlayBehavior) {
   }
 }
 
-export function resolveImageSource(img: any) {
-  if (!img) return undefined;
-  if (typeof img === 'string') return { uri: img };
-  if (typeof img === 'object' && img.uri) return img;
-  return img;
-}
-
-// ── Perfil: pestañas, secciones navegables y helpers ─────────────────────
-const PROFILE_TABS = ['overview', 'games', 'friends'] as const;
-type ProfileTab = (typeof PROFILE_TABS)[number];
-
-// Cada pestaña se compone de "secciones" navegables con el mando/teclado.
-// Las secciones verticales (recent, friends, about) se recorren con ↑/↓ item
-// por item; las horizontales (library) se recorren con ←/→ y ↑/↓ cambia de
-// sección.
-type ProfileSectionId = 'recent' | 'library' | 'gamesList' | 'about' | 'friends';
-type ProfileSection = { id: ProfileSectionId; count: number; horizontal?: boolean };
-
-const PROFILE_RECENT_LIMIT = 3;
-
-// Valores por defecto estables: un `[]` nuevo en cada render invalidaría los
-// useMemo del perfil.
+// Valores por defecto estables: un `[]` nuevo en cada render invalidaría los useMemo.
 const NO_GAMES: any[] = [];
 const NO_USERS: UserProfile[] = [];
-
-const gameMinutes = (g: any): number =>
-  Number(g?.playtimeMinutes) || Number(g?.playtime_forever) || 0;
-
-// "17h" / "22m": formato compacto para los números grandes de las estadísticas.
-const formatCompactMinutes = (minutes: number): string =>
-  minutes >= 60 ? `${Math.floor(minutes / 60)}h` : `${Math.max(0, Math.round(minutes))}m`;
-
-type WindowRect = { x: number; y: number; w: number; h: number };
-
-// Mide un nodo en coordenadas de ventana. Usa measureInWindow (API de React
-// Native, también disponible en RN Web) y cae a getBoundingClientRect.
-const measureNode = (node: any): Promise<WindowRect | null> =>
-  new Promise((resolve) => {
-    if (node && typeof node.measureInWindow === 'function') {
-      node.measureInWindow((x: number, y: number, w: number, h: number) => resolve({ x, y, w, h }));
-    } else if (node && typeof node.getBoundingClientRect === 'function') {
-      const r = node.getBoundingClientRect();
-      resolve({ x: r.left, y: r.top, w: r.width, h: r.height });
-    } else {
-      resolve(null);
-    }
-  });
-
-// Portada con fondo difuminado de la misma imagen: se ve bien sin importar la
-// proporción del arte original (cuadrado, vertical o apaisado).
-function BlurredArt({
-  source,
-  style,
-  radius = 8,
-  placeholderSize = 28,
-}: {
-  source: any;
-  style?: any;
-  radius?: number;
-  placeholderSize?: number;
-}) {
-  const resolved = resolveImageSource(source);
-  return (
-    <View
-      style={[
-        { overflow: 'hidden', borderRadius: radius, backgroundColor: 'rgba(255,255,255,0.06)' },
-        style,
-      ]}
-    >
-      {resolved ? (
-        <>
-          <Image
-            source={resolved}
-            blurRadius={24}
-            contentFit="cover"
-            style={StyleSheet.absoluteFillObject}
-          />
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.25)' }]} />
-          <Image
-            source={resolved}
-            contentFit="contain"
-            style={StyleSheet.absoluteFillObject}
-          />
-        </>
-      ) : (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="game-controller-outline" size={placeholderSize} color="rgba(255,255,255,0.3)" />
-        </View>
-      )}
-    </View>
-  );
-}
 
 interface SettingsViewProps {
   visible: boolean;
@@ -283,13 +171,6 @@ export default function SettingsView({
 }: SettingsViewProps) {
   const { t } = useTranslation();
 
-  // Traduce con respaldo: si la clave aún no existe en translations.ts, t()
-  // devuelve la clave tal cual y se muestra el texto de respaldo en su lugar.
-  const tr = (key: string, fallback: string): string => {
-    const value = (t as any)(key);
-    return !value || value === key ? fallback : value;
-  };
-
   // Escala de UI en función de la resolución real de la ventana.
   // Usa el eje MAS grande (no el mas chico) respecto a 1920x1080, para que
   // ventanas ultra-wide (mucho ancho, alto normal) no encojan todo el panel.
@@ -317,41 +198,6 @@ export default function SettingsView({
   const [accessibilityFocusArea, setAccessibilityFocusArea] = useState<'left' | 'right'>('left');
   const [systemLeftIndex, setSystemLeftIndex] = useState(0);
   const [systemFocusArea, setSystemFocusArea] = useState<'left' | 'right'>('left');
-  const [profileActiveTab, setProfileActiveTab] = useState<ProfileTab>('overview');
-  const [profileFocusArea, setProfileFocusArea] = useState<'header_actions' | 'tabs' | 'content'>('header_actions');
-  const [profileActionIndex, setProfileActionIndex] = useState(0);
-  const [onlineProfileUsername, setOnlineProfileUsername] = useState<string | null>(null);
-  const [friendsVersion, setFriendsVersion] = useState(0);
-
-  const [profileEditSection, setProfileEditSection] = useState<ProfileEditSection>('name');
-  // Foco dentro del contenido del perfil: sección (índice en profileSections)
-  // e item dentro de esa sección (fila en listas verticales, columna en la
-  // biblioteca horizontal).
-  const [profileSectionIndex, setProfileSectionIndex] = useState(0);
-  const [profileItemIndex, setProfileItemIndex] = useState(0);
-  // true cuando la página del perfil ya se desplazó lo suficiente como para
-  // mostrar la barra superior fija ("← Perfil").
-  const [profileScrolled, setProfileScrolled] = useState(false);
-
-  // Profile edit fields
-  const [editName, setEditName] = useState(activeUser?.name || '');
-  const [namePushBusy, setNamePushBusy] = useState(false);
-  const [namePushError, setNamePushError] = useState<string | null>(null);
-  const [editOnlineId, setEditOnlineId] = useState(activeUser?.onlineId || '');
-  const [editAbout, setEditAbout] = useState(activeUser?.about || '');
-  const [bioPushBusy, setBioPushBusy] = useState(false);
-  const [bioPushError, setBioPushError] = useState<string | null>(null);
-  const [editCoverImage, setEditCoverImage] = useState(activeUser?.coverImage || '');
-
-  // Buscador de portada online (SteamGridDB, solo heroes panorámicos).
-  const [coverSearchVisible, setCoverSearchVisible] = useState(false);
-  const [coverSearchQuery, setCoverSearchQuery] = useState('');
-  const [coverSearchBusy, setCoverSearchBusy] = useState(false);
-  const [coverSearchDone, setCoverSearchDone] = useState(false);
-  const [coverHeroes, setCoverHeroes] = useState<SteamGridAsset[]>([]);
-  const [coverSavingUrl, setCoverSavingUrl] = useState<string | null>(null);
-  const [coverSelIndex, setCoverSelIndex] = useState(0);
-  const coverSearchInputRef = useRef<TextInput>(null);
 
   // HDMI toggles state for System sub-screen
   const [hdmiDeviceLink, setHdmiDeviceLink] = useState(true);
@@ -464,73 +310,6 @@ export default function SettingsView({
     ? filteredDownloadedSplashItems
     : splashItems;
 
-  // ── Perfil: datos derivados ──────────────────────────────────────────────
-  // Excluye Welcome (id='1'), PlayStation Store (id='5') y el tile Last Played
-  // (isLastPlayed): son entradas del menú, no juegos reales.
-  const profileLibraryGames = useMemo(
-    () => libraryGames.filter((g: any) => g.id !== '1' && g.id !== '5' && !g.isLastPlayed),
-    [libraryGames],
-  );
-
-  // Últimos juegos jugados (más reciente primero), según su timestamp lastPlayed.
-  const profileRecentGames = useMemo(
-    () =>
-      profileLibraryGames
-        .filter((g: any) => Number(g.lastPlayed) > 0)
-        .sort((a: any, b: any) => Number(b.lastPlayed) - Number(a.lastPlayed))
-        .slice(0, PROFILE_RECENT_LIMIT),
-    [profileLibraryGames],
-  );
-
-  const profileStats = useMemo(() => {
-    const totalMinutes = profileLibraryGames.reduce((acc: number, g: any) => acc + gameMinutes(g), 0);
-    const played = profileLibraryGames.filter((g: any) => gameMinutes(g) > 0);
-    const topGame = played.reduce(
-      (best: any, g: any) => (!best || gameMinutes(g) > gameMinutes(best) ? g : best),
-      null as any,
-    );
-    return {
-      gamesCount: profileLibraryGames.length,
-      totalMinutes,
-      averageMinutes: played.length ? Math.round(totalMinutes / played.length) : 0,
-      topGame,
-      topGameMinutes: topGame ? gameMinutes(topGame) : 0,
-      favoritesCount: profileLibraryGames.filter((g: any) => g.isFavorite).length,
-    };
-  }, [profileLibraryGames]);
-
-  // Secciones navegables de la pestaña activa. Solo entran las que tienen
-  // contenido, así el foco nunca cae en una sección vacía o inexistente.
-  // La pestaña de amigos online se maneja con mouse/touch (panel propio).
-  const profileSections = useMemo<ProfileSection[]>(() => {
-    if (profileActiveTab === 'friends') {
-      return [];
-    }
-    if (profileActiveTab === 'games') {
-      return profileLibraryGames.length > 0 ? [{ id: 'gamesList', count: profileLibraryGames.length }] : [];
-    }
-    const list: ProfileSection[] = [];
-    if (profileRecentGames.length > 0) list.push({ id: 'recent', count: profileRecentGames.length });
-    if (profileLibraryGames.length > 0) {
-      list.push({ id: 'library', count: profileLibraryGames.length, horizontal: true });
-    }
-    if (activeUser?.about) list.push({ id: 'about', count: 1 });
-    return list;
-  }, [profileActiveTab, profileRecentGames, profileLibraryGames, activeUser?.about]);
-
-  // Refs de cada item enfocable ("seccion:indice") y del ScrollView de la
-  // página, para seguir el foco lógico con scroll automático.
-  const profileItemRefs = useRef<Record<string, any>>({});
-  const profileScrollRef = useRef<ScrollView>(null);
-  const profileWrapperRef = useRef<View>(null); // visor de la página (para medir)
-  const profileScrollY = useRef(0);
-  const profileLibraryRef = useRef<ScrollView>(null);
-  const profileLibraryViewportRef = useRef<View>(null);
-  const profileLibraryScrollX = useRef(0);
-
-  const nameInputRef = useRef<TextInput>(null);
-  const onlineIdInputRef = useRef<TextInput>(null);
-  const aboutInputRef = useRef<TextInput>(null);
   // Refs a los nodos de cada tarjeta de Splash Videos (indexados por su
   // posición en la grilla) para poder hacer scroll automático hacia la
   // tarjeta enfocada por mando/teclado.
@@ -546,21 +325,11 @@ export default function SettingsView({
       setAccessibilityFocusArea('left');
       setSystemLeftIndex(0);
       setSystemFocusArea('left');
-      setProfileActiveTab('overview');
-      setProfileEditSection('name');
-      setProfileFocusArea('header_actions');
-      setProfileSectionIndex(0);
-      setProfileItemIndex(0);
-      setProfileScrolled(false);
     }
   }, [visible, initialScreen]);
 
   useEffect(() => {
     if (activeUser) {
-      setEditName(activeUser.name || '');
-      setEditOnlineId(activeUser.onlineId || '');
-      setEditAbout(activeUser.about || '');
-      setEditCoverImage(activeUser.coverImage || '');
       // Sincroniza con el proceso principal de Electron el comportamiento de
       // suspensión guardado, para que aplique aunque el usuario no entre a
       // Ajustes en esta sesión (p.ej. al reabrir la app tras reiniciarla).
@@ -634,55 +403,7 @@ export default function SettingsView({
     }
   }, [accessibilityLeftIndex]);
 
-  // Mantiene el foco del perfil dentro de rango cuando cambian los datos, y si
-  // no queda nada enfocable en el contenido devuelve el foco a las pestañas.
-  useEffect(() => {
-    if (profileSections.length === 0) {
-      setProfileSectionIndex(0);
-      setProfileItemIndex(0);
-      setProfileFocusArea((prev) => (prev === 'content' ? 'tabs' : prev));
-      return;
-    }
-    const sectionIdx = Math.min(profileSectionIndex, profileSections.length - 1);
-    if (sectionIdx !== profileSectionIndex) setProfileSectionIndex(sectionIdx);
-    const maxItem = profileSections[sectionIdx].count - 1;
-    if (profileItemIndex > maxItem) setProfileItemIndex(maxItem);
-  }, [profileSections, profileSectionIndex, profileItemIndex]);
-
-  // El ScrollView no sigue solo al foco lógico: al mover el foco por el
-  // contenido centramos el item enfocado; al volver a header/pestañas
-  // regresamos arriba del todo.
-  const focusedProfileSectionId = profileSections[profileSectionIndex]?.id;
-  useEffect(() => {
-    if (currentScreen !== 'users_and_accounts') return;
-    if (profileFocusArea !== 'content') {
-      profileScrollRef.current?.scrollTo({ y: 0, animated: true });
-      return;
-    }
-    if (!focusedProfileSectionId) return;
-
-    let cancelled = false;
-    (async () => {
-      const item = await measureNode(profileItemRefs.current[`${focusedProfileSectionId}:${profileItemIndex}`]);
-      const viewport = await measureNode(profileWrapperRef.current);
-      if (cancelled || !item || !viewport) return;
-
-      // Vertical: centra el item en el visor de la página.
-      const y = profileScrollY.current + (item.y - viewport.y) - (viewport.h - item.h) / 2;
-      profileScrollRef.current?.scrollTo({ y: Math.max(0, y), animated: true });
-
-      // Horizontal: la biblioteca tiene su propio ScrollView.
-      if (focusedProfileSectionId === 'library') {
-        const lib = await measureNode(profileLibraryViewportRef.current);
-        if (cancelled || !lib) return;
-        const x = profileLibraryScrollX.current + (item.x - lib.x) - (lib.w - item.w) / 2;
-        profileLibraryRef.current?.scrollTo({ x: Math.max(0, x), animated: true });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentScreen, profileActiveTab, profileFocusArea, focusedProfileSectionId, profileItemIndex]);
+  // ── Perfil: ver UserProfileView.tsx ────────────────────────────────────
 
   // Mantiene el índice de la grilla dentro de rango cuando cambian los resultados
   // (ya sean de la API o del historial local de "Descargados"). Un índice por
@@ -786,13 +507,6 @@ export default function SettingsView({
     } else if (screen === 'accessibility') {
       setAccessibilityFocusArea('left');
       setAccessibilityLeftIndex(0);
-    } else if (screen === 'users_and_accounts') {
-      setProfileFocusArea('header_actions');
-      setProfileActionIndex(0);
-      setProfileActiveTab('overview');
-      setProfileSectionIndex(0);
-      setProfileItemIndex(0);
-      setProfileScrolled(false);
     }
   };
 
@@ -807,30 +521,7 @@ export default function SettingsView({
     }
   };
 
-  // Avatar selection handler
-  const handleSelectAvatar = () => {
-    if (Platform.OS === 'web') {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = (e: any) => {
-        const file = e.target.files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const base64 = event.target?.result as string;
-            updateUser({
-              avatar: base64,
-              avatarBase64: base64,
-              settings: { ...activeUser?.settings, useSteamAvatar: false } as any,
-            });
-          };
-          reader.readAsDataURL(file);
-        }
-      };
-      input.click();
-    }
-  };
+  // ── Perfil: ver UserProfileView.tsx ────────────────────────────────────
 
   const handleSteamLogin = async () => {
     if (Platform.OS === 'web' && (window as any).electronAPI) {
@@ -846,211 +537,6 @@ export default function SettingsView({
       toastService.show(t('settings.desktopOnly'));
     }
   };
-
-  // Cover image selection handler
-  const handleSelectCover = () => {
-    if (Platform.OS === 'web') {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = (e: any) => {
-        const file = e.target.files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const base64 = event.target?.result as string;
-            setEditCoverImage(base64);
-            updateUser({ coverImage: base64 });
-          };
-          reader.readAsDataURL(file);
-        }
-      };
-      input.click();
-    }
-  };
-
-  // ¿Perfil vinculado a la cuenta online? (el nombre se guarda en el servidor)
-  const isProfileOnlineLinked = (() => {
-    const sess = getOnlineSession();
-    return !!sess && (activeUser?.settings as any)?.onlineUserId === sess.user.id;
-  })();
-
-  // ── Nombre online: subir displayName al servidor ──────────────────────
-  const handlePushDisplayName = async () => {
-    if (namePushBusy || !isProfileOnlineLinked) return;
-    const v = editName.trim();
-    if (!v) {
-      setNamePushError(t('account.errorMissing'));
-      soundService.playBack?.();
-      return;
-    }
-    setNamePushBusy(true);
-    setNamePushError(null);
-    try {
-      const user = await updateOnlineProfile({ displayName: v });
-      setEditName(user.displayName);
-      updateUser({ name: user.displayName });
-      soundService.playActivation?.();
-      toastService.show(t('profile.onlineNameUpdated'));
-    } catch (e: any) {
-      const msg = e?.message || 'network';
-      setNamePushError(
-        msg === 'displayName must contain between 1 and 50 characters'
-          ? t('profile.onlineNameLength')
-          : msg === 'network'
-            ? t('account.errorNetwork')
-            : (msg || t('account.errorGeneric'))
-      );
-      soundService.playBack?.();
-    } finally {
-      setNamePushBusy(false);
-    }
-  };
-
-  // ── Bio online: subir bio al servidor ─────────────────────────────────
-  const handlePushBio = async () => {
-    if (bioPushBusy || !isProfileOnlineLinked) return;
-    const v = editAbout.trim();
-    if (v.length > 500) {
-      setBioPushError(t('profile.onlineBioLength'));
-      soundService.playBack?.();
-      return;
-    }
-    setBioPushBusy(true);
-    setBioPushError(null);
-    try {
-      const user = await updateOnlineProfile({ bio: v });
-      setEditAbout(user.bio || '');
-      updateUser({ about: user.bio || '' });
-      soundService.playActivation?.();
-      toastService.show(t('profile.onlineBioUpdated'));
-    } catch (e: any) {
-      const msg = e?.message || 'network';
-      setBioPushError(
-        msg === 'bio must contain up to 500 characters'
-          ? t('profile.onlineBioLength')
-          : msg === 'network'
-            ? t('account.errorNetwork')
-            : (msg || t('account.errorGeneric'))
-      );
-      soundService.playBack?.();
-    } finally {
-      setBioPushBusy(false);
-    }
-  };
-
-  // ── Portada online: buscar heroes en SteamGridDB ──────────────────────
-  const openCoverSearch = () => {
-    soundService.playActivation?.();
-    setCoverSearchQuery('');
-    setCoverHeroes([]);
-    setCoverSearchDone(false);
-    setCoverSelIndex(0);
-    setCoverSearchVisible(true);
-  };
-
-  const runCoverSearch = async () => {
-    const q = coverSearchQuery.trim();
-    if (!q || coverSearchBusy) return;
-    soundService.playActivation?.();
-    setCoverSearchBusy(true);
-    setCoverSearchDone(false);
-    try {
-      const res = await fetchSteamGridAssets(q);
-      const heroes = (res.heroes || []).filter(
-        (h) => h.url && /^https?:\/\//i.test(h.url)
-      );
-      setCoverHeroes(heroes);
-      setCoverSelIndex(heroes.length > 0 ? 2 : 1);
-    } catch {
-      setCoverHeroes([]);
-    } finally {
-      setCoverSearchBusy(false);
-      setCoverSearchDone(true);
-    }
-  };
-
-  const handlePickCoverHero = async (url: string) => {
-    if (!url || coverSavingUrl) return;
-    setCoverSavingUrl(url);
-    try {
-      setEditCoverImage(url);
-      updateUser({ coverImage: url });
-      if (getOnlineSession()) {
-        try {
-          await updateOnlineProfile({ coverUrl: url });
-          toastService.show(t('profile.coverSynced'));
-        } catch {
-          toastService.show(t('profile.coverSyncFailed'));
-        }
-      } else {
-        toastService.show(t('profile.coverSavedLocal'));
-      }
-      soundService.playActivation?.();
-      setCoverSearchVisible(false);
-    } finally {
-      setCoverSavingUrl(null);
-    }
-  };
-
-  // Navegación por teclado/mando dentro del modal de portada (fase de
-  // captura para no mover el foco de la pantalla de detrás).
-  useEffect(() => {
-    if (!coverSearchVisible || Platform.OS !== 'web') return;
-    const timer = setTimeout(() => coverSearchInputRef.current?.focus(), 80);
-    const onKey = (e: any) => {
-      const target = e.target as any;
-      const inInput = !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        e.preventDefault();
-        setCoverSearchVisible(false);
-        return;
-      }
-      if (inInput) {
-        if (e.key === 'Enter') {
-          e.stopPropagation();
-          e.preventDefault();
-          runCoverSearch();
-        } else if (e.key === 'ArrowDown') {
-          e.stopPropagation();
-          e.preventDefault();
-          setCoverSelIndex(1);
-        }
-        return;
-      }
-      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Tab', ' '].includes(e.key)) return;
-      e.stopPropagation();
-      e.preventDefault();
-      // 0=input, 1=buscar, 2..n+1=heroes, n+2=cerrar.
-      const total = 3 + coverHeroes.length;
-      const last = total - 1;
-      const cols = 2;
-      let i = coverSelIndex;
-      if (e.key === 'ArrowRight') i = Math.min(last, i + 1);
-      else if (e.key === 'ArrowLeft') i = Math.max(0, i - 1);
-      else if (e.key === 'ArrowDown') i = Math.min(last, i + (i === 0 ? 1 : cols));
-      else if (e.key === 'ArrowUp') i = Math.max(0, i - (i <= 1 ? 1 : cols));
-      else if (e.key === 'Tab') i = (i + (e.shiftKey ? last : 1)) % total;
-      else if (e.key === 'Enter' || e.key === ' ') {
-        if (i === 0) coverSearchInputRef.current?.focus();
-        else if (i === 1) runCoverSearch();
-        else if (i === last) setCoverSearchVisible(false);
-        else {
-          const hero = coverHeroes[i - 2];
-          if (hero) handlePickCoverHero(hero.url);
-        }
-        return;
-      }
-      setCoverSelIndex(i);
-      if (i === 0) coverSearchInputRef.current?.focus();
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => {
-      window.removeEventListener('keydown', onKey, true);
-      clearTimeout(timer);
-    };
-  }, [coverSearchVisible, coverHeroes, coverSelIndex, coverSearchQuery, coverSearchBusy]);
 
   // ── Accessibility screen: right-column focus helpers ─────────────────────
   const getAccessibilityRightMaxIndex = () => {
@@ -1338,6 +824,9 @@ export default function SettingsView({
         return;
       }
 
+      // El perfil (UserProfileView) gestiona su propio teclado en captura.
+      if (currentScreen === 'users_and_accounts') return;
+
       if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
         if (!isInput) {
           e.preventDefault();
@@ -1544,159 +1033,6 @@ export default function SettingsView({
             soundService.playActivation?.();
           }
         }
-      } else if (currentScreen === 'profile_edit') {
-        const lastIndex = PROFILE_EDIT_SECTIONS.length - 1;
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          setSubFocusIndex((prev) => Math.min(prev + 1, lastIndex));
-          soundService.playNavigation();
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          setSubFocusIndex((prev) => Math.max(prev - 1, 0));
-          soundService.playNavigation();
-        } else if (e.key === 'Enter' || e.key === 'ArrowRight') {
-          e.preventDefault();
-          const section = PROFILE_EDIT_SECTIONS[subFocusIndex];
-          if (section) {
-            setProfileEditSection(section);
-            navigateToScreen('profile_edit_detail');
-          }
-        }
-      } else if (currentScreen === 'users_and_accounts') {
-        // Cambia de pestaña (Overview / Friends) y reinicia el foco del contenido.
-        const switchProfileTab = (dir: 1 | -1) => {
-          const idx = PROFILE_TABS.indexOf(profileActiveTab);
-          const next = PROFILE_TABS[(idx + dir + PROFILE_TABS.length) % PROFILE_TABS.length];
-          setProfileActiveTab(next);
-          setProfileSectionIndex(0);
-          setProfileItemIndex(0);
-          soundService.playTab();
-        };
-
-        // L1/R1 (mapeados a Q/E) cambian de pestaña estés donde estés.
-        if (e.key === 'q' || e.key === 'e') {
-          e.preventDefault();
-          switchProfileTab(e.key === 'e' ? 1 : -1);
-          return;
-        }
-
-        if (profileFocusArea === 'content') {
-          const section = profileSections[profileSectionIndex];
-          if (!section) {
-            // Nada enfocable en esta pestaña: solo se puede volver arriba.
-            if (e.key === 'ArrowUp') {
-              e.preventDefault();
-              setProfileFocusArea('tabs');
-              soundService.playNavigation();
-            }
-            return;
-          }
-
-          // Al entrar a una sección desde arriba se empieza por su primer item;
-          // desde abajo, por el último (el más cercano a donde veníamos) salvo
-          // que sea horizontal, que siempre arranca en el primero.
-          const itemOnEnter = (target: ProfileSection, from: 'above' | 'below') =>
-            target.horizontal || from === 'above' ? 0 : target.count - 1;
-
-          if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            if (!section.horizontal && profileItemIndex < section.count - 1) {
-              setProfileItemIndex(profileItemIndex + 1);
-              soundService.playNavigation();
-            } else if (profileSectionIndex < profileSections.length - 1) {
-              setProfileSectionIndex(profileSectionIndex + 1);
-              setProfileItemIndex(itemOnEnter(profileSections[profileSectionIndex + 1], 'above'));
-              soundService.playNavigation();
-            }
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            if (!section.horizontal && profileItemIndex > 0) {
-              setProfileItemIndex(profileItemIndex - 1);
-              soundService.playNavigation();
-            } else if (profileSectionIndex > 0) {
-              setProfileSectionIndex(profileSectionIndex - 1);
-              setProfileItemIndex(itemOnEnter(profileSections[profileSectionIndex - 1], 'below'));
-              soundService.playNavigation();
-            } else {
-              setProfileFocusArea('tabs');
-              soundService.playNavigation();
-            }
-          } else if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            if (section.horizontal && profileItemIndex < section.count - 1) {
-              setProfileItemIndex(profileItemIndex + 1);
-              soundService.playNavigation();
-            }
-          } else if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            if (section.horizontal && profileItemIndex > 0) {
-              setProfileItemIndex(profileItemIndex - 1);
-              soundService.playNavigation();
-            }
-          } else if (e.key === 'Enter') {
-            e.preventDefault();
-            const game =
-              section.id === 'recent'
-                ? profileRecentGames[profileItemIndex]
-                : section.id === 'library' || section.id === 'gamesList'
-                  ? profileLibraryGames[profileItemIndex]
-                  : null;
-            if (game && onGamePress) {
-              soundService.playActivation?.();
-              onGamePress(game);
-            }
-          }
-        } else if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          if (profileFocusArea === 'header_actions') {
-            setProfileFocusArea('tabs');
-            soundService.playNavigation();
-          } else if (profileFocusArea === 'tabs' && profileSections.length > 0) {
-            setProfileFocusArea('content');
-            setProfileSectionIndex(0);
-            setProfileItemIndex(0);
-            soundService.playNavigation();
-          }
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          if (profileFocusArea === 'tabs') setProfileFocusArea('header_actions');
-          soundService.playNavigation();
-        } else if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          if (profileFocusArea === 'tabs') {
-            switchProfileTab(1);
-          } else if (profileFocusArea === 'header_actions') {
-            const maxAction = allUsers.length > 1 ? 2 : 1;
-            setProfileActionIndex((prev) => Math.min(prev + 1, maxAction));
-            soundService.playNavigation();
-          }
-        } else if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          if (profileFocusArea === 'tabs') {
-            switchProfileTab(-1);
-          } else if (profileFocusArea === 'header_actions') {
-            setProfileActionIndex((prev) => Math.max(prev - 1, 0));
-            soundService.playNavigation();
-          }
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          if (profileFocusArea === 'header_actions') {
-            const actions: ('edit' | 'switch' | 'account')[] = [
-              'edit',
-              ...(allUsers.length > 1 ? ['switch' as const] : []),
-              'account',
-            ];
-            const action = actions[profileActionIndex];
-            if (action === 'edit') {
-              navigateToScreen('profile_edit');
-            } else if (action === 'switch') {
-              const nextUser = allUsers.find((u) => u.id !== activeUser?.id);
-              if (nextUser && onSwitchUser) onSwitchUser(nextUser);
-            } else if (action === 'account') {
-              navigateToScreen('online_auth');
-            }
-          }
-        }
       } else {
         // Other sub-screens
         if (e.key === 'ArrowDown') {
@@ -1736,18 +1072,9 @@ export default function SettingsView({
     splashModalActions,
     systemLeftIndex,
     systemFocusArea,
-    profileActiveTab,
-    profileFocusArea,
-    profileActionIndex,
-    profileSections,
-    profileSectionIndex,
-    profileItemIndex,
-    profileRecentGames,
-    profileLibraryGames,
     allUsers,
     onSwitchUser,
     onGamePress,
-    profileEditSection,
     screenHistory,
     activeUser,
     hdmiDeviceLink,
@@ -3005,822 +2332,7 @@ export default function SettingsView({
     );
   };
 
-  // ── Helper: formatear tiempo relativo ("hace X min/horas") ──
-  const formatTimeAgo = (timestamp: number): string => {
-    if (!timestamp || !isFinite(timestamp)) return '';
-    try {
-      const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
-      const diffSec = Math.round((ms - Date.now()) / 1000);
-      const absSec = Math.abs(diffSec);
-      if (absSec < 60) return t('common.justNow');
-      if (absSec < 3600) return `${Math.floor(absSec / 60)} ${t('common.minutesAgo')}`;
-      if (absSec < 86400) return `${Math.floor(absSec / 3600)} ${t('common.hoursAgo')}`;
-      return `${Math.floor(absSec / 86400)} ${t('common.daysAgo')}`;
-    } catch { return ''; }
-  };
-
-  // =========================================================================
-  // SCREEN: USERS AND ACCOUNTS -> PROFILE SCREEN (Image 2 + Foto Portada)
-  // =========================================================================
-  const renderProfileViewScreen = () => {
-    const coverUri = activeUser?.coverImage || null;
-    const userColor = activeUser?.color || '#00D4FF';
-    const { gamesCount, totalMinutes, averageMinutes, topGame, topGameMinutes, favoritesCount } = profileStats;
-
-    // ¿Este item tiene el foco de mando/teclado?
-    const isFocused = (id: ProfileSectionId, index: number) => {
-      if (profileFocusArea !== 'content') return false;
-      const section = profileSections[profileSectionIndex];
-      return !!section && section.id === id && profileItemIndex === index;
-    };
-    const setItemRef = (id: ProfileSectionId, index: number) => (el: any) => {
-      profileItemRefs.current[`${id}:${index}`] = el;
-    };
-    // Con mouse/touch: tocar un item lo enfoca para que teclado y puntero
-    // compartan el mismo estado.
-    const focusItem = (id: ProfileSectionId, index: number) => {
-      const sectionIdx = profileSections.findIndex((sec) => sec.id === id);
-      if (sectionIdx < 0) return;
-      setProfileFocusArea('content');
-      setProfileSectionIndex(sectionIdx);
-      setProfileItemIndex(index);
-    };
-    const pressGame = (id: ProfileSectionId, index: number, game: any) => {
-      focusItem(id, index);
-      onGamePress?.(game);
-    };
-
-    return (
-      <View ref={profileWrapperRef} style={styles.contentWrapper}>
-        {/* Toda la página (banner + cabecera + pestañas + contenido) hace
-            scroll junta, como en el perfil de referencia. */}
-        <ScrollView
-          ref={profileScrollRef}
-          contentContainerStyle={styles.profilePageContent}
-          showsVerticalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={(e) => {
-            const y = e.nativeEvent.contentOffset.y;
-            profileScrollY.current = y;
-            setProfileScrolled(y > s(380));
-          }}
-        >
-          {/* Cover Photo Banner (Foto Portada) */}
-          <View style={styles.profileBannerContainer}>
-            {coverUri ? (
-              <Image source={resolveImageSource(coverUri)} style={styles.profileBannerImage} contentFit="cover" />
-            ) : (
-              <View
-                style={[
-                  styles.profileBannerGradient,
-                  {
-                    background: `linear-gradient(135deg, ${userColor}33 0%, rgba(20, 20, 30, 0.8) 100%)`,
-                  } as any,
-                ]}
-              >
-                <View style={styles.profileBannerOverlay} />
-              </View>
-            )}
-
-            {/* Back button in top-left */}
-            <TouchableOpacity style={styles.profileBackButton} onPress={handleBack}>
-              <Ionicons name="arrow-back" size={s(22)} color="#FFF" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Profile Header Info */}
-          <View style={styles.profileHeaderContent}>
-            <View style={styles.profileAvatarWrapper}>
-              <View style={[styles.profileAvatarCircle, { borderColor: userColor }]}>
-                {userAvatarUri ? (
-                  <Image source={resolveImageSource(userAvatarUri)} style={styles.profileAvatarImg} />
-                ) : (
-                  <Ionicons name="person" size={s(54)} color="rgba(255,255,255,0.6)" />
-                )}
-                {/* Online indicator dot */}
-                <View style={styles.profileOnlineDot} />
-              </View>
-
-              <View style={styles.profileInfoDetails}>
-                <View style={styles.profileNameRow}>
-                  <Text style={styles.profileDisplayName}>{activeUser?.name || 'Player'}</Text>
-                  <View style={styles.profilePlusBadge}>
-                    <Ionicons name="add" size={s(14)} color="#000" />
-                  </View>
-                </View>
-                <View style={styles.profileHandleRow}>
-                  <Text style={styles.profileHandleText}>
-                    {(activeUser?.settings as any)?.onlineUsername
-                      ? `@${(activeUser?.settings as any).onlineUsername}`
-                      : (activeUser?.onlineId || activeUser?.name?.toLowerCase().replace(/\s+/g, '_') || 'player_1')}
-                  </Text>
-                  <Text style={styles.profileHandleSep}>|</Text>
-                  <Ionicons name="game-controller" size={s(14)} color="rgba(255,255,255,0.6)" />
-                </View>
-              </View>
-            </View>
-
-            {/* Header Action Buttons on Right (Edit Profile, Online Account, etc.) */}
-            <View style={styles.profileHeaderActions}>
-              {(() => {
-                const linkedOnline = !!(activeUser?.settings as any)?.onlineUserId;
-                const actions: ('edit' | 'switch' | 'account')[] = [
-                  'edit',
-                  ...(allUsers.length > 1 ? ['switch' as const] : []),
-                  'account',
-                ];
-                return actions.map((actionId, actionIdx) => {
-                  const isFocused = profileFocusArea === 'header_actions' && profileActionIndex === actionIdx;
-                  if (actionId === 'edit') {
-                    return (
-                      <TouchableOpacity
-                        key="edit"
-                        style={[styles.profileActionButtonRound, isFocused && styles.profileActionButtonFocused]}
-                        onPress={() => navigateToScreen('profile_edit')}
-                      >
-                        {isFocused && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
-                        <Ionicons name="pencil" size={s(20)} color="#FFF" />
-                        <Text style={styles.profileActionButtonLabel}>{t('profile.editProfile')}</Text>
-                      </TouchableOpacity>
-                    );
-                  }
-                  if (actionId === 'switch') {
-                    return (
-                      <TouchableOpacity
-                        key="switch"
-                        style={[styles.profileActionButtonRoundSmall, isFocused && styles.profileActionButtonFocused]}
-                        onPress={() => {
-                          const nextUser = allUsers.find((u) => u.id !== activeUser?.id);
-                          if (nextUser && onSwitchUser) onSwitchUser(nextUser);
-                        }}
-                      >
-                        {isFocused && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
-                        <Ionicons name="people-outline" size={s(20)} color="#FFF" />
-                      </TouchableOpacity>
-                    );
-                  }
-                  return (
-                    <TouchableOpacity
-                      key="account"
-                      style={[styles.profileActionButtonRoundSmall, isFocused && styles.profileActionButtonFocused]}
-                      onPress={() => navigateToScreen('online_auth')}
-                    >
-                      {isFocused && <SpinningBorderSearch size={s(180)} spread={4} borderRadius={18} />}
-                      <Ionicons
-                        name={linkedOnline ? 'cloud-done-outline' : 'log-in-outline'}
-                        size={s(20)}
-                        color="#FFF"
-                      />
-                    </TouchableOpacity>
-                  );
-                });
-              })()}
-            </View>
-          </View>
-
-          {/* Profile Tabs (Overview, Friends) */}
-          <View style={styles.profileTabsBar}>
-            {PROFILE_TABS.map((tabKey) => {
-              const isActive = profileActiveTab === tabKey;
-              return (
-                <TouchableOpacity
-                  key={tabKey}
-                  style={[styles.profileTabItem, isActive && styles.profileTabItemActive]}
-                  onPress={() => {
-                    setProfileActiveTab(tabKey);
-                    setProfileSectionIndex(0);
-                    setProfileItemIndex(0);
-                    soundService.playTab();
-                  }}
-                >
-                  {profileFocusArea === 'tabs' && isActive && <SpinningBorderSearch size={s(180)} spread={0} borderRadius={1} />}
-                  <Text style={[styles.profileTabText, isActive && styles.profileTabTextActive]}>
-                    {t(`profile.${tabKey}` as any)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* ── Overview ── */}
-          {profileActiveTab === 'overview' && (
-            <View style={styles.overviewContainer}>
-              {/* Barra de estadísticas: valor arriba, etiqueta abajo */}
-              <View style={styles.statsBar}>
-                <View style={[styles.statCell, { flex: 1 }]}>
-                  <View style={styles.statCellBody}>
-                    <Ionicons name="time-outline" size={s(28)} color="#FFCC00" />
-                    <Text style={styles.statNumber}>{formatCompactMinutes(totalMinutes)}</Text>
-                  </View>
-                  <View style={styles.statCellFooter}>
-                    <Text style={styles.statLabel}>{t('profile.totalPlaytime')}</Text>
-                  </View>
-                </View>
-
-                <View style={[styles.statCell, { flex: 1 }]}>
-                  <View style={styles.statCellBody}>
-                    <Ionicons name="game-controller-outline" size={s(28)} color="#00D4FF" />
-                    <Text style={styles.statNumber}>{gamesCount}</Text>
-                  </View>
-                  <View style={styles.statCellFooter}>
-                    <Text style={styles.statLabel}>{t('profile.gamesCount')}</Text>
-                  </View>
-                </View>
-
-                <View style={[styles.statCell, { flex: 1 }]}>
-                  <View style={styles.statCellBody}>
-                    <Ionicons name="hourglass-outline" size={s(28)} color="#B388FF" />
-                    <Text style={styles.statNumber}>{formatCompactMinutes(averageMinutes)}</Text>
-                  </View>
-                  <View style={styles.statCellFooter}>
-                    <Text style={styles.statLabel}>{tr('profile.averagePlaytime', 'Average playtime')}</Text>
-                  </View>
-                </View>
-
-                <View style={[styles.statCell, { flex: 2 }]}>
-                  <View style={[styles.statCellBody, styles.statCellBodyTopGame]}>
-                    {topGame ? (
-                      <>
-                        <BlurredArt source={topGame.image} style={styles.topGameThumb} radius={s(8)} placeholderSize={s(22)} />
-                        <View style={styles.topGameInfo}>
-                          <Text style={styles.topGameTitle} numberOfLines={2}>{topGame.title}</Text>
-                          <Text style={styles.topGamePlaytime}>{formatPlaytime(topGameMinutes, t)}</Text>
-                        </View>
-                      </>
-                    ) : (
-                      <Text style={styles.statNumber}>--</Text>
-                    )}
-                  </View>
-                  <View style={styles.statCellFooter}>
-                    <Text style={styles.statLabel}>{tr('profile.topGame', 'Most played')}</Text>
-                  </View>
-                </View>
-
-                <View style={[styles.statCell, { flex: 1 }]}>
-                  <View style={styles.statCellBody}>
-                    <Ionicons name="heart-outline" size={s(28)} color="#FF3B30" />
-                    <Text style={styles.statNumber}>{favoritesCount}</Text>
-                  </View>
-                  <View style={styles.statCellFooter}>
-                    <Text style={styles.statLabel}>{t('profile.favoriteGames')}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Actividad reciente: últimos juegos jugados */}
-              <View style={styles.profileSection}>
-                <View style={styles.profileSectionHeader}>
-                  <Text style={styles.profileSectionTitle}>{t('lastPlayed.title')}</Text>
-                </View>
-                {profileRecentGames.length > 0 ? (
-                  <View style={styles.recentList}>
-                    {profileRecentGames.map((game: any, idx: number) => {
-                      const minutes = gameMinutes(game);
-                      return (
-                        <TouchableOpacity
-                          key={game.id || idx}
-                          ref={setItemRef('recent', idx)}
-                          activeOpacity={0.85}
-                          style={[styles.recentRow, isFocused('recent', idx) && styles.profileItemFocused]}
-                          onPress={() => pressGame('recent', idx, game)}
-                        >
-                          <BlurredArt source={game.image} style={styles.recentThumb} radius={0} placeholderSize={s(30)} />
-                          <View style={styles.recentInfo}>
-                            <Text style={styles.recentTitle} numberOfLines={1}>{game.title}</Text>
-                            <Text style={styles.recentSub}>{formatTimeAgo(game.lastPlayed)}</Text>
-                          </View>
-                          <Text style={styles.recentPlaytime}>
-                            {minutes > 0 ? formatPlaytime(minutes, t) : t('lastPlayed.never')}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                ) : (
-                  <View style={styles.libraryEmpty}>
-                    <Text style={styles.libraryEmptyText}>{t('lastPlayed.noGamesYet')}</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Biblioteca (sin Welcome, PlayStation Store ni Last Played) */}
-              <View style={styles.profileSection}>
-                <View style={styles.profileSectionHeader}>
-                  <Text style={styles.profileSectionTitle}>{t('library.title')}</Text>
-                  {gamesCount > 0 && <Text style={styles.profileSectionCount}>{gamesCount}</Text>}
-                </View>
-                {profileLibraryGames.length > 0 ? (
-                  <View ref={profileLibraryViewportRef}>
-                    <ScrollView
-                      ref={profileLibraryRef}
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      scrollEventThrottle={16}
-                      onScroll={(e) => {
-                        profileLibraryScrollX.current = e.nativeEvent.contentOffset.x;
-                      }}
-                      contentContainerStyle={styles.libraryScrollContent}
-                    >
-                      {profileLibraryGames.map((game: any, idx: number) => {
-                        const focused = isFocused('library', idx);
-                        const minutes = gameMinutes(game);
-                        return (
-                          <TouchableOpacity
-                            key={game.id || idx}
-                            ref={setItemRef('library', idx)}
-                            activeOpacity={0.85}
-                            style={[styles.libraryCard, focused && styles.libraryCardFocused]}
-                            onPress={() => pressGame('library', idx, game)}
-                          >
-                            <BlurredArt
-                              source={game.image}
-                              style={[styles.libraryCardArt, focused && styles.libraryCardArtFocused]}
-                              radius={s(12)}
-                              placeholderSize={s(30)}
-                            />
-                            <View style={styles.libraryCardText}>
-                              <Text style={styles.libraryCardTitle} numberOfLines={1}>{game.title}</Text>
-                              <Text style={styles.libraryCardSub} numberOfLines={1}>
-                                {minutes > 0 ? formatPlaytime(minutes, t) : t('lastPlayed.never')}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-                ) : (
-                  <View style={styles.libraryEmpty}>
-                    <Text style={styles.libraryEmptyText}>{t('library.empty')}</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Acerca de */}
-              {activeUser?.about ? (
-                <View
-                  ref={setItemRef('about', 0) as any}
-                  style={[styles.aboutCard, isFocused('about', 0) && styles.profileItemFocused]}
-                >
-                  <Text style={styles.aboutCardTitle}>{t('profile.about')}</Text>
-                  <Text style={styles.aboutCardText}>{activeUser.about}</Text>
-                </View>
-              ) : null}
-            </View>
-          )}
-
-          {/* ── Games (biblioteca completa) ── */}
-          {profileActiveTab === 'games' && (
-            <View style={styles.profileSection}>
-              <View style={styles.profileSectionHeader}>
-                <Text style={styles.profileSectionTitle}>{t('profile.games')}</Text>
-                {gamesCount > 0 && <Text style={styles.profileSectionCount}>{gamesCount}</Text>}
-              </View>
-              {profileLibraryGames.length > 0 ? (
-                <View style={styles.recentList}>
-                  {profileLibraryGames.map((game: any, idx: number) => {
-                    const minutes = gameMinutes(game);
-                    return (
-                      <TouchableOpacity
-                        key={game.id || idx}
-                        ref={setItemRef('gamesList', idx)}
-                        activeOpacity={0.85}
-                        style={[styles.recentRow, isFocused('gamesList', idx) && styles.profileItemFocused]}
-                        onPress={() => pressGame('gamesList', idx, game)}
-                      >
-                        <BlurredArt source={game.image} style={styles.recentThumb} radius={0} placeholderSize={s(30)} />
-                        <View style={styles.recentInfo}>
-                          <Text style={styles.recentTitle} numberOfLines={1}>{game.title}</Text>
-                          <Text style={styles.recentSub}>
-                            {minutes > 0 ? formatPlaytime(minutes, t) : t('lastPlayed.never')}
-                          </Text>
-                        </View>
-                        <Text style={styles.recentPlaytime}>
-                          {game.platform || ''}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ) : (
-                <View style={styles.libraryEmpty}>
-                  <Text style={styles.libraryEmptyText}>{t('library.empty')}</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* ── Friends (online) ── */}
-          {profileActiveTab === 'friends' && (
-            <View style={styles.friendsListContainer}>
-              <OnlineFriendsPanel
-                hideSearch
-                refreshSignal={friendsVersion}
-                onSelectUser={(username) => setOnlineProfileUsername(username)}
-              />
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Barra fija que aparece al bajar, para poder volver sin subir */}
-        {profileScrolled && (
-          <Animated.View
-            entering={FadeIn.duration(150)}
-            exiting={FadeOut.duration(150)}
-            style={styles.profileStickyBar}
-          >
-            <TouchableOpacity style={styles.profileStickyBack} onPress={handleBack}>
-              <Ionicons name="arrow-back" size={s(20)} color="#FFF" />
-            </TouchableOpacity>
-            <Text style={styles.profileStickyTitle}>{t('settings.profile')}</Text>
-          </Animated.View>
-        )}
-      </View>
-    );
-  };
-
-  const profileEditLabels: Record<ProfileEditSection, string> = {
-    name: t('profile.name'),
-    onlineId: t('profile.onlineId'),
-    picture: t('profile.profilePicture'),
-    avatar: t('profile.avatar'),
-    cover: t('profile.coverImage'),
-    about: t('profile.about'),
-    languages: t('profile.languages'),
-  };
-
-  const openProfileEditSection = (section: ProfileEditSection, index: number) => {
-    setSubFocusIndex(index);
-    setProfileEditSection(section);
-    navigateToScreen('profile_edit_detail');
-  };
-
-  // =========================================================================
-  // SCREEN: PROFILE EDIT (centered list of fields)
-  // =========================================================================
-  const renderProfileEditScreen = () => {
-    return (
-      <View style={styles.contentWrapper}>
-        <View style={styles.subScreenHeader}>
-          <TouchableOpacity style={styles.backButtonInline} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={s(24)} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.subScreenHeaderTitle}>{t('settings.profile')}</Text>
-        </View>
-
-        <View style={styles.elongatedListWrap}>
-          <View style={styles.psMenuList}>
-            {PROFILE_EDIT_SECTIONS.map((section, index) => {
-              const isFocused = subFocusIndex === index;
-              return (
-                <TouchableOpacity
-                  key={section}
-                  style={[styles.psMenuRow, isFocused && styles.psMenuRowFocused]}
-                  activeOpacity={0.8}
-                  {...(Platform.OS === 'web' ? { onMouseEnter: () => setSubFocusIndex(index) } : {}) as any}
-                  onPress={() => openProfileEditSection(section, index)}
-                >
-                  {isFocused && <SpinningBorderSearch size={s(180)} spread={2} borderRadius={1} />}
-                  <Text style={[styles.psMenuRowText, isFocused && styles.psMenuRowTextFocused]}>
-                    {profileEditLabels[section]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderProfileEditDetailScreen = () => {
-    const title = profileEditLabels[profileEditSection];
-
-    return (
-      <View style={styles.contentWrapper}>
-        <View style={styles.subScreenHeader}>
-          <TouchableOpacity style={styles.backButtonInline} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={s(24)} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.subScreenHeaderTitle}>{title}</Text>
-        </View>
-
-        <View style={styles.elongatedListWrap}>
-          <View style={styles.profileDetailBody}>
-            {profileEditSection === 'name' && (
-              <View style={styles.profileDetailBlock}>
-                <Text style={styles.editListLabel}>{t('profile.name')}</Text>
-                <TextInput
-                  ref={nameInputRef}
-                  style={styles.editInputWide}
-                  value={editName}
-                  onChangeText={(text) => {
-                    setEditName(text);
-                    setNamePushError(null);
-                    updateUser({ name: text });
-                  }}
-                  placeholder={t('settings.usernamePlaceholder')}
-                  placeholderTextColor="#666"
-                />
-                {isProfileOnlineLinked && (
-                  <View style={{ marginTop: s(12) }}>
-                    <TouchableOpacity
-                      style={[styles.actionBtnSecondary, styles.actionBtnStretch]}
-                      onPress={handlePushDisplayName}
-                      disabled={namePushBusy}
-                    >
-                      <Ionicons name="cloud-upload-outline" size={s(18)} color="#FFF" />
-                      <Text style={styles.actionBtnSecondaryText}>
-                        {namePushBusy ? t('profile.updatingOnline') : t('profile.updateOnlineName')}
-                      </Text>
-                    </TouchableOpacity>
-                    {!!namePushError && (
-                      <Text style={{ color: '#FF5252', fontSize: s(13), marginTop: s(8) }}>
-                        {namePushError}
-                      </Text>
-                    )}
-                  </View>
-                )}
-              </View>
-            )}
-
-            {profileEditSection === 'onlineId' && (
-              <View style={styles.profileDetailBlock}>
-                <Text style={styles.editListLabel}>{t('profile.onlineId')}</Text>
-                <TextInput
-                  ref={onlineIdInputRef}
-                  style={styles.editInputWide}
-                  value={editOnlineId}
-                  onChangeText={(text) => {
-                    setEditOnlineId(text);
-                    updateUser({ onlineId: text });
-                  }}
-                  placeholder="e.g. splitz"
-                  placeholderTextColor="#666"
-                />
-              </View>
-            )}
-
-            {profileEditSection === 'picture' && (
-              <View style={styles.profileDetailBlock}>
-                <Text style={styles.editListLabel}>{t('profile.profilePicture')}</Text>
-                <View style={styles.profilePictureRow}>
-                  <TouchableOpacity style={styles.avatarPickerThumb} onPress={handleSelectAvatar}>
-                    {userAvatarUri ? (
-                      <Image source={resolveImageSource(userAvatarUri)} style={styles.avatarPickerImg} />
-                    ) : (
-                      <Ionicons name="person" size={s(32)} color="#FFF" />
-                    )}
-                    <View style={styles.avatarEditOverlay}>
-                      <Ionicons name="camera" size={s(16)} color="#FFF" />
-                    </View>
-                  </TouchableOpacity>
-                  <View style={{ gap: 10, flex: 1 }}>
-                    <TouchableOpacity
-                      style={[styles.actionBtnSecondary, styles.actionBtnStretch]}
-                      onPress={() => {
-                        onClose();
-                        onOpenAvatarModal?.();
-                      }}
-                    >
-                      <Ionicons name="person-circle-outline" size={s(18)} color="#FFF" />
-                      <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseAvatar')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionBtnSecondary, styles.actionBtnStretch]} onPress={handleSelectAvatar}>
-                      <Ionicons name="image-outline" size={s(18)} color="#FFF" />
-                      <Text style={styles.actionBtnSecondaryText}>{t('settings.profilePhoto')}</Text>
-                    </TouchableOpacity>
-                    {!!activeUser?.settings?.steamId && (
-                      <TouchableOpacity
-                        style={[
-                          styles.actionBtnSecondary,
-                          styles.actionBtnStretch,
-                          activeUser?.settings?.useSteamAvatar && { borderColor: '#1DB954' },
-                        ]}
-                        onPress={() => onToggleSteamAvatar?.()}
-                      >
-                        <Ionicons name="logo-steam" size={s(18)} color="#FFF" />
-                        <Text style={styles.actionBtnSecondaryText}>
-                          {t('settings.useSteamAvatar')}
-                          {activeUser?.settings?.useSteamAvatar ? ' ✓' : ''}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {profileEditSection === 'avatar' && (
-              <View style={styles.profileDetailBlock}>
-                <Text style={styles.editListLabel}>
-                  {t('profile.avatar')} & {t('settings.profileColor')}
-                </Text>
-                <View style={styles.colorPickerRow}>
-                  {['#FF3B30', '#00D4FF', '#FFCC00', '#4CD964', '#AF52DE', '#FF9500'].map((color) => (
-                    <TouchableOpacity
-                      key={color}
-                      style={[
-                        styles.colorCircle,
-                        { backgroundColor: color },
-                        activeUser?.color === color && styles.colorCircleActive,
-                      ]}
-                      onPress={() => updateUser({ color })}
-                    />
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {profileEditSection === 'cover' && (
-              <View style={styles.profileDetailBlock}>
-                <Text style={styles.editListLabel}>{t('profile.coverImage')}</Text>
-                <View style={styles.coverActionsRow}>
-                  <TouchableOpacity style={[styles.actionBtnSecondary, styles.actionBtnStretch]} onPress={handleSelectCover}>
-                    <Ionicons name="image-outline" size={s(18)} color="#FFF" />
-                    <Text style={styles.actionBtnSecondaryText}>{t('profile.coverImage')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionBtnSecondary, styles.actionBtnStretch]} onPress={openCoverSearch}>
-                    <Ionicons name="cloud-download-outline" size={s(18)} color="#FFF" />
-                    <Text style={styles.actionBtnSecondaryText}>{t('profile.coverSearchOnline')}</Text>
-                  </TouchableOpacity>
-                  {activeUser?.coverImage ? (
-                    <TouchableOpacity
-                      style={[
-                        styles.actionBtnSecondary,
-                        styles.actionBtnStretch,
-                        { backgroundColor: '#3D1E24', borderColor: '#772233' },
-                      ]}
-                      onPress={() => {
-                        setEditCoverImage('');
-                        updateUser({ coverImage: '' });
-                      }}
-                    >
-                      <Ionicons name="trash-outline" size={s(18)} color="#FF5566" />
-                      <Text style={[styles.actionBtnSecondaryText, { color: '#FF5566' }]}>
-                        {t('settings.restoreDefault')}
-                      </Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-                {coverSearchVisible && (
-                  <Modal
-                    visible
-                    transparent
-                    animationType="fade"
-                    onRequestClose={() => setCoverSearchVisible(false)}
-                  >
-                    <View style={styles.splashModalOverlay}>
-                      <View style={[styles.splashModalCard, { padding: s(24), maxWidth: s(860) }]}>
-                        <Text style={styles.editListLabel}>{t('profile.coverSearchTitle')}</Text>
-                        <Text style={[styles.pathDesc, { marginBottom: s(14) }]}>
-                          {t('profile.coverSearchHint')}
-                        </Text>
-                        <View style={styles.coverSearchRow}>
-                          <TextInput
-                            ref={coverSearchInputRef}
-                            style={[styles.editInputWide, { flex: 1, width: undefined }]}
-                            value={coverSearchQuery}
-                            onChangeText={setCoverSearchQuery}
-                            placeholder={t('profile.coverSearchPlaceholder')}
-                            placeholderTextColor="#666"
-                            returnKeyType="search"
-                            onSubmitEditing={runCoverSearch}
-                            editable={!coverSearchBusy}
-                          />
-                          <TouchableOpacity
-                            style={[
-                              styles.actionBtnSecondary,
-                              coverSelIndex === 1 && styles.rightItemFocused,
-                              (!coverSearchQuery.trim() || coverSearchBusy) && { opacity: 0.5 },
-                            ]}
-                            onPress={runCoverSearch}
-                            disabled={!coverSearchQuery.trim() || coverSearchBusy}
-                          >
-                            <Ionicons name="search" size={s(18)} color="#FFF" />
-                            <Text style={styles.actionBtnSecondaryText}>
-                              {coverSearchBusy ? t('profile.coverSearchBusy') : t('profile.coverSearchButton')}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                        <ScrollView style={styles.coverSearchResults}>
-                          <View style={styles.coverSearchGrid}>
-                            {coverHeroes.map((hero, idx) => {
-                              const selIdx = idx + 2;
-                              const focused = coverSelIndex === selIdx;
-                              const saving = coverSavingUrl === hero.url;
-                              return (
-                                <TouchableOpacity
-                                  key={hero.id || hero.url}
-                                  style={[
-                                    styles.coverSearchItem,
-                                    focused && styles.rightItemFocused,
-                                    { opacity: coverSavingUrl && !saving ? 0.5 : 1 },
-                                  ]}
-                                  onPress={() => handlePickCoverHero(hero.url)}
-                                  disabled={!!coverSavingUrl}
-                                >
-                                  <Image
-                                    source={{ uri: hero.thumb || hero.url }}
-                                    style={styles.coverSearchThumb}
-                                    contentFit="cover"
-                                  />
-                                </TouchableOpacity>
-                              );
-                            })}
-                          </View>
-                          {coverSearchDone && !coverSearchBusy && coverHeroes.length === 0 && (
-                            <Text style={[styles.pathDesc, { marginTop: s(8) }]}>
-                              {t('profile.coverSearchEmpty')}
-                            </Text>
-                          )}
-                        </ScrollView>
-                        <View style={{ alignItems: 'flex-end', marginTop: s(12) }}>
-                          <TouchableOpacity
-                            style={[
-                              styles.actionBtnSecondary,
-                              coverSelIndex === 2 + coverHeroes.length && styles.rightItemFocused,
-                            ]}
-                            onPress={() => setCoverSearchVisible(false)}
-                          >
-                            <Text style={styles.actionBtnSecondaryText}>{t('common.cancel')}</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </View>
-                  </Modal>
-                )}
-              </View>
-            )}
-
-            {profileEditSection === 'about' && (
-              <View style={styles.profileDetailBlock}>
-                <Text style={styles.editListLabel}>{t('profile.about')}</Text>
-                <TextInput
-                  ref={aboutInputRef}
-                  style={[styles.editInputWide, styles.editInputMultiline]}
-                  value={editAbout}
-                  multiline
-                  onChangeText={(text) => {
-                    setEditAbout(text);
-                    setBioPushError(null);
-                    updateUser({ about: text });
-                  }}
-                  placeholder={t('profile.aboutPlaceholder')}
-                  placeholderTextColor="#666"
-                />
-                {isProfileOnlineLinked && (
-                  <View style={{ marginTop: s(12) }}>
-                    <TouchableOpacity
-                      style={[styles.actionBtnSecondary, styles.actionBtnStretch]}
-                      onPress={handlePushBio}
-                      disabled={bioPushBusy}
-                    >
-                      <Ionicons name="cloud-upload-outline" size={s(18)} color="#FFF" />
-                      <Text style={styles.actionBtnSecondaryText}>
-                        {bioPushBusy ? t('profile.updatingOnline') : t('profile.updateOnlineBio')}
-                      </Text>
-                    </TouchableOpacity>
-                    {!!bioPushError && (
-                      <Text style={{ color: '#FF5252', fontSize: s(13), marginTop: s(8) }}>
-                        {bioPushError}
-                      </Text>
-                    )}
-                  </View>
-                )}
-              </View>
-            )}
-
-            {profileEditSection === 'languages' && (
-              <View style={styles.profileDetailBlock}>
-                <Text style={styles.editListLabel}>{t('profile.languages')}</Text>
-                <View style={styles.languagePillsRow}>
-                  {LANGUAGE_OPTIONS.map((option) => (
-                    <TouchableOpacity
-                      key={option.id}
-                      style={[styles.platformBtn, language === option.id && styles.platformBtnActive]}
-                      onPress={() => changeLanguage(option.id)}
-                    >
-                      <Text
-                        style={[
-                          styles.platformBtnText,
-                          language === option.id && styles.platformBtnTextActive,
-                        ]}
-                      >
-                        {option.nativeName}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  // =========================================================================
+  // ── Perfil: ver UserProfileView.tsx ────────────────────────────────────
   // SCREEN: SYSTEM (Image 3 - Two Columns: Software, HDMI, Language, Date)
   // =========================================================================
   const renderSystemScreen = () => {
@@ -4121,9 +2633,26 @@ export default function SettingsView({
         {currentScreen === 'main' && renderMainScreen()}
         {currentScreen === 'guide' && renderGuideScreen()}
         {currentScreen === 'accessibility' && renderAccessibilityScreen()}
-        {currentScreen === 'users_and_accounts' && renderProfileViewScreen()}
-        {currentScreen === 'profile_edit' && renderProfileEditScreen()}
-        {currentScreen === 'profile_edit_detail' && renderProfileEditDetailScreen()}
+        {currentScreen === 'users_and_accounts' && (
+          <UserProfileView
+            visible={visible}
+            activeUser={activeUser}
+            updateUser={updateUser}
+            allUsers={allUsers}
+            onSwitchUser={onSwitchUser}
+            libraryGames={libraryGames}
+            language={language}
+            changeLanguage={changeLanguage}
+            onClose={onClose}
+            onOpenAvatarModal={onOpenAvatarModal}
+            onToggleSteamAvatar={onToggleSteamAvatar}
+            onGamePress={onGamePress}
+            onRequestBack={handleBack}
+            onOpenOnlineAuth={() => navigateToScreen('online_auth')}
+            s={s}
+            styles={styles}
+          />
+        )}
         {currentScreen === 'emulation' && (
           <EmulationView
             activeUser={activeUser}
@@ -4144,11 +2673,6 @@ export default function SettingsView({
         {currentScreen === 'system' && renderSystemScreen()}
       </View>
 
-      <OnlineUserFullProfile
-        username={onlineProfileUsername}
-        onClose={() => setOnlineProfileUsername(null)}
-        onChanged={() => setFriendsVersion((v) => v + 1)}
-      />
       {/* Control Prompt Bar at Bottom */}
       {currentScreen === 'accessibility' && accessibilityLeftIndex === 8 && (
         <View style={styles.bottomControlBarContainer2}>
