@@ -142,6 +142,8 @@ export const fetchStoreOffers = async (): Promise<StoreOffer[]> => {
 
 /**
  * Enriquece las ofertas de la tienda con imágenes hero y logos de SteamGridDB.
+ * Uso: fuente "Steam". Para la fuente "PS5 Store" usar
+ * `enrichOffersWithPsnBackgrounds` (fondos PSN, logos SteamGrid).
  */
 export const enrichOffersWithHeroes = async (offers: StoreOffer[]): Promise<StoreOffer[]> => {
   try {
@@ -161,6 +163,62 @@ export const enrichOffersWithHeroes = async (offers: StoreOffer[]): Promise<Stor
           backgroundImage: needsHero ? (result.data.hero || offer.backgroundImage) : offer.backgroundImage,
           logo: needsLogo ? (result.data.logo || offer.logo) : offer.logo,
         };
+      })
+    );
+
+    return enriched.map((r, i) =>
+      r.status === 'fulfilled' ? r.value : offers[i]
+    );
+  } catch {
+    return offers;
+  }
+};
+
+/**
+ * Enriquece las ofertas de PS5 Store con fondos de PSN en lugar de SteamGridDB.
+ * - backgroundImage: solo PSN (`/api/psn/metadata` → details.backgroundUrl ||
+ *   match.backgroundUrl). Nunca usa SteamGrid para el fondo.
+ * - logo: PSN no provee logos, así que se mantiene SteamGridDB como fallback.
+ */
+export const enrichOffersWithPsnBackgrounds = async (
+  offers: StoreOffer[],
+  locale?: string,
+): Promise<StoreOffer[]> => {
+  try {
+    const [{ fetchPsnMetadata }, { fetchSteamGridData }] = await Promise.all([
+      import('./psnMetadataService'),
+      import('./steamGridService'),
+    ]);
+
+    const enriched = await Promise.allSettled(
+      offers.map(async (offer) => {
+        let backgroundImage = offer.backgroundImage;
+        let logo = offer.logo;
+
+        if (!backgroundImage) {
+          try {
+            const psn = await fetchPsnMetadata(
+              offer.title,
+              locale ? { locale } : {},
+            );
+            const psnBg =
+              psn?.details?.backgroundUrl || psn?.match?.backgroundUrl || null;
+            if (psnBg) backgroundImage = psnBg;
+          } catch {
+            // Sin fondo PSN: se conserva el valor original (sin fallback a SteamGrid).
+          }
+        }
+
+        if (!logo) {
+          try {
+            const result = await fetchSteamGridData(offer.title);
+            if (result.success && result.data?.logo) logo = result.data.logo;
+          } catch {
+            // Sin logo: se conserva el valor original.
+          }
+        }
+
+        return { ...offer, backgroundImage, logo };
       })
     );
 

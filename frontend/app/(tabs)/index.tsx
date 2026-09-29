@@ -73,8 +73,9 @@ import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta
 import { Language } from '@/i18n/translations';
 import { fetchSteamGridData } from '@/services/steamGridService';
 import { getSteamAppId } from '@/services/steamLaunchService';
-import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer, enrichOffersWithHeroes } from '@/services/storeService';
+import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer, enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds } from '@/services/storeService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
+import { psnLocaleForLanguage } from '@/services/psnMetadataService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { enrichAppWithSteamInfo } from '@/services/steamDescriptionService';
 
@@ -837,13 +838,20 @@ export default function ConsoleHome() {
       .then((data) => {
         const base = data.length > 0 ? data : LOCAL_FALLBACK_OFFERS;
         setStoreOffers(base);
-        // Enriquecer con hero images de SteamGrid en background
-        enrichOffersWithHeroes(base).then((enriched) => {
-          setStoreOffers(enriched);
-        });
+        if (source === 'steam') {
+          // Fuente Steam: fondos + logos de SteamGrid.
+          enrichOffersWithHeroes(base).then((enriched) => {
+            setStoreOffers(enriched);
+          });
+        } else {
+          // Fuente PS5 Store: fondos de PSN en lugar de SteamGrid.
+          enrichOffersWithPsnBackgrounds(base, psnLocaleForLanguage(language)).then((enriched) => {
+            setStoreOffers(enriched);
+          });
+        }
       })
       .finally(() => setStoreLoading(false));
-  }, [activeUser?.settings?.storeSource]);
+  }, [activeUser?.settings?.storeSource, language]);
 
   const isGamePanelFocused = focusArea === 'game_panel';
   const isLowerSectionFocused = isGamePanelFocused && gamePanelFocusIndex >= 2;

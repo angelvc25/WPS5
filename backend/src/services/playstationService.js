@@ -5,13 +5,20 @@ const CATEGORIES = {
   PS5_GAMES: '4cbf39e2-5749-4970-ba81-93a489e4570c',
 };
 
-const IMAGE_ROLES = [
+const COVER_ROLES = [
   'EDITION_KEY_ART',
   'GAMEHUB_COVER_ART',
+  'PORTRAIT_BANNER',
+  'MASTER',
+];
+
+const BACKGROUND_ROLES = [
+  'BACKGROUND',
   'SIXTEEN_BY_NINE_BANNER',
+  'GAMEHUB_COVER_ART',
+  'EDITION_KEY_ART',
   'MASTER',
   'PORTRAIT_BANNER',
-  'BACKGROUND',
 ];
 
 let cache = null;
@@ -75,7 +82,17 @@ async function fetchCategoryProducts(categoryId, sortBy, pageSize = 24, offset =
 }
 
 function pickProductImage(media = []) {
-  for (const role of IMAGE_ROLES) {
+  for (const role of COVER_ROLES) {
+    const match = media.find((item) => item.role === role && item.type === 'IMAGE');
+    if (match?.url) return match.url;
+  }
+
+  const fallback = media.find((item) => item.type === 'IMAGE');
+  return fallback?.url || '';
+}
+
+function pickBackgroundImage(media = []) {
+  for (const role of BACKGROUND_ROLES) {
     const match = media.find((item) => item.role === role && item.type === 'IMAGE');
     if (match?.url) return match.url;
   }
@@ -127,6 +144,7 @@ function mapProductToOffer(product, type) {
     originalPrice,
     discountPercent: parseDiscountPercent(price.discountText, price.basePrice, price.discountedPrice),
     image: pickProductImage(product.media),
+    backgroundImage: pickBackgroundImage(product.media),
     type,
     url: `https://store.playstation.com/${storePath}/product/${encodeURIComponent(product.id)}`,
   };
