@@ -1658,6 +1658,8 @@ export const GameInfoPanel = ({
                           source={{ uri: item.thumbnail }}
                           style={{ width: '100%', height: '100%' }}
                           contentFit="cover"
+                          cachePolicy="memory-disk"
+                          transition={{ effect: 'cross-dissolve', duration: 250 }}
                         />
                         {/* Play badge para trailers */}
                         {item.type === 'movie' && (
@@ -1733,6 +1735,8 @@ export const GameInfoPanel = ({
                     source={{ uri: achievement.achieved ? achievement.icon : achievement.lockedIcon }}
                     style={{ position: 'absolute', top: s(16), right: s(16), width: s(68), height: s(68), borderRadius: s(8), opacity: achievement.achieved ? 1 : 0.34 }}
                     contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={{ effect: 'cross-dissolve', duration: 250 }}
                   />
                   {!achievement.achieved && (
                     <View style={{ position: 'absolute', top: s(35), right: s(35), zIndex: 1 }}>

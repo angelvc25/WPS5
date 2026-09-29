@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from './AppVideo';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, FadeIn } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, FadeIn, Easing } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import YoutubePlayer from './YoutubePlayer';
 import ControlPrompt from './ControlPrompt';
@@ -58,6 +58,59 @@ const resolveEditSource = (val: string | undefined): { uri: string } | null => {
   // Reconstruir siempre con local-file:///
   return { uri: `local-file:///${clean}` };
 };
+
+const DetailLightboxImage = React.memo(({
+  uri,
+  thumbnail,
+}: {
+  uri: string;
+  thumbnail?: string;
+}) => {
+  const opacity = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  const animateIn = useCallback(() => {
+    opacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
+  }, []);
+
+  useEffect(() => {
+    animateIn();
+  }, [animateIn]);
+
+  return (
+    <Animated.View style={[{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+      {Platform.OS === 'web' && (
+        <style>
+          {`
+            @keyframes wps5-lightbox-fade {
+              0% { opacity: 0; }
+              100% { opacity: 1; }
+            }
+          `}
+        </style>
+      )}
+      <Image
+        source={{ uri }}
+        placeholder={thumbnail ? { uri: thumbnail } : undefined}
+        placeholderContentFit="contain"
+        style={[
+          { width: '100%', height: '100%' },
+          Platform.OS === 'web' && ({
+            animation: 'wps5-lightbox-fade 300ms ease-out both',
+          } as any)
+        ]}
+        contentFit="contain"
+        cachePolicy="memory-disk"
+        onLoad={animateIn}
+        onError={animateIn}
+      />
+    </Animated.View>
+  );
+});
+DetailLightboxImage.displayName = 'DetailLightboxImage';
 
 const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery }) => {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
@@ -1825,10 +1878,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   play
                 />
               ) : selectedMedia?.full ? (
-                <Image
-                  source={{ uri: selectedMedia.full }}
-                  style={styles.lightboxImage}
-                  contentFit="contain"
+                <DetailLightboxImage
+                  key={selectedMedia.id || selectedMedia.full}
+                  uri={selectedMedia.full}
+                  thumbnail={selectedMedia.thumbnail}
                 />
               ) : null}
 

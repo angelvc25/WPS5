@@ -243,7 +243,58 @@ const getInitialMedia = (t: any): ConsoleItem[] => [
   }
 ];
 
+const HomeLightboxImage = React.memo(({
+  uri,
+  thumbnail,
+}: {
+  uri: string;
+  thumbnail?: string;
+}) => {
+  const opacity = useSharedValue(0);
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  const animateIn = useCallback(() => {
+    opacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
+  }, []);
+
+  useEffect(() => {
+    animateIn();
+  }, [animateIn]);
+
+  return (
+    <Animated.View style={[{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+      {Platform.OS === 'web' && (
+        <style>
+          {`
+            @keyframes wps5-lightbox-fade {
+              0% { opacity: 0; }
+              100% { opacity: 1; }
+            }
+          `}
+        </style>
+      )}
+      <Image
+        source={{ uri }}
+        placeholder={thumbnail ? { uri: thumbnail } : undefined}
+        placeholderContentFit="contain"
+        style={[
+          { width: '100%', height: '100%' },
+          Platform.OS === 'web' && ({
+            animation: 'wps5-lightbox-fade 300ms ease-out both',
+          } as any)
+        ]}
+        contentFit="contain"
+        cachePolicy="memory-disk"
+        onLoad={animateIn}
+        onError={animateIn}
+      />
+    </Animated.View>
+  );
+});
+HomeLightboxImage.displayName = 'HomeLightboxImage';
 
 export default function ConsoleHome() {
   const { activeUser, changeUser, updateUser } = useUser();
@@ -4549,10 +4600,10 @@ export default function ConsoleHome() {
                 play
               />
             ) : selectedLightboxMedia?.full ? (
-              <Image
-                source={{ uri: selectedLightboxMedia.full }}
-                style={styles.lightboxImage}
-                contentFit="contain"
+              <HomeLightboxImage
+                key={selectedLightboxMedia.id || selectedLightboxMedia.full}
+                uri={selectedLightboxMedia.full}
+                thumbnail={selectedLightboxMedia.thumbnail}
               />
             ) : null}
 
