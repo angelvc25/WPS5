@@ -192,10 +192,34 @@ export interface ConsoleItem {
   isPinned?: boolean;
 }
 
-const getInitialGames = (t: any): ConsoleItem[] => [
+export type StoreSource = 'ps5' | 'steam';
+
+// Única fuente de verdad para el tile de la tienda (id='5') según la fuente elegida.
+const getStoreTile = (source: StoreSource, t: any): ConsoleItem =>
+  source === 'steam'
+    ? { id: '5', title: 'Steam Store', time: t('home.store'), image: require('@/assets/images/SteamStore.png'), backgroundImage: require('@/assets/images/StoreFondoSteam.png') }
+    : { id: '5', title: 'PlayStation Store', time: t('home.store'), image: require('@/assets/images/Store.png'), backgroundImage: require('@/assets/images/StoreFondo.jpg') };
+
+// Lee la fuente persistida en localStorage para que el icono correcto se muestre
+// desde el primer render (antes de que activeUser termine de cargar).
+const getPersistedStoreSource = (): StoreSource => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return 'ps5';
+    const lastUserId = window.localStorage.getItem('console_last_user_id');
+    const savedUsers = window.localStorage.getItem('console_users');
+    if (!savedUsers) return 'ps5';
+    const usersList = JSON.parse(savedUsers) as Array<{ id: string; settings?: { storeSource?: StoreSource } }>;
+    const target = lastUserId ? usersList.find((u) => u.id === lastUserId) : usersList[0];
+    return target?.settings?.storeSource === 'steam' ? 'steam' : 'ps5';
+  } catch {
+    return 'ps5';
+  }
+};
+
+const getInitialGames = (t: any, source: StoreSource = 'ps5'): ConsoleItem[] => [
   { id: '1', title: t('home.welcome'), time: 'WConsole - Home', image: require('@/assets/images/Home.png'), description: t('home.welcomeDesc'), rating: 5.0 },
   { id: 'last_played', title: t('lastPlayed.title'), time: t('lastPlayed.noGamesYet'), image: require('@/assets/images/Home.gif'), isLastPlayed: true },
-  { id: '5', title: 'PlayStation Store', time: t('home.store'), image: require('@/assets/images/Store.png'), backgroundImage: require('@/assets/images/StoreFondo.jpg') }
+  getStoreTile(source, t)
 ];
 
 const getInitialMedia = (t: any): ConsoleItem[] => [
@@ -319,7 +343,8 @@ export default function ConsoleHome() {
   const RIGHT_PADDING = Math.max(windowWidth - ITEM_WIDTH - LEFT_PADDING, 60);
 
   // States for dynamic data and clock
-  const [games, setGames] = useState<ConsoleItem[]>(() => getInitialGames(t));
+  // Inicializa con la fuente persistida para no parpadear con el icono contrario al entrar.
+  const [games, setGames] = useState<ConsoleItem[]>(() => getInitialGames(t, getPersistedStoreSource()));
   const [media, setMedia] = useState<ConsoleItem[]>(() => getInitialMedia(t));
   const [lastPlayedGame, setLastPlayedGame] = useState<ConsoleItem | null>(null);
 
@@ -801,30 +826,20 @@ export default function ConsoleHome() {
     );
   }, []);
 
-  // Actualiza el icono/nombre del tile del Store según la fuente elegida
+  // Actualiza el icono/nombre del tile del Store según la fuente elegida.
+  // Usa getStoreTile (única fuente de verdad) para que icono, título y fondo
+  // siempre vayan juntos, y loadApps() no pueda dejarlo desincronizado.
   useEffect(() => {
-    const source = activeUser?.settings?.storeSource || 'ps5';
+    const source: StoreSource = activeUser?.settings?.storeSource || getPersistedStoreSource();
 
-    setGames((prev) =>
-      prev.map((item) =>
-        item.id === '5'
-          ? source === 'steam'
-            ? {
-              ...item,
-              title: 'Steam Store',
-              image: require('@/assets/images/SteamStore.png'),
-              backgroundImage: require('@/assets/images/StoreFondoSteam.png'),
-            }
-            : {
-              ...item,
-              title: 'PlayStation Store',
-              image: require('@/assets/images/Store.png'),
-              backgroundImage: require('@/assets/images/StoreFondo.jpg'),
-            }
-          : item
-      )
-    );
-  }, [activeUser?.settings?.storeSource]);
+    setGames((prev) => {
+      if (!prev.some((item) => item.id === '5')) return prev;
+      const storeTile = getStoreTile(source, t);
+      return prev.map((item) =>
+        item.id === '5' ? { ...item, ...storeTile } : item
+      );
+    });
+  }, [activeUser?.settings?.storeSource, t]);
 
   // Fetch PlayStation Storefront offers
   useEffect(() => {
@@ -1831,7 +1846,9 @@ export default function ConsoleHome() {
         const gamesList = validRawGames.map(formatApp);
         const mediaList = (data.media || []).map(formatApp);
 
-        const initialGames = getInitialGames(t);
+        // Respeta la fuente elegida (Steam o PS5) para no revertir el icono al recargar la lista.
+        const storeSource: StoreSource = activeUser?.settings?.storeSource || getPersistedStoreSource();
+        const initialGames = getInitialGames(t, storeSource);
         const home = initialGames.find(g => g.id === '1');
         const lastPlayed = initialGames.find(g => g.id === 'last_played');
         const favGames = initialGames.find(g => g.id === '3');
