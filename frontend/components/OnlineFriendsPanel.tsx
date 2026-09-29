@@ -12,16 +12,19 @@ import {
 } from 'react-native';
 import { getOnlineSession, subscribeOnlineSession } from '../services/onlineAccountService';
 import {
-  acceptOnlineFriendRequest,
   fetchOnlineFriendRequests,
   fetchOnlineFriends,
-  rejectOnlineFriendRequest,
   removeOnlineFriend,
   searchOnlineUsers,
-  sendOnlineFriendRequest,
   type FriendItem,
   type FriendRequestItem,
 } from '../services/onlineFriendsService';
+import {
+  acceptFriendRequestTracked,
+  rejectFriendRequestTracked,
+  sendFriendRequestTracked,
+  subscribeFriendUpdates,
+} from '../services/onlineFriendWatcher';
 import type { OnlineUser } from '../services/onlineAccountService';
 import { toastService } from '../services/toastService';
 
@@ -138,6 +141,12 @@ export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle, { hideSea
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshSignal]);
 
+  // Recarga si una solicitud se resuelve desde otro lugar (card de notificaciones).
+  useEffect(() => subscribeFriendUpdates(() => {
+    if (getOnlineSession()) reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), []);
+
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     const q = query.trim();
@@ -214,14 +223,14 @@ export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle, { hideSea
                   <TouchableOpacity
                     style={styles.btnAccept}
                     disabled={busyId === req.id}
-                    onPress={() => runAction(req.id, () => acceptOnlineFriendRequest(req.id))}
+                    onPress={() => runAction(req.id, () => acceptFriendRequestTracked(req.id))}
                   >
                     <Ionicons name="checkmark" size={16} color="#FFF" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.btnReject}
                     disabled={busyId === req.id}
-                    onPress={() => runAction(req.id, () => rejectOnlineFriendRequest(req.id))}
+                    onPress={() => runAction(req.id, () => rejectFriendRequestTracked(req.id))}
                   >
                     <Ionicons name="close" size={16} color="#FFF" />
                   </TouchableOpacity>
@@ -260,7 +269,7 @@ export const OnlineFriendsPanel = forwardRef<OnlineFriendsPanelHandle, { hideSea
                 style={styles.btnAdd}
                 disabled={busyId === user.id}
                 onPress={() =>
-                  runAction(user.id, () => sendOnlineFriendRequest(user.id), () => {
+                  runAction(user.id, () => sendFriendRequestTracked(user.id), () => {
                     setResults((prev) => prev.filter((u) => u.id !== user.id));
                     toastService.show(t('friends.requestSent'));
                   })

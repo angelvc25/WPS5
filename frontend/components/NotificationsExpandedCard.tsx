@@ -22,6 +22,12 @@ import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import { soundService } from '@/services/soundService';
 import { toastService, ToastHistoryItem } from '@/services/toastService';
+import {
+    acceptFriendRequestTracked,
+    isFriendRequestHandled,
+    rejectFriendRequestTracked,
+    subscribeFriendUpdates,
+} from '@/services/onlineFriendWatcher';
 import { SpinningBorderSearch } from './SpinningBorderSearch';
 import { useTranslation } from '@/contexts/LanguageContext';
 
@@ -35,6 +41,12 @@ export interface AppNotification {
     time: string;
     unread?: boolean;
     isWarning?: boolean;
+    /** Acción de solicitud de amistad (aceptar/rechazar desde la card). */
+    friendRequestAction?: {
+        requestId: string;
+        username: string;
+        displayName: string;
+    };
 }
 
 interface NotificationsExpandedCardProps {
@@ -71,6 +83,7 @@ const SOURCE_LABELS: Record<string, string> = {
     steam: 'Steam',
     epic: 'Epic Games',
     system: 'WPS5',
+    friends: 'Amigos',
 };
 
 function formatRelativeTime(timestamp: number): string {
@@ -101,6 +114,10 @@ export default function NotificationsExpandedCard({
     const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
     const [doNotDisturb, setDoNotDisturb] = useState(false);
     const [focusedRow, setFocusedRow] = useState(0); // 0 = "No molestar"
+    // Solicitud de amistad en curso (aceptar/rechazar) + refresco cuando se
+    // resuelven desde otro lugar (panel de amigos, perfil online).
+    const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+    const [handledTick, setHandledTick] = useState(0);
 
     const scrollRef = useRef<ScrollView>(null);
 
@@ -118,6 +135,9 @@ export default function NotificationsExpandedCard({
     //     toastService.subscribeHistory(setToastHistory);
     // }, []);
     useEffect(() => toastService.subscribeHistory(setToastHistory), []);
+
+    // Si una solicitud se resuelve fuera de esta card, oculta sus botones.
+    useEffect(() => subscribeFriendUpdates(() => setHandledTick((v) => v + 1)), []);
 
     useEffect(() => {
         if (notificationsProp) setNotifications(notificationsProp);
@@ -163,9 +183,17 @@ export default function NotificationsExpandedCard({
                 unread: true,
                 appIcon: t.icon,
                 appCoverImage: t.coverImage,
+                friendRequestAction:
+                    t.action?.type === 'friend-request' && !isFriendRequestHandled(t.action.requestId)
+                        ? {
+                            requestId: t.action.requestId,
+                            username: t.action.username,
+                            displayName: t.action.displayName,
+                        }
+                        : undefined,
             }));
         return [...fromToasts, ...notifications];
-    }, [toastHistory, notifications]);
+    }, [toastHistory, notifications, handledTick]);
 
     const visibleNotifications = useMemo(
         () => combinedNotifications.filter((n) => !dismissedIds.has(n.id)),
@@ -196,6 +224,38 @@ export default function NotificationsExpandedCard({
             setDismissedIds((prev) => new Set(prev).add(notif.id));
         }
         soundService.playNavigation();
+    };
+
+    const dismissRow = (id: string) => {
+        setDismissedIds((prev) => new Set(prev).add(id));
+    };
+
+    const handleFriendRequest = async (notif: AppNotification, accept: boolean) => {
+        const action = notif.friendRequestAction;
+        if (!action || actionBusyId) return;
+        setActionBusyId(notif.id);
+        try {
+            if (accept) {
+                await acceptFriendRequestTracked(action.requestId);
+                toastService.show(t('friends.requestAcceptedByYou', { name: action.displayName }), {
+                    source: 'friends',
+                });
+            } else {
+                await rejectFriendRequestTracked(action.requestId);
+                toastService.show(t('friends.requestRejectedByYou', { name: action.displayName }), {
+                    source: 'friends',
+                });
+            }
+            soundService.playActivation?.();
+            dismissRow(notif.id);
+        } catch {
+            // La solicitud ya no existe (resuelta en otro lugar): se descarta.
+            toastService.show(t('friends.requestExpired'), { source: 'friends' });
+            soundService.playBack?.();
+            dismissRow(notif.id);
+        } finally {
+            setActionBusyId(null);
+        }
     };
 
     const activateFocusedRow = () => {
@@ -342,6 +402,28 @@ export default function NotificationsExpandedCard({
                                                 )}
                                                 <Text style={styles.notifMessage} numberOfLines={2}>{notif.message}</Text>
                                             </View>
+                                            {notif.friendRequestAction && (
+                                                <View style={styles.friendActionRow}>
+                                                    <TouchableOpacity
+                                                        activeOpacity={0.8}
+                                                        style={[styles.friendActionBtn, styles.friendAcceptBtn]}
+                                                        disabled={actionBusyId === notif.id}
+                                                        onPress={() => handleFriendRequest(notif, true)}
+                                                    >
+                                                        <Ionicons name="checkmark" size={14} color="#FFF" />
+                                                        <Text style={styles.friendActionText}>{t('onlineProfile.accept')}</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity
+                                                        activeOpacity={0.8}
+                                                        style={[styles.friendActionBtn, styles.friendRejectBtn]}
+                                                        disabled={actionBusyId === notif.id}
+                                                        onPress={() => handleFriendRequest(notif, false)}
+                                                    >
+                                                        <Ionicons name="close" size={14} color="#FFF" />
+                                                        <Text style={styles.friendActionText}>{t('onlineProfile.reject')}</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
                                         </View>
                                     </TouchableOpacity>
                                 );
@@ -403,6 +485,14 @@ const styles = StyleSheet.create({
     unreadDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#4FA8FF', right: -10 },
     notifMessageRow: { flexDirection: 'row', alignItems: 'flex-start' },
     notifMessage: { color: 'rgba(255, 255, 255, 0.86)', fontSize: 15, fontFamily: 'SSTRg', lineHeight: 18, flex: 1, left: -10 },
+    friendActionRow: { flexDirection: 'row', gap: 8, marginTop: 10, left: -10 },
+    friendActionBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+        borderRadius: 16, paddingVertical: 7, paddingHorizontal: 14,
+    },
+    friendAcceptBtn: { backgroundColor: 'rgba(46, 125, 50, 0.85)' },
+    friendRejectBtn: { backgroundColor: 'rgba(255, 255, 255, 0.12)' },
+    friendActionText: { color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium' },
     emptyWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 10 },
     emptyText: { color: 'rgba(255, 255, 255, 0.86)', fontSize: 15, fontFamily: 'SSTRg' },
     footerHints: {

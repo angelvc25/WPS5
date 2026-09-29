@@ -1,9 +1,18 @@
+/** Acción asociada a un toast (p. ej. solicitud de amistad aceptable/rechazable). */
+export interface ToastFriendRequestAction {
+  type: 'friend-request';
+  requestId: string;
+  username: string;
+  displayName: string;
+}
+
 export interface ToastOptions {
   duration?: number;
   icon?: any;
   source?: string;
   coverImage?: any;
   saveToHistory?: boolean;
+  action?: ToastFriendRequestAction;
 }
 
 export interface ToastHistoryItem {
@@ -13,6 +22,7 @@ export interface ToastHistoryItem {
   source?: string;
   coverImage?: any;
   timestamp: number;
+  action?: ToastFriendRequestAction;
 }
 
 interface ToastPayload {
@@ -40,6 +50,7 @@ export const toastService = {
         source: options?.source,
         coverImage: options?.coverImage,
         timestamp: Date.now(),
+        action: options?.action,
       };
       history.unshift(item);
       if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;

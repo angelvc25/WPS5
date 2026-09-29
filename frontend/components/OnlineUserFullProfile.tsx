@@ -16,15 +16,17 @@ import {
 } from 'react-native';
 import { getOnlineSession } from '../services/onlineAccountService';
 import {
-  acceptOnlineFriendRequest,
   fetchOnlineFriendRequests,
   fetchOnlineFriends,
   fetchOnlineUserProfile,
-  rejectOnlineFriendRequest,
   removeOnlineFriend,
-  sendOnlineFriendRequest,
   type UserProfileResult,
 } from '../services/onlineFriendsService';
+import {
+  acceptFriendRequestTracked,
+  rejectFriendRequestTracked,
+  sendFriendRequestTracked,
+} from '../services/onlineFriendWatcher';
 import { fetchOnlineUserLibrary, fetchOwnOnlineLibrary, type OnlineLibraryGame } from '../services/onlineLibraryService';
 import {
   fetchMutualFriends,
@@ -309,11 +311,11 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
       soundService.playBack?.();
       onClose();
     } else if (id === 'action:add' && profile) {
-      runAction(() => sendOnlineFriendRequest(profile.user.id), t('friends.requestSent'));
+      runAction(() => sendFriendRequestTracked(profile.user.id), t('friends.requestSent'));
     } else if (id === 'action:accept' && incomingRequestId) {
-      runAction(() => acceptOnlineFriendRequest(incomingRequestId));
+      runAction(() => acceptFriendRequestTracked(incomingRequestId));
     } else if (id === 'action:reject' && incomingRequestId) {
-      runAction(() => rejectOnlineFriendRequest(incomingRequestId));
+      runAction(() => rejectFriendRequestTracked(incomingRequestId));
     } else if (id === 'action:remove' && friendshipId) {
       runAction(() => removeOnlineFriend(friendshipId));
     } else if (id.startsWith('tab:')) {

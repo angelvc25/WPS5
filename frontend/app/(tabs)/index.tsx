@@ -82,6 +82,7 @@ import {
   markOnlineLibraryLoaded,
   notifyOnlineLibraryChanged,
 } from '@/services/onlineAutoSync';
+import { initOnlineFriendWatcher } from '@/services/onlineFriendWatcher';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { enrichAppWithSteamInfo } from '@/services/steamDescriptionService';
 
@@ -2074,10 +2075,16 @@ export default function ConsoleHome() {
     activeUser?.settings?.steamId,
   ]);
 
+  // t() depende del idioma actual: se accede vía ref para que los toasts
+  // en segundo plano (p. ej. solicitudes de amistad) salgan traducidos.
+  const tRef = useRef(t);
+  tRef.current = t;
+
   useEffect(() => {
     loadApps();
     fetchGamingNews().then(() => { });
     initOnlineLibraryAutoSync();
+    initOnlineFriendWatcher((key, params) => tRef.current(key as any, params));
     // La música de la interfaz espera al fin del splash/video de booteo
     // (el _layout avisa con 'wps5-splash-done') para no pisar su audio.
     soundService.init();
