@@ -2,7 +2,7 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -33,6 +33,7 @@ import {
 } from '../services/onlineTrophiesService';
 import type { OnlineUser } from '../services/onlineAccountService';
 import { formatPlaytime } from '../services/playtimeService';
+import { soundService } from '../services/soundService';
 import { toastService } from '../services/toastService';
 
 interface OnlineUserFullProfileProps {
@@ -93,6 +94,12 @@ const TIER_ICONS = {
   silver: require('@/assets/images/plata.png'),
   bronze: require('@/assets/images/bronce.png'),
 } as const;
+
+/** Pestañas y tarjetas navegables del perfil. */
+const TAB_KEYS = ['overview', 'games', 'friends'] as const;
+type TabKey = (typeof TAB_KEYS)[number];
+const TAB_IDS: string[] = TAB_KEYS.map((k) => `tab:${k}`);
+const CARD_IDS: string[] = ['card:trophies', 'card:top', 'card:games', 'card:friends'];
 
 /** Normaliza títulos para detectar juegos en común entre bibliotecas. */
 function normalizeGameTitle(name: string): string {
@@ -247,21 +254,155 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
   const session = getOnlineSession();
   const totalMinutes = games.reduce((acc, g) => acc + g.playtimeMinutes, 0);
 
-  // Captura Escape en fase de captura: cierra solo este perfil sin que los
-  // handlers globales (búsqueda, ajustes) actúen sobre la misma tecla.
+  // ── Navegación por teclado/mando en fase de captura ───────────────────
+  // Filas (arriba/abajo): atrás → acciones → pestañas → tarjetas (solo en Overview).
+  // Dentro de una fila (izquierda/derecha): el foco se mueve entre sus elementos.
+  // Q / E: pestaña anterior / siguiente, desde cualquier sitio.
+  // Todo con stopPropagation: la vista de detrás no se mueve ni reacciona.
+  const [focusId, setFocusId] = useState('back');
+  const focusRefs = useRef(new Map<string, any>());
+  const lastCardRef = useRef<string>(CARD_IDS[0]);
+
+  const actionIds = useMemo(() => {
+    if (!(profile && !loading && !profile.isSelf && !!session)) return [];
+    if (profile.friendship === 'accepted') return friendshipId ? ['action:remove'] : [];
+    if (profile.friendship === 'pending' && incomingRequestId) return ['action:accept', 'action:reject'];
+    if (profile.friendship !== 'pending') return ['action:add'];
+    return [];
+  }, [profile, loading, session, friendshipId, incomingRequestId]);
+
+  const rows = useMemo(() => {
+    const r: string[][] = [['back']];
+    if (actionIds.length > 0) r.push(actionIds);
+    r.push(TAB_IDS);
+    if (tab === 'overview') r.push(CARD_IDS);
+    return r;
+  }, [actionIds, tab]);
+
+  const moveFocus = (id: string) => {
+    if (id.startsWith('card:')) lastCardRef.current = id;
+    setFocusId(id);
+  };
+
+  const setFocusRefById = (id: string) => (el: any) => {
+    if (el) focusRefs.current.set(id, el);
+    else focusRefs.current.delete(id);
+  };
+
+  // Ejecutor siempre fresco (el efecto de teclado lo llama vía ref).
+  const focusRunnerRef = useRef((_id: string) => { });
+  focusRunnerRef.current = (id: string) => {
+    if (id === 'back') {
+      soundService.playBack?.();
+      onClose();
+    } else if (id === 'action:add' && profile) {
+      runAction(() => sendOnlineFriendRequest(profile.user.id), t('friends.requestSent'));
+    } else if (id === 'action:accept' && incomingRequestId) {
+      runAction(() => acceptOnlineFriendRequest(incomingRequestId));
+    } else if (id === 'action:reject' && incomingRequestId) {
+      runAction(() => rejectOnlineFriendRequest(incomingRequestId));
+    } else if (id === 'action:remove' && friendshipId) {
+      runAction(() => removeOnlineFriend(friendshipId));
+    } else if (id.startsWith('tab:')) {
+      soundService.playNavigation?.();
+      setTab(id.slice(4) as TabKey);
+      setFocusId(id);
+    } else if (id === 'card:games' || id === 'card:friends') {
+      // Las tarjetas de "en común" abren su pestaña completa.
+      soundService.playActivation?.();
+      const key: TabKey = id === 'card:games' ? 'games' : 'friends';
+      setTab(key);
+      setFocusId(`tab:${key}`);
+    }
+    // card:trophies y card:top: solo enfocables, sin acción.
+  };
+
   useEffect(() => {
     if (!username || Platform.OS !== 'web') return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      const cur = focusId;
+      const rowIdx = rows.findIndex((r) => r.includes(cur));
+      const stop = () => {
         e.preventDefault();
         e.stopPropagation();
+      };
+      const k = e.key;
+      const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+
+      if (k === 'Escape' || k === 'b' || k === 'B') {
+        stop();
+        soundService.playBack?.();
         onClose();
+      } else if (plain && (k === 'q' || k === 'Q' || k === 'e' || k === 'E')) {
+        // Q/E: cambia de pestaña sin importar dónde esté el foco.
+        const dir = k.toLowerCase() === 'e' ? 1 : -1;
+        const pos = TAB_KEYS.indexOf(tab);
+        const next = Math.max(0, Math.min(TAB_KEYS.length - 1, pos + dir));
+        if (next === pos) return;
+        stop();
+        soundService.playNavigation?.();
+        setTab(TAB_KEYS[next]);
+        // Si el foco estaba en las pestañas o en las tarjetas (que pueden
+        // desaparecer), pasa a la pestaña nueva.
+        if (cur.startsWith('tab:') || cur.startsWith('card:')) setFocusId(`tab:${TAB_KEYS[next]}`);
+      } else if (k === 'ArrowDown' || k === 'ArrowUp') {
+        if (rowIdx < 0) {
+          stop();
+          setFocusId(`tab:${tab}`);
+          return;
+        }
+        const nextRow = rowIdx + (k === 'ArrowDown' ? 1 : -1);
+        if (nextRow < 0 || nextRow >= rows.length) return;
+        stop();
+        soundService.playNavigation?.();
+        const target = rows[nextRow];
+        if (target[0].startsWith('tab:')) moveFocus(`tab:${tab}`); // cae en la pestaña activa
+        else if (target[0].startsWith('card:')) {
+          moveFocus(target.includes(lastCardRef.current) ? lastCardRef.current : target[0]);
+        } else moveFocus(target[0]);
+      } else if (k === 'ArrowRight' || k === 'ArrowLeft') {
+        if (rowIdx < 0) return;
+        const row = rows[rowIdx];
+        const pos = row.indexOf(cur);
+        const next = Math.max(0, Math.min(row.length - 1, pos + (k === 'ArrowRight' ? 1 : -1)));
+        if (next === pos) return;
+        stop();
+        soundService.playNavigation?.();
+        moveFocus(row[next]);
+      } else if (k === 'Enter' || k === 'x' || k === 'X' || k === ' ') {
+        stop();
+        soundService.playActivation?.();
+        focusRunnerRef.current(cur);
+      } else if (k === 'Tab') {
+        stop();
+        const order = rows.flat();
+        const pos = order.indexOf(cur);
+        const next = order[(pos + (e.shiftKey ? order.length - 1 : 1)) % order.length];
+        soundService.playNavigation?.();
+        moveFocus(next);
       }
     };
     window.addEventListener('keydown', handleKey as any, true);
     return () => window.removeEventListener('keydown', handleKey as any, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [username]);
+  }, [username, focusId, rows, tab]);
+
+  // Mantiene visible el elemento enfocado dentro del ScrollView.
+  useEffect(() => {
+    if (!username || Platform.OS !== 'web') return;
+    try {
+      const { findNodeHandle } = require('react-native');
+      const node = findNodeHandle(focusRefs.current.get(focusId));
+      (node as any)?.scrollIntoView?.({ block: 'nearest' });
+    } catch {
+      /* noop */
+    }
+  }, [focusId, username, tab]);
+
+  // Si el foco queda en algo que ya no existe, cae en la pestaña activa.
+  useEffect(() => {
+    if (!rows.flat().includes(focusId)) setFocusId(`tab:${tab}`);
+  }, [rows, focusId, tab]);
   const mostPlayed = games.reduce<LibraryGameView | null>(
     (best, g) => (!best || g.playtimeMinutes > best.playtimeMinutes ? g : best),
     null,
@@ -309,7 +450,14 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
               style={styles.bannerFade}
               pointerEvents="none"
             />
-            <TouchableOpacity style={styles.backBtn} onPress={onClose}>
+            <TouchableOpacity
+              ref={setFocusRefById('back')}
+              style={[styles.backBtn, focusId === 'back' && styles.focusedRing]}
+              onPress={() => {
+                setFocusId('back');
+                focusRunnerRef.current('back');
+              }}
+            >
               <Ionicons name="arrow-back" size={24} color="#FFF" />
             </TouchableOpacity>
 
@@ -359,9 +507,13 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                         </View>
                         {friendshipId && (
                           <TouchableOpacity
-                            style={styles.btnGhost}
+                            ref={setFocusRefById('action:remove')}
+                            style={[styles.btnGhost, focusId === 'action:remove' && styles.focusedRing]}
                             disabled={busy}
-                            onPress={() => runAction(() => removeOnlineFriend(friendshipId))}
+                            onPress={() => {
+                              setFocusId('action:remove');
+                              focusRunnerRef.current('action:remove');
+                            }}
                           >
                             <Text style={styles.btnGhostText}>{t('onlineProfile.remove')}</Text>
                           </TouchableOpacity>
@@ -370,16 +522,24 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                     ) : profile.friendship === 'pending' && incomingRequestId ? (
                       <>
                         <TouchableOpacity
-                          style={styles.btnPrimary}
+                          ref={setFocusRefById('action:accept')}
+                          style={[styles.btnPrimary, focusId === 'action:accept' && styles.focusedRing]}
                           disabled={busy}
-                          onPress={() => runAction(() => acceptOnlineFriendRequest(incomingRequestId))}
+                          onPress={() => {
+                            setFocusId('action:accept');
+                            focusRunnerRef.current('action:accept');
+                          }}
                         >
                           <Text style={styles.btnPrimaryText}>{t('onlineProfile.accept')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={styles.btnSecondary}
+                          ref={setFocusRefById('action:reject')}
+                          style={[styles.btnSecondary, focusId === 'action:reject' && styles.focusedRing]}
                           disabled={busy}
-                          onPress={() => runAction(() => rejectOnlineFriendRequest(incomingRequestId))}
+                          onPress={() => {
+                            setFocusId('action:reject');
+                            focusRunnerRef.current('action:reject');
+                          }}
                         >
                           <Text style={styles.btnSecondaryText}>{t('onlineProfile.reject')}</Text>
                         </TouchableOpacity>
@@ -391,9 +551,13 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                       </View>
                     ) : (
                       <TouchableOpacity
-                        style={styles.btnPrimary}
+                        ref={setFocusRefById('action:add')}
+                        style={[styles.btnPrimary, focusId === 'action:add' && styles.focusedRing]}
                         disabled={busy}
-                        onPress={() => runAction(() => sendOnlineFriendRequest(profile.user.id), t('friends.requestSent'))}
+                        onPress={() => {
+                          setFocusId('action:add');
+                          focusRunnerRef.current('action:add');
+                        }}
                       >
                         {/* <Ionicons name="person-add-outline" size={16} color="#ffffffff" /> */}
                         <Text style={styles.btnPrimaryText}>{t('onlineProfile.addFriend')}</Text>
@@ -404,17 +568,24 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
 
                 {/* Pestañas */}
                 <View style={styles.tabsBar}>
-                  {(['overview', 'games', 'friends'] as const).map((key) => (
-                    <TouchableOpacity
-                      key={key}
-                      style={[styles.tabItem, tab === key && styles.tabItemActive]}
-                      onPress={() => setTab(key)}
-                    >
-                      <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>
-                        {key === 'overview' ? t('profile.overview') : key === 'games' ? t('profile.games') : t('profile.friends')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {(['overview', 'games', 'friends'] as const).map((key) => {
+                    const tabId = `tab:${key}`;
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        ref={setFocusRefById(tabId)}
+                        style={[styles.tabItem, tab === key && styles.tabItemActive, focusId === tabId && styles.focusedRing]}
+                        onPress={() => {
+                          setFocusId(tabId);
+                          focusRunnerRef.current(tabId);
+                        }}
+                      >
+                        <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>
+                          {key === 'overview' ? t('profile.overview') : key === 'games' ? t('profile.games') : t('profile.friends')}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
 
                 {tab === 'overview' && (
@@ -452,7 +623,10 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
 
                     {/* Vitrina estilo PSN: trofeos, más jugado y en común */}
                     <View style={styles.showcaseRow}>
-                      <View style={styles.showcaseCard}>
+                      <View
+                        ref={setFocusRefById('card:trophies')}
+                        style={[styles.showcaseCard, focusId === 'card:trophies' && styles.focusedRing]}
+                      >
                         {trophiesState === 'loading' ? (
                           <ActivityIndicator color="#FFF" style={{ marginVertical: 12 }} />
                         ) : trophiesState !== 'ready' ? (
@@ -486,7 +660,10 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                         </Text>
                       </View>
 
-                      <View style={styles.showcaseCard}>
+                      <View
+                        ref={setFocusRefById('card:top')}
+                        style={[styles.showcaseCard, focusId === 'card:top' && styles.focusedRing]}
+                      >
                         {topPlayed.length === 0 ? (
                           <Text style={styles.showcaseHint}>
                             {tr('onlineProfile.noTrophies', 'No synced trophies')}
@@ -510,9 +687,12 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                       </View>
 
                       <TouchableOpacity
-                        style={styles.showcaseCard}
+                        ref={setFocusRefById('card:games')}
+                        style={[styles.showcaseCard, focusId === 'card:games' && styles.focusedRing]}
                         activeOpacity={0.8}
-                        onPress={() => setTab('games')}
+                        onPress={() => {
+                          focusRunnerRef.current('card:games');
+                        }}
                       >
                         {libraryState !== 'ready' ? (
                           <Text style={styles.showcaseHint}>{libraryHint(t, libraryState)}</Text>
@@ -540,9 +720,12 @@ export const OnlineUserFullProfile = ({ username, onClose, onChanged }: OnlineUs
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={styles.showcaseCard}
+                        ref={setFocusRefById('card:friends')}
+                        style={[styles.showcaseCard, focusId === 'card:friends' && styles.focusedRing]}
                         activeOpacity={0.8}
-                        onPress={() => setTab('friends')}
+                        onPress={() => {
+                          focusRunnerRef.current('card:friends');
+                        }}
                       >
                         {mutualFriends.length === 0 ? (
                           <Text style={styles.showcaseHint}>
@@ -1063,6 +1246,10 @@ const styles = StyleSheet.create({
   mutualAvatarText: {
     color: '#FFF',
     fontSize: 16,
+  },
+  focusedRing: {
+    // @ts-ignore sombra web sin mover el layout
+    boxShadow: '0 0 0 2px rgba(255,255,255,0.9)',
   },
   gamesTabHeader: {
     flexDirection: 'row',
