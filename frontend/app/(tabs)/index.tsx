@@ -201,6 +201,22 @@ export interface ConsoleItem {
 
 export type StoreSource = 'ps5' | 'steam';
 
+// Las portadas fallback de Steam pasaron de `library_600x900_2x.jpg` (1200x1800)
+// a `library_600x900.jpg` (600x900): sobra resolución para una tarjeta de
+// ~120-180px y el decode + subida a GPU es ~4x más barato, lo que suaviza el
+// scale al enfocar. Esta migración normaliza las URLs viejas que puedan seguir
+// guardadas en la caché local de cada usuario.
+const migrateSteamArtUrl = (url: any): any =>
+  typeof url === 'string'
+    ? url.replace('library_600x900_2x.jpg', 'library_600x900.jpg')
+    : url;
+
+const migrateCachedSteamGames = (parsed: any): ConsoleItem[] =>
+  (Array.isArray(parsed) ? parsed : []).map((g: any) => ({
+    ...g,
+    image: migrateSteamArtUrl(g?.image),
+  }));
+
 // Única fuente de verdad para el tile de la tienda (id='5') según la fuente elegida.
 const getStoreTile = (source: StoreSource, t: any): ConsoleItem =>
   source === 'steam'
@@ -691,8 +707,8 @@ export default function ConsoleHome() {
       try {
         const raw = localStorage.getItem(`steam_games_${steamId}`);
         if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          const parsed = migrateCachedSteamGames(JSON.parse(raw));
+          if (parsed.length > 0) return parsed;
         }
       } catch (e) { /* noop */ }
     }
@@ -1119,7 +1135,6 @@ export default function ConsoleHome() {
     [games]
   );
 
-  const BASE_CARD_IDS = ['1', 'last_played', '5'];
   const MEDIA_GALLERY_ITEM: ConsoleItem = {
     id: 'media_gallery',
     title: t('mediaGallery.title'),
@@ -1128,56 +1143,67 @@ export default function ConsoleHome() {
     isFolder: true,
     type: 'media',
   };
-  const baseCards = nonSteamGames.filter(g => BASE_CARD_IDS.includes(g.id));
-  const otherSavedGames = nonSteamGames.filter(g => !BASE_CARD_IDS.includes(g.id));
-
+  // NOTA: todo este bloque va en useMemo para que la identidad de los
+  // objetos (sobre todo los de Steam, que se clonan con `{ ...g }`) sea
+  // estable entre renders. Antes se reconstruía en cada render y cada tarjeta
+  // Steam recibía un `item` nuevo, lo que obligaba a expo-image a re-resolver
+  // la portada remota justo durante la animación de scale (tirón).
   // Juegos de Steam ya jugados (con lastPlayed) que no se están descargando
   // ahora: deben aparecer como tarjetas normales del carrusel y correrse a
   // la derecha según su fecha de juego, igual que los manuales.
-  const playedSteamGames = steamGames
+  const lastPlayedGameId = lastPlayedGame?.id;
+  const playedSteamGames = useMemo(() => steamGames
     .filter(g => {
       if (!g.lastPlayed) return false;
       if (g.isPinned) return false; // ya se muestra fijo, ver `pinnedSteamGames`
-      if (lastPlayedGame && g.id === lastPlayedGame.id) return false; // ya está en "Último Jugado"
+      if (lastPlayedGameId && g.id === lastPlayedGameId) return false; // ya está en "Último Jugado"
       const appId = getSteamAppId(g as any);
       return !(appId && downloadsByAppId.has(appId));
     })
-    .map(g => ({ ...g, path: resolveLaunchPath(g) }));
+    .map(g => ({ ...g, path: resolveLaunchPath(g) })),
+    [steamGames, lastPlayedGameId, downloadsByAppId]);
 
   // Juegos de Steam fijados: igual que `pinnedManual`, permanecen siempre en
   // Inicio en vez de rotar con los demás recientes (excepto si ahora mismo
   // se están descargando, que ya se muestran arriba en `downloadingSteamGames`).
-  const pinnedSteamGames = steamGames
+  const pinnedSteamGames = useMemo(() => steamGames
     .filter(g => {
       if (!g.isPinned) return false;
       const appId = getSteamAppId(g as any);
       return !(appId && downloadsByAppId.has(appId));
     })
-    .map(g => ({ ...g, path: resolveLaunchPath(g) }));
+    .map(g => ({ ...g, path: resolveLaunchPath(g) })),
+    [steamGames, downloadsByAppId]);
 
-  const pinnedManual = otherSavedGames.filter(g => g.isPinned);
-  const unpinnedManual = otherSavedGames.filter(g => !g.isPinned);
-  const manualWithHistory = unpinnedManual.filter(g => g.lastPlayed);
-  const manualWithoutHistory = unpinnedManual.filter(g => !g.lastPlayed);
+  const currentData: ConsoleItem[] = useMemo(() => {
+    const BASE_CARD_IDS = ['1', 'last_played', '5'];
+    const baseCards = nonSteamGames.filter(g => BASE_CARD_IDS.includes(g.id));
+    const otherSavedGames = nonSteamGames.filter(g => !BASE_CARD_IDS.includes(g.id));
+    const pinnedManual = otherSavedGames.filter(g => g.isPinned);
+    const unpinnedManual = otherSavedGames.filter(g => !g.isPinned);
+    const manualWithHistory = unpinnedManual.filter(g => g.lastPlayed);
+    const manualWithoutHistory = unpinnedManual.filter(g => !g.lastPlayed);
 
-  const combinedRecent = [...manualWithHistory, ...playedSteamGames]
-    .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+    const combinedRecent = [...manualWithHistory, ...playedSteamGames]
+      .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
 
-  const combinedOtherGames = [...pinnedManual, ...pinnedSteamGames, ...combinedRecent, ...manualWithoutHistory];
+    const combinedOtherGames = [...pinnedManual, ...pinnedSteamGames, ...combinedRecent, ...manualWithoutHistory];
 
-  let currentData = currentRenderedTab === 'Games'
-    ? [...baseCards, ...downloadingSteamGames, ...combinedOtherGames]
-    : media;
+    let data: ConsoleItem[] = currentRenderedTab === 'Games'
+      ? [...baseCards, ...downloadingSteamGames, ...combinedOtherGames]
+      : media;
 
-  if (currentRenderedTab === 'Games') {
-    currentData = currentData.slice(0, GAMES_LIMIT);
-    currentData.push({
-      id: 'more_library',
-      title: t('library.viewLibrary'),
-      time: t('library.viewAllGames'),
-      image: null,
-    } as any);
-  }
+    if (currentRenderedTab === 'Games') {
+      data = data.slice(0, GAMES_LIMIT);
+      data.push({
+        id: 'more_library',
+        title: t('library.viewLibrary'),
+        time: t('library.viewAllGames'),
+        image: null,
+      } as any);
+    }
+    return data;
+  }, [currentRenderedTab, nonSteamGames, downloadingSteamGames, playedSteamGames, pinnedSteamGames, media, t]);
   const focusedCarouselItem = currentData[activeIndex];
   // La tarjeta "Último jugado" hereda la música del juego que representa.
   const focusedCarouselAudio = focusedCarouselItem?.isLastPlayed
@@ -1276,8 +1302,8 @@ export default function ConsoleHome() {
       const cachedRaw = localStorage.getItem(`steam_games_${steamId}`);
       if (cachedRaw) {
         try {
-          const parsed = JSON.parse(cachedRaw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          const parsed = migrateCachedSteamGames(JSON.parse(cachedRaw));
+          if (parsed.length > 0) {
             setSteamGames(parsed);
           }
         } catch (e) {
@@ -1365,8 +1391,8 @@ export default function ConsoleHome() {
         const cachedRaw = localStorage.getItem(`steam_games_${steamId}`);
         if (cachedRaw) {
           try {
-            const cached = JSON.parse(cachedRaw);
-            if (Array.isArray(cached) && cached.length > 0) {
+            const cached = migrateCachedSteamGames(JSON.parse(cachedRaw));
+            if (cached.length > 0) {
               setSteamGames(cached);
               return;
             }
@@ -1379,7 +1405,7 @@ export default function ConsoleHome() {
             id: `steam_${g.appid}`,
             title: g.name,
             time: 'Steam',
-            image: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900_2x.jpg`,
+            image: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900.jpg`,
             description: '',
             playtime_forever: Number(g.playtime_forever || 0),
             playtimeMinutes: Number(g.playtime_forever || 0),
@@ -1677,7 +1703,7 @@ export default function ConsoleHome() {
             id: `steam_${o.appId}`,
             title: o.name,
             time: 'Steam',
-            image: `https://steamcdn-a.akamaihd.net/steam/apps/${o.appId}/library_600x900_2x.jpg`,
+            image: `https://steamcdn-a.akamaihd.net/steam/apps/${o.appId}/library_600x900.jpg`,
             description: t('game.playedTime', { hours: 0 }),
             playtime_forever: 0,
             playtimeMinutes: 0,
@@ -3823,13 +3849,27 @@ export default function ConsoleHome() {
       }
     };
 
-    // require() -> número; { uri } -> string remota o local-file://
-    const uri = typeof currentBg === 'object' && currentBg?.uri ? currentBg.uri : null;
+    // require() -> número; { uri } -> objeto; string http(s) -> URL remota
+    // (los héroes de SteamGrid llegan como string plano, no como { uri }).
+    const remoteUri =
+      typeof currentBg === 'string'
+        ? currentBg
+        : typeof currentBg === 'object' && currentBg?.uri
+          ? String(currentBg.uri)
+          : null;
+    const isRemoteBg =
+      typeof remoteUri === 'string' && /^https?:\/\//.test(remoteUri);
 
-    if (uri) {
-      Image.prefetch(uri)
-        .catch(() => { /* si falla el prefetch, igual intentamos animar */ })
-        .finally(startCrossfade);
+    if (isRemoteBg && remoteUri) {
+      // Precalentamos la caché para que el crossfade no corra sobre una imagen
+      // aún sin descargar (era el tirón del fondo al enfocar juegos Steam).
+      // Con timeout: una red lenta jamás retrasa el fade más de ~350ms. Las
+      // tarjetas vecinas además se precalientan al mover el foco, así que este
+      // prefetch suele resolverse al instante desde caché.
+      const uriToWarm: string = remoteUri;
+      const prefetch = Image.prefetch(uriToWarm).catch(() => { /* si falla, igual animamos */ });
+      const timeout = new Promise<void>((resolve) => setTimeout(resolve, 350));
+      Promise.race([prefetch, timeout]).then(startCrossfade);
     } else {
       // Assets empaquetados con require() ya están disponibles síncronamente
       startCrossfade();
@@ -3837,6 +3877,15 @@ export default function ConsoleHome() {
   }, [currentBg]);
 
   useEffect(() => { if (currentBg && !bgA && !bgB) setBgA(currentBg); }, []);
+
+  // Normaliza los sources del fondo: los strings remotos (héroes de Steam)
+  // pasan a { uri } con identidad estable para que expo-image no los
+  // re-resuelva en cada render, y ambas capas usan caché persistente sin
+  // fundido propio (el crossfade lo hace el Animated.View padre).
+  const bgASource = useMemo(() => (typeof bgA === 'string' ? { uri: bgA } : bgA), [bgA]);
+  const bgBSource = useMemo(() => (typeof bgB === 'string' ? { uri: bgB } : bgB), [bgB]);
+  const bgAKey = typeof bgA === 'string' ? bgA : (bgA?.uri ? String(bgA.uri) : undefined);
+  const bgBKey = typeof bgB === 'string' ? bgB : (bgB?.uri ? String(bgB.uri) : undefined);
 
   const animatedStyleA = useAnimatedStyle(() => {
     const progress = 1 - fade.value;
@@ -4020,9 +4069,12 @@ export default function ConsoleHome() {
               <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} />
               {bgA && (
                 <Image
-                  source={bgA}
+                  source={bgASource}
                   style={StyleSheet.absoluteFillObject}
                   contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={0}
+                  recyclingKey={bgAKey}
                 />
               )}
             </Animated.View>
@@ -4031,9 +4083,12 @@ export default function ConsoleHome() {
               <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} />
               {bgB && (
                 <Image
-                  source={bgB}
+                  source={bgBSource}
                   style={StyleSheet.absoluteFillObject}
                   contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={0}
+                  recyclingKey={bgBKey}
                 />
               )}
             </Animated.View>

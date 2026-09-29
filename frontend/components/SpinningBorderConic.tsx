@@ -5,12 +5,10 @@ interface SpinningBorderConicProps {
   size: number;
 }
 
-export const SpinningBorderConic = ({ size }: SpinningBorderConicProps) => {
-  if (Platform.OS !== 'web') return null;
-
-  return (
-    <>
-      <style>{`
+// El CSS se inyecta una sola vez por carrusel (ver SpinningBorderStyles):
+// antes cada tarjeta activa lo re-montaba al cambiar el foco, con el coste
+// de re-parsear keyframes + gradientes justo durante la animación de scale.
+const SPIN_CSS = `
   /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
   @keyframes wc-spin-border {
     0%   { transform: translate(-50%, -50%) rotate(0deg); }
@@ -93,8 +91,18 @@ export const SpinningBorderConic = ({ size }: SpinningBorderConicProps) => {
     );
     animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
   }
-`}</style>
+`;
 
+export const SpinningBorderStyles = () => {
+  if (Platform.OS !== 'web') return null;
+  return <style>{SPIN_CSS}</style>;
+};
+
+export const SpinningBorderConic = ({ size }: SpinningBorderConicProps) => {
+  if (Platform.OS !== 'web') return null;
+
+  return (
+    <>
       {/* CAPA ATRÁS: Borde Giratorio con Máscara Rectangular */}
       {/* Eliminamos los estilos inline que puedan chocar con la máscara */}
       {/* @ts-ignore */}

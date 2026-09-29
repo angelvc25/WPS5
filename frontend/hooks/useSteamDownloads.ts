@@ -21,6 +21,30 @@ export interface DownloadCompletion {
   name: string;
 }
 
+// Compara dos listas de descargas por valor (no por referencia): el contenido
+// que pinta la UI es appId + estado + porcentaje redondeado. La velocidad
+// cruda (downloadSpeed) fluctúa en cada poll y no debe invalidar el estado.
+function areDownloadListsEqual(a: SteamDownloadItem[], b: SteamDownloadItem[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (
+      x.appId !== y.appId ||
+      x.downloading !== y.downloading ||
+      x.validating !== y.validating ||
+      x.paused !== y.paused ||
+      Math.round(x.percent) !== Math.round(y.percent) ||
+      x.bytesDownloaded !== y.bytesDownloaded ||
+      x.bytesToDownload !== y.bytesToDownload
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function useSteamDownloads(pollIntervalMs: number = 2000) {
   const [downloads, setDownloads] = useState<SteamDownloadItem[]>([]);
   const [completedDownloads, setCompletedDownloads] = useState<DownloadCompletion[]>([]);
@@ -38,7 +62,11 @@ export function useSteamDownloads(pollIntervalMs: number = 2000) {
       .then((result: any) => {
         if (!mountedRef.current) return;
         const list: SteamDownloadItem[] = Array.isArray(result) ? result : [];
-        setDownloads(list);
+        // Evita re-renders si nada cambió: el poll corre cada ~2s y cada
+        // setState con un array nuevo re-renderiza el carrusel completo.
+        // Como las portadas de Steam son URLs remotas, re-renderizar a mitad
+        // de la animación de scale produce el tirón visible.
+        setDownloads((prev) => (areDownloadListsEqual(prev, list) ? prev : list));
 
         const prevMap = prevDownloadsRef.current;
         const currentIds = new Set(list.map((d) => d.appId));

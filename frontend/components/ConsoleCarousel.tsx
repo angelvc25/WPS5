@@ -10,7 +10,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import Animated, { FadeIn, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import AnimatedCardWrapper from './AnimatedCardWrapper';
-import SpinningBorder from './SpinningBorderConic';
+import SpinningBorder, { SpinningBorderStyles } from './SpinningBorderConic';
 
 
 interface ConsoleCarouselProps {
@@ -35,6 +35,47 @@ interface ConsoleCarouselProps {
   collapseAnim: SharedValue<number>;
   downloadsByAppId?: Map<string, SteamDownloadItem>;
 }
+
+// Las portadas de Steam son URLs remotas (steamcdn / steamgriddb) mientras que
+// el resto de tarjetas usan require() locales. Sin cachePolicy ni recyclingKey,
+// expo-image re-resuelve la imagen remota en cada render y aplica su fundido
+// por defecto, lo que se percibe como un tirón justo durante la animación de
+// scale. Con caché en memoria/disco + recycling por id + sin transición, la
+// textura ya está lista cuando arranca el scale. Se memoiza para que los
+// re-renders del padre (p. ej. polls de descarga) no toquen la imagen si su
+// source no cambió: todas las props son primitivas para que React.memo sea
+// efectivo.
+const CarouselCardImage = React.memo(function CarouselCardImage({
+  source,
+  itemId,
+  size,
+  isActive,
+}: {
+  source: any;
+  itemId: string;
+  size: number;
+  isActive: boolean;
+}) {
+  const normalizedSource = React.useMemo(
+    () => (typeof source === 'string' ? { uri: source } : source),
+    [source]
+  );
+  const style = React.useMemo(
+    () => [styles.card, isActive && styles.cardActive, { width: size, height: size }],
+    [isActive, size]
+  );
+  return (
+    <Image
+      source={normalizedSource}
+      style={style}
+      contentFit="cover"
+      cachePolicy="memory-disk"
+      recyclingKey={itemId}
+      transition={0}
+      priority={isActive ? 'high' : 'low'}
+    />
+  );
+});
 
 export const ConsoleCarousel = ({
   currentData,
@@ -72,6 +113,28 @@ export const ConsoleCarousel = ({
     };
   });
 
+  // Precalienta el arte y el fondo de las tarjetas vecinas (±2) cada vez que
+  // se mueve el foco: cuando el usuario llega a un juego Steam, su portada y
+  // su héroe ya están en caché y ni el scale ni el crossfade sufren tirones.
+  // Fire-and-forget: no bloquea la animación en curso.
+  React.useEffect(() => {
+    const warm: string[] = [];
+    const pushSource = (src: any) => {
+      const uri = typeof src === 'string' ? src : (src?.uri ? String(src.uri) : null);
+      if (uri && /^https?:\/\//.test(uri)) warm.push(uri);
+    };
+    for (let i = Math.max(0, activeIndex - 2); i <= Math.min(currentData.length - 1, activeIndex + 2); i++) {
+      if (i === activeIndex) continue;
+      const item = currentData[i];
+      if (!item) continue;
+      pushSource(item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image);
+      pushSource(item.isLastPlayed ? lastPlayedGame?.backgroundImage : (item as any).backgroundImage);
+    }
+    [...new Set(warm)].slice(0, 8).forEach((uri) => {
+      Image.prefetch(uri).catch(() => {});
+    });
+  }, [activeIndex, currentData, lastPlayedGame]);
+
   if (currentData.length === 0) {
     return (
       <View style={styles.mediaEmptyContainer}>
@@ -82,21 +145,23 @@ export const ConsoleCarousel = ({
   }
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingLeft: LEFT_PADDING, paddingRight: RIGHT_PADDING, marginTop: 20 }}
-      snapToInterval={ITEM_WIDTH}
-      snapToAlignment="start"
-      decelerationRate="fast"
-      scrollEventThrottle={16}
-      onLayout={() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTo({ x: activeIndex * ITEM_WIDTH, animated: false });
-        }
-      }}
-    >
+    <>
+      <SpinningBorderStyles />
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingLeft: LEFT_PADDING, paddingRight: RIGHT_PADDING, marginTop: 20 }}
+        snapToInterval={ITEM_WIDTH}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        scrollEventThrottle={16}
+        onLayout={() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTo({ x: activeIndex * ITEM_WIDTH, animated: false });
+          }
+        }}
+      >
       {currentData.map((item, index) => {
         const isActive = index === activeIndex;
         const isHomeCard = item.id === '1';
@@ -149,7 +214,7 @@ export const ConsoleCarousel = ({
                     {(() => {
                       const favs = media.filter(m => m.isFavorite);
                       if (favs.length === 0) return <Ionicons name="apps-outline" size={28} color="rgba(255,255,255,0.2)" />;
-                      if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" />;
+                      if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" cachePolicy="memory-disk" transition={0} />;
                       return (
                         <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
                           {favs.slice(0, 4).map((f, fi) => (
@@ -177,7 +242,7 @@ export const ConsoleCarousel = ({
                     {(() => {
                       const favs = games.filter(g => g.isFavorite);
                       if (favs.length === 0) return <Ionicons name="star-outline" size={28} color="rgba(255,255,255,0.2)" />;
-                      if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" />;
+                      if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" cachePolicy="memory-disk" transition={0} />;
                       return (
                         <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
                           {favs.slice(0, 4).map((f, fi) => (
@@ -210,10 +275,11 @@ export const ConsoleCarousel = ({
 
           const cardImage = (
             <View>
-              <Image
+              <CarouselCardImage
                 source={imgSource}
-                style={[styles.card, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}
-                contentFit="cover"
+                itemId={String(item.id)}
+                size={CARD_SIZE}
+                isActive={isActive}
               />
               {showMiniProgress && (
                 <View style={styles.miniProgressTrack} pointerEvents="none">
@@ -394,7 +460,8 @@ export const ConsoleCarousel = ({
           </View>
         );
       })}
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 };
 
