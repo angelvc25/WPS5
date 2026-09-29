@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Platform } from 'react-native';
 
-interface SpinningBorderSearchProps {
+interface SpinningBorderSettingsProps {
   /** Tamaño de la card sobre la que se dibuja el anillo (en px). */
   size: number;
   /**
@@ -13,7 +13,7 @@ interface SpinningBorderSearchProps {
   borderRadius?: number;
 }
 
-export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBorderSearchProps) => {
+export const SpinningBorderSettings = ({ size, spread, borderRadius }: SpinningBorderSettingsProps) => {
   if (Platform.OS !== 'web') return null;
 
   const resolvedSpread = spread ?? Math.max(10, Math.round(size * 0.07));
@@ -22,12 +22,12 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
   return (
     <>
       <style>{`
-  @keyframes wcs-spin-border {
+  @keyframes wcs-spin-border-settings {
     0%   { transform: translate(-50%, -50%) rotate(0deg); }
     100% { transform: translate(-50%, -50%) rotate(360deg); }
   }
 
-  .wcs-spinning-container {
+  .wcs-spinning-container-settings {
     position: absolute;
     top: -${resolvedSpread}px;
     left: -${resolvedSpread}px;
@@ -50,13 +50,13 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
     border: 2px solid transparent;
   }
 
-  .wcs-spinning-inner {
+  .wcs-spinning-inner-settings {
     position: absolute;
     top: 50%;
     left: 50%;
     width: 10000%;
     height: 10000%;
-    animation: wcs-spin-border 9.8s linear infinite;
+    animation: wcs-spin-border-settings 9.8s linear infinite;
 
     background: conic-gradient(
       from 0deg,
@@ -73,14 +73,14 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
     border-radius: 50%;
   }
 
-  @keyframes wcs-content-shimmer {
+  @keyframes wcs-content-shimmer-settings {
     0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
     15% { opacity: 1; }
     50% { opacity: 1; }
     70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
     100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
   }
-  .wcs-shimmer-line {
+  .wcs-shimmer-line-settings {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -94,14 +94,14 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
       rgba(255, 255, 255, 0.01) 80%,
       transparent 100%
     );
-    animation: wcs-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+    animation: wcs-content-shimmer-settings 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
   }
 `}</style>
 
       {/* CAPA ATRÁS: Borde Giratorio con Máscara Rectangular */}
       {/* @ts-ignore */}
-      <div className="wcs-spinning-container">
-        <div className="wcs-spinning-inner" />
+      <div className="wcs-spinning-container-settings">
+        <div className="wcs-spinning-inner-settings" />
       </div>
 
       {/* CAPA ADELANTE: Brillo */}
@@ -119,10 +119,10 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
         pointerEvents="none"
       >
         {/* @ts-ignore */}
-        <div className="wcs-shimmer-line" />
+        <div className="wcs-shimmer-line-settings" />
       </View>
     </>
   );
 };
 
-export default SpinningBorderSearch;
+export default SpinningBorderSettings;

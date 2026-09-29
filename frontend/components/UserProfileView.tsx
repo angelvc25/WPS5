@@ -28,7 +28,7 @@ import { formatPlaytime } from '../services/playtimeService';
 import { fetchSteamGridAssets } from '../services/steamGridService';
 import type { SteamGridAsset } from '../services/steamGridService';
 import { toastService } from '../services/toastService';
-import { OnlineFriendsPanel } from './OnlineFriendsPanel';
+import { OnlineFriendsPanel, type FriendsGridInfo } from './OnlineFriendsPanel';
 import { OnlineUserFullProfile } from './OnlineUserFullProfile';
 import SpinningBorderSearch from './SpinningBorderSearch';
 import type { UserProfile } from './UserSelectScreen';
@@ -463,6 +463,8 @@ export default function UserProfileView({
   const [profileActionIndex, setProfileActionIndex] = useState(0);
   const [onlineProfileUsername, setOnlineProfileUsername] = useState<string | null>(null);
   const [friendsVersion, setFriendsVersion] = useState(0);
+  // Forma del grid de amigos (la reporta el panel) para navegarlo con mando.
+  const [friendsGrid, setFriendsGrid] = useState<FriendsGridInfo>({ count: 0, columns: 1, usernames: [] });
 
   const [profileEditSection, setProfileEditSection] = useState<ProfileEditSection>('name');
   // Foco dentro del contenido del perfil: sección (índice en profileSections)
@@ -538,10 +540,10 @@ export default function UserProfileView({
 
   // Secciones navegables de la pestaña activa. Solo entran las que tienen
   // contenido, así el foco nunca cae en una sección vacía o inexistente.
-  // La pestaña de amigos online se maneja con mouse/touch (panel propio).
+  // La pestaña de amigos es un grid: ←/→ recorre, ↑/↓ salta de fila (ver handler de teclas).
   const profileSections = useMemo<ProfileSection[]>(() => {
     if (profileActiveTab === 'friends') {
-      return [];
+      return friendsGrid.count > 0 ? [{ id: 'friends', count: friendsGrid.count }] : [];
     }
     if (profileActiveTab === 'games') {
       return profileLibraryGames.length > 0 ? [{ id: 'gamesList', count: profileLibraryGames.length }] : [];
@@ -551,7 +553,7 @@ export default function UserProfileView({
     const list: ProfileSection[] = [{ id: 'cards', count: PROFILE_CARD_COUNT, horizontal: true }];
     if (activeUser?.about) list.push({ id: 'about', count: 1 });
     return list;
-  }, [profileActiveTab, profileLibraryGames, activeUser?.about]);
+  }, [profileActiveTab, profileLibraryGames, activeUser?.about, friendsGrid.count]);
 
   // Refs de cada item enfocable ("seccion:indice") y del ScrollView de la
   // página, para seguir el foco lógico con scroll automático.
@@ -974,6 +976,8 @@ export default function UserProfileView({
     const handleKeyDown = (e: KeyboardEvent) => {
       // El modal de portada tiene su propio handler (registrado antes).
       if (coverSearchVisible) return;
+      // El perfil online de un amigo se muestra encima: que el mando no mueva lo de atrás.
+      if (onlineProfileUsername) return;
       // Don't intercept if user is typing in an input
       const target = e.target as HTMLElement | null;
       const isInput = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
@@ -1052,6 +1056,50 @@ export default function UserProfileView({
             stop();
             setProfileFocusArea('tabs');
             soundService.playNavigation();
+          }
+          return;
+        }
+
+        // Grid de amigos: ←/→ de tarjeta en tarjeta, ↑/↓ saltan una fila.
+        if (section.id === 'friends') {
+          const cols = Math.max(1, friendsGrid.columns);
+          const last = section.count - 1;
+          if (e.key === 'ArrowRight') {
+            stop();
+            if (profileItemIndex < last) {
+              setProfileItemIndex(profileItemIndex + 1);
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'ArrowLeft') {
+            stop();
+            if (profileItemIndex > 0) {
+              setProfileItemIndex(profileItemIndex - 1);
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'ArrowDown') {
+            stop();
+            const lastRow = Math.floor(last / cols);
+            const row = Math.floor(profileItemIndex / cols);
+            if (row < lastRow) {
+              // Si la última fila es más corta, cae en su última tarjeta.
+              setProfileItemIndex(Math.min(profileItemIndex + cols, last));
+              soundService.playNavigation();
+            }
+          } else if (e.key === 'ArrowUp') {
+            stop();
+            if (profileItemIndex - cols >= 0) {
+              setProfileItemIndex(profileItemIndex - cols);
+            } else {
+              setProfileFocusArea('tabs');
+            }
+            soundService.playNavigation();
+          } else if (e.key === 'Enter') {
+            stop();
+            const username = friendsGrid.usernames[profileItemIndex];
+            if (username) {
+              soundService.playActivation?.();
+              setOnlineProfileUsername(username);
+            }
           }
           return;
         }
@@ -1217,6 +1265,8 @@ export default function UserProfileView({
     profileRecentIndex,
     profileRecentGames,
     profileLibraryGames,
+    friendsGrid,
+    onlineProfileUsername,
     profileEditSection,
     editListIndex,
     coverSearchVisible,
@@ -1688,6 +1738,10 @@ export default function UserProfileView({
                   <OnlineFriendsPanel
                     hideSearch
                     refreshSignal={friendsVersion}
+                    focusedIndex={isFocused('friends', profileItemIndex) ? profileItemIndex : null}
+                    onFocusItem={(i) => focusItem('friends', i)}
+                    registerItemRef={(i) => setItemRef('friends', i)}
+                    onGridChange={setFriendsGrid}
                     onSelectUser={(username) => setOnlineProfileUsername(username)}
                   />
                 </View>

@@ -112,6 +112,8 @@ const es = {
   'settings.cancel': 'Cancelar',
   'settings.deleteGame': 'Este elemento se eliminará del almacenamiento de la consola.',
 
+
+  'settings.Steam': 'Vincula tu cuenta de Steam para sincronizar tu biblioteca de juegos.',
   'settings.achievementDesc': 'Vincula tu cuenta de RetroAchievements para ver tus logros en juegos clásicos (PS1, PS2, SNES, N64, GBA, etc.)',
   'settings.achievementUsername': 'Usuario de RetroAchievements',
   'settings.achievementUsernamePlaceholder': 'Tu usuario de RetroAchievements',
@@ -1055,6 +1057,7 @@ const en: Record<TranslationKey, string> = {
   'settings.cancel': 'Cancel',
   'settings.deleteGame': 'This element will be deleted from the console storage.',
 
+  'settings.Steam': 'Link your Steam account to sync your library.',
   'settings.achievementDesc': 'Link your RetroAchievements account to view your achievements in classic games (PS1, PS2, SNES, N64, GBA, etc.)',
   'settings.achievementUsername': 'RetroAchievements Username',
   'settings.achievementUsernamePlaceholder': 'Your RetroAchievements username',
@@ -1991,6 +1994,7 @@ const pt: Record<TranslationKey, string> = {
   'settings.cancel': 'Cancelar',
   'settings.deleteGame': 'Este item será excluído do armazenamento da consola.',
 
+  'settings.Steam': 'Associe a tua conta do Steam para sincronizar a tua biblioteca.',
   'settings.achievementDesc': 'Associe a tua conta do RetroAchievements para veres as tuas conquistas em jogos clássicos (PS1, PS2, SNES, N64, GBA, etc.)',
   'settings.achievementUsername': 'Usuário do RetroAchievements',
   'settings.achievementUsernamePlaceholder': 'Seu usuário do RetroAchievements',

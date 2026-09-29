@@ -29,6 +29,7 @@ import {
     subscribeFriendUpdates,
 } from '@/services/onlineFriendWatcher';
 import { SpinningBorderSearch } from './SpinningBorderSearch';
+import { SpinningborderDiscover } from './SpinningborderDiscover';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 export interface AppNotification {
@@ -213,10 +214,22 @@ export default function NotificationsExpandedCard({
         scrollRef.current?.scrollTo({ y: idx * rowH, animated: true });
     }, [focusedRow, isOpen]);
 
+    /** ¿La fila tiene una solicitud con botones accionables ahora mismo? */
+    const isActionableRequest = (notif: AppNotification | undefined): boolean =>
+        !!notif?.friendRequestAction &&
+        actionBusyId !== notif.id &&
+        !isFriendRequestHandled(notif.friendRequestAction.requestId);
+
     const deleteFocusedNotification = () => {
         if (focusedRow === 0) return;
         const notif = visibleNotifications[focusedRow - 1];
         if (!notif) return;
+        // En una solicitud de amistad, □ significa rechazarla en el servidor,
+        // no solo ocultarla: si no, quedaría pendiente para siempre.
+        if (isActionableRequest(notif)) {
+            void handleFriendRequest(notif, false);
+            return;
+        }
         const existsInLocal = notifications.some((n) => n.id === notif.id);
         if (existsInLocal) {
             setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
@@ -258,20 +271,25 @@ export default function NotificationsExpandedCard({
         }
     };
 
-    const activateFocusedRow = () => {
-        if (focusedRow === 0) {
+    const activateFocusedRow = (rowIndex: number = focusedRow) => {
+        if (rowIndex === 0) {
             setDoNotDisturb((prev) => !prev);
             soundService.playActivation?.();
             return;
         }
-        const notif = visibleNotifications[focusedRow - 1];
-        if (notif) {
-            setNotifications((prev) =>
-                prev.map((n) => (n.id === notif.id ? { ...n, unread: false } : n)),
-            );
-            onOpenNotification?.(notif);
-            soundService.playActivation?.();
+        const notif = visibleNotifications[rowIndex - 1];
+        if (!notif) return;
+        // En una solicitud de amistad, Enter/confirmar ejecuta la acción
+        // primaria: aceptar. Antes no hacía nada (solo marcaba como leída).
+        if (isActionableRequest(notif)) {
+            void handleFriendRequest(notif, true);
+            return;
         }
+        setNotifications((prev) =>
+            prev.map((n) => (n.id === notif.id ? { ...n, unread: false } : n)),
+        );
+        onOpenNotification?.(notif);
+        soundService.playActivation?.();
     };
 
     useEffect(() => {
@@ -343,7 +361,13 @@ export default function NotificationsExpandedCard({
                         onPress={() => { setFocusedRow(0); setDoNotDisturb((p) => !p); }}
                         style={[styles.dndRow, focusedRow === 0 && styles.rowFocused]}
                     >
-                        {focusedRow === 0 && <SpinningBorderSearch size={50} spread={1} borderRadius={2} />}
+                        {focusedRow === 0 && <SpinningborderDiscover
+                            {...({
+                                width: '100%',
+                                height: '100%',
+                                borderRadius: 12,
+                            } as any)}
+                        />}
                         <Text style={styles.dndLabel}>{t('notifications.doNotDisturb')}</Text>
                         <View style={[styles.toggleTrack, doNotDisturb && styles.toggleTrackActive]}>
                             <View style={[styles.toggleThumb, doNotDisturb && styles.toggleThumbActive]} />
@@ -370,10 +394,16 @@ export default function NotificationsExpandedCard({
                                     <TouchableOpacity
                                         key={notif.id}
                                         activeOpacity={0.85}
-                                        onPress={() => { setFocusedRow(rowIndex); activateFocusedRow(); }}
+                                        onPress={() => { setFocusedRow(rowIndex); activateFocusedRow(rowIndex); }}
                                         style={[styles.notifCard, isFocused && styles.notifCardFocused]}
                                     >
-                                        {isFocused && <SpinningBorderSearch size={50} spread={1} borderRadius={2} />}
+                                        {isFocused && <SpinningborderDiscover
+                                            {...({
+                                                width: '100%',
+                                                height: '100%',
+                                                borderRadius: 12,
+                                            } as any)}
+                                        />}
                                         <View style={styles.notifIconWrap}>
                                             {(notif.appCoverImage || notif.appIcon) ? (
                                                 <Image

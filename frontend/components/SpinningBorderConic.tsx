@@ -24,6 +24,8 @@ const SPIN_CSS = `
     border-radius: 22px;
     z-index: 20;
     overflow: visible;
+    /* Decorativo: click-through hacia la tarjeta. */
+    pointer-events: none;
 
     /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
     /* 1. Definimos dos capas de gradientes básicos como máscaras */
