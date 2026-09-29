@@ -18,11 +18,13 @@ class SoundService {
     if (this.isInitialized) return;
 
     try {
+      // La música de fondo NO arranca en init(): se inicia de forma explícita
+      // con playBackground() una vez terminado el splash/video de booteo,
+      // para no pisar el audio del video.
       const bgSound = createAudioPlayer(require('@/assets/sounds/background.mp3'));
       bgSound.loop = true;
       bgSound.volume = 0.70;
       bgSound.muted = this.isMuted;
-      if (!this.isMuted) bgSound.play();
       this.backgroundSound = bgSound;
 
       const navSound = createAudioPlayer(require('@/assets/sounds/navigation.mp3'));

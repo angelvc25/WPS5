@@ -18,6 +18,11 @@ import {
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { getOnlineSession, updateOnlineProfile } from '../services/onlineAccountService';
 import type { OnlineUser } from '../services/onlineAccountService';
+import {
+  computeLocalTrophySummaries,
+  fetchUserTrophies,
+  type TrophyGameSummary,
+} from '../services/onlineTrophiesService';
 import { fetchOnlineFriends } from '../services/onlineFriendsService';
 import { formatPlaytime } from '../services/playtimeService';
 import { fetchSteamGridAssets } from '../services/steamGridService';
@@ -70,14 +75,16 @@ const PROFILE_CARD_COUNT = 4;
 const PROFILE_LIBRARY_PREVIEW = 3; // juegos visibles en la tarjeta de biblioteca
 const PROFILE_FRIENDS_PREVIEW = 4; // avatares visibles en la tarjeta de amigos
 
-// MOCKUP: aún no hay trofeos reales. Cambiar por datos reales cuando existan.
-const PROFILE_TROPHIES_MOCK = {
-  level: 150,
-  progress: 66,
+// Agregado de trofeos reales (online sincronizados o Steam local).
+// El "nivel" de la cabecera es el nº de trofeos conseguidos, igual que en la
+// tarjeta de trofeos del perfil online (OnlineUserFullProfile).
+const EMPTY_TROPHY_TOTALS = {
+  total: 0,
+  unlocked: 0,
   platinum: 0,
-  gold: 15,
-  silver: 59,
-  bronze: 492,
+  gold: 0,
+  silver: 0,
+  bronze: 0,
 };
 const PROFILE_TIER_ICONS = {
   platinum: require('@/assets/images/platino.png'),
@@ -467,6 +474,9 @@ export default function UserProfileView({
   const [profileRecentIndex, setProfileRecentIndex] = useState(0);
   // Amigos online para la tarjeta 4 del Overview.
   const [profileFriends, setProfileFriends] = useState<OnlineUser[]>([]);
+  // Trofeos reales para la tarjeta 1 del Overview (agregado por tiers).
+  const [trophyTotals, setTrophyTotals] = useState({ ...EMPTY_TROPHY_TOTALS });
+  const [trophiesLoading, setTrophiesLoading] = useState(false);
   // true cuando la página del perfil ya se desplazó lo suficiente como para
   // mostrar la barra superior fija ("← Perfil").
   const [profileScrolled, setProfileScrolled] = useState(false);
@@ -580,6 +590,54 @@ export default function UserProfileView({
       cancelled = true;
     };
   }, [visible, friendsVersion]);
+
+  // Trofeos reales (tarjeta 1): primero los sincronizados en la cuenta online
+  // vinculada; si no hay vínculo, se calculan de los juegos Steam locales.
+  // Sin fuente disponible se muestran ceros reales (nunca datos fijos).
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    setTrophiesLoading(true);
+    (async () => {
+      try {
+        const onlineUserId = (activeUser?.settings as any)?.onlineUserId as string | undefined;
+        let summaries: TrophyGameSummary[] = [];
+        if (onlineUserId && getOnlineSession()) {
+          const res = await fetchUserTrophies(onlineUserId).catch(() => null);
+          if (res?.visible) summaries = res.trophies;
+        } else {
+          const steamId = activeUser?.settings?.steamId;
+          if (steamId) {
+            const apiKey =
+              activeUser?.settings?.steamApiKey ||
+              process.env.EXPO_PUBLIC_STEAM_API_KEY ||
+              'B1F361EA3C07B455DC8B0D06ED179B00';
+            summaries = await computeLocalTrophySummaries(profileLibraryGames, {
+              apiKey,
+              steamId,
+            }).catch(() => []);
+          }
+        }
+        if (cancelled) return;
+        const acc = { ...EMPTY_TROPHY_TOTALS };
+        for (const g of summaries) {
+          acc.total += g.total;
+          acc.unlocked += g.unlocked;
+          acc.platinum += g.platinum;
+          acc.gold += g.gold;
+          acc.silver += g.silver;
+          acc.bronze += g.bronze;
+        }
+        setTrophyTotals(acc);
+      } finally {
+        if (!cancelled) setTrophiesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, activeUser?.id]);
 
   const nameInputRef = useRef<TextInput>(null);
   const onlineIdInputRef = useRef<TextInput>(null);
@@ -1071,7 +1129,7 @@ export default function UserProfileView({
             } else if (profileItemIndex === PROFILE_CARD_FRIENDS) {
               openProfileTab('friends');
             }
-            // Trofeos (mockup): solo enfocable.
+            // Trofeos: solo enfocable (tarjeta informativa).
           } else {
             const game = section.id === 'gamesList' ? profileLibraryGames[profileItemIndex] : null;
             if (game && onGamePress) {
@@ -1201,8 +1259,9 @@ export default function UserProfileView({
   const cardFocused = (col: number) => isFocused('cards', col);
   const cardStyle = (col: number) => [styles.profileCard, cardFocused(col) && styles.profileCardFocused];
   const recentFocusIdx = Math.min(profileRecentIndex, Math.max(0, profileRecentGames.length - 1));
-  const trophyMock = PROFILE_TROPHIES_MOCK;
-  const trophyTotal = trophyMock.platinum + trophyMock.gold + trophyMock.silver + trophyMock.bronze;
+  const trophyPct = trophyTotals.total > 0
+    ? Math.round((trophyTotals.unlocked * 100) / trophyTotals.total)
+    : 0;
 
   return (
     <>
@@ -1433,16 +1492,16 @@ export default function UserProfileView({
 
                   {/* 4 tarjetas: trofeos · recientes · biblioteca · amigos */}
                   <View style={styles.profileCardsRow}>
-                    {/* 1) Trofeos (mockup) */}
+                    {/* 1) Trofeos (recuento real) */}
                     <View ref={setItemRef('cards', PROFILE_CARD_TROPHIES) as any} style={cardStyle(PROFILE_CARD_TROPHIES)}>
                       <View style={styles.profileCardBody}>
                         <View style={styles.trophyHeadRow}>
                           <Image source={PROFILE_TIER_ICONS.bronze} style={styles.trophyHeadIcon} contentFit="contain" />
-                          <Text style={styles.trophyLevel}>{trophyMock.level}</Text>
+                          <Text style={styles.trophyLevel}>{trophiesLoading ? '…' : trophyTotals.unlocked}</Text>
                           <View style={styles.trophyProgressCol}>
-                            <Text style={styles.trophyProgressPct}>{trophyMock.progress} %</Text>
+                            <Text style={styles.trophyProgressPct}>{trophiesLoading ? '…' : `${trophyPct} %`}</Text>
                             <View style={styles.trophyProgressTrack}>
-                              <View style={[styles.trophyProgressFill, { width: `${trophyMock.progress}%` }]} />
+                              <View style={[styles.trophyProgressFill, { width: `${trophiesLoading ? 0 : trophyPct}%` }]} />
                             </View>
                           </View>
                         </View>
@@ -1450,14 +1509,14 @@ export default function UserProfileView({
                           {(['platinum', 'gold', 'silver', 'bronze'] as const).map((tier) => (
                             <View key={tier} style={styles.trophyTier}>
                               <Image source={PROFILE_TIER_ICONS[tier]} style={styles.trophyTierIcon} contentFit="contain" />
-                              <Text style={styles.trophyTierCount}>{trophyMock[tier]}</Text>
+                              <Text style={styles.trophyTierCount}>{trophiesLoading ? '…' : trophyTotals[tier]}</Text>
                             </View>
                           ))}
                         </View>
                       </View>
                       <View>
                         <Text style={styles.profileCardLabel}>{tr('onlineProfile.trophiesWon', 'Trophies won')}:</Text>
-                        <Text style={styles.profileCardValue}>{trophyTotal}</Text>
+                        <Text style={styles.profileCardValue}>{trophiesLoading ? '…' : trophyTotals.unlocked}</Text>
                       </View>
                     </View>
 

@@ -2048,9 +2048,23 @@ export default function ConsoleHome() {
   useEffect(() => {
     loadApps();
     fetchGamingNews().then(() => { });
+    // La música de la interfaz espera al fin del splash/video de booteo
+    // (el _layout avisa con 'wps5-splash-done') para no pisar su audio.
     soundService.init();
-    soundService.playBackground();
-    soundService.playStartHome();
+    const startInterfaceAudio = () => {
+      soundService.playBackground();
+      soundService.playStartHome();
+    };
+    const splashDone =
+      typeof window === 'undefined' || (window as any).WPS5_SPLASH_DONE === true;
+    let stopSplashListener: (() => void) | undefined;
+    if (splashDone) {
+      startInterfaceAudio();
+    } else {
+      const onSplashDone = () => startInterfaceAudio();
+      window.addEventListener('wps5-splash-done', onSplashDone, { once: true });
+      stopSplashListener = () => window.removeEventListener('wps5-splash-done', onSplashDone);
+    }
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       (window as any).electronAPI.getStorageInfo().then((res: any) => {
         if (res.success) setStorageInfo({
@@ -2060,6 +2074,7 @@ export default function ConsoleHome() {
         });
       });
     }
+    return stopSplashListener;
   }, []);
 
   // La música temática solo se activa en Inicio y después de mantener el foco

@@ -21,6 +21,7 @@ import { openWebLink } from '@/services/linkService';
 import { setCurrentOnlineProfileId } from '@/services/onlineAccountService';
 import ToastHost from '@/components/ToastHost';
 import BackgroundVideo from '@/components/BackgroundVideo';
+import { soundService } from '@/services/soundService';
 import OverlayScreen from './overlay';
 
 export const unstable_settings = {
@@ -141,9 +142,19 @@ function RootLayoutInner() {
   const splashOpacity = useSharedValue(1);
   const splashFinishedRef = useRef(false);
 
+  // Marca el fin del splash y avisa a la app: la música de fondo de la
+  // interfaz solo arranca aquí, para no sonar durante el video de booteo
+  // (el video conserva su propio audio). Si el servicio de sonido aún no
+  // está inicializado, playBackground() es un no-op y la pestaña principal
+  // arrancará la música al montarse (ya con el splash terminado).
   const finishSplash = () => {
     if (splashFinishedRef.current) return;
     splashFinishedRef.current = true;
+    if (typeof window !== 'undefined') {
+      (window as any).WPS5_SPLASH_DONE = true;
+      window.dispatchEvent(new CustomEvent('wps5-splash-done'));
+    }
+    soundService.playBackground().catch(() => { });
     splashOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
       if (finished) {
         runOnJS(setShowSplash)(false);
