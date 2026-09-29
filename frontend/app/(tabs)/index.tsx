@@ -76,6 +76,12 @@ import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer, enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds } from '@/services/storeService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { psnLocaleForLanguage } from '@/services/psnMetadataService';
+import {
+  fingerprintOnlineLibrary,
+  initOnlineLibraryAutoSync,
+  markOnlineLibraryLoaded,
+  notifyOnlineLibraryChanged,
+} from '@/services/onlineAutoSync';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { enrichAppWithSteamInfo } from '@/services/steamDescriptionService';
 
@@ -612,6 +618,9 @@ export default function ConsoleHome() {
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
   const steamGamesRef = useRef<ConsoleItem[]>([]);
   steamGamesRef.current = steamGames;
+  // Espejo para el auto-sync online (evita clausuras obsoletas en listeners).
+  const gamesRef = useRef<ConsoleItem[]>([]);
+  gamesRef.current = games;
   const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
   const { downloads: steamDownloads } = useSteamDownloads();
   const [loadingSteam, setLoadingSteam] = useState(false);
@@ -1900,6 +1909,9 @@ export default function ConsoleHome() {
         const sortedGames = [...pinnedGames, ...gamesWithHistory, ...gamesWithoutHistory];
 
         setGames([...baseItems, ...sortedGames]);
+        // La librería local ya está cargada: el auto-sync online puede empezar
+        // a programar subidas (antes no, para no podar el catálogo remoto).
+        markOnlineLibraryLoaded();
 
         const initialMedia = getInitialMedia(t);
         const filteredDataMedia = initialMedia.filter((defaultItem: any) =>
@@ -2045,9 +2057,21 @@ export default function ConsoleHome() {
     }
   };
 
+  // Auto-sync online de la biblioteca: ante cualquier cambio en los juegos
+  // se programa una subida silenciosa (con debounce dentro del servicio).
+  const onlineLibraryFingerprint = useMemo(() => fingerprintOnlineLibrary(games), [games]);
+  useEffect(() => {
+    notifyOnlineLibraryChanged(
+      gamesRef.current,
+      (activeUser?.settings as any)?.onlineUserId,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlineLibraryFingerprint, (activeUser?.settings as any)?.onlineUserId]);
+
   useEffect(() => {
     loadApps();
     fetchGamingNews().then(() => { });
+    initOnlineLibraryAutoSync();
     // La música de la interfaz espera al fin del splash/video de booteo
     // (el _layout avisa con 'wps5-splash-done') para no pisar su audio.
     soundService.init();
