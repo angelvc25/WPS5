@@ -98,9 +98,12 @@ export interface LocalTrophyGame {
   steamAppId?: unknown;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
  * Calcula el resumen de trofeos de los juegos Steam de la biblioteca local.
  * Secuencial para no saturar la API de Steam; omite juegos sin logros.
+ * `delayMs` (opcional) añade una pausa entre juegos para el modo automático.
  */
 export async function computeLocalTrophySummaries(
   games: LocalTrophyGame[],
@@ -108,6 +111,7 @@ export async function computeLocalTrophySummaries(
     apiKey: string;
     steamId: string;
     onProgress?: (done: number, total: number) => void;
+    delayMs?: number;
   },
 ): Promise<TrophyGameSummary[]> {
   const steamGames = (games || []).filter(
@@ -116,6 +120,9 @@ export async function computeLocalTrophySummaries(
   const out: TrophyGameSummary[] = [];
   let done = 0;
   for (const game of steamGames) {
+    if (done > 0 && opts.delayMs && opts.delayMs > 0) {
+      await sleep(opts.delayMs);
+    }
     const appId = extractSteamAppId(game);
     if (appId) {
       try {

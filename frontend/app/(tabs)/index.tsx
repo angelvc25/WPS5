@@ -2061,12 +2061,18 @@ export default function ConsoleHome() {
   // se programa una subida silenciosa (con debounce dentro del servicio).
   const onlineLibraryFingerprint = useMemo(() => fingerprintOnlineLibrary(games), [games]);
   useEffect(() => {
-    notifyOnlineLibraryChanged(
-      gamesRef.current,
-      (activeUser?.settings as any)?.onlineUserId,
-    );
+    const settings: any = activeUser?.settings || {};
+    notifyOnlineLibraryChanged(gamesRef.current, {
+      linkedOnlineUserId: settings.onlineUserId,
+      steamId: settings.steamId,
+      steamApiKey: settings.steamApiKey,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onlineLibraryFingerprint, (activeUser?.settings as any)?.onlineUserId]);
+  }, [
+    onlineLibraryFingerprint,
+    (activeUser?.settings as any)?.onlineUserId,
+    activeUser?.settings?.steamId,
+  ]);
 
   useEffect(() => {
     loadApps();

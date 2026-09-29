@@ -23315,13 +23315,19 @@ var CATEGORY_GRID_HASH = "4ce7d410a4db2c8b635a48c1dcec375906ff63b19dadd87e073f8f
 var CATEGORIES = {
   PS5_GAMES: "4cbf39e2-5749-4970-ba81-93a489e4570c"
 };
-var IMAGE_ROLES = [
+var COVER_ROLES = [
   "EDITION_KEY_ART",
   "GAMEHUB_COVER_ART",
-  "SIXTEEN_BY_NINE_BANNER",
-  "MASTER",
   "PORTRAIT_BANNER",
-  "BACKGROUND"
+  "MASTER"
+];
+var BACKGROUND_ROLES = [
+  "BACKGROUND",
+  "SIXTEEN_BY_NINE_BANNER",
+  "GAMEHUB_COVER_ART",
+  "EDITION_KEY_ART",
+  "MASTER",
+  "PORTRAIT_BANNER"
 ];
 var cache = null;
 var cacheTime = 0;
@@ -23373,7 +23379,15 @@ async function fetchCategoryProducts(categoryId, sortBy, pageSize = 24, offset =
   return data?.data?.categoryGridRetrieve?.products || [];
 }
 function pickProductImage(media = []) {
-  for (const role of IMAGE_ROLES) {
+  for (const role of COVER_ROLES) {
+    const match = media.find((item) => item.role === role && item.type === "IMAGE");
+    if (match?.url) return match.url;
+  }
+  const fallback = media.find((item) => item.type === "IMAGE");
+  return fallback?.url || "";
+}
+function pickBackgroundImage(media = []) {
+  for (const role of BACKGROUND_ROLES) {
     const match = media.find((item) => item.role === role && item.type === "IMAGE");
     if (match?.url) return match.url;
   }
@@ -23416,6 +23430,7 @@ function mapProductToOffer(product, type) {
     originalPrice,
     discountPercent: parseDiscountPercent(price.discountText, price.basePrice, price.discountedPrice),
     image: pickProductImage(product.media),
+    backgroundImage: pickBackgroundImage(product.media),
     type,
     url: `https://store.playstation.com/${storePath}/product/${encodeURIComponent(product.id)}`
   };
@@ -23470,8 +23485,8 @@ var SEARCH_HASH = "4df6284f982e57bec70f23c77e2c219dc792eb19af7fb3d3a81767aa3f195
 var APP_NAME = "@sie-ppr-web-store/app";
 var APP_VERSION = "0.113.0";
 var REQUEST_TIMEOUT_MS = 3e4;
-var COVER_ROLES = ["MASTER", "PORTRAIT_BANNER", "EDITION_KEY_ART", "GAMEHUB_COVER_ART"];
-var BACKGROUND_ROLES = ["BACKGROUND", "SIXTEEN_BY_NINE_BANNER"];
+var COVER_ROLES2 = ["MASTER", "PORTRAIT_BANNER", "EDITION_KEY_ART", "GAMEHUB_COVER_ART"];
+var BACKGROUND_ROLES2 = ["BACKGROUND", "SIXTEEN_BY_NINE_BANNER"];
 var searchCache = /* @__PURE__ */ new Map();
 var detailsCache = /* @__PURE__ */ new Map();
 function getConfig2() {
@@ -23577,7 +23592,7 @@ function pickAnyImage(media = []) {
 }
 function mapSearchItem(item, locale) {
   const storePath = localeForUrl(locale);
-  const coverUrl = pickMediaUrl(item.media, COVER_ROLES) || pickAnyImage(item.media);
+  const coverUrl = pickMediaUrl(item.media, COVER_ROLES2) || pickAnyImage(item.media);
   if (!item?.id || !item?.name || !coverUrl) return null;
   const route = String(item.__typename || "").toLowerCase() === "concept" ? "concept" : "product";
   const labels = [];
@@ -23594,7 +23609,7 @@ function mapSearchItem(item, locale) {
     description: labels.join(" \xB7 ") || null,
     platforms: Array.isArray(item.platforms) ? item.platforms : [],
     coverUrl,
-    backgroundUrl: pickMediaUrl(item.media, BACKGROUND_ROLES),
+    backgroundUrl: pickMediaUrl(item.media, BACKGROUND_ROLES2),
     url: `https://store.playstation.com/${storePath}/${route}/${item.id}`,
     route
   };
