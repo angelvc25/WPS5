@@ -73,6 +73,7 @@ const PROFILE_CARD_LIBRARY = 2;
 const PROFILE_CARD_FRIENDS = 3;
 const PROFILE_CARD_COUNT = 4;
 const PROFILE_LIBRARY_PREVIEW = 3; // juegos visibles en la tarjeta de biblioteca
+const COVER_PAGE_SIZE = 6; // portadas por página en el buscador online (2 columnas × 3 filas)
 const PROFILE_FRIENDS_PREVIEW = 4; // avatares visibles en la tarjeta de amigos
 
 // Agregado de trofeos reales (online sincronizados o Steam local).
@@ -501,7 +502,9 @@ export default function UserProfileView({
   const [coverHeroes, setCoverHeroes] = useState<SteamGridAsset[]>([]);
   const [coverSavingUrl, setCoverSavingUrl] = useState<string | null>(null);
   const [coverSelIndex, setCoverSelIndex] = useState(0);
+  const [coverPage, setCoverPage] = useState(0);
   const coverSearchInputRef = useRef<TextInput>(null);
+  const coverResultsScrollRef = useRef<ScrollView>(null);
 
   // ── Perfil: datos derivados ──────────────────────────────────────────────
   // Excluye Welcome (id='1'), PlayStation Store (id='5') y el tile Last Played
@@ -550,8 +553,10 @@ export default function UserProfileView({
     }
     // Las 4 tarjetas siempre existen (aunque estén vacías), así el foco
     // nunca se queda sin destino en el Overview.
-    const list: ProfileSection[] = [{ id: 'cards', count: PROFILE_CARD_COUNT, horizontal: true }];
+    // "Acerca de" va arriba de las tarjetas, así que es la primera sección.
+    const list: ProfileSection[] = [];
     if (activeUser?.about) list.push({ id: 'about', count: 1 });
+    list.push({ id: 'cards', count: PROFILE_CARD_COUNT, horizontal: true });
     return list;
   }, [profileActiveTab, profileLibraryGames, activeUser?.about, friendsGrid.count]);
 
@@ -685,8 +690,9 @@ export default function UserProfileView({
       return;
     }
     if (!focusedProfileSectionId) return;
-    if (focusedProfileSectionId === 'cards') {
-      // La fila de tarjetas cabe en pantalla: se queda mostrando el banner.
+    if (focusedProfileSectionId === 'cards' && !activeUser?.about) {
+      // Sin "Acerca de" la fila de tarjetas cabe en pantalla: se queda mostrando el banner.
+      // Con "Acerca de" arriba las tarjetas bajan, así que se centra la tarjeta enfocada.
       profileScrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
@@ -704,7 +710,7 @@ export default function UserProfileView({
     return () => {
       cancelled = true;
     };
-  }, [profileActiveTab, profileFocusArea, focusedProfileSectionId, profileItemIndex]);
+  }, [profileActiveTab, profileFocusArea, focusedProfileSectionId, profileItemIndex, activeUser?.about]);
 
   // Avatar selection handler
   const handleSelectAvatar = () => {
@@ -824,10 +830,37 @@ export default function UserProfileView({
   };
 
   // ── Portada online: buscar heroes en SteamGridDB ──────────────────────
+  // Paginado en cliente: la búsqueda trae todos los resultados y aquí se
+  // muestran de COVER_PAGE_SIZE en COVER_PAGE_SIZE.
+  const coverTotalPages = Math.max(1, Math.ceil(coverHeroes.length / COVER_PAGE_SIZE));
+  const coverPageSafe = Math.min(coverPage, coverTotalPages - 1);
+  const coverPageHeroes = coverHeroes.slice(
+    coverPageSafe * COVER_PAGE_SIZE,
+    coverPageSafe * COVER_PAGE_SIZE + COVER_PAGE_SIZE,
+  );
+  const coverHasPager = coverTotalPages > 1;
+  // Índices de foco: 0=input, 1=buscar, 2..n+1=portadas, [anterior, siguiente], cerrar.
+  const coverPrevIdx = 2 + coverPageHeroes.length;
+  const coverNextIdx = coverPrevIdx + 1;
+  const coverCloseIdx = coverHasPager ? coverNextIdx + 1 : coverPrevIdx;
+
+  // Cambia de página; 'first' deja el foco en la primera portada y
+  // 'prev'/'next' lo mantienen en el botón (su índice depende del nº de
+  // portadas de la página nueva).
+  const goToCoverPage = (page: number, focus: 'first' | 'prev' | 'next') => {
+    if (page < 0 || page > coverTotalPages - 1 || page === coverPageSafe) return;
+    const count = Math.min(COVER_PAGE_SIZE, coverHeroes.length - page * COVER_PAGE_SIZE);
+    setCoverPage(page);
+    setCoverSelIndex(focus === 'first' ? 2 : focus === 'prev' ? 2 + count : 3 + count);
+    coverResultsScrollRef.current?.scrollTo({ y: 0, animated: false });
+    soundService.playNavigation?.();
+  };
+
   const openCoverSearch = () => {
     soundService.playActivation?.();
     setCoverSearchQuery('');
     setCoverHeroes([]);
+    setCoverPage(0);
     setCoverSearchDone(false);
     setCoverSelIndex(0);
     setCoverSearchVisible(true);
@@ -845,9 +878,11 @@ export default function UserProfileView({
         (h) => h.url && /^https?:\/\//i.test(h.url)
       );
       setCoverHeroes(heroes);
+      setCoverPage(0);
       setCoverSelIndex(heroes.length > 0 ? 2 : 1);
     } catch {
       setCoverHeroes([]);
+      setCoverPage(0);
     } finally {
       setCoverSearchBusy(false);
       setCoverSearchDone(true);
@@ -907,11 +942,22 @@ export default function UserProfileView({
         }
         return;
       }
+      // Q/E (L1/R1) y RePág/AvPág cambian de página estés donde estés.
+      const pageDir =
+        e.key === 'e' || e.key === 'E' || e.key === 'PageDown' ? 1
+          : e.key === 'q' || e.key === 'Q' || e.key === 'PageUp' ? -1
+            : 0;
+      if (pageDir !== 0) {
+        e.stopPropagation();
+        e.preventDefault();
+        goToCoverPage(coverPageSafe + pageDir, 'first');
+        return;
+      }
       if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Tab', ' '].includes(e.key)) return;
       e.stopPropagation();
       e.preventDefault();
-      // 0=input, 1=buscar, 2..n+1=heroes, n+2=cerrar.
-      const total = 3 + coverHeroes.length;
+      // 0=input, 1=buscar, 2..n+1=portadas de la página, [anterior, siguiente], cerrar.
+      const total = coverCloseIdx + 1;
       const last = total - 1;
       const cols = 2;
       let i = coverSelIndex;
@@ -924,8 +970,10 @@ export default function UserProfileView({
         if (i === 0) coverSearchInputRef.current?.focus();
         else if (i === 1) runCoverSearch();
         else if (i === last) setCoverSearchVisible(false);
+        else if (coverHasPager && i === coverPrevIdx) goToCoverPage(coverPageSafe - 1, 'prev');
+        else if (coverHasPager && i === coverNextIdx) goToCoverPage(coverPageSafe + 1, 'next');
         else {
-          const hero = coverHeroes[i - 2];
+          const hero = coverPageHeroes[i - 2];
           if (hero) handlePickCoverHero(hero.url);
         }
         return;
@@ -938,7 +986,7 @@ export default function UserProfileView({
       window.removeEventListener('keydown', onKey, true);
       clearTimeout(timer);
     };
-  }, [coverSearchVisible, coverHeroes, coverSelIndex, coverSearchQuery, coverSearchBusy]);
+  }, [coverSearchVisible, coverHeroes, coverPage, coverSelIndex, coverSearchQuery, coverSearchBusy]);
 
   // ── Helper: formatear tiempo relativo ("hace X min/horas") ──
   const formatTimeAgo = (timestamp: number): string => {
@@ -1478,6 +1526,17 @@ export default function UserProfileView({
               {/* ── Overview ── */}
               {profileActiveTab === 'overview' && (
                 <View style={styles.overviewContainer}>
+                  {/* Acerca de */}
+                  {activeUser?.about ? (
+                    <View
+                      ref={setItemRef('about', 0) as any}
+                      style={[styles.aboutCard, isFocused('about', 0) && styles.profileItemFocused]}
+                    >
+                      <Text style={styles.aboutCardTitle}>{t('profile.about')}</Text>
+                      <Text style={styles.aboutCardText}>{activeUser.about}</Text>
+                    </View>
+                  ) : null}
+
                   {/* Barra de estadísticas: valor arriba, etiqueta abajo */}
                   <View style={styles.statsBar}>
                     <View style={[styles.statCell, { flex: 1 }]}>
@@ -1677,17 +1736,6 @@ export default function UserProfileView({
                       </View>
                     </TouchableOpacity>
                   </View>
-
-                  {/* Acerca de */}
-                  {activeUser?.about ? (
-                    <View
-                      ref={setItemRef('about', 0) as any}
-                      style={[styles.aboutCard, isFocused('about', 0) && styles.profileItemFocused]}
-                    >
-                      <Text style={styles.aboutCardTitle}>{t('profile.about')}</Text>
-                      <Text style={styles.aboutCardText}>{activeUser.about}</Text>
-                    </View>
-                  ) : null}
                 </View>
               )}
 
@@ -2005,9 +2053,9 @@ export default function UserProfileView({
                               </Text>
                             </TouchableOpacity>
                           </View>
-                          <ScrollView style={styles.coverSearchResults}>
+                          <ScrollView ref={coverResultsScrollRef} style={styles.coverSearchResults}>
                             <View style={styles.coverSearchGrid}>
-                              {coverHeroes.map((hero, idx) => {
+                              {coverPageHeroes.map((hero, idx) => {
                                 const selIdx = idx + 2;
                                 const focused = coverSelIndex === selIdx;
                                 const saving = coverSavingUrl === hero.url;
@@ -2037,11 +2085,47 @@ export default function UserProfileView({
                               </Text>
                             )}
                           </ScrollView>
-                          <View style={{ alignItems: 'flex-end', marginTop: s(12) }}>
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: coverHasPager ? 'space-between' : 'flex-end',
+                              marginTop: s(12),
+                            }}
+                          >
+                            {coverHasPager && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10) }}>
+                                <TouchableOpacity
+                                  style={[
+                                    styles.actionBtnSecondary,
+                                    coverSelIndex === coverPrevIdx && styles.rightItemFocused,
+                                    coverPageSafe === 0 && { opacity: 0.4 },
+                                  ]}
+                                  disabled={coverPageSafe === 0}
+                                  onPress={() => goToCoverPage(coverPageSafe - 1, 'prev')}
+                                >
+                                  <Ionicons name="chevron-back" size={s(18)} color="#FFF" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionBtnSecondaryText}>
+                                  {coverPageSafe + 1} / {coverTotalPages}
+                                </Text>
+                                <TouchableOpacity
+                                  style={[
+                                    styles.actionBtnSecondary,
+                                    coverSelIndex === coverNextIdx && styles.rightItemFocused,
+                                    coverPageSafe >= coverTotalPages - 1 && { opacity: 0.4 },
+                                  ]}
+                                  disabled={coverPageSafe >= coverTotalPages - 1}
+                                  onPress={() => goToCoverPage(coverPageSafe + 1, 'next')}
+                                >
+                                  <Ionicons name="chevron-forward" size={s(18)} color="#FFF" />
+                                </TouchableOpacity>
+                              </View>
+                            )}
                             <TouchableOpacity
                               style={[
                                 styles.actionBtnSecondary,
-                                coverSelIndex === 2 + coverHeroes.length && styles.rightItemFocused,
+                                coverSelIndex === coverCloseIdx && styles.rightItemFocused,
                               ]}
                               onPress={() => setCoverSearchVisible(false)}
                             >

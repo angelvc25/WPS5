@@ -38,9 +38,43 @@ const historyListeners = new Set<HistoryListener>();
 const history: ToastHistoryItem[] = [];
 const MAX_HISTORY = 50;
 
+// ── Cola de visualización ────────────────────────────────────────────────
+// Solo se muestran MAX_VISIBLE toasts a la vez; el resto espera en cola y
+// entra a medida que se libera un lugar. El historial NO pasa por la cola:
+// se guarda al instante, así que nada se pierde aunque un toast espere.
+const MAX_VISIBLE = 2;
+// Debe coincidir con la duración por defecto del componente que dibuja los toasts.
+const DEFAULT_DURATION = 4000;
+// Margen para la animación de salida antes de liberar el lugar.
+const EXIT_BUFFER = 400;
+// Tope de espera: si llegan muchos de golpe (p. ej. descuentos) se descartan
+// los más antiguos de la cola (siguen en el historial).
+const MAX_QUEUE = 10;
+
+const queue: ToastPayload[] = [];
+let visibleCount = 0;
+
+function dispatch(payload: ToastPayload) {
+  visibleCount += 1;
+  listeners.forEach((fn) => fn(payload));
+  const ms = (payload.options?.duration ?? DEFAULT_DURATION) + EXIT_BUFFER;
+  setTimeout(() => {
+    visibleCount = Math.max(0, visibleCount - 1);
+    flushQueue();
+  }, ms);
+}
+
+function flushQueue() {
+  while (visibleCount < MAX_VISIBLE && queue.length > 0) {
+    dispatch(queue.shift() as ToastPayload);
+  }
+}
+
 export const toastService = {
   show(message: string, options?: ToastOptions) {
-    listeners.forEach((fn) => fn({ message, options }));
+    queue.push({ message, options });
+    if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE);
+    flushQueue();
 
     if (options?.saveToHistory !== false) {
       const item: ToastHistoryItem = {
