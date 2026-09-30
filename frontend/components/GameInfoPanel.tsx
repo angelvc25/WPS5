@@ -22,6 +22,7 @@ import {
   isRetroAchievementsSupported,
 } from '../services/retroAchievementsService';
 import { formatPlaytime } from '../services/playtimeService';
+import { STEAM_API_LANG } from '../services/steamLanguage';
 import { fetchSteamDescription, isPlaytimePlaceholder } from '../services/steamDescriptionService';
 import { getGameActionLabel, getSteamAppId, isSteamGame } from '../services/steamLaunchService';
 import { fetchSteamGameAchievements, getCachedSteamGameAchievements, SteamGameAchievementsSummary } from '../services/steamUserService';
@@ -195,6 +196,8 @@ export const GameInfoPanel = ({
   const achievementAppId = achievementGame ? getSteamAppId(achievementGame) : null;
   const rpcs3AppId = achievementGame ? getRpcs3AppId(achievementGame) : null;
   const steamId = activeUser?.settings?.steamId;
+  // Idioma de los logros = idioma del launcher (nombre que entiende la Steam Web API)
+  const steamLang = STEAM_API_LANG[language] ?? 'english';
 
   // ── AchievementWatcher: detectar si el servidor local está corriendo ──────
   const { isAvailable: awAvailable } = useAchievementWatcher();
@@ -210,13 +213,13 @@ export const GameInfoPanel = ({
   const [steamAchievements, setSteamAchievements] = React.useState<SteamGameAchievementsSummary | null>(() => {
     // Caché Steam legítimo
     if (steamId && achievementAppId) {
-      const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId));
+      const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId), steamLang);
       if (cached !== undefined) return cached;
     }
     // Caché AchievementWatcher (juego externo con appId Steam)
     if (achievementAppId && !steamId) {
       const awKey = achievementAppId;
-      const awCached = getCachedAwAchievements(awKey, 'local');
+      const awCached = getCachedAwAchievements(awKey, 'local', steamLang);
       if (awCached !== undefined) return awCached;
     }
     return null;
@@ -316,7 +319,7 @@ export const GameInfoPanel = ({
     // ── Ruta Steam legítimo (cuenta configurada) ──────────────────────────────
     if (steamId && achievementAppId) {
       // 1. Caché instantánea
-      const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId));
+      const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId), steamLang);
       if (cached !== undefined) {
         setSteamAchievements(cached);
         setAchievementsSource(cached ? 'steam' : null);
@@ -332,7 +335,7 @@ export const GameInfoPanel = ({
       let cancelled = false;
       const timer = setTimeout(() => {
         setAchievementsLoading(true);
-        fetchSteamGameAchievements(apiKey, steamId, Number(achievementAppId)).then((summary) => {
+        fetchSteamGameAchievements(apiKey, steamId, Number(achievementAppId), false, steamLang).then((summary) => {
           if (cancelled) return;
 
           if (summary) {
@@ -366,7 +369,7 @@ export const GameInfoPanel = ({
     // manualmente a la librería.
     if (awAvailable && achievementAppId) {
       // 1. Caché instantánea
-      const awCached = getCachedAwAchievements(achievementAppId, 'local');
+      const awCached = getCachedAwAchievements(achievementAppId, 'local', steamLang);
       if (awCached !== undefined) {
         setSteamAchievements(awCached);
         setAchievementsSource(awCached ? 'aw' : null);
@@ -382,7 +385,7 @@ export const GameInfoPanel = ({
       let cancelled = false;
       const timer = setTimeout(() => {
         setAchievementsLoading(true);
-        fetchAwGameAchievements(Number(achievementAppId), 'local').then((summary) => {
+        fetchAwGameAchievements(Number(achievementAppId), 'local', steamLang).then((summary) => {
           if (!cancelled) {
             setSteamAchievements(summary);
             setAchievementsSource(summary ? 'aw' : null);
@@ -427,7 +430,7 @@ export const GameInfoPanel = ({
       let cancelled = false;
       const timer = setTimeout(() => {
         setAchievementsLoading(true);
-        fetchPcGameAchievements(gamePath!, apiKey).then((summary) => {
+        fetchPcGameAchievements(gamePath!, apiKey, steamLang).then((summary) => {
           if (!cancelled) {
             // console.log('[PC-ACH] result:', summary?.total, 'source:', (summary as any)?.source);
             setSteamAchievements(summary);
@@ -499,7 +502,7 @@ export const GameInfoPanel = ({
     setAchievementsSource(null);
     setAchievementsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [achievementAppId, rpcs3AppId, steamId, awAvailable,
+  }, [achievementAppId, rpcs3AppId, steamId, awAvailable, steamLang,
     (activeUser?.settings as any)?.rpcs3Path,
     (activeUser?.settings as any)?.raUsername,
     (activeUser?.settings as any)?.raApiKey,

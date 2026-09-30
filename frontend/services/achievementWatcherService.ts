@@ -61,15 +61,16 @@ interface CacheEntry {
 
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
 
-const awCache    = new Map<string, CacheEntry>();
+const awCache = new Map<string, CacheEntry>();
 const awInFlight = new Map<string, Promise<SteamGameAchievementsSummary | null>>();
 
 /** Retorna la entrada cacheada si es válida, undefined si expiró o no existe. */
 export function getCachedAwAchievements(
   appId: string | number,
   userId: string,
+  lang = 'english',
 ): SteamGameAchievementsSummary | null | undefined {
-  const key   = `aw_${userId}_${appId}`;
+  const key = `aw_${userId}_${appId}_${lang}`;
   const entry = awCache.get(key);
   if (!entry) return undefined;
   if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
@@ -88,7 +89,8 @@ export function getCachedAwAchievements(
  * @param appId        - Steam AppID numérico del juego
  * @param steamApiKey  - API key de Steam (para obtener el schema de logros)
  * @param userId       - Clave de caché (puede ser steamId o 'local')
- * @param lang         - Idioma del schema (default: 'english')
+ * @param lang         - Idioma del schema en formato Steam ('english', 'spanish', 'brazilian'...)
+ *                       o código del launcher ('en' | 'es' | 'pt'); el reader lo normaliza.
  */
 export async function fetchAwGameAchievements(
   appId: number,
@@ -96,10 +98,10 @@ export async function fetchAwGameAchievements(
   lang = 'english',
   steamApiKey?: string,
 ): Promise<SteamGameAchievementsSummary | null> {
-  const cacheKey = `aw_${userId}_${appId}`;
+  const cacheKey = `aw_${userId}_${appId}_${lang}`;
 
   // 1. Caché en memoria
-  const cached = getCachedAwAchievements(appId, userId);
+  const cached = getCachedAwAchievements(appId, userId, lang);
   if (cached !== undefined) return cached;
 
   // 2. Deduplicación de peticiones concurrentes
@@ -232,7 +234,7 @@ export async function fetchPcGameAchievements(
   steamApiKey?: string,
   lang = 'english',
 ): Promise<SteamGameAchievementsSummary | null> {
-  const cacheKey = `pc_${exePath}`;
+  const cacheKey = `pc_${exePath}_${lang}`;
 
   const cached = awCache.get(cacheKey);
   if (cached) {
@@ -409,30 +411,30 @@ export function normalizeRpcs3Trophies(trophies: Array<{
       case 'P': return 'platinum';
       case 'G': return 'gold';
       case 'S': return 'silver';
-      default:  return 'bronze';
+      default: return 'bronze';
     }
   };
 
   const achievements = trophies.map((t) => {
-    const rarity  = rpcs3Rarity(t.type);
+    const rarity = rpcs3Rarity(t.type);
     const achieved = t.Achieved === true || t.Achieved === 1;
     if (achieved) rarityCounts[rarity]++;
     return {
-      apiName:          t.name,
-      name:             t.displayName || t.name,
-      description:      t.description || '',
-      icon:             t.icon || '',
-      lockedIcon:       t.icongray || t.icon || '',
+      apiName: t.name,
+      name: t.displayName || t.name,
+      description: t.description || '',
+      icon: t.icon || '',
+      lockedIcon: t.icongray || t.icon || '',
       achieved,
-      unlockTime:       t.UnlockTime ?? 0,
+      unlockTime: t.UnlockTime ?? 0,
       globalPercentage: null as null,
       rarity,
     };
   });
 
   return {
-    total:       achievements.length,
-    unlocked:    achievements.filter((a) => a.achieved).length,
+    total: achievements.length,
+    unlocked: achievements.filter((a) => a.achieved).length,
     rarityCounts,
     achievements,
   };

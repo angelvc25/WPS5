@@ -64,9 +64,26 @@ const normPath = (p) => p.replace(/\\/g, '/');
  * Devuelve un array de { name, displayName, description, icon, icongray }
  * o [] si el juego no tiene logros / la key no es válida.
  */
-async function fetchSteamSchema(appId, apiKey, lang = 'english') {
+const STEAM_LANG_ALIASES = { es: 'latam', en: 'english', pt: 'brazilian' };
+const STEAM_LANG_VALID = new Set([
+  'english', 'spanish', 'latam', 'brazilian', 'french', 'german', 'italian',
+  'russian', 'polish', 'turkish', 'japanese', 'koreana', 'schinese', 'tchinese',
+]);
+
+/**
+ * Normaliza el idioma a un nombre válido de la Steam Web API. Acepta el código
+ * del launcher ('es' | 'en' | 'pt') o un nombre de Steam ('spanish', 'latam'...).
+ * Cualquier otro valor cae a 'english'.
+ */
+function normalizeSteamLang(lang) {
+  const v = String(lang || '').toLowerCase().trim();
+  if (STEAM_LANG_ALIASES[v]) return STEAM_LANG_ALIASES[v];
+  return STEAM_LANG_VALID.has(v) ? v : 'english';
+}
+
+async function requestSteamSchema(appId, apiKey, steamLang) {
   try {
-    const url = `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v0002/?key=${apiKey}&appid=${appId}&l=${lang}&format=json`;
+    const url = `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v0002/?key=${apiKey}&appid=${appId}&l=${steamLang}&format=json`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();
@@ -74,6 +91,20 @@ async function fetchSteamSchema(appId, apiKey, lang = 'english') {
   } catch {
     return [];
   }
+}
+
+/**
+ * Obtiene el schema de logros de un juego Steam desde la Steam Web API en el
+ * idioma pedido (nombres y descripciones localizados). Si el idioma no devuelve
+ * nada, reintenta en inglés.
+ * Devuelve un array de { name, displayName, description, icon, icongray }
+ * o [] si el juego no tiene logros / la key no es válida.
+ */
+async function fetchSteamSchema(appId, apiKey, lang = 'english') {
+  const steamLang = normalizeSteamLang(lang);
+  const list = await requestSteamSchema(appId, apiKey, steamLang);
+  if (list.length > 0 || steamLang === 'english') return list;
+  return requestSteamSchema(appId, apiKey, 'english');
 }
 
 /**

@@ -70,12 +70,12 @@ export const fetchSteamOwnedGames = async (apiKey: string, steamId: string): Pro
     const url = `http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${apiKey}&steamid=${steamId}&format=json&include_appinfo=1&include_played_free_games=1`;
     // Electron doesn't need CORS proxy; only use it for pure browser web
     const fetchUrl = getFetchUrl(url);
-    
+
     const response = await fetch(fetchUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch Steam games: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     if (data.response && data.response.games) {
       return data.response.games;
@@ -98,7 +98,7 @@ export const fetchSteamTrophiesCount = async (apiKey: string, steamId: string, a
     }
 
     const data: SteamPlayerAchievementsResponse = await response.json();
-    
+
     if (data.playerstats && data.playerstats.success && data.playerstats.achievements) {
       // Return count of achieved trophies
       return data.playerstats.achievements.filter(a => a.achieved === 1).length;
@@ -123,9 +123,10 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos de caché
 /** Devuelve los logros en caché si existen y siguen válidos (sincrónico, 0ms). */
 export const getCachedSteamGameAchievements = (
   steamId: string,
-  appId: number
+  appId: number,
+  lang = 'english'
 ): SteamGameAchievementsSummary | null | undefined => {
-  const cacheKey = `${steamId}_${appId}`;
+  const cacheKey = `${steamId}_${appId}_${lang}`;
   const entry = achievementsCache.get(cacheKey);
   if (!entry) return undefined;
   if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
@@ -140,12 +141,13 @@ export const fetchSteamGameAchievements = async (
   apiKey: string,
   steamId: string,
   appId: number,
-  forceRefresh = false
+  forceRefresh = false,
+  lang = 'english'
 ): Promise<SteamGameAchievementsSummary | null> => {
-  const cacheKey = `${steamId}_${appId}`;
+  const cacheKey = `${steamId}_${appId}_${lang}`;
 
   if (!forceRefresh) {
-    const cached = getCachedSteamGameAchievements(steamId, appId);
+    const cached = getCachedSteamGameAchievements(steamId, appId, lang);
     if (cached !== undefined) {
       return cached;
     }
@@ -158,7 +160,7 @@ export const fetchSteamGameAchievements = async (
   const fetchPromise = (async () => {
     try {
       const playerUrl = `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${appId}&key=${apiKey}&steamid=${steamId}`;
-      const schemaUrl = `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?appid=${appId}&key=${apiKey}`;
+      const schemaUrl = `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?appid=${appId}&key=${apiKey}&l=${lang}`;
       const percentagesUrl = `https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid=${appId}`;
 
       const [playerResponse, schemaResponse, percentagesResponse] = await Promise.all([
