@@ -131,67 +131,41 @@ protocol.registerSchemesAsPrivileged([
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // ── Aceleración por hardware (GPU) ─────────────────────────────────────────
-// El launcher tiene animaciones CSS intensivas (rotaciones, blurs, gradientes,
-// transiciones), video de fondo, y muchas capas superpuestas (BlurView, modals,
-// overlays). Sin aceleración explícita, Chromium puede decidir rasterizar en
-// CPU (software), lo que provoca stuttering y caídas de FPS notables en
-// pantalla completa. Los siguientes switches fuerzan al compositor de Chromium
-// a delegar la mayor cantidad de trabajo posible a la GPU:
+// Electron ya usa la GPU por defecto (compositing, rasterización OOP, canvas 2D
+// y decodificación de video por D3D11 en Windows). Aquí solo se dejan los
+// switches que realmente cambian algo para un launcher fullscreen:
 
-// 1) Forzar que TODAS las capas se rasticen en GPU en vez de CPU.
-//    Esto es el cambio de mayor impacto: las animaciones CSS (transform,
-//    opacity, filter: blur) pasan de pintura por software a tiles GPU,
-//    eliminando el stuttering en transiciones de páginas y widgets.
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-
-// 2) Activar rasterización out-of-process (OOP-R): el rasterizado ocurre en
-//    el proceso GPU dedicado, no en el renderer, liberando el hilo principal
-//    para JavaScript y reduciendo jank durante scroll y animaciones.
-app.commandLine.appendSwitch('enable-oop-rasterization');
-
-// 3) Zero-copy rasterizer: los tiles rasterizados se comparten directamente
-//    con el compositor sin copias intermedias CPU→GPU, reduciendo latencia
-//    de frame y uso de memoria.
-app.commandLine.appendSwitch('enable-zero-copy');
-
-// 4) Aceleración nativa para <canvas 2D>: widgets con canvas (indicadores,
-//    gráficos de storage, barras de progreso) se renderizan en GPU.
-app.commandLine.appendSwitch('enable-accelerated-2d-canvas');
-
-// 5) Decodificación de video por hardware: los videos de fondo, splash y
-//    trailers de juegos se decodifican con el codec HW de la GPU (NVDEC,
-//    Intel QSV, AMD VCN) en vez de ffmpeg por software, ahorrando CPU y
-//    eliminando frame drops en video 1080p/4K.
-app.commandLine.appendSwitch('enable-hardware-overlays', 'single-fullscreen,single-on-top,underlay');
-
-// 6) Nunca caer a software renderer: si la GPU reporta un error leve,
-//    Chromium por defecto deshabilita la aceleración para esa sesión.
-//    Como estamos en un entorno controlado (consola/PC gaming con GPU
-//    dedicada), forzamos que siempre use HW.
+// 1) Ignorar la blocklist de GPU: Chromium desactiva la aceleración en drivers
+//    que considera problemáticos. En una PC gaming preferimos forzar la GPU.
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 
-// 7) Desactivar el frame-rate limiter del compositor: sin este switch,
-//    Chromium puede limitar a 60fps incluso si la pantalla soporta más.
-//    En un launcher fullscreen, queremos que el compositor entregue frames
-//    tan rápido como la GPU pueda.
-app.commandLine.appendSwitch('disable-frame-rate-limit');
+// 2) Rasterización en GPU para las animaciones CSS (transform, opacity, blur).
+app.commandLine.appendSwitch('enable-gpu-rasterization');
 
-// 8) Desactivar throttling de animaciones en background: cuando la ventana
-//    pierde foco momentáneamente (ej. al abrir un modal del SO), Chromium
-//    throttlea las animaciones a ~1fps. Esto causa un "salto" visible al
-//    volver, especialmente en el video de fondo y los spinners de borde.
+// 3) Zero-copy: los tiles rasterizados llegan al compositor sin copias CPU→GPU.
+app.commandLine.appendSwitch('enable-zero-copy');
+
+// 4) Sin throttling cuando la ventana pierde foco u otra la tapa (p. ej. al
+//    lanzar un juego): evita el "salto" de animaciones al volver al launcher.
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
-// 9) Activar Vulkan como backend gráfico en Windows cuando esté disponible.
-//    Vulkan tiene menos overhead de driver que OpenGL/ANGLE y da mejor
-//    throughput en operaciones de composición por capa. Si no hay driver
-//    Vulkan, Chromium cae automáticamente a D3D11.
+// 5) Backend gráfico en Windows: ANGLE sobre Direct3D 11, explícito. Chromium no
+//    usa Vulkan ni VA-API en Windows para componer, así que no se activan.
+//    Tampoco se usa disable-frame-rate-limit: es un switch de benchmarks; el
+//    compositor ya sigue la frecuencia del monitor y quitar el límite solo
+//    sube el consumo de GPU mientras se juega.
 if (process.platform === 'win32') {
-  app.commandLine.appendSwitch('use-angle', 'default');
-  app.commandLine.appendSwitch('enable-features',
-    'VaapiVideoDecoder,VaapiVideoEncoder,CanvasOopRasterization,Vulkan');
+  app.commandLine.appendSwitch('use-angle', 'd3d11');
 }
+
+// Si el proceso GPU se cae, Chromium puede pasar a render por software sin
+// avisar; este log permite detectarlo.
+app.on('child-process-gone', (_event, details) => {
+  if (details.type === 'GPU') {
+    console.error('[GPU] El proceso GPU terminó:', details.reason, 'código', details.exitCode);
+  }
+});
 
 console.log('[GPU] Switches de aceleración por hardware aplicados');
 
@@ -2205,21 +2179,36 @@ app.whenReady().then(async () => {
     try {
       const gpuInfo = await app.getGPUInfo('complete');
       const gpuFeatureStatus = app.getGPUFeatureStatus();
+
+      // Con dos GPU (laptop) el primer dispositivo no siempre es el activo.
+      const devices = gpuInfo.gpuDevice || [];
+      const activeDevice = devices.find((d) => d.active) || devices[0] || null;
+
+      const renderer = gpuInfo.auxAttributes?.glRenderer || '';
+      // SwiftShader / Basic Render Driver = render por software (sin GPU real).
+      const isSoftware = /swiftshader|llvmpipe|basic render|software/i.test(renderer);
+      // Los valores válidos son 'enabled', 'enabled_on', 'enabled_force',
+      // 'disabled_software', 'disabled_off', 'unavailable_off', etc.
+      const compositingOn =
+        typeof gpuFeatureStatus?.gpu_compositing === 'string' &&
+        gpuFeatureStatus.gpu_compositing.startsWith('enabled');
+
       return {
         success: true,
         gpu: {
-          // Datos de la GPU principal
-          gpuDevice: gpuInfo.gpuDevice?.[0] || null,
+          // Datos de la GPU activa
+          gpuDevice: activeDevice,
           auxAttributes: gpuInfo.auxAttributes || null,
           // Feature status muestra qué está acelerado por HW y qué no
           featureStatus: gpuFeatureStatus,
           // Info resumida útil para la UI
           summary: {
-            renderer: gpuInfo.auxAttributes?.glRenderer || 'Unknown',
+            deviceName: activeDevice?.deviceString || activeDevice?.description || renderer || 'Unknown',
+            renderer: renderer || 'Unknown',
             vendor: gpuInfo.auxAttributes?.glVendor || 'Unknown',
-            driverVersion: gpuInfo.gpuDevice?.[0]?.driverVersion || 'Unknown',
-            hardwareAccelerated: gpuFeatureStatus?.gpu_compositing !== 'disabled'
-              && gpuFeatureStatus?.gpu_compositing !== 'disabled_software',
+            driverVersion: activeDevice?.driverVersion || 'Unknown',
+            isSoftware,
+            hardwareAccelerated: compositingOn && !isSoftware,
           },
         },
       };
@@ -2328,7 +2317,7 @@ app.whenReady().then(async () => {
       const game = (best && Array.isArray(best.videos) && best.videos.some((v) => v?.video_id))
         ? best
         : candidates.find((g) => Array.isArray(g?.videos) && g.videos.some((v) => v?.video_id))
-          || best;
+        || best;
       const rawVideos = (game && game.videos) || [];
 
       const videos = rawVideos
@@ -3051,7 +3040,7 @@ app.whenReady().then(async () => {
       if (names.size === 0 || process.platform !== 'win32') return null;
 
       const roots = [];
-      const pushRoot = (p) => { try { if (p && fs.existsSync(p)) roots.push(p); } catch (_) {} };
+      const pushRoot = (p) => { try { if (p && fs.existsSync(p)) roots.push(p); } catch (_) { } };
       pushRoot(process.env['ProgramFiles']);
       pushRoot(process.env['ProgramFiles(x86)']);
       if (process.env.LOCALAPPDATA) pushRoot(path.join(process.env.LOCALAPPDATA, 'Programs'));
@@ -3078,7 +3067,7 @@ app.whenReady().then(async () => {
             if (entry.isFile() && names.has(entry.name.toLowerCase())) {
               return path.join(dir, entry.name);
             }
-          } catch (_) {}
+          } catch (_) { }
         }
         for (const entry of entries) {
           try {
@@ -3086,7 +3075,7 @@ app.whenReady().then(async () => {
               const hit = searchDir(path.join(dir, entry.name), depth - 1);
               if (hit) return hit;
             }
-          } catch (_) {}
+          } catch (_) { }
         }
         return null;
       };
@@ -3132,7 +3121,7 @@ app.whenReady().then(async () => {
               let size = 0;
               try {
                 size = fs.statSync(full).size || 0;
-              } catch (_) {}
+              } catch (_) { }
               if (exts.has(ext)) {
                 roms.push({ name: entry.name, path: full, extension: ext, size });
               } else if (specials.has(lowerName)) {
@@ -3149,12 +3138,12 @@ app.whenReady().then(async () => {
                 roms.push({ name: title, path: full, extension: ext, size });
               }
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       };
 
       walk(dir, 6);
-    } catch (_) {}
+    } catch (_) { }
     return { roms };
   });
 
@@ -3182,12 +3171,12 @@ app.whenReady().then(async () => {
             } else if (entry.isFile() && pats.some((p) => entry.name.toLowerCase().includes(p))) {
               files.push(entry.name);
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       };
 
       walk(dir, 2);
-    } catch (_) {}
+    } catch (_) { }
     return { found: files.length > 0, files };
   });
 
