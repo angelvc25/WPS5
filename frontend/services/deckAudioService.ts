@@ -336,9 +336,11 @@ export function resolveInstalledPackSources(
   return out;
 }
 
-// ─── Packs de ejemplo incluidos en la app ─────────────────────────────────
-// Carpetas: frontend/assets/switch2-sounds y frontend/assets/ps3-menu-music.
-
+// ─── Packs incluidos en la app ────────────────────────────────────────────
+// (Reservado: si en el futuro se quiere shippear algún pack bundled,
+// añadir aquí entradas con requires estáticos y exponerlas vía
+// BUNDLED_AUDIO_PACKS. Las carpetas de ejemplo se eliminaron, así que
+// la lista queda vacía y todo viene de DeckThemes o de descargas.)
 export interface BundledAudioPack {
   id: string;
   kind: DeckAudioKind;
@@ -348,44 +350,7 @@ export interface BundledAudioPack {
   files: Partial<Record<SoundName, any>>;
 }
 
-export const BUNDLED_AUDIO_PACKS: BundledAudioPack[] = [
-  {
-    id: 'bundled-switch2',
-    kind: 'audio',
-    name: 'Switch 2 Sounds',
-    author: 'Star',
-    version: 'v2.1',
-    files: {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      navigation: require('@/assets/switch2-sounds/deck_ui_navigation.wav'),
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      activation: require('@/assets/switch2-sounds/deck_ui_default_activation.wav'),
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      openHome: require('@/assets/switch2-sounds/deck_ui_into_game_detail.wav'),
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      tab: require('@/assets/switch2-sounds/deck_ui_tab_transition_01.wav'),
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      back: require('@/assets/switch2-sounds/deck_ui_out_of_game_detail.wav'),
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      openControlCenter: require('@/assets/switch2-sounds/deck_ui_show_modal.wav'),
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      exit: require('@/assets/switch2-sounds/deck_ui_hide_modal.wav'),
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      notification: require('@/assets/switch2-sounds/deck_ui_message_toast.wav'),
-    },
-  },
-  {
-    id: 'bundled-ps3music',
-    kind: 'music',
-    name: 'PS3 Menu Music',
-    author: 'plumber-craic',
-    version: 'v1.0',
-    files: {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      background: require('@/assets/ps3-menu-music/menu_music.mp3'),
-    },
-  },
-];
+export const BUNDLED_AUDIO_PACKS: BundledAudioPack[] = [];
 
 export function getBundledAudioPack(id: string | null | undefined): BundledAudioPack | null {
   if (!id) return null;
