@@ -104,6 +104,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // userData/WConsole/splash/{boot|suspend}.webm. Devuelve
   // { success, path } o { success: false, error }.
   downloadSplashVideo: (url, target) => ipcRenderer.invoke('download-splash-video', url, target),
+  // ── Audio packs (DeckThemes) ────────────────────────────────────────────
+  // Descarga y extrae un zip de DeckThemes a userData/WConsole/audio/<packId>/.
+  // Devuelve { success, dir, files, packJson } o { success: false, error }.
+  downloadDeckAudioPack: (url, packId, kind) => ipcRenderer.invoke('download-deck-audio-pack', url, packId, kind),
+  // Borra la carpeta de un pack instalado. Solo acepta rutas dentro de audio/.
+  removeDeckAudioPack: (dir) => ipcRenderer.invoke('remove-deck-audio-pack', dir),
   // ── Galería de medios ────────────────────────────────────────────────────
   deleteImageFile: (filePath) => ipcRenderer.invoke('delete-image-file', filePath),
   // ── Info de GPU / Aceleración por hardware ──────────────────────────────

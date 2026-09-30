@@ -30,7 +30,14 @@ export interface LegacySyncPreferences {
 
 export type SyncPreferences = FieldSyncPreferences | LegacySyncPreferences;
 
+export interface UserThemeSettings {
+  accentId?: string;
+  backgroundId?: string;
+  soundPackId?: string;
+}
+
 export interface UserSettings {
+  theme?: UserThemeSettings;
   autoPlayVideo?: boolean;
   syncPreferences?: SyncPreferences;
   steamApiKey?: string;

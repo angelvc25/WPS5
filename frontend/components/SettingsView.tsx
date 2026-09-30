@@ -42,6 +42,7 @@ import { UserProfile } from './UserSelectScreen';
 import SpinningBorderSearch from './SpinningBorderSearch';
 import UserProfileView, { resolveImageSource } from './UserProfileView';
 import SpinningBorderSettings from './spinninBorderSettings';
+import ThemeSettingsView from './ThemeSettingsView';
 
 function compareVersions(a: string, b: string): number {
   const aParts = a.split('.').map(Number);
@@ -66,6 +67,7 @@ export type SettingsScreenType =
   | 'profile_edit_detail'
   | 'online_auth'
   | 'emulation'
+  | 'themes'
   | 'system';
 
 const OVERLAY_COMBO_OPTIONS = [
@@ -834,7 +836,7 @@ export default function SettingsView({
       if (currentScreen === 'main') {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          setMainFocusIndex((prev) => Math.min(prev + 1, 4));
+          setMainFocusIndex((prev) => Math.min(prev + 1, 5));
           soundService.playNavigation();
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
@@ -846,7 +848,8 @@ export default function SettingsView({
           else if (mainFocusIndex === 1) navigateToScreen('accessibility');
           else if (mainFocusIndex === 2) navigateToScreen('users_and_accounts');
           else if (mainFocusIndex === 3) navigateToScreen('emulation');
-          else if (mainFocusIndex === 4) navigateToScreen('system');
+          else if (mainFocusIndex === 4) navigateToScreen('themes');
+          else if (mainFocusIndex === 5) navigateToScreen('system');
         }
       } else if (currentScreen === 'accessibility') {
         if (accessibilityFocusArea === 'left') {
@@ -1058,6 +1061,16 @@ export default function SettingsView({
             soundService.playActivation?.();
           }
         }
+      } else if (currentScreen === 'themes') {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSubFocusIndex((prev) => Math.min(prev + 1, 1));
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSubFocusIndex((prev) => Math.max(prev - 1, 0));
+          soundService.playNavigation();
+        }
       } else {
         // Other sub-screens
         if (e.key === 'ArrowDown') {
@@ -1153,6 +1166,12 @@ export default function SettingsView({
         title: t('emu.title'),
         icon: 'game-controller-outline' as const,
         onPress: () => navigateToScreen('emulation'),
+      },
+      {
+        id: 'themes',
+        title: t('settings.themes'),
+        icon: 'color-palette-outline' as const,
+        onPress: () => navigateToScreen('themes'),
       },
       {
         id: 'system',
@@ -2871,6 +2890,17 @@ export default function SettingsView({
           />
         )}
         {currentScreen === 'system' && renderSystemScreen()}
+        {currentScreen === 'themes' && (
+          <View style={styles.contentWrapper}>
+            <View style={styles.subScreenHeader}>
+              <TouchableOpacity style={styles.backButtonInline} onPress={handleBack}>
+                <Ionicons name="arrow-back" size={s(24)} color="#FFF" />
+              </TouchableOpacity>
+              <Text style={styles.subScreenHeaderTitle}>{t('settings.themes')}</Text>
+            </View>
+            <ThemeSettingsView focused={true} subFocusIndex={subFocusIndex} />
+          </View>
+        )}
       </View>
 
       {/* Control Prompt Bar at Bottom */}

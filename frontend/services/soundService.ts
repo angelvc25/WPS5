@@ -1,4 +1,17 @@
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { DEFAULT_SOUND_PACK_ID, getSoundPack, type SoundName } from '@/constants/themes';
+
+/** Fuente de sonido: módulo bundled (require) o URI (local-file://, https://...). */
+export type SoundSource = any;
+
+export interface SoundThemeResolution {
+  /** Pack base (volúmenes + ficheros por defecto). */
+  baseId?: string;
+  /** Overrides por rol para los 8 efectos UI (módulo o URI). Ausente = fichero base. */
+  audio?: Partial<Record<SoundName, SoundSource>>;
+  /** Música de fondo (módulo, URI o null para silenciar). undefined = fondo base. */
+  music?: SoundSource;
+}
 
 class SoundService {
   private navigationSound: AudioPlayer | null = null;
@@ -12,6 +25,11 @@ class SoundService {
   private notificationSound: AudioPlayer | null = null;
   private isMuted: boolean = false;
   private isInitialized: boolean = false; // Candado para evitar duplicados
+  private soundPackId: string = DEFAULT_SOUND_PACK_ID;
+  private uiVolume: number = 1.0;
+  /** Overrides del tema actual (packs DeckThemes / bundled). */
+  private customAudio: Partial<Record<SoundName, SoundSource>> = {};
+  private customMusic: SoundSource | undefined = undefined;
 
   async init() {
     // Evita cargar los sonidos múltiples veces si init() se vuelve a llamar
@@ -21,35 +39,49 @@ class SoundService {
       // La música de fondo NO arranca en init(): se inicia de forma explícita
       // con playBackground() una vez terminado el splash/video de booteo,
       // para no pisar el audio del video.
-      const bgSound = createAudioPlayer(require('@/assets/sounds/background.mp3'));
-      bgSound.loop = true;
-      bgSound.volume = 0.70;
-      bgSound.muted = this.isMuted;
-      this.backgroundSound = bgSound;
+      const pack = getSoundPack(this.soundPackId);
+      const bgSource = this.customMusic !== undefined
+        ? this.customMusic
+        : (pack.files?.background ?? require('@/assets/sounds/background.mp3'));
+      if (bgSource) {
+        const bgSound = createAudioPlayer(bgSource);
+        bgSound.loop = true;
+        bgSound.volume = pack.backgroundVolume;
+        bgSound.muted = this.isMuted;
+        this.backgroundSound = bgSound;
+      } else {
+        this.backgroundSound = null;
+      }
+      this.uiVolume = pack.uiVolume;
 
-      const navSound = createAudioPlayer(require('@/assets/sounds/navigation.mp3'));
+      const pick = (name: SoundName, fallback: any) =>
+        (this.customAudio[name] ?? pack.files?.[name] ?? fallback);
+
+      const navSound = createAudioPlayer(pick('navigation', require('@/assets/sounds/navigation.mp3')));
       this.navigationSound = navSound;
 
-      const actSound = createAudioPlayer(require('@/assets/sounds/activation.mp3'));
+      const actSound = createAudioPlayer(pick('activation', require('@/assets/sounds/activation.mp3')));
       this.activationSound = actSound;
 
-      const startHomeSound = createAudioPlayer(require('@/assets/sounds/openHome.mp3'));
+      const startHomeSound = createAudioPlayer(pick('openHome', require('@/assets/sounds/openHome.mp3')));
       this.startHomeSound = startHomeSound;
 
-      const tabSound = createAudioPlayer(require('@/assets/sounds/pestaña.mp3'));
+      const tabSound = createAudioPlayer(pick('tab', require('@/assets/sounds/pestaña.mp3')));
       this.tabSound = tabSound;
 
-      const backSound = createAudioPlayer(require('@/assets/sounds/back.mp3'));
+      const backSound = createAudioPlayer(pick('back', require('@/assets/sounds/back.mp3')));
       this.backSound = backSound;
 
-      const contextMenuSound = createAudioPlayer(require('@/assets/sounds/openControlCenter.mp3'));
+      const contextMenuSound = createAudioPlayer(pick('openControlCenter', require('@/assets/sounds/openControlCenter.mp3')));
       this.contextMenuSound = contextMenuSound;
 
-      const exitMenuSound = createAudioPlayer(require('@/assets/sounds/salir.mp3'));
+      const exitMenuSound = createAudioPlayer(pick('exit', require('@/assets/sounds/salir.mp3')));
       this.exitMenuSound = exitMenuSound;
 
-      const notificationSound = createAudioPlayer(require('@/assets/sounds/notification.mp3'));
+      const notificationSound = createAudioPlayer(pick('notification', require('@/assets/sounds/notification.mp3')));
       this.notificationSound = notificationSound;
+
+      this.applyVolumes();
 
       this.isInitialized = true;
     } catch (error) {
@@ -134,6 +166,70 @@ class SoundService {
         console.error('Error setting background mute status:', error);
       }
     }
+  }
+
+  getSoundPackId() {
+    return this.soundPackId;
+  }
+
+  /**
+   * Cambia el pack de sonido base (volúmenes). Compat: equivale a
+   * applySoundTheme({ baseId }) conservando los customs actuales.
+   */
+  async setSoundPack(packId: string) {
+    await this.applySoundTheme({ baseId: packId });
+  }
+
+  /**
+   * Aplica el tema de sonido completo: pack base + pack de efectos
+   * custom (DeckThemes/bundled) + música ambiente custom.
+   * Recarga los players y reanuda la música si estaba sonando.
+   */
+  async applySoundTheme(res: SoundThemeResolution) {
+    const pack = getSoundPack(res.baseId ?? this.soundPackId);
+    this.soundPackId = pack.id;
+    this.uiVolume = pack.uiVolume;
+    this.customAudio = res.audio ? { ...res.audio } : this.customAudio;
+    if (res.audio && Object.keys(res.audio).length === 0) this.customAudio = {};
+    if ('music' in res) this.customMusic = res.music;
+
+    if (!this.isInitialized) return;
+
+    try {
+      const hadBackground = !!this.backgroundSound;
+      await this.unloadAll();
+      await this.init();
+      if (hadBackground) await this.playBackground();
+    } catch (e) {
+      console.error('Error applying sound theme:', e);
+    }
+  }
+
+  /** Limpia los customs y vuelve a los sonidos originales. */
+  async restoreDefaultSounds() {
+    // Clave 'music' presente con undefined = restaura el fondo base.
+    await this.applySoundTheme({ audio: {}, music: undefined });
+  }
+
+  private applyVolumes() {
+    try {
+      const ui = this.uiVolume;
+      [
+        this.navigationSound,
+        this.activationSound,
+        this.startHomeSound,
+        this.tabSound,
+        this.backSound,
+        this.contextMenuSound,
+        this.exitMenuSound,
+        this.notificationSound,
+      ].forEach((s) => {
+        if (s) s.volume = ui;
+      });
+      if (this.backgroundSound) {
+        this.backgroundSound.volume = getSoundPack(this.soundPackId).backgroundVolume;
+      }
+    } catch { /* noop */ }
   }
 
   // Opcional: método para liberar memoria si el componente global se desmonta

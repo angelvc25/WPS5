@@ -15,6 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import { UserContext } from '@/contexts/UserContext';
+import { ThemeProvider as WPSThemeProvider } from '@/contexts/ThemeContext';
 import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
 import { isLanguage } from '@/i18n/translations';
 import { openWebLink } from '@/services/linkService';
@@ -240,6 +241,8 @@ function RootLayoutInner() {
 
   if (!activeUser) {
     return (
+      <UserContext.Provider value={{ activeUser, changeUser: () => setActiveUser(null), updateUser: async () => {} }}>
+      <WPSThemeProvider>
       <View style={{ flex: 1, backgroundColor: '#000' }}>
         <style dangerouslySetInnerHTML={{
           __html: GLOBAL_CSS_FONTS
@@ -288,6 +291,8 @@ function RootLayoutInner() {
         )}
         <StatusBar style="light" />
       </View>
+      </WPSThemeProvider>
+      </UserContext.Provider>
     );
   }
 
@@ -316,6 +321,7 @@ function RootLayoutInner() {
 
   return (
     <UserContext.Provider value={{ activeUser, changeUser: () => setActiveUser(null), updateUser }}>
+      <WPSThemeProvider>
       <style dangerouslySetInnerHTML={{
         __html: GLOBAL_CSS_FONTS
       }} />
@@ -333,6 +339,7 @@ function RootLayoutInner() {
         <ToastHost />
         <StatusBar style="auto" />
       </ThemeProvider>
+      </WPSThemeProvider>
     </UserContext.Provider>
   );
 }

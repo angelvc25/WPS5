@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage, 
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const { exec, spawn, fork } = require('child_process');
 const { pathToFileURL } = require('url');
 const http = require('http');
@@ -3314,6 +3315,176 @@ app.whenReady().then(async () => {
       return { success: true, path: destPath };
     } catch (error) {
       console.error('Error downloading splash video:', error);
+      return { success: false, error: error?.message || String(error) };
+    }
+  });
+
+  // ── Audio packs (DeckThemes) ────────────────────────────────────────────
+  // Descarga el zip de un pack de DeckThemes, lo extrae (stored/deflate,
+  // sin dependencias extra) a userData/WConsole/audio/<packId>/ y devuelve
+  // la lista de ficheros + el pack.json del pack si lo trae.
+  //
+  // Límites anti zip-bomb: 300 ficheros, 300MB descomprimidos en total,
+  // 100MB por fichero. Se ignoran directorios, __MACOSX y rutas que
+  // intenten escapar del destino (zip-slip).
+  function sanitizeAudioPackId(packId) {
+    const clean = String(packId || '').trim();
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9-_]{0,63}$/.test(clean)) return null;
+    return clean;
+  }
+
+  function getAudioPacksBaseDir() {
+    return path.join(app.getPath('userData'), 'WConsole', 'audio');
+  }
+
+  function extractZipBufferzipSlipSafe(buffer, destDir) {
+    if (!Buffer.isBuffer(buffer)) buffer = Buffer.from(buffer);
+    // Localiza el End of Central Directory (EOCD).
+    let eocdOffset = -1;
+    const minEocd = 22;
+    const maxComment = 0xffff;
+    const searchStart = Math.max(0, buffer.length - minEocd - maxComment);
+    for (let i = buffer.length - minEocd; i >= searchStart; i--) {
+      if (buffer.readUInt32LE(i) === 0x06054b50) { eocdOffset = i; break; }
+    }
+    if (eocdOffset < 0) throw new Error('ZIP inválido (sin EOCD).');
+    const entryCount = buffer.readUInt16LE(eocdOffset + 10);
+    const cdOffset = buffer.readUInt32LE(eocdOffset + 16);
+    const MAX_FILES = 300;
+    const MAX_TOTAL = 300 * 1024 * 1024;
+    const MAX_SINGLE = 100 * 1024 * 1024;
+    if (entryCount > MAX_FILES) throw new Error(`ZIP con demasiados ficheros (${entryCount}).`);
+
+    const extracted = [];
+    let totalBytes = 0;
+    let offset = cdOffset;
+    for (let n = 0; n < entryCount; n++) {
+      if (offset + 46 > buffer.length) throw new Error('ZIP truncado (central directory).');
+      if (buffer.readUInt32LE(offset) !== 0x02014b50) throw new Error('ZIP corrupto (central directory).');
+      const method = buffer.readUInt16LE(offset + 10);
+      const compSize = buffer.readUInt32LE(offset + 20);
+      const uncompSize = buffer.readUInt32LE(offset + 24);
+      const nameLen = buffer.readUInt16LE(offset + 28);
+      const extraLen = buffer.readUInt16LE(offset + 30);
+      const commentLen = buffer.readUInt16LE(offset + 32);
+      const localHeaderOffset = buffer.readUInt32LE(offset + 42);
+      const rawName = buffer.toString('utf8', offset + 46, offset + 46 + nameLen);
+      offset += 46 + nameLen + extraLen + commentLen;
+
+      // Normaliza y valida contra zip-slip.
+      const normalized = rawName.replace(/\\/g, '/').replace(/^\//, '');
+      if (!normalized || normalized.endsWith('/') || normalized.startsWith('__MACOSX/')) continue;
+      const targetPath = path.normalize(path.join(destDir, normalized));
+      if (!targetPath.startsWith(path.normalize(destDir) + path.sep)) continue;
+      if (method !== 0 && method !== 8) continue; // solo stored/deflate
+      if (uncompSize > MAX_SINGLE) throw new Error(`Fichero demasiado grande: ${normalized}`);
+      totalBytes += uncompSize;
+      if (totalBytes > MAX_TOTAL) throw new Error('ZIP demasiado grande una vez extraído.');
+
+      // Local file header → inicio de los datos.
+      if (localHeaderOffset + 30 > buffer.length) throw new Error('ZIP truncado (local header).');
+      if (buffer.readUInt32LE(localHeaderOffset) !== 0x04034b50) throw new Error('ZIP corrupto (local header).');
+      const lhNameLen = buffer.readUInt16LE(localHeaderOffset + 26);
+      const lhExtraLen = buffer.readUInt16LE(localHeaderOffset + 28);
+      const dataStart = localHeaderOffset + 30 + lhNameLen + lhExtraLen;
+      const dataEnd = dataStart + compSize;
+      if (dataEnd > buffer.length) throw new Error('ZIP truncado (datos).');
+      const compData = buffer.subarray(dataStart, dataEnd);
+
+      let content;
+      if (method === 0) content = Buffer.from(compData);
+      else content = zlib.inflateRawSync(compData);
+
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      fs.writeFileSync(targetPath, content);
+      extracted.push({ name: path.basename(targetPath), rel: normalized, size: content.length });
+    }
+    return extracted;
+  }
+
+  ipcMain.handle('download-deck-audio-pack', async (event, url, packId, kind) => {
+    try {
+      const cleanId = sanitizeAudioPackId(packId);
+      if (!cleanId) return { success: false, error: 'ID de pack inválido.' };
+      if (kind !== 'audio' && kind !== 'music') return { success: false, error: `Tipo inválido: ${kind}` };
+      if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+        return { success: false, error: 'URL de descarga inválida.' };
+      }
+      const baseDir = getAudioPacksBaseDir();
+      const destDir = path.join(baseDir, cleanId);
+      fs.mkdirSync(destDir, { recursive: true });
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        return { success: false, error: `DeckThemes respondió ${response.status} ${response.statusText}` };
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Limpia instalaciones previas del mismo pack antes de extraer.
+      fs.rmSync(destDir, { recursive: true, force: true });
+      fs.mkdirSync(destDir, { recursive: true });
+      extractZipBufferzipSlipSafe(buffer, destDir);
+
+      // Muchos zips de DeckThemes anidan todo bajo una carpeta
+      // (p.ej. PS4/pack.json). Si no hay pack.json en la raíz pero sí
+      // en una única subcarpeta de primer nivel, subimos su contenido.
+      if (!fs.existsSync(path.join(destDir, 'pack.json'))) {
+        try {
+          const topDirs = fs.readdirSync(destDir, { withFileTypes: true }).filter((d) => d.isDirectory());
+          if (topDirs.length === 1) {
+            const sub = path.join(destDir, topDirs[0].name);
+            if (fs.existsSync(path.join(sub, 'pack.json'))) {
+              for (const child of fs.readdirSync(sub)) {
+                fs.renameSync(path.join(sub, child), path.join(destDir, child));
+              }
+              fs.rmdirSync(sub);
+            }
+          }
+        } catch { /* sigue con lo extraído tal cual */ }
+      }
+
+      // Lista autoritativa desde disco (con rutas relativas reales).
+      const files = [];
+      const walkAudioDir = (dir, base) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            if (entry.name === '__MACOSX') continue;
+            walkAudioDir(full, base);
+          } else if (entry.isFile()) {
+            const rel = path.relative(base, full).replace(/\\/g, '/');
+            files.push({ name: entry.name, rel, size: fs.statSync(full).size });
+          }
+        }
+      };
+      walkAudioDir(destDir, destDir);
+
+      let packJson = null;
+      const packJsonPath = path.join(destDir, 'pack.json');
+      if (fs.existsSync(packJsonPath)) {
+        try { packJson = JSON.parse(fs.readFileSync(packJsonPath, 'utf8')); } catch { packJson = null; }
+      }
+
+      return { success: true, dir: destDir, files, packJson };
+    } catch (error) {
+      console.error('Error downloading deck audio pack:', error);
+      return { success: false, error: error?.message || String(error) };
+    }
+  });
+
+  ipcMain.handle('remove-deck-audio-pack', async (event, dir) => {
+    try {
+      if (typeof dir !== 'string' || !dir) return { success: false, error: 'Ruta inválida.' };
+      const baseDir = path.normalize(getAudioPacksBaseDir()) + path.sep;
+      const target = path.normalize(dir);
+      if (!target.startsWith(baseDir) || target === path.normalize(getAudioPacksBaseDir())) {
+        return { success: false, error: 'Ruta fuera de la carpeta de audio.' };
+      }
+      fs.rmSync(target, { recursive: true, force: true });
+      return { success: true };
+    } catch (error) {
+      console.error('Error removing deck audio pack:', error);
       return { success: false, error: error?.message || String(error) };
     }
   });
