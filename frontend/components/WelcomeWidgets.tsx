@@ -488,6 +488,9 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     return {
       s,
       cardH: sH(100),          // alto de 1 fila (igual que welcomeWidgetCard)
+      // Escala de medidas FIJAS del contenido (iconos, avatares, imágenes) en proporción al alto de la tarjeta.
+      // Con 'cardH' se encogen igual que la tarjeta; antes quedaban en px fijos y se salían por debajo de 1080p.
+      vs: (px: number) => Math.max(1, Math.round((px * sH(100)) / 100)),
       vGap: s(20) + 12,        // separación vertical entre widgets de una misma columna
       colGap: s(15),           // separación horizontal entre columnas
     };
@@ -1054,6 +1057,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   };
 
   const renderWidget = (id: string, slotIndex: number, isBeingMoved: boolean) => {
+    const { s, vs } = metrics;
     switch (id) {
       case 'controller':
         return (
@@ -1211,8 +1215,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
               )}
               {getSize('controller') === 0 ? (
                 <>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <View style={{ width: 80, height: 80, justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: vs(10) }}>
+                    <View style={{ width: vs(80), height: vs(80), justifyContent: 'center', alignItems: 'center' }}>
                       {Platform.OS === 'web' && (
                         <div
                           style={{
@@ -1228,7 +1232,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         <div
                           style={{
                             position: 'absolute',
-                            inset: 4,
+                            inset: vs(4),
                             borderRadius: '50%',
                             background: '#0d1015',
                             zIndex: 1,
@@ -1236,9 +1240,9 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         />
                       )}
                       <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: "#FFF", fontSize: 14, fontFamily: 'SSTMedium', marginBottom: 2 }}>{gamepadInfo.connected ? "1" : "-"}</Text>
-                        <Image source={require('@/assets/images/controller2.png')} style={{ width: 35, height: 35, tintColor: "#FFF" }} contentFit="contain" />
-                        <Ionicons name={batteryIcon as any} size={16} color={gamepadInfo.connected ? batteryColor : "#fff"} />
+                        <Text style={{ color: "#FFF", fontSize: s(14), fontFamily: 'SSTMedium', marginBottom: vs(2) }}>{gamepadInfo.connected ? "1" : "-"}</Text>
+                        <Image source={require('@/assets/images/controller2.png')} style={{ width: vs(35), height: vs(35), tintColor: "#FFF" }} contentFit="contain" />
+                        <Ionicons name={batteryIcon as any} size={vs(16)} color={gamepadInfo.connected ? batteryColor : "#fff"} />
                       </View>
                     </View>
                     <View style={{ flex: 1 }}>
@@ -1837,7 +1841,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
               )}
               {getSize('news') === 0 ? (
                 <>
-                  <View style={{ flex: 1, marginRight: 10 }}>
+                  <View style={{ flex: 1, marginRight: vs(10) }}>
                     <Text style={styles.widgetTitle}>{t('widgets.news')}</Text>
                     <Text style={styles.widgetSubtitle} numberOfLines={1}>
                       {realNews.length > 0 ? realNews[0].title : t('widgets.discoverGames')}
@@ -1848,7 +1852,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                   </View>
                   <Image
                     source={realNews.length > 0 && realNews[0].image_url ? { uri: realNews[0].image_url } : require("@/assets/images/Store.png")}
-                    style={{ width: 70, height: 70, borderRadius: 6 }}
+                    style={{ width: vs(70), height: vs(70), borderRadius: vs(6) }}
                     contentFit="cover"
                   />
                 </>
@@ -2218,14 +2222,14 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
               )}
               {getSize('recently_played') === 0 ? (
                 <>
-                  <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 5, marginBottom: 6, maxWidth: 180 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      <Image source={require('@/assets/images/controller.png')} style={{ width: 13, height: 13, resizeMode: 'contain', tintColor: "#FFF" }} />
+                  <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: vs(5), marginBottom: vs(6), maxWidth: s(180) }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: vs(5) }}>
+                      <Image source={require('@/assets/images/controller.png')} style={{ width: vs(13), height: vs(13), resizeMode: 'contain', tintColor: "#FFF" }} />
                       <Text style={styles.widgetTitle}>{t('widgets.recentlyPlayed')}</Text>
                     </View>
-                    <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : t('widgets.noRecent')}</Text>
-                    <Text style={{ color: '#FFF', fontSize: 12, fontFamily: 'SSTMedium', flex: 1 }}>
-                      <MaterialCommunityIcons name="clock" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />
+                    <Text style={{ color: '#FFF', fontSize: s(13), fontFamily: 'SSTMedium', flex: 1 }} numberOfLines={1}>{lastPlayedGame ? lastPlayedGame.title : t('widgets.noRecent')}</Text>
+                    <Text style={{ color: '#FFF', fontSize: s(12), fontFamily: 'SSTMedium', flex: 1 }}>
+                      <MaterialCommunityIcons name="clock" size={s(13)} color="rgba(255,255,255,0.8)" style={{ marginRight: vs(5) }} />
                       {lastPlayedGame
                         ? formatPlaytime(Number(lastPlayedGame.playtimeMinutes ?? lastPlayedGame.playtime_forever ?? 0), t)
                         : t('lastPlayed.never')}
@@ -2233,10 +2237,10 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                   </View>
                   {lastPlayedGame ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Image source={lastPlayedGame.image} style={{ width: 70, height: 70, borderRadius: 0 }} contentFit="cover" />
+                      <Image source={lastPlayedGame.image} style={{ width: vs(70), height: vs(70), borderRadius: 0 }} contentFit="cover" />
                     </View>
                   ) : (
-                    <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontFamily: 'SSTMediumIt' }}>{t('widgets.noRecent')}</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: s(11), fontFamily: 'SSTMediumIt' }}>{t('widgets.noRecent')}</Text>
                   )}
                 </>
               ) : renderRecentExpanded()}
@@ -2417,9 +2421,9 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
               )}
               {getSize('friends') === 0 ? (
                 <>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                    <Image source={require('@/assets/images/amigos.png')} style={{ width: 30, height: 30, borderRadius: 5, resizeMode: 'contain' }} />
-                    <Text style={[styles.widgetTitle, { marginBottom: 9 }]}>{t('widgets.friends')}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: vs(5), marginBottom: vs(6) }}>
+                    <Image source={require('@/assets/images/amigos.png')} style={{ width: vs(30), height: vs(30), borderRadius: vs(5), resizeMode: 'contain' }} />
+                    <Text style={[styles.widgetTitle, { marginBottom: vs(9) }]}>{t('widgets.friends')}</Text>
                     {onlineFriendsCount > 0 && (
                       <View
                         style={{
@@ -2432,9 +2436,9 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         {/* Punto verde */}
                         <View
                           style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 4,
+                            width: vs(8),
+                            height: vs(8),
+                            borderRadius: vs(4),
                             backgroundColor: '#4CD964',
                           }}
                         />
@@ -2443,7 +2447,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         <Text
                           style={{
                             color: '#FFFFFF',
-                            fontSize: 12,
+                            fontSize: s(12),
                             fontFamily: 'SSTBold',
                           }}
                         >
@@ -2454,7 +2458,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                   </View>
                   {topFriend ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <View style={{ width: 36, height: 36, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: (topFriend.gameextrainfo || topFriend.personastate > 0) ? '#4CD964' : 'rgba(255,255,255,0.1)' }}>
+                      <View style={{ width: vs(36), height: vs(36), borderRadius: vs(23), backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: (topFriend.gameextrainfo || topFriend.personastate > 0) ? '#4CD964' : 'rgba(255,255,255,0.1)' }}>
                         {topFriend.avatar ? (
                           <Image source={{ uri: topFriend.avatar }} style={styles.avatarMensajes} />
                         ) : (
@@ -2463,7 +2467,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         )}
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: '#FFF', fontSize: 13, fontFamily: 'SSTMedium' }} numberOfLines={1}>{topFriend.personaname}</Text>
+                        <Text style={{ color: '#FFF', fontSize: s(13), fontFamily: 'SSTMedium' }} numberOfLines={1}>{topFriend.personaname}</Text>
                         <Text style={styles.widgetSubtitle} numberOfLines={1}>
                           {topFriend.gameextrainfo
                             ? t('widgets.playing', { game: topFriend.gameextrainfo })
@@ -2471,13 +2475,13 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         </Text>
                         <Image
                           source={require('@/assets/images/consola.png')}
-                          style={{ width: 40, height: 40, position: 'absolute', bottom: 2, right: 15, tintColor: '#FFFFFF' }}
+                          style={{ width: vs(40), height: vs(40), position: 'absolute', bottom: vs(2), right: vs(15), tintColor: '#FFFFFF' }}
                           resizeMode="contain"
                         />
                       </View>
                     </View>
                   ) : (
-                    <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, fontFamily: 'SSTMediumIt' }} numberOfLines={2}>
+                    <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: s(12), fontFamily: 'SSTMediumIt' }} numberOfLines={2}>
                       {!steamId
                         ? t('widgets.connectSteamFriends')
                         : (loadingFriends ? t('widgets.loadingFriends') : t('widgets.noFriends'))}
@@ -3091,8 +3095,12 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       // El ScrollView horizontal recorta todo lo que sobresale de su caja (borde giratorio, brillo,
       // flechas del modo mover). Se reserva un margen interno (SCROLL_BLEED) y se compensa con margen
       // negativo para que los widgets no cambien de posición.
+      // Ancho: el panel padre tiene paddingLeft pero no paddingRight, y el margen izquierdo negativo corre la caja
+      // hacia la izquierda sin ensancharla. Resultado: el ScrollView terminaba ~(SCROLL_BLEED - 3)px antes del borde
+      // derecho de la pantalla y recortaba el último widget con una franja vacía. Se suma ese desplazamiento al ancho
+      // para que la caja llegue exactamente hasta el borde.
       style={{
-        width: '100%',
+        width: Platform.OS === 'web' ? (`calc(100% + ${SCROLL_BLEED - 3}px)` as any) : '100%',
         marginTop: -SCROLL_BLEED,
         marginBottom: -SCROLL_BLEED,
         marginLeft: -(SCROLL_BLEED - 3),

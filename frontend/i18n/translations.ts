@@ -103,6 +103,8 @@ const es = {
   'settings.thanks': '¡Gracias por usar nuestro Launcher!',
   'settings.supportBody': 'Si gustas en apoyarnos puedes visitar nuestras redes sociales o unirte a nuestro canal de Patreon. Tu apoyo nos ayuda a seguir mejorando y añadiendo nuevas funcionalidades.',
   'settings.patrons': 'Colaboradores y Patrocinadores',
+  'settings.foregroundOverWidgets': 'Personaje sobre los widgets',
+  'settings.foregroundOverWidgetsDesc': 'Cuando está activado, el personaje 3D aparece sobre los widgets de la página de inicio. Cuando está desactivado, queda detrás de los widgets.',
 
   'settings.updateAvailable': 'Hay una actualización disponible',
   'settings.youHaveTheLatestVersion': 'Tienes la última versión',
@@ -952,7 +954,10 @@ const es = {
   'widgetEdit.storageOthers': 'Otros',
   'widgetEdit.storageHint': 'Puedes liberar espacio para asegurarte de tener todo listo para nuevos juegos, aplicaciones y actualizaciones.',
   'settings.themes': 'Temas',
-  'settings.themesDesc': 'Color de acento y sonidos.',
+  'settings.themesDesc': 'Personaje 3D, color de acento y sonidos.',
+  'settings.visualTheme': 'Tema visual',
+  'settings.visualThemeDesc': 'Fondo detrás del carrusel y personaje 3D encima, como en PS4. El wallpaper personalizado se usa cuando eliges Ninguno.',
+  'settings.visualThemeNone': 'Ninguno',
   'settings.accent': 'Color de acento',
   'settings.accentDesc': 'Se usa en selecciones, focos y botones principales.',
   'settings.defaultBackground': 'Fondo por defecto',
@@ -964,7 +969,7 @@ const es = {
   'settings.soundPackStep1': '1. Crea la carpeta frontend/assets/sounds/mi-pack/ con los 9 .mp3 (background, navigation, activation, openHome, pestaña, back, openControlCenter, salir, notification). Puedes copiar los de assets/sounds/ y sustituir los que quieras.',
   'settings.soundPackStep2': '2. Regístralo en frontend/constants/themes.ts dentro de SOUND_PACKS con files: { background: require(...), navigation: require(...), ... }.',
   'settings.soundPackStep3': '3. Recompila la app: el pack aparece aquí solo.',
-  'settings.audioPacks': 'Packs de DeckThemes',
+  'settings.audioPacks': 'Packs de sonidos',
   'settings.audioPacksDesc': 'Efectos del sistema y música ambiente descargables, igual que los splash videos.',
   'settings.audioTabFx': 'Efectos',
   'settings.audioTabMusic': 'Música',
@@ -987,6 +992,9 @@ const es = {
   'settings.audioNoCompatible': 'El pack no trae ficheros de audio compatibles.',
   'settings.audioPrev': 'Anterior',
   'settings.audioNext': 'Siguiente',
+  'settings.visualThemeActive': 'Tema visual activo',
+  'settings.accentActive': 'Color de acento activo',
+  'settings.soundPackActive': 'Pack de sonidos activo',
 
 
 } as const;
@@ -1084,6 +1092,8 @@ const en: Record<TranslationKey, string> = {
   'settings.thanks': 'Thank you for using our Launcher!',
   'settings.supportBody': 'If you would like to support us, visit our social networks or join our Patreon. Your support helps us keep improving and adding new features.',
   'settings.patrons': 'Contributors and Sponsors',
+  'settings.foregroundOverWidgets': 'Character over widgets',
+  'settings.foregroundOverWidgetsDesc': 'When enabled, the 3D character appears on top of the widgets on the home page. When disabled, it stays behind the widgets.',
 
   'settings.updateAvailable': 'Update available',
   'settings.youHaveTheLatestVersion': 'You have the latest version',
@@ -1927,7 +1937,10 @@ const en: Record<TranslationKey, string> = {
   'widgetEdit.storageOthers': 'Other',
   'widgetEdit.storageHint': 'You can free up space to make sure you have everything ready for new games, apps, and updates.',
   'settings.themes': 'Themes',
-  'settings.themesDesc': 'Accent color and sounds.',
+  'settings.themesDesc': '3D character, accent color and sounds.',
+  'settings.visualTheme': 'Visual theme',
+  'settings.visualThemeDesc': 'Background behind the carousel and a 3D character in front, like PS4. Your wallpaper is used when you pick None.',
+  'settings.visualThemeNone': 'None',
   'settings.accent': 'Accent color',
   'settings.accentDesc': 'Used for selections, focus and primary buttons.',
   'settings.defaultBackground': 'Default background',
@@ -1939,7 +1952,7 @@ const en: Record<TranslationKey, string> = {
   'settings.soundPackStep1': '1. Create frontend/assets/sounds/my-pack/ with the 9 .mp3 files (background, navigation, activation, openHome, tab, back, openControlCenter, exit, notification). You can copy assets/sounds/ and replace what you want.',
   'settings.soundPackStep2': '2. Register it in frontend/constants/themes.ts inside SOUND_PACKS with files: { background: require(...), navigation: require(...), ... }.',
   'settings.soundPackStep3': '3. Rebuild the app: the pack will show up here.',
-  'settings.audioPacks': 'DeckThemes packs',
+  'settings.audioPacks': 'Sound packs',
   'settings.audioPacksDesc': 'Downloadable system effects and ambient music, just like splash videos.',
   'settings.audioTabFx': 'Effects',
   'settings.audioTabMusic': 'Music',
@@ -1962,6 +1975,9 @@ const en: Record<TranslationKey, string> = {
   'settings.audioNoCompatible': 'The pack has no compatible audio files.',
   'settings.audioPrev': 'Previous',
   'settings.audioNext': 'Next',
+  'settings.visualThemeActive': 'Active visual theme',
+  'settings.accentActive': 'Active accent color',
+  'settings.soundPackActive': 'Active sound pack',
 
 };
 
@@ -2056,6 +2072,8 @@ const pt: Record<TranslationKey, string> = {
   'settings.thanks': 'Obrigado por usar o nosso Launcher!',
   'settings.supportBody': 'Se quiser nos apoiar, visite as nossas redes sociais ou junte-se ao nosso Patreon. O seu apoio ajuda-nos a continuar melhorando e adicionando novas funções.',
   'settings.patrons': 'Colaboradores e Patrocinadores',
+  'settings.foregroundOverWidgets': 'Personagem sobre os widgets',
+  'settings.foregroundOverWidgetsDesc': 'Quando ativado, o personagem 3D aparece sobre os widgets na página inicial. Quando desativado, fica atrás dos widgets.',
 
   'settings.updateAvailable': 'Atualização disponível',
   'settings.youHaveTheLatestVersion': 'Você tem a versão mais recente',
@@ -2902,7 +2920,10 @@ const pt: Record<TranslationKey, string> = {
   'widgetEdit.storageOthers': 'Outros',
   'widgetEdit.storageHint': 'Você pode liberar espaço para garantir que tenha tudo pronto para novos jogos, aplicativos e atualizações.',
   'settings.themes': 'Temas',
-  'settings.themesDesc': 'Cor de destaque e sons.',
+  'settings.themesDesc': 'Personagem 3D, cor de destaque e sons.',
+  'settings.visualTheme': 'Tema visual',
+  'settings.visualThemeDesc': 'Fundo atrás do carrossel e personagem 3D à frente, como no PS4. O papel de parede é usado quando escolhes Nenhum.',
+  'settings.visualThemeNone': 'Nenhum',
   'settings.accent': 'Cor de destaque',
   'settings.accentDesc': 'Usada em seleções, foco e botões principais.',
   'settings.defaultBackground': 'Fundo padrão',
@@ -2914,7 +2935,7 @@ const pt: Record<TranslationKey, string> = {
   'settings.soundPackStep1': '1. Crie frontend/assets/sounds/meu-pack/ com os 9 .mp3 (background, navigation, activation, openHome, tab, back, openControlCenter, exit, notification). Pode copiar assets/sounds/ e substituir.',
   'settings.soundPackStep2': '2. Registre em frontend/constants/themes.ts dentro de SOUND_PACKS com files: { background: require(...), navigation: require(...), ... }.',
   'settings.soundPackStep3': '3. Recompile o app: o pacote aparece aqui.',
-  'settings.audioPacks': 'Pacotes DeckThemes',
+  'settings.audioPacks': 'Pacotes de sons',
   'settings.audioPacksDesc': 'Efeitos do sistema e música ambiente para baixar, como os splash videos.',
   'settings.audioTabFx': 'Efeitos',
   'settings.audioTabMusic': 'Música',
@@ -2937,6 +2958,9 @@ const pt: Record<TranslationKey, string> = {
   'settings.audioNoCompatible': 'O pacote não tem arquivos de áudio compatíveis.',
   'settings.audioPrev': 'Anterior',
   'settings.audioNext': 'Próximo',
+  'settings.visualThemeActive': 'Tema visual ativo',
+  'settings.accentActive': 'Cor de acento ativa',
+  'settings.soundPackActive': 'Pacote de sons ativo',
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {

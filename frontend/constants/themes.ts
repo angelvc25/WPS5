@@ -3,10 +3,11 @@
  * - Colores de acento (anillos de foco, botones principales, resaltados)
  * - Packs de sonido intercambiables (volúmenes + overrides de ficheros)
  *
- * El wallpaper lo gestiona el usuario (BackgroundPickerModal / home_background),
- * por eso los temas ya no incluyen fondos.
+ * El wallpaper lo gestiona el usuario (BackgroundPickerModal / home_background)
+ * salvo cuando hay un tema visual con personaje: entonces el fondo del tema
+ * sustituye al wallpaper y el PNG del personaje se pinta encima del carrusel.
  *
- * Persistencia: `UserSettings.theme = { accentId, soundPackId }`
+ * Persistencia: `UserSettings.theme = { accentId, soundPackId, visualThemeId }`
  * ver `components/UserSelectScreen.tsx`.
  */
 
@@ -22,7 +23,8 @@ export interface AccentTheme {
 }
 
 export const ACCENTS: AccentTheme[] = [
-  { id: 'ps-white', label: 'PS5', color: 'rgba(180, 210, 255, 0.88)', glow: 'rgba(223, 248, 182, 0.95)', soft: 'rgba(175, 22, 22, 0.14)' },
+  { id: 'ps-white', label: 'PS5', color: 'rgba(180, 210, 255, 0.88)', glow: 'rgba(223, 248, 182, 0.95)', soft: 'rgba(170, 170, 170, 0.14)' },
+  { id: 'ps-black', label: 'PS5 Black', color: 'rgba(20, 20, 20, 0.88)', glow: 'rgba(48, 48, 48, 0.95)', soft: 'rgba(20, 20, 20, 0.5)' },
   { id: 'ps-blue', label: 'PlayStation Blue', color: '#0070D1', glow: 'rgba(0,112,209,0.45)', soft: 'rgba(0,112,209,0.14)' },
   { id: 'cyan', label: 'Cyan', color: '#00D4FF', glow: 'rgba(0,212,255,0.45)', soft: 'rgba(0,212,255,0.14)' },
   { id: 'green', label: 'Green', color: '#4CD964', glow: 'rgba(76,217,100,0.45)', soft: 'rgba(76,217,100,0.14)' },
@@ -33,7 +35,7 @@ export const ACCENTS: AccentTheme[] = [
   { id: 'pink', label: 'Pink', color: '#FF2D92', glow: 'rgba(255,45,146,0.45)', soft: 'rgba(255,45,146,0.14)' },
 ];
 
-export const DEFAULT_ACCENT_ID = 'ps-blue';
+export const DEFAULT_ACCENT_ID = 'ps-white';
 
 export function getAccent(id?: string | null): AccentTheme {
   return ACCENTS.find((a) => a.id === id) ?? ACCENTS[0];
@@ -90,9 +92,197 @@ export function getSoundPack(id?: string | null): SoundPack {
   return SOUND_PACKS.find((p) => p.id === id) ?? SOUND_PACKS[0];
 }
 
+export interface VisualTheme {
+  id: string;
+  label: string;
+  /** Fondo a pantalla completa (detrás del carrusel). */
+  background: any;
+  /** Personaje recortado, alineado con el fondo (encima del carrusel). */
+  foreground: any;
+}
+
+export const VISUAL_THEMES: VisualTheme[] = [
+  {
+    id: 'background astrobot',
+    label: "Astro Bot",
+    background: require('@/assets/temas/background astrobot.jpg'),
+    foreground: require('@/assets/temas/foreground astrobot.png'),
+  },
+  {
+    id: 'background wolverine',
+    label: "Marvel's Wolverine",
+    background: require('@/assets/temas/background wolverine.jpg'),
+    foreground: require('@/assets/temas/foreground wolverine.png'),
+  },
+  {
+    id: 'background fc27',//
+    label: "FC 27",
+    background: require('@/assets/temas/background fc27.jpg'),
+    foreground: require('@/assets/temas/foreground fc27.png'),
+  },
+  {
+    id: 'background spiderman',
+    label: "Marvel's Spider-Man alternative",
+    background: require('@/assets/temas/background spiderman.jpg'),
+    foreground: require('@/assets/temas/foreground spiderman.png'),
+  },
+  {
+    id: 'Grand Theft Auto VI',
+    label: 'Grand Theft Auto VI',
+    background: require('@/assets/temas/background gta6.jpg'),
+    foreground: require('@/assets/temas/foreground gta6.png'),
+  },
+  {
+    id: 'Lucia',
+    label: 'Grand Theft Auto VI - Lucia',
+    background: require('@/assets/temas/background lucia.jpg'),
+    foreground: require('@/assets/temas/foreground lucia.png'),
+  },
+  {
+    id: 'Lucia alternative',
+    label: 'Grand Theft Auto VI - Lucia alternative',
+    background: require('@/assets/temas/background lucia2.jpg'),
+    foreground: require('@/assets/temas/foreground lucia2.png'),
+  },
+  {
+    id: 'background jason',
+    label: 'Grand Theft Auto VI - Jason',
+    background: require('@/assets/temas/background jason.jpg'),
+    foreground: require('@/assets/temas/foreground jason.png'),
+  },
+  {
+    id: 'background jason2',
+    label: 'Grand Theft Auto VI - Jason alternative',
+    background: require('@/assets/temas/background jason2.jpg'),
+    foreground: require('@/assets/temas/foreground jason2.png'),
+  },
+  {
+    id: 'background 007',
+    label: '007: First Light',
+    background: require('@/assets/temas/background 007 first light.jpg'),
+    foreground: require('@/assets/temas/foreground 007 first light.png'),
+  },
+  {
+    id: 'ellie',
+    label: 'Ellie',
+    background: require('@/assets/temas/background ellie.jpg'),
+    foreground: require('@/assets/temas/foreground ellie.png'),
+  },
+  {
+    id: 'background god of war',
+    label: 'God of War Ragnarok',
+    background: require('@/assets/temas/background god of war.jpeg'),
+    foreground: require('@/assets/temas/foreground god of war.png'),
+  }, {
+    id: 'background laufey',
+    label: 'God of War: Laufey',
+    background: require('@/assets/temas/background laufey.jpg'),
+    foreground: require('@/assets/temas/foreground laufey.png'),
+  },
+  {
+    id: 'background forza horizon 6',
+    label: 'Forza Horizon 6',
+    background: require('@/assets/temas/background forza horizon 6.jpg'),
+    foreground: require('@/assets/temas/foreground forza horizon 6.png'),
+  },
+  {
+    id: 'background forza horizon 6 alternative',
+    label: 'Forza Horizon 6 alternative',
+    background: require('@/assets/temas/background nissan sports.jpg'),
+    foreground: require('@/assets/temas/foreground nissan sports.png'),
+  },
+  {
+    id: 'background marvelspiderman2',
+    label: "Marvel's Spider-Man 2",
+    background: require('@/assets/temas/background marvelspiderman2.jpg'),
+    foreground: require('@/assets/temas/foreground marvelspiderman2.png'),
+  },
+  {
+    id: 'background halo',
+    label: "Halo",
+    background: require('@/assets/temas/background halo.jpg'),
+    foreground: require('@/assets/temas/foreground halo.png'),
+  },
+  {
+    id: 'background grace',
+    label: 'Resident Evil Requiem - Grace',
+    background: require('@/assets/temas/background grace.jpg'),
+    foreground: require('@/assets/temas/foreground grace.png'),
+  },
+  {
+    id: 'background leonre9',
+    label: 'Resident Evil Requiem - Leon',
+    background: require('@/assets/temas/background leon re9.png'),
+    foreground: require('@/assets/temas/foreground leon re9.png'),
+  },
+  {
+    id: 'background residenteviljill',
+    label: 'Resident Evil 3 Remake - Jill alternative',
+    background: require('@/assets/temas/background residenteviljill.jpg'),
+    foreground: require('@/assets/temas/foreground residenteviljill.png'),
+  },
+  {
+    id: 'background control resonant',
+    label: 'Control Resonant',
+    background: require('@/assets/temas/background control resonant.jpg'),
+    foreground: require('@/assets/temas/foreground control resonant.png'),
+  },
+  {
+    id: 'background control resonant alternative',
+    label: 'Control Resonant alternative',
+    background: require('@/assets/temas/background control resonant2.jpg'),
+    foreground: require('@/assets/temas/foreground control resonant2.png'),
+  },
+  {
+    id: 'background pragmata',
+    label: 'Pragmata',
+    background: require('@/assets/temas/background pragmata.jpg'),
+    foreground: require('@/assets/temas/foreground pragmata.png'),
+  },
+  {
+    id: 'background stellar blade',
+    label: 'Stellar Blade',
+    background: require('@/assets/temas/background stellar blade.jpg'),
+    foreground: require('@/assets/temas/foreground stellar blade.png'),
+  },
+  {
+    id: 'background cyberpunk 2077',
+    label: 'Cyberpunk 2077',
+    background: require('@/assets/temas/background cyberpunk 2077.jpg'),
+    foreground: require('@/assets/temas/foreground cyberpunk 2077.png'),
+  },
+  {
+    id: 'background cyberpunk 2077 alternative',
+    label: 'Cyberpunk 2077 alternative',
+    background: require('@/assets/temas/background cyberpunk 2077 alternative.jpg'),
+    foreground: require('@/assets/temas/foreground cyberpunk 2077 alternative.png'),
+  },
+  {
+    id: 'background modern warfare 4',
+    label: 'Modern Warfare 4',
+    background: require('@/assets/temas/background modern warfare 4.jpg'),
+    foreground: require('@/assets/temas/foreground modern warfare 4.png'),
+  },
+  {
+    id: 'camellya',
+    label: 'Camellya',
+    background: require('@/assets/temas/background camellya.jpg'),
+    foreground: require('@/assets/temas/foregroud camellya.png'),
+  },
+];
+
+export const DEFAULT_VISUAL_THEME_ID = 'none';
+
+export function getVisualTheme(id?: string | null): VisualTheme | null {
+  if (!id || id === DEFAULT_VISUAL_THEME_ID) return null;
+  return VISUAL_THEMES.find((t) => t.id === id) ?? null;
+}
+
 export interface UserThemeSettings {
   accentId?: string;
   soundPackId?: string;
-  /** @deprecated los temas ya no gestionan fondos (el wallpaper es del usuario). Se ignora si existe en perfiles viejos. */
+  /** Tema visual con fondo + personaje 3D. `none` = wallpaper del usuario. */
+  visualThemeId?: string;
+  /** @deprecated los temas ya no gestionan fondos sueltos. Se ignora si existe en perfiles viejos. */
   backgroundId?: string;
 }

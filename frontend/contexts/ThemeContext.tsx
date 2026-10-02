@@ -3,11 +3,15 @@ import {
   ACCENTS,
   DEFAULT_ACCENT_ID,
   DEFAULT_SOUND_PACK_ID,
+  DEFAULT_VISUAL_THEME_ID,
   getAccent,
   getSoundPack,
+  getVisualTheme,
+  VISUAL_THEMES,
   type AccentTheme,
   type SoundPack,
   type SoundName,
+  type VisualTheme,
 } from '@/constants/themes';
 import { useUser } from './UserContext';
 import { soundService, type SoundSource } from '@/services/soundService';
@@ -22,6 +26,10 @@ interface ThemeContextValue {
   accentId: string;
   soundPack: SoundPack;
   soundPackId: string;
+  visualTheme: VisualTheme | null;
+  visualThemeId: string;
+  /** Si el personaje (foreground) se dibuja por encima de los widgets de la tarjeta de bienvenida. */
+  foregroundOverWidgets: boolean;
   /** Pack de efectos aplicado (bundled-* o instalado), o null = original. */
   audioPackId: string | null;
   audioPackName: string | null;
@@ -30,6 +38,8 @@ interface ThemeContextValue {
   musicPackName: string | null;
   setAccent: (id: string) => void;
   setSoundPack: (id: string) => void;
+  setVisualTheme: (id: string) => void;
+  setForegroundOverWidgets: (value: boolean) => void;
   setAudioPack: (id: string | null) => void;
   setMusicPack: (id: string | null) => void;
 }
@@ -39,14 +49,19 @@ const ThemeContext = createContext<ThemeContextValue>({
   accentId: DEFAULT_ACCENT_ID,
   soundPack: getSoundPack(DEFAULT_SOUND_PACK_ID),
   soundPackId: DEFAULT_SOUND_PACK_ID,
+  visualTheme: null,
+  visualThemeId: DEFAULT_VISUAL_THEME_ID,
+  foregroundOverWidgets: true,
   audioPackId: null,
   audioPackName: null,
   musicPackId: null,
   musicPackName: null,
-  setAccent: () => {},
-  setSoundPack: () => {},
-  setAudioPack: () => {},
-  setMusicPack: () => {},
+  setAccent: () => { },
+  setSoundPack: () => { },
+  setVisualTheme: () => { },
+  setForegroundOverWidgets: () => { },
+  setAudioPack: () => { },
+  setMusicPack: () => { },
 });
 
 /** Expone el acento como variables CSS para que los anillos de foco (web) lo usen sin re-render. */
@@ -63,6 +78,8 @@ function applyAccentCssVars(accent: AccentTheme) {
 interface ThemeIds {
   accentId: string;
   soundPackId: string;
+  visualThemeId: string;
+  foregroundOverWidgets: boolean;
   audioPackId: string | null;
   musicPackId: string | null;
 }
@@ -90,6 +107,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const themeSettings = (activeUser?.settings as any)?.theme ?? {};
   const accentId = themeSettings.accentId ?? DEFAULT_ACCENT_ID;
   const soundPackId = themeSettings.soundPackId ?? DEFAULT_SOUND_PACK_ID;
+  const visualThemeId = themeSettings.visualThemeId ?? DEFAULT_VISUAL_THEME_ID;
+  const foregroundOverWidgets: boolean = themeSettings.foregroundOverWidgets ?? true;
   const audioPackId: string | null = themeSettings.audioPackId ?? null;
   const musicPackId: string | null = themeSettings.musicPackId ?? null;
 
@@ -105,6 +124,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setLocalFallback({
           accentId: parsed.accentId ?? DEFAULT_ACCENT_ID,
           soundPackId: parsed.soundPackId ?? DEFAULT_SOUND_PACK_ID,
+          visualThemeId: parsed.visualThemeId ?? DEFAULT_VISUAL_THEME_ID,
+          foregroundOverWidgets: parsed.foregroundOverWidgets ?? true,
           audioPackId: parsed.audioPackId ?? null,
           musicPackId: parsed.musicPackId ?? null,
         });
@@ -114,11 +135,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const effective: ThemeIds = useMemo(() => (
     activeUser
-      ? { accentId, soundPackId, audioPackId, musicPackId }
-      : (localFallback ?? { accentId: DEFAULT_ACCENT_ID, soundPackId: DEFAULT_SOUND_PACK_ID, audioPackId: null, musicPackId: null })
+      ? { accentId, soundPackId, visualThemeId, foregroundOverWidgets, audioPackId, musicPackId }
+      : (localFallback ?? {
+        accentId: DEFAULT_ACCENT_ID,
+        soundPackId: DEFAULT_SOUND_PACK_ID,
+        visualThemeId: DEFAULT_VISUAL_THEME_ID,
+        foregroundOverWidgets: true,
+        audioPackId: null,
+        musicPackId: null,
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [activeUser, accentId, soundPackId, audioPackId, musicPackId, localFallback]);
+  ), [activeUser, accentId, soundPackId, visualThemeId, foregroundOverWidgets, audioPackId, musicPackId, localFallback]);
   const accent = getAccent(effective.accentId);
+  const visualTheme = getVisualTheme(effective.visualThemeId);
 
   // El acento cambia: anillos de foco, botones principales y resaltados (vía CSS vars en web).
   useEffect(() => {
@@ -133,7 +162,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       baseId: effective.soundPackId,
       audio: audioResolved.sources,
       music: musicResolved.sources.background !== undefined ? musicResolved.sources.background : undefined,
-    }).catch(() => {});
+    }).catch(() => { });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effective.soundPackId, effective.audioPackId, effective.musicPackId]);
 
@@ -145,6 +174,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           theme: {
             accentId: effective.accentId,
             soundPackId: effective.soundPackId,
+            visualThemeId: effective.visualThemeId,
+            foregroundOverWidgets: effective.foregroundOverWidgets,
             audioPackId: effective.audioPackId,
             musicPackId: effective.musicPackId,
             ...partial,
@@ -158,7 +189,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         if (typeof localStorage !== 'undefined') localStorage.setItem('wps5_global_theme', JSON.stringify(next));
       } catch { /* noop */ }
     }
-    soundService.playActivation?.().catch(() => {});
+    soundService.playActivation?.().catch(() => { });
   }, [activeUser, effective, updateUser]);
 
   const value = useMemo<ThemeContextValue>(() => ({
@@ -166,6 +197,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     accentId: effective.accentId,
     soundPack: getSoundPack(effective.soundPackId),
     soundPackId: effective.soundPackId,
+    visualTheme,
+    visualThemeId: effective.visualThemeId,
+    foregroundOverWidgets: effective.foregroundOverWidgets,
     audioPackId: effective.audioPackId,
     audioPackName: audioResolved.name,
     musicPackId: effective.musicPackId,
@@ -174,9 +208,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       if (ACCENTS.some((a) => a.id === id)) persist({ accentId: id });
     },
     setSoundPack: (id: string) => persist({ soundPackId: id }),
+    setVisualTheme: (id: string) => {
+      if (id === DEFAULT_VISUAL_THEME_ID || VISUAL_THEMES.some((t) => t.id === id)) persist({ visualThemeId: id });
+    },
+    setForegroundOverWidgets: (value: boolean) => persist({ foregroundOverWidgets: value }),
     setAudioPack: (id: string | null) => persist({ audioPackId: id }),
     setMusicPack: (id: string | null) => persist({ musicPackId: id }),
-  }), [accent, effective, audioResolved.name, musicResolved.name, persist]);
+  }), [accent, visualTheme, effective, audioResolved.name, musicResolved.name, persist]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

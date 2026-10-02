@@ -6,6 +6,7 @@ import RandomSelectorView from '@/components/RandomSelectorView';
 import SpinningBorderTabs from '@/components/SpinningBorderTabs';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import { useUser } from '@/contexts/UserContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { fetchEpicInstalledGames } from '@/services/epicInstallService';
 import { buildEpicRunUrl } from '@/services/epicLaunchService';
 import { fetchGamingNews } from '@/services/newsService';
@@ -41,6 +42,7 @@ import AddAppModal from '@/components/AddAppModal';
 import AvatarPickerModal from '@/components/AvatarPickerModal';
 import BackgroundPickerModal from '@/components/BackgroundPickerModal';
 import ConsoleCarousel from '@/components/ConsoleCarousel';
+import ThemeCharacterOverlay from '@/components/ThemeCharacterOverlay';
 import GameInfoPanel from '@/components/GameInfoPanel';
 import SearchView from '@/components/SearchView';
 import { OnlineUserFullProfile } from '@/components/OnlineUserFullProfile';
@@ -314,6 +316,10 @@ HomeLightboxImage.displayName = 'HomeLightboxImage';
 
 export default function ConsoleHome() {
   const { activeUser, changeUser, updateUser } = useUser();
+  const { visualTheme, setVisualTheme, foregroundOverWidgets } = useTheme();
+  // Zona del carrusel (borde inferior en px de pantalla): sirve para recortar el personaje cuando no debe cubrir los widgets.
+  const carouselSectionRef = useRef<any>(null);
+  const [carouselClipBottom, setCarouselClipBottom] = useState<number | null>(null);
   const { t, language, setLanguage } = useTranslation();
   const changeLanguage = (lang: Language) => {
     setLanguage(lang);
@@ -3662,6 +3668,7 @@ export default function ConsoleHome() {
   };
 
   const handleApplyHomeBg = (uri: string) => {
+    setVisualTheme('none');
     setHomeBackground({ uri });
     localStorage.setItem('home_background', uri);
     if (slideshowAlbumName) {
@@ -3797,21 +3804,63 @@ export default function ConsoleHome() {
     return focused?.backgroundImage || storeOffers[0]?.backgroundImage || null;
   }, [gamePanelFocusIndex, currentData, activeIndex, storeOffers]);
 
-  const currentBg = (currentRenderedTab === 'Games' && activeIndex === 1)
-    ? (homeBackground || require('@/assets/images/FondoDefault2.jpg'))
-    : (currentData[activeIndex]?.id === '5' && storeFocusedBackground
-      ? storeFocusedBackground
-      : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg'))));
+  const currentBg = visualTheme?.background && currentRenderedTab === 'Games' && currentData[activeIndex]?.id !== '5'
+    ? visualTheme.background
+    : ((currentRenderedTab === 'Games' && activeIndex === 1)
+      ? (homeBackground || require('@/assets/images/FondoDefault2.jpg'))
+      : (currentData[activeIndex]?.id === '5' && storeFocusedBackground
+        ? storeFocusedBackground
+        : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg')))));
   const currentBackgroundVideo =
-    currentRenderedTab === 'Games' && activeIndex === 0
-      ? currentData[activeIndex]?.backgroundVideo
-      : null;
+    visualTheme
+      ? null
+      : (currentRenderedTab === 'Games' && activeIndex === 0
+        ? currentData[activeIndex]?.backgroundVideo
+        : null);
 
   const prevActiveIndexRef = useRef(activeIndex);
   const wipeDirection = useSharedValue<1 | -1>(1);
 
   const isWelcomeCard = currentRenderedTab === 'Games' && currentData[activeIndex]?.id === '1';
-  const slideshowActive = slideshowImages.length > 0 && (isWelcomeCard || isPresentationMode);
+  const slideshowActive = !visualTheme && slideshowImages.length > 0 && (isWelcomeCard || isPresentationMode);
+
+  // "Sobre los widgets" desactivado: en la tarjeta de bienvenida el personaje se recorta a la zona del carrusel.
+  const clipForegroundToCarousel = !foregroundOverWidgets && isWelcomeCard;
+
+  // Mide dónde empieza el carrusel en pantalla. Se hace en reposo (sin transform/colapso de por medio).
+  useEffect(() => {
+    if (!clipForegroundToCarousel || !visualTheme?.foreground) return;
+    if (focusArea === 'game_panel' || focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar') return;
+    const timer = setTimeout(() => {
+      const node = carouselSectionRef.current;
+      if (!node) return;
+      const apply = (top: number) => {
+        if (Number.isFinite(top)) setCarouselClipBottom(Math.round(top + CARD_SIZE + 80));
+      };
+      if (Platform.OS === 'web' && typeof node.getBoundingClientRect === 'function') {
+        apply(node.getBoundingClientRect().top);
+      } else if (typeof node.measureInWindow === 'function') {
+        node.measureInWindow((_x: number, y: number) => apply(y));
+      }
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [clipForegroundToCarousel, visualTheme?.foreground, focusArea, activeIndex, windowWidth, windowHeight, CARD_SIZE]);
+
+  const showThemeForeground =
+    !!visualTheme?.foreground &&
+    currentRenderedTab === 'Games' &&
+    currentData[activeIndex]?.id !== '5' &&
+    !isSettingsVisible &&
+    !isLibraryFocused &&
+    !isPresentationMode &&
+    !isLaunching &&
+    !isSearchVisible &&
+    !isDetailVisible &&
+    !slideshowActive &&
+    // Al bajar a las secciones inferiores del GameInfoPanel (trofeos, capturas, noticias) el personaje se oculta.
+    focusArea !== 'game_panel' &&
+    focusArea !== 'welcome_widgets' &&
+    focusArea !== 'welcome_toolbar';
 
   useEffect(() => {
     if (activeIndex !== prevActiveIndexRef.current) {
@@ -4119,8 +4168,8 @@ export default function ConsoleHome() {
       )}
 
       {/* === GRADIENT OVERLAY (PS5 style: dark on left, transparent on right) === */}
-      <View style={styles.gradientOverlay} pointerEvents="none" />
-      <View style={styles.gradientOverlayTop} pointerEvents="none" />
+      <View style={[styles.gradientOverlay, visualTheme && { opacity: 0.28 }]} pointerEvents="none" />
+      <View style={[styles.gradientOverlayTop, visualTheme && { opacity: 0.45 }]} pointerEvents="none" />
 
       {/* === BOTTOM-TO-TOP GRADIENT — visible when welcome_widgets is focused === */}
       {Platform.OS === 'web' && (
@@ -4402,7 +4451,7 @@ export default function ConsoleHome() {
         scrollEventThrottle={16}
       >
         {/* CAROUSEL ROW */}
-        <Animated.View style={[styles.carouselSection, carouselStyle, presentationCarouselStyle]}>
+        <Animated.View ref={carouselSectionRef} style={[styles.carouselSection, carouselStyle, presentationCarouselStyle]}>
           <ConsoleCarousel
             currentData={currentData}
             downloadsByAppId={downloadsByAppId}
@@ -4539,6 +4588,12 @@ export default function ConsoleHome() {
           )
         )}
       </Animated.ScrollView>
+
+      <ThemeCharacterOverlay
+        theme={visualTheme}
+        visible={showThemeForeground}
+        clipBottom={clipForegroundToCarousel ? (carouselClipBottom ?? CARD_SIZE + 80 + Math.round(windowHeight * 0.12)) : null}
+      />
 
       {/* WPS5 UI EXPANSION COMPONENTS */}
       <GameDetailView

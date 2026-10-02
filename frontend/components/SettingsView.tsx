@@ -820,8 +820,8 @@ export default function SettingsView({
         return;
       }
 
-      // El perfil (UserProfileView) gestiona su propio teclado en captura.
-      if (currentScreen === 'users_and_accounts') return;
+      // El perfil (UserProfileView) y los temas (ThemeSettingsView, incluido el botón Atrás) gestionan su propio teclado.
+      if (currentScreen === 'users_and_accounts' || currentScreen === 'themes') return;
 
       if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
         if (!isInput) {
@@ -1060,16 +1060,6 @@ export default function SettingsView({
             activateSystemRightItem();
             soundService.playActivation?.();
           }
-        }
-      } else if (currentScreen === 'themes') {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          setSubFocusIndex((prev) => Math.min(prev + 1, 1));
-          soundService.playNavigation();
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          setSubFocusIndex((prev) => Math.max(prev - 1, 0));
-          soundService.playNavigation();
         }
       } else {
         // Other sub-screens
@@ -2892,13 +2882,12 @@ export default function SettingsView({
         {currentScreen === 'system' && renderSystemScreen()}
         {currentScreen === 'themes' && (
           <View style={styles.contentWrapper}>
-            <View style={styles.subScreenHeader}>
-              <TouchableOpacity style={styles.backButtonInline} onPress={handleBack}>
-                <Ionicons name="arrow-back" size={s(24)} color="#FFF" />
-              </TouchableOpacity>
-              <Text style={styles.subScreenHeaderTitle}>{t('settings.themes')}</Text>
-            </View>
-            <ThemeSettingsView focused={true} subFocusIndex={subFocusIndex} />
+            {/* ThemeSettingsView dibuja su propio encabezado y gestiona su navegación (menú → lista/preview, acento, audio). */}
+            <ThemeSettingsView
+              focused={true}
+              onExit={handleBack}
+              bleed={{ top: s(56), horizontal: s(72), bottom: s(60) }}
+            />
           </View>
         )}
       </View>
