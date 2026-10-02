@@ -387,7 +387,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
         overflow: 'visible',
         position: 'relative',
         justifyContent: 'center',
-        backgroundColor: '#0d1015',
+        backgroundColor: 'var(--wps-accent-widgets, #0d1015)',
         // Animación suave al ampliar / reducir (los 3 tamaños). El alto real llega inline desde cardSizeStyle.
         ...(Platform.OS === 'web'
           ? {
@@ -406,7 +406,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
         overflow: 'hidden',
         position: 'relative',
         justifyContent: 'center',
-        backgroundColor: '#0d1015',
+        backgroundColor: 'var(--wps-accent-widgets, #0d1015)',
         marginBottom: s(50),
         maxWidth: sW(370),
       } as any,
@@ -647,7 +647,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                   zIndex: 0,
                 }}
               />
-              <div style={{ position: 'absolute', inset: Math.max(3, Math.round(4 * k)), borderRadius: '50%', background: '#0d1015', zIndex: 1 }} />
+              <div style={{ position: 'absolute', inset: Math.max(3, Math.round(4 * k)), borderRadius: '50%', background: 'var(--wps-accent-widgets, #0d1015)', zIndex: 1 }} />
             </>
           ) : (
             <View
@@ -657,7 +657,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                 borderRadius: diam / 2,
                 borderWidth: 3,
                 borderColor: 'rgba(255,255,255,0.12)',
-                backgroundColor: '#0d1015',
+                backgroundColor: 'var(--wps-accent-widgets, #0d1015)',
               }}
             />
           )}
@@ -1234,7 +1234,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                             position: 'absolute',
                             inset: vs(4),
                             borderRadius: '50%',
-                            background: '#0d1015',
+                            background: 'var(--wps-accent-widgets, #0d1015)',
                             zIndex: 1,
                           }}
                         />
@@ -1789,7 +1789,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           position: 'absolute',
                           inset: 7,
                           borderRadius: 12,
-                          background: '#0d1015',
+                          background: 'var(--wps-accent-widgets, #0d1015)',
                         }}
                       />
                     </div>
@@ -1984,7 +1984,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           position: 'absolute',
                           inset: 7,
                           borderRadius: 12,
-                          background: '#0d1015',
+                          background: 'var(--wps-accent-widgets, #0d1015)',
                         }}
                       />
                     </div>
@@ -2170,7 +2170,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           position: 'absolute',
                           inset: 7,
                           borderRadius: 12,
-                          background: '#0d1015',
+                          background: 'var(--wps-accent-widgets, #0d1015)',
                         }}
                       />
                     </div>
@@ -2369,7 +2369,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           position: 'absolute',
                           inset: 7,
                           borderRadius: 12,
-                          background: '#0d1015',
+                          background: 'var(--wps-accent-widgets, #0d1015)',
                         }}
                       />
                     </div>
@@ -2613,7 +2613,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           position: 'absolute',
                           inset: 7,
                           borderRadius: 12,
-                          background: '#0d1015',
+                          background: 'var(--wps-accent-widgets, #0d1015)',
                         }}
                       />
                     </div>
@@ -2828,7 +2828,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           position: 'absolute',
                           inset: 7,
                           borderRadius: 12,
-                          background: '#0d1015',
+                          background: 'var(--wps-accent-widgets, #0d1015)',
                         }}
                       />
                     </div>
@@ -3010,7 +3010,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                           position: 'absolute',
                           inset: 7,
                           borderRadius: 12,
-                          background: '#0d1015',
+                          background: 'var(--wps-accent-widgets, #0d1015)',
                         }}
                       />
                     </div>

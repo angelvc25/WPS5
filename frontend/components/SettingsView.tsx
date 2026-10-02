@@ -2446,7 +2446,7 @@ export default function SettingsView({
                 <Text style={styles.rightSectionTitle}>{t('settings.systemSoftware')}</Text>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoRowLabel}>WPS5 Console OS</Text>
-                  <Text style={styles.infoRowValue}>Version 1.1.4 (Build 2026.9)</Text>
+                  <Text style={styles.infoRowValue}>Version 1.1.5 (Build 2026.9)</Text>
                 </View>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoRowLabel}>Environment</Text>
@@ -2477,7 +2477,7 @@ export default function SettingsView({
                         const latest = data[0];
                         console.log(latest.version, latest.tipe, latest.link);
                         console.log(data);
-                        const currentVersion = '1.1.4';
+                        const currentVersion = '1.1.5';
                         const comparison = compareVersions(latest.version, currentVersion);
                         if (comparison > 0) {
                           toastService.show(`${t('settings.updateAvailable')}\n${latest.version}`, {

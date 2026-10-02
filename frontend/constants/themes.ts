@@ -20,19 +20,20 @@ export interface AccentTheme {
   glow: string;
   /** Versión suave para fondos / badges */
   soft: string;
+  widgets: string;
 }
 
 export const ACCENTS: AccentTheme[] = [
-  { id: 'ps-white', label: 'PS5', color: 'rgba(180, 210, 255, 0.88)', glow: 'rgba(223, 248, 182, 0.95)', soft: 'rgba(170, 170, 170, 0.14)' },
-  { id: 'ps-black', label: 'PS5 Black', color: 'rgba(20, 20, 20, 0.88)', glow: 'rgba(48, 48, 48, 0.95)', soft: 'rgba(20, 20, 20, 0.5)' },
-  { id: 'ps-blue', label: 'PlayStation Blue', color: '#0070D1', glow: 'rgba(0,112,209,0.45)', soft: 'rgba(0,112,209,0.14)' },
-  { id: 'cyan', label: 'Cyan', color: '#00D4FF', glow: 'rgba(0,212,255,0.45)', soft: 'rgba(0,212,255,0.14)' },
-  { id: 'green', label: 'Green', color: '#4CD964', glow: 'rgba(76,217,100,0.45)', soft: 'rgba(76,217,100,0.14)' },
-  { id: 'gold', label: 'Gold', color: '#d9ff00ff', glow: 'rgba(255, 204, 0, 0.45)', soft: 'rgba(255,204,0,0.14)' },
-  { id: 'orange', label: 'Orange', color: '#FF9500', glow: 'rgba(255,149,0,0.45)', soft: 'rgba(255,149,0,0.14)' },
-  { id: 'red', label: 'Red', color: '#fd0d00ff', glow: 'rgba(255,59,48,0.45)', soft: 'rgba(255,59,48,0.14)' },
-  { id: 'purple', label: 'Purple', color: '#AF52DE', glow: 'rgba(175,82,222,0.45)', soft: 'rgba(175,82,222,0.14)' },
-  { id: 'pink', label: 'Pink', color: '#FF2D92', glow: 'rgba(255,45,146,0.45)', soft: 'rgba(255,45,146,0.14)' },
+  { id: 'ps-white', label: 'PS5', color: 'rgba(180, 210, 255, 0.88)', glow: 'rgba(223, 248, 182, 0.95)', soft: 'rgba(170, 170, 170, 0.14)', widgets: '#0d1015', },
+  { id: 'ps-black', label: 'PS5 Black', color: 'rgba(19, 22, 27, 0.88)', glow: 'rgba(223, 248, 182, 0.95)', soft: 'rgba(20, 20, 20, 0.5)', widgets: 'rgba(0, 0, 0, 1)', },
+  { id: 'ps-blue', label: 'PlayStation Blue', color: '#0070D1', glow: 'rgba(0,112,209,0.45)', soft: 'rgba(0,112,209,0.14)', widgets: 'rgba(0, 1, 59, 0.94)', },
+  { id: 'cyan', label: 'Cyan', color: '#00D4FF', glow: 'rgba(0,212,255,0.45)', soft: 'rgba(0,212,255,0.14)', widgets: '#003a46e7', },
+  { id: 'green', label: 'Green', color: '#4CD964', glow: 'rgba(76,217,100,0.45)', soft: 'rgba(76,217,100,0.14)', widgets: '#09240cef', },
+  { id: 'gold', label: 'Gold', color: '#d9ff00ff', glow: 'rgba(255, 204, 0, 0.45)', soft: 'rgba(255,204,0,0.14)', widgets: 'rgba(141, 139, 0, 0.76)', },
+  { id: 'orange', label: 'Orange', color: '#FF9500', glow: 'rgba(255,149,0,0.45)', soft: 'rgba(255,149,0,0.14)', widgets: 'rgba(175, 114, 0, 0.87)', },
+  { id: 'red', label: 'Red', color: '#fd0d00ff', glow: 'rgba(255,59,48,0.45)', soft: 'rgba(255,59,48,0.14)', widgets: 'rgba(53, 4, 4, 0.93)', },
+  { id: 'purple', label: 'Purple', color: '#AF52DE', glow: 'rgba(175,82,222,0.45)', soft: 'rgba(175,82,222,0.14)', widgets: '#14051def', },
+  { id: 'pink', label: 'Pink', color: '#FF2D92', glow: 'rgba(255,45,146,0.45)', soft: 'rgba(255,45,146,0.14)', widgets: '#36041cef', },
 ];
 
 export const DEFAULT_ACCENT_ID = 'ps-white';
@@ -262,6 +263,12 @@ export const VISUAL_THEMES: VisualTheme[] = [
     label: 'Modern Warfare 4',
     background: require('@/assets/temas/background modern warfare 4.jpg'),
     foreground: require('@/assets/temas/foreground modern warfare 4.png'),
+  },
+  {
+    id: 'background gta v',
+    label: 'Grand Theft Auto V',
+    background: require('@/assets/temas/background gta v.jpg'),
+    foreground: require('@/assets/temas/foreground gta v.png'),
   },
   {
     id: 'camellya',

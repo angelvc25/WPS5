@@ -72,6 +72,7 @@ function applyAccentCssVars(accent: AccentTheme) {
     root.style.setProperty('--wps-accent', accent.color);
     root.style.setProperty('--wps-accent-glow', accent.glow);
     root.style.setProperty('--wps-accent-soft', accent.soft);
+    root.style.setProperty('--wps-accent-widgets', accent.widgets);
   } catch { /* noop */ }
 }
 
