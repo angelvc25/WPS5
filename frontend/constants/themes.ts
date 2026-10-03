@@ -276,6 +276,99 @@ export const VISUAL_THEMES: VisualTheme[] = [
     background: require('@/assets/temas/background camellya.jpg'),
     foreground: require('@/assets/temas/foregroud camellya.png'),
   },
+  {
+    id: 'background xenoverse 2',
+    label: 'Dragon Ball Xenoverse 2',
+    background: require('@/assets/temas/background xenoverse 2.png'),
+    foreground: require('@/assets/temas/foreground xenoverse 2.png'),
+  },
+  {
+    id: 'background naruto padres',
+    label: 'Naruto',
+    background: require('@/assets/temas/background naruto padres.jpg'),
+    foreground: require('@/assets/temas/foreground naruto padres.png'),
+  },
+  {
+    id: 'background kakashi',
+    label: 'Naruto - Kakashi',
+    background: require('@/assets/temas/background kakashi.png'),
+    foreground: require('@/assets/temas/foreground kakashi.png'),
+  },
+  {
+    id: 'background itachi',
+    label: 'Naruto - Itachi',
+    background: require('@/assets/temas/background itachi.png'),
+    foreground: require('@/assets/temas/foreground itachi.png'),
+  },
+  {
+    id: 'background itachi alternative',
+    label: 'Naruto - Itachi alternative',
+    background: require('@/assets/temas/background itachi alternative.jpg'),
+    foreground: require('@/assets/temas/foreground itachi alternative.png'),
+  },
+  {
+    id: 'background itachi 3',
+    label: 'Naruto - Itachi 3',
+    background: require('@/assets/temas/background itachi 3.jpg'),
+    foreground: require('@/assets/temas/foreground itachi 3.png'),
+  },
+  {
+    id: 'background goku y vegeta',
+    label: 'Goku y Vegeta',
+    background: require('@/assets/temas/background goku y vegeta.jpg'),
+    foreground: require('@/assets/temas/foreground goku y vegeta.png'),
+  },
+  {
+    id: 'background gohan',
+    label: 'Gohan',
+    background: require('@/assets/temas/background gohan.png'),
+    foreground: require('@/assets/temas/foreground gohan.png'),
+  },
+
+  {
+    id: 'background daima',
+    label: 'Dragon Ball Daima',
+    background: require('@/assets/temas/background daima.jpg'),
+    foreground: require('@/assets/temas/foreground daima.png'),
+  },
+  {
+    id: 'background zzz ellen2',
+    label: 'Zenless Zone Zero - Ellen',
+    background: require('@/assets/temas/background zzz ellen2.jpg'),
+    foreground: require('@/assets/temas/foreground zzz ellen2.png'),
+  },
+  {
+    id: 'background zzz burnice',
+    label: 'Zenless Zone Zero - Burnice',
+    background: require('@/assets/temas/background zzz burnice.jpg'),
+    foreground: require('@/assets/temas/foreground zzz burnice.png'),
+  },
+  {
+    id: 'background zzz jane',
+    label: 'Zenless Zone Zero - Jane',
+    background: require('@/assets/temas/background zzz jane.jpg'),
+    foreground: require('@/assets/temas/foreground zzz jane.png'),
+  },
+  {
+    id: 'background zzz',
+    label: 'Zenless Zone Zero',
+    background: require('@/assets/temas/background zzz.jpg'),
+    foreground: require('@/assets/temas/foreground zzz.png'),
+  },
+
+  {
+    id: 'background zzz lucy',
+    label: 'Zenless Zone Zero - Lucy',
+    background: require('@/assets/temas/background zzz lucy.jpg'),
+    foreground: require('@/assets/temas/foreground zzz lucy.png'),
+  },
+  {
+    id: 'background zzz yuzuha',
+    label: 'Zenless Zone Zero - Yuzuha',
+    background: require('@/assets/temas/background zzz yuzuha.jpg'),
+    foreground: require('@/assets/temas/foreground zzz yuzuha.png'),
+  },
+
 ];
 
 export const DEFAULT_VISUAL_THEME_ID = 'none';
