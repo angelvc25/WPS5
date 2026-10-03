@@ -83,15 +83,16 @@ const SpinningBorder = ({ id }: { id: string }) => {
       <style>{`
         /* --- SPINNING HALO ANIMATION --- */
         @keyframes lib-spin-border-${id} {
-          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-          100% { transform: translate(-50%, -50%) rotate(360deg); }
+          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
         }
         .lib-spinning-inner-${id} {
           position: absolute;
           top: 50%;
           left: 50%;
-          width: 300%;
-          height: 300%;
+          width: 250%;
+          height: 250%;
+          will-change: transform;
           animation: lib-spin-border-${id} 9.8s linear infinite;
           background: conic-gradient(
             from 0deg,
@@ -110,11 +111,11 @@ const SpinningBorder = ({ id }: { id: string }) => {
 
         /* --- DIAGONAL SHIMMER SWEEP ANIMATION --- */
         @keyframes lib-shimmer-${id} {
-          0%   { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+          0%   { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
           15%  { opacity: 1; }
           50%  { opacity: 1; }
-          70%  { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+          70%  { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
         }
         .lib-shimmer-line-${id} {
           position: absolute;

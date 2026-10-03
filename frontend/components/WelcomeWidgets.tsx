@@ -1136,8 +1136,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+                          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
                         }
                         
                         .wc-spinning-container2 {
@@ -1194,11 +1194,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
                           /* --- ANIMACIÃ“N 2: DESTELLO DIAGONAL MÃS LARGO Y SUAVE --- */
   @keyframes wc-content-shimmer {
-    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+    0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
     15% { opacity: 1; }
     50% { opacity: 1; }
-    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+    70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+    100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
   }
   .wc-shimmer-line2 {
     position: absolute;
@@ -1337,8 +1337,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+                          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
                         }
                         
                         .wc-spinning-container2 {
@@ -1395,11 +1395,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
                           /* --- ANIMACIÃ“N 2: DESTELLO DIAGONAL MÃS LARGO Y SUAVE --- */
                         @keyframes wc-content-shimmer {
-                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
                           15% { opacity: 1; }
                           50% { opacity: 1; }
-                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+                          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
                         }
                         .wc-shimmer-line2 {
                           position: absolute;
@@ -1532,8 +1532,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+                          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
                         }
                         
                         .wc-spinning-container2 {
@@ -1590,11 +1590,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
                           /* --- ANIMACIÃ“N 2: DESTELLO DIAGONAL MÃS LARGO Y SUAVE --- */
                         @keyframes wc-content-shimmer {
-                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
                           15% { opacity: 1; }
                           50% { opacity: 1; }
-                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+                          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
                         }
                         .wc-shimmer-line2 {
                           position: absolute;
@@ -1744,8 +1744,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+                          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
                         }
                         
                         .wc-spinning-container2 {
@@ -1802,11 +1802,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
                           /* --- ANIMACIÃ“N 2: DESTELLO DIAGONAL MÃS LARGO Y SUAVE --- */
                         @keyframes wc-content-shimmer {
-                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
                           15% { opacity: 1; }
                           50% { opacity: 1; }
-                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+                          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
                         }
                         .wc-shimmer-line2 {
                           position: absolute;
@@ -1939,8 +1939,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+                          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
                         }
                         
                         .wc-spinning-container2 {
@@ -1997,11 +1997,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
                           /* --- ANIMACIÃ“N 2: DESTELLO DIAGONAL MÃS LARGO Y SUAVE --- */
                         @keyframes wc-content-shimmer {
-                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
                           15% { opacity: 1; }
                           50% { opacity: 1; }
-                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+                          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
                         }
                         .wc-shimmer-line2 {
                           position: absolute;
@@ -2125,8 +2125,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+                          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
                         }
                         
                         .wc-spinning-container2 {
@@ -2183,11 +2183,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
                           /* --- ANIMACIÃ“N 2: DESTELLO DIAGONAL MÃS LARGO Y SUAVE --- */
                         @keyframes wc-content-shimmer {
-                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
                           15% { opacity: 1; }
                           50% { opacity: 1; }
-                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+                          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
                         }
                         .wc-shimmer-line2 {
                           position: absolute;
@@ -2326,8 +2326,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+                          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
                         }
                         
                         .wc-spinning-container2 {
@@ -2384,11 +2384,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
                           /* --- ANIMACIÃ“N 2: DESTELLO DIAGONAL MÃS LARGO Y SUAVE --- */
                         @keyframes wc-content-shimmer {
-                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
                           15% { opacity: 1; }
                           50% { opacity: 1; }
-                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+                          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
                         }
                         .wc-shimmer-line2 {
                           position: absolute;
@@ -2570,8 +2570,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+                          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
                         }
                         
                         .wc-spinning-container2 {
@@ -2628,11 +2628,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
                           /* --- ANIMACIÃ“N 2: DESTELLO DIAGONAL MÃS LARGO Y SUAVE --- */
                         @keyframes wc-content-shimmer {
-                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
                           15% { opacity: 1; }
                           50% { opacity: 1; }
-                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+                          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
                         }
                         .wc-shimmer-line2 {
                           position: absolute;
@@ -2782,8 +2782,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+                          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
                         }
                         
                         .wc-spinning-container2 {
@@ -2840,11 +2840,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
                           /* --- ANIMACIÃ“N 2: DESTELLO DIAGONAL MÃS LARGO Y SUAVE --- */
                         @keyframes wc-content-shimmer {
-                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
                           15% { opacity: 1; }
                           50% { opacity: 1; }
-                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+                          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
                         }
                         .wc-shimmer-line2 {
                           position: absolute;
@@ -2965,8 +2965,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       {`
                           /* --- ANIMACIÃ“N 1: BORDE GIRATORIO CON BASE VISIBLE --- */
                         @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+                          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
                         }
                         
                         .wc-spinning-container2 {
@@ -3023,11 +3023,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
                           /* --- ANIMACIÃ“N 2: DESTELLO DIAGONAL MÃS LARGO Y SUAVE --- */
                         @keyframes wc-content-shimmer {
-                          0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+                          0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
                           15% { opacity: 1; }
                           50% { opacity: 1; }
-                          70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-                          100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+                          70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+                          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
                         }
                         .wc-shimmer-line2 {
                           position: absolute;
@@ -3179,7 +3179,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
         }
         @keyframes widget-shimmer {
           0% {
-            transform: translate(-160%, 120%) rotate(-45deg);
+            transform: translate3d(-160%, 120%, 0) rotate(-45deg);
             opacity: 0;
           }
           15% {
@@ -3189,11 +3189,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
             opacity: 1;
           }
           70% {
-            transform: translate(130%, -120%) rotate(-45deg);
+            transform: translate3d(130%, -120%, 0) rotate(-45deg);
             opacity: 0;
           }
           100% {
-            transform: translate(130%, -120%) rotate(-45deg);
+            transform: translate3d(130%, -120%, 0) rotate(-45deg);
             opacity: 0;
           }
         }

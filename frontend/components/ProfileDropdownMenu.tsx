@@ -24,7 +24,7 @@ function ShimmerOverlay() {
       <style>{`
         @keyframes wc-profile-shimmer {
           0% {
-            transform: translate(-160%, -50%) rotate(-48deg);
+            transform: translate3d(-160%, -50%, 0) rotate(-48deg);
             opacity: 0;
           }
           15% {
@@ -34,11 +34,11 @@ function ShimmerOverlay() {
             opacity: 1;
           }
           70% {
-            transform: translate(130%, -50%) rotate(48deg);
+            transform: translate3d(130%, -50%, 0) rotate(48deg);
             opacity: 0;
           }
           100% {
-            transform: translate(130%, -50%) rotate(48deg);
+            transform: translate3d(130%, -50%, 0) rotate(48deg);
             opacity: 0;
           }
         }
