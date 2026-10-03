@@ -11,6 +11,8 @@ import { buildSteamRunUrl } from '../services/steamLaunchService';
 import { toastService } from '../services/toastService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { formatPlaytime } from '../services/playtimeService';
+import { fetchUserTrophies, type TrophyGameSummary } from '../services/onlineTrophiesService';
+import { getOnlineSession, subscribeOnlineSession } from '../services/onlineAccountService';
 
 export interface WelcomeWidgetsHandle {
   /** Ejecuta sobre el amigo actualmente mostrado la misma acciÃ³n que el clic del widget
@@ -90,8 +92,7 @@ const formatTimeAgo = (ts?: number): string => {
   } catch { return ''; }
 };
 
-/** Datos de ejemplo del widget de trofeos ampliado (conéctalos a tus datos reales). */
-const TROPHY_DATA = { total: 457, platinum: 1, gold: 3, silver: 16, bronze: 17, level: 150, progress: 16 };
+/** Datos de trofeos del usuario (se cargan dinámicamente desde el backend). */
 
 
 // ─── PS5 Move Mode Arrows ────────────────────────────────────────────────────
@@ -244,6 +245,62 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       }
     });
   }, []);
+
+  // --- Trofeos de la cuenta con sesión iniciada ---
+  const [userTrophies, setUserTrophies] = useState<TrophyGameSummary[]>([]);
+  const [trophiesLoading, setTrophiesLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTrophies = async () => {
+      setTrophiesLoading(true);
+      try {
+        const session = getOnlineSession();
+        const onlineUserId = session?.user?.id || (activeUser?.settings as any)?.onlineUserId as string | undefined;
+        let summaries: TrophyGameSummary[] = [];
+        if (onlineUserId) {
+          const res = await fetchUserTrophies(onlineUserId).catch(() => null);
+          if (res?.visible && Array.isArray(res.trophies)) {
+            summaries = res.trophies;
+          }
+        }
+        if (!cancelled) {
+          setUserTrophies(summaries);
+        }
+      } catch {
+        if (!cancelled) setUserTrophies([]);
+      } finally {
+        if (!cancelled) setTrophiesLoading(false);
+      }
+    };
+
+    loadTrophies();
+    const unsubscribe = subscribeOnlineSession(() => {
+      loadTrophies();
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [activeUser?.id]);
+
+  const trophyTotals = useMemo(() => {
+    const acc = { total: 0, unlocked: 0, platinum: 0, gold: 0, silver: 0, bronze: 0 };
+    for (const g of userTrophies) {
+      acc.total += Number(g.total || 0);
+      acc.unlocked += Number(g.unlocked || 0);
+      acc.platinum += Number(g.platinum || 0);
+      acc.gold += Number(g.gold || 0);
+      acc.silver += Number(g.silver || 0);
+      acc.bronze += Number(g.bronze || 0);
+    }
+    return acc;
+  }, [userTrophies]);
+
+  const trophyPct = trophyTotals.total > 0
+    ? Math.round((trophyTotals.unlocked * 100) / trophyTotals.total)
+    : 0;
 
   // --- Amigos de Steam ---
   const [friends, setFriends] = useState<SteamFriend[]>([]);
@@ -537,10 +594,10 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   const renderTrophiesExpanded = () => {
     const { s } = metrics;
     const items = [
-      { img: require('@/assets/images/platino.png'), n: TROPHY_DATA.platinum },
-      { img: require('@/assets/images/oro.png'), n: TROPHY_DATA.gold },
-      { img: require('@/assets/images/plata.png'), n: TROPHY_DATA.silver },
-      { img: require('@/assets/images/bronce.png'), n: TROPHY_DATA.bronze },
+      { img: require('@/assets/images/platino.png'), n: trophyTotals.platinum },
+      { img: require('@/assets/images/oro.png'), n: trophyTotals.gold },
+      { img: require('@/assets/images/plata.png'), n: trophyTotals.silver },
+      { img: require('@/assets/images/bronce.png'), n: trophyTotals.bronze },
     ];
     return (
       <View key={`trophies-${getSize('trophies')}`} style={[{ flex: 1, zIndex: 10, position: 'relative' }, expandedIn]}>
@@ -549,7 +606,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
             <Image source={require('@/assets/images/logo-trophy.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
             <Text style={styles.widgetTitle}>{t('widgets.trophies')}</Text>
           </View>
-          <Text style={styles.widgetBadge}>Total: {TROPHY_DATA.total}</Text>
+          <Text style={styles.widgetBadge}>Total: {trophyTotals.unlocked}</Text>
         </View>
 
         {/* Cuerpo: ocupa el espacio sobrante y centra los trofeos verticalmente */}
@@ -569,12 +626,12 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
               <View style={{ width: s(24), height: s(24), borderRadius: s(12), backgroundColor: '#a9483f', alignItems: 'center', justifyContent: 'center' }}>
                 <MaterialCommunityIcons name="trophy" size={s(14)} color="#FFF" />
               </View>
-              <Text style={styles.widgetSubtitle}>{t('widgetEdit.trophyLevel')} {TROPHY_DATA.level}</Text>
+              <Text style={styles.widgetSubtitle}>{t('onlineProfile.trophiesWon')}: {trophyTotals.unlocked}</Text>
             </View>
-            <Text style={styles.widgetSubtitle}>{TROPHY_DATA.progress} %</Text>
+            <Text style={styles.widgetSubtitle}>{trophyPct} %</Text>
           </View>
           <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', overflow: 'hidden' }}>
-            <View style={{ height: '100%', width: `${TROPHY_DATA.progress}%`, backgroundColor: '#FFFFFF' }} />
+            <View style={{ height: '100%', width: `${trophyPct}%`, backgroundColor: '#FFFFFF' }} />
           </View>
         </View>
       </View>
@@ -1421,31 +1478,31 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       <Image source={require('@/assets/images/logo-trophy.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
                       <Text style={styles.widgetTitle}>{t('widgets.trophies')}</Text>
                     </View>
-                    <Text style={styles.widgetBadge}>Total: 457</Text>
+                    <Text style={styles.widgetBadge}>Total: {trophyTotals.unlocked}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     {/* PLATINO */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <Image source={require('@/assets/images/platino.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>1</Text>
+                      <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>{trophyTotals.platinum}</Text>
                     </View>
 
                     {/* ORO */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <Image source={require('@/assets/images/oro.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>3</Text>
+                      <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>{trophyTotals.gold}</Text>
                     </View>
 
                     {/* PLATA */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <Image source={require('@/assets/images/plata.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>16</Text>
+                      <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>{trophyTotals.silver}</Text>
                     </View>
 
                     {/* BRONCE */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <Image source={require('@/assets/images/bronce.png')} style={{ width: 25, height: 25, resizeMode: 'contain' }} />
-                      <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>17</Text>
+                      <Text style={{ color: '#FFF', fontSize: 14, fontFamily: 'SSTBold', marginTop: 15 }}>{trophyTotals.bronze}</Text>
                     </View>
                   </View>
                 </>
