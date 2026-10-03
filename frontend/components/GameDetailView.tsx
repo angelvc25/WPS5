@@ -1114,7 +1114,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     if (!isEditModalVisible) return;
     const isGame = (editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web';
     if (!isGame) return;
-    const platformIdx = editModalFocusIndex - 3;
+    const platformIdx = editModalFocusIndex - 30;
     if (platformIdx < 0 || platformIdx >= PLATFORMS.length) return;
     const offset = editPlatformOffsets.current[platformIdx];
     if (offset !== undefined && editPlatformScrollRef.current) {
@@ -1153,13 +1153,26 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         if (isEditModalVisible) {
           if (editVKField !== null) return;
           const isGame = (editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web';
-          const platformCount = PLATFORMS.length;
+          const isRetro = editData.platform === 'Retro' || isRetroPlatform(editData.platform);
+          const retroCount = RETRO_SYSTEMS.length;
 
           if (e.key === 'x' || e.key === 'X') {
             if (editModalFocusIndex === 2) { e.preventDefault(); setEditVKField('title'); soundService.playActivation?.(); return; }
             if (editModalFocusIndex === 14) { e.preventDefault(); setEditVKField('description'); soundService.playActivation?.(); return; }
             if (editModalFocusIndex === 22 && ((editData.type || item?.type) === 'web' || isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item))) { e.preventDefault(); setEditVKField('path'); soundService.playActivation?.(); return; }
             if (editModalFocusIndex === 27) { e.preventDefault(); setEditVKField('launchArgs'); soundService.playActivation?.(); return; }
+            if (editModalFocusIndex >= 30 && editModalFocusIndex <= 41) {
+              e.preventDefault();
+              setEditData({ ...editData, platform: PLATFORM_IDS[editModalFocusIndex - 30] });
+              soundService.playActivation?.();
+              return;
+            }
+            if (editModalFocusIndex >= 50 && editModalFocusIndex < 50 + retroCount) {
+              e.preventDefault();
+              setEditData({ ...editData, retroSystem: RETRO_SYSTEMS[editModalFocusIndex - 50].id } as any);
+              soundService.playActivation?.();
+              return;
+            }
           }
 
           if (e.key === 'ArrowDown') {
@@ -1169,8 +1182,19 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 25) { } // Tab end
 
             // Tab 1: basic
-            else if (editModalFocusIndex === 2) setEditModalFocusIndex(isGame ? 3 : 14);
-            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount) setEditModalFocusIndex(14);
+            else if (editModalFocusIndex === 2) {
+              const currentPlatIdx = Math.max(0, PLATFORM_IDS.indexOf(editData.platform || ''));
+              setEditModalFocusIndex(isGame ? 30 + currentPlatIdx : 14);
+            }
+            else if (editModalFocusIndex >= 30 && editModalFocusIndex <= 41) {
+              if (isRetro) setEditModalFocusIndex(50);
+              else setEditModalFocusIndex(14);
+            }
+            else if (editModalFocusIndex >= 50 && editModalFocusIndex < 50 + retroCount) {
+              const nextRowIdx = editModalFocusIndex + 6;
+              if (nextRowIdx < 50 + retroCount) setEditModalFocusIndex(nextRowIdx);
+              else setEditModalFocusIndex(14);
+            }
             else if (editModalFocusIndex === 14) setEditModalFocusIndex(20); // to Cancel
 
             // Tab 2: path
@@ -1197,8 +1221,19 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
             // Tab 1: basic
             else if (editModalFocusIndex === 2) setEditModalFocusIndex(23); // Back to sidebar basic tab
-            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount) setEditModalFocusIndex(2);
-            else if (editModalFocusIndex === 14) setEditModalFocusIndex(isGame ? 3 : 2);
+            else if (editModalFocusIndex >= 30 && editModalFocusIndex <= 41) setEditModalFocusIndex(2);
+            else if (editModalFocusIndex >= 50 && editModalFocusIndex < 50 + retroCount) {
+              const prevRowIdx = editModalFocusIndex - 6;
+              if (prevRowIdx >= 50) setEditModalFocusIndex(prevRowIdx);
+              else setEditModalFocusIndex(41); // up to Retro platform button
+            }
+            else if (editModalFocusIndex === 14) {
+              if (isRetro) setEditModalFocusIndex(50 + retroCount - 1);
+              else {
+                const currentPlatIdx = Math.max(0, PLATFORM_IDS.indexOf(editData.platform || ''));
+                setEditModalFocusIndex(isGame ? 30 + currentPlatIdx : 2);
+              }
+            }
 
             // Tab 2: path
             else if (editModalFocusIndex === 22) setEditModalFocusIndex(24); // Back to sidebar path tab
@@ -1228,7 +1263,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 25) setEditModalFocusIndex(0); // Art -> Sync
 
             // Within content elements
-            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount - 1) setEditModalFocusIndex(prev => prev + 1);
+            else if (editModalFocusIndex >= 30 && editModalFocusIndex < 41) setEditModalFocusIndex(prev => prev + 1);
+            else if (editModalFocusIndex >= 50 && editModalFocusIndex < 50 + retroCount - 1) setEditModalFocusIndex(prev => prev + 1);
             else if (editModalFocusIndex === 15) setEditModalFocusIndex(16);
             else if (editModalFocusIndex === 17) setEditModalFocusIndex(18);
             else if (editModalFocusIndex === 18) setEditModalFocusIndex(26);
@@ -1241,8 +1277,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             soundService.playNavigation();
             // From content area to tabs sidebar
             if (editModalFocusIndex === 2) setEditModalFocusIndex(23);
-            else if (editModalFocusIndex === 3) setEditModalFocusIndex(23);
-            else if (editModalFocusIndex > 3 && editModalFocusIndex < 3 + platformCount) setEditModalFocusIndex(prev => prev - 1);
+            else if (editModalFocusIndex === 30) setEditModalFocusIndex(23);
+            else if (editModalFocusIndex > 30 && editModalFocusIndex <= 41) setEditModalFocusIndex(prev => prev - 1);
+            else if (editModalFocusIndex >= 50 && editModalFocusIndex < 50 + retroCount) {
+              const rel = editModalFocusIndex - 50;
+              if (rel % 6 === 0) setEditModalFocusIndex(23);
+              else setEditModalFocusIndex(prev => prev - 1);
+            }
             else if (editModalFocusIndex === 14) setEditModalFocusIndex(23);
 
             else if (editModalFocusIndex === 22) setEditModalFocusIndex(24);
@@ -1270,8 +1311,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               else handleSelectPath();
             }
             else if (editModalFocusIndex === 27) setEditVKField('launchArgs');
-            else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount) {
-              setEditData({ ...editData, platform: PLATFORM_IDS[editModalFocusIndex - 3] });
+            else if (editModalFocusIndex >= 30 && editModalFocusIndex <= 41) {
+              setEditData({ ...editData, platform: PLATFORM_IDS[editModalFocusIndex - 30] });
+            }
+            else if (editModalFocusIndex >= 50 && editModalFocusIndex < 50 + retroCount) {
+              setEditData({ ...editData, retroSystem: RETRO_SYSTEMS[editModalFocusIndex - 50].id } as any);
             }
             else if (editModalFocusIndex === 14) setEditVKField('description');
             else if (editModalFocusIndex === 15) openAssetSelector('capsule');
@@ -2068,7 +2112,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               <View style={{ marginBottom: 25 }}>
                                 <ScrollView ref={editPlatformScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.platformScrollContent}>
                                   {PLATFORMS.map((plat, idx) => {
-                                    const focusIdx = 3 + idx;
+                                    const focusIdx = 30 + idx;
                                     const isActive = editData.platform === plat.id;
                                     const isFocused = editModalFocusIndex === focusIdx;
                                     return (
@@ -2102,13 +2146,22 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                 <View style={{ marginBottom: 25 }}>
                                   <Text style={[styles.editLabel, { marginBottom: 8 }]}>{t('edit.retroSystem')}</Text>
                                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                                    {RETRO_SYSTEMS.map((sys) => {
+                                    {RETRO_SYSTEMS.map((sys, idx) => {
+                                      const focusIdx = 50 + idx;
                                       const isActive = ((editData as any).retroSystem || '') === sys.id;
+                                      const isFocused = editModalFocusIndex === focusIdx;
                                       return (
                                         <TouchableOpacity
                                           key={sys.id}
-                                          style={[styles.platformBtnNew, isActive && styles.platformBtnActiveNew]}
-                                          onPress={() => setEditData({ ...editData, retroSystem: sys.id } as any)}
+                                          style={[
+                                            styles.platformBtnNew,
+                                            isActive && styles.platformBtnActiveNew,
+                                            isFocused && styles.platformBtnFocusedNew,
+                                          ]}
+                                          onPress={() => {
+                                            setEditModalFocusIndex(focusIdx);
+                                            setEditData({ ...editData, retroSystem: sys.id } as any);
+                                          }}
                                         >
                                           <Text style={[styles.platformBtnTextNew, isActive && styles.platformBtnTextActiveNew]}>
                                             {sys.label}
