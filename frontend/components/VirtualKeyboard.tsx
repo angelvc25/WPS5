@@ -31,6 +31,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
+import PSIcon from './PSIcon';
+import { PSIcons } from '@/constants/psIcons';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -57,7 +59,11 @@ type KeyDef = {
   flex?: number;
   /** Render custom icon en lugar de label texto */
   icon?: string;
+  /** PSIcon char key (de PSIcons.*) en lugar de label texto */
+  psIcon?: string;
   sub?: string; // sublabel (p.ej. "L2", "R2" hints)
+  /** Icono PS pequeño en la esquina (botón del mando que dispara esta tecla) */
+  hintIcon?: string;
 };
 
 // ─── Layouts ─────────────────────────────────────────────────────────────────
@@ -119,24 +125,26 @@ const ROW_ZXCV: KeyDef[] = [
   { label: '!', value: '!', action: 'char' },
 ];
 
-/** Fila de funciones: shift, ABC, @#:, à, espacio, △, □, ⌫ */
+/**
+ * Fila de funciones: shift, ABC, @#:, à, espacio (△), borrar (□).
+ * △ = espacio y □ = borrar están integrados en sus teclas (hintIcon),
+ * ya no hay teclas sueltas para ellos.
+ */
 const ROW_FUNC: KeyDef[] = [
-  { label: '↑', action: 'shift', sub: 'L2', flex: 1 },
+  { label: '', psIcon: 'dpadUp', action: 'shift', sub: 'L2', flex: 1 },
   { label: 'ABC', action: 'symbols', flex: 2 },
   { label: '@#:', action: 'symbols', flex: 2 },
   { label: 'à', action: 'accents', flex: 1 },
-  { label: '', action: 'space', flex: 2, icon: 'remove-outline' },
-  { label: '△', action: 'triangle', sub: 'R3', flex: 1 },
-  { label: '□', action: 'square', flex: 1 },
-  { label: '⌫', action: 'backspace', flex: 1 },
+  { label: 'SPACE', action: 'space', flex: 3, hintIcon: 'triangle' },
+  { label: '⌫', action: 'backspace', flex: 2, hintIcon: 'square' },
 ];
 
 /** Fila inferior: ◄ ► ... 🎮 Done */
 const ROW_BOTTOM: KeyDef[] = [
-  { label: '◄', action: 'prev', sub: 'L1', flex: 1 },
-  { label: '►', action: 'next', sub: 'R1', flex: 1 },
-  { label: '···', action: 'more', flex: 1 },
-  { label: '⊕', action: 'gamepad', sub: 'L3+R3', flex: 2 },
+  { label: '', psIcon: 'dpadLeft', action: 'prev', sub: 'L1', flex: 1 },
+  { label: '', psIcon: 'dpadRight', action: 'next', sub: 'R1', flex: 1 },
+  { label: '', psIcon: 'menuDots', action: 'more', flex: 1 },
+  { label: '', psIcon: 'dpadFull', action: 'gamepad', sub: 'L3+R3', flex: 2 },
   { label: 'Done', action: 'confirm', flex: 2, sub: 'R2' },
 ];
 
@@ -154,7 +162,7 @@ const ROW_SYM3: KeyDef[] = [
 ].map(c => ({ label: c, value: c, action: 'char' as KeyAction }));
 
 const ROW_SYM4: KeyDef[] = [
-  '1','2','3','4','5','6','7','8','9','0','@'
+  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '@'
 ].map(c => ({ label: c, value: c, action: 'char' as KeyAction }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -293,17 +301,65 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
         onClose();
         break;
       case 'triangle':
-        // toggle shift (△ = uppercase toggle on PS5)
-        setShift(prev => !prev);
+        onChange(valueRef.current + ' ');
         break;
       case 'square':
-        // clear all
-        onChange('');
+        onChange(valueRef.current.slice(0, -1));
         break;
       default:
         break;
     }
   }, [onChange, onClose, onConfirm]);
+
+  // ── Botones cuadrado (□) y triángulo (△) del mando ─────────────────────────
+  // □ (botón 2) = borrar, △ (botón 3) = espacio. Se leen directo del Gamepad API
+  // y, mientras estén presionados, se ignoran los eventos de teclado que otros
+  // mapeos generen (para que NO actúen como ✕ / confirmar tecla).
+  const pressKeyRef = useRef(pressKey);
+  pressKeyRef.current = pressKey;
+
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'web') return;
+    if (typeof navigator === 'undefined' || !navigator.getGamepads) return;
+
+    const BTN_SQUARE = 2;
+    const BTN_TRIANGLE = 3;
+    const REPEAT_DELAY = 400;
+    const REPEAT_RATE = 60;
+
+    const readPads = () =>
+      Array.from(navigator.getGamepads() || []).filter(Boolean) as Gamepad[];
+    const isDown = (btn: number) =>
+      readPads().some(g => !!g.buttons[btn]?.pressed);
+
+    let prevSq = isDown(BTN_SQUARE);   // estado inicial: evita disparo al abrir
+    let prevTr = isDown(BTN_TRIANGLE);
+    let sqNextRepeat = 0;
+    let raf = 0;
+
+    const loop = () => {
+      const now = performance.now();
+      const sq = isDown(BTN_SQUARE);
+      const tr = isDown(BTN_TRIANGLE);
+
+      if (sq && !prevSq) {
+        pressKeyRef.current({ label: '⌫', action: 'backspace' });
+        sqNextRepeat = now + REPEAT_DELAY;
+      } else if (sq && now >= sqNextRepeat) {
+        pressKeyRef.current({ label: '⌫', action: 'backspace' });
+        sqNextRepeat = now + REPEAT_RATE;
+      }
+      if (tr && !prevTr) {
+        pressKeyRef.current({ label: 'SPACE', action: 'space' });
+      }
+
+      prevSq = sq;
+      prevTr = tr;
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [visible]);
 
   // ── Rows (memoised) ────────────────────────────────────────────────────────
   const rows = useMemo(() => getRows(shift, symbols), [shift, symbols]);
@@ -315,6 +371,19 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
     const handle = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
+
+      // □ / △ del mando presionados → los maneja el loop del Gamepad API.
+      // Ignoramos cualquier tecla sintética que el mapeo del mando genere
+      // para ellos (p.ej. Enter), así no confirman la letra como ✕.
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.getGamepads &&
+        Array.from(navigator.getGamepads() || []).some(
+          g => g && (g.buttons[2]?.pressed || g.buttons[3]?.pressed)
+        )
+      ) {
+        return;
+      }
 
       const r = focusRowRef.current;
       const c = focusColRef.current;
@@ -387,12 +456,12 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
   const scale = Math.min(ww / 1920, wh / 1080);
   const s = (v: number) => Math.round(v * scale);
 
-  // PS5 keyboard takes roughly 80% of screen width, centered, docked at bottom
-  const KB_WIDTH = Math.min(ww * 0.82, s(1360));
-  const KEY_H_ALPHA = s(52);   // height of alpha rows
-  const KEY_H_FUNC  = s(46);   // function row
-  const KEY_H_BOTTOM = s(50);  // bottom action row
-  const GAP = s(4);
+  // Teclado compacto estilo PS5: teclas casi cuadradas, poca separación horizontal
+  const KB_WIDTH = Math.min(ww * 0.9, s(780));
+  const KEY_H_ALPHA = s(54);   // height of alpha rows
+  const KEY_H_FUNC = s(46);    // function row
+  const KEY_H_BOTTOM = s(48);  // bottom action row
+  const GAP = s(3);            // tight gap between keys
 
   if (!visible) return null;
 
@@ -408,7 +477,8 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
           {
             width: KB_WIDTH,
             transform: [{ translateY: slideAnim }],
-            padding: s(14),
+            paddingHorizontal: s(10),
+            paddingVertical: s(10),
             gap: GAP,
             borderRadius: s(8),
           },
@@ -429,7 +499,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
 
         {/* Key rows */}
         {rows.map((row, rIdx) => {
-          const isFunc   = rIdx === rows.length - 2;
+          const isFunc = rIdx === rows.length - 2;
           const isBottom = rIdx === rows.length - 1;
           const keyH = isBottom ? KEY_H_BOTTOM : isFunc ? KEY_H_FUNC : KEY_H_ALPHA;
 
@@ -454,7 +524,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
                         borderRadius: s(4),
                       },
                       isBottom && styles.keyBottom,
-                      isFunc   && styles.keyFunc,
+                      isFunc && styles.keyFunc,
                       isConfirm && styles.keyConfirm,
                       isFocused && styles.keyFocused,
                       isFocused && isConfirm && styles.keyConfirmFocused,
@@ -467,16 +537,34 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
                       </Text>
                     )}
 
-                    {isSpace && !key.label ? (
+                    {/* Icono del botón del mando integrado en la tecla (△ / □) */}
+                    {key.hintIcon && (
+                      <View style={{ position: 'absolute', top: s(4), left: s(6) }}>
+                        <PSIcon
+                          char={PSIcons[key.hintIcon as keyof typeof PSIcons]}
+                          size={s(13)}
+                          color={'rgba(255,255,255,0.55)'}
+                        />
+                      </View>
+                    )}
+
+                    {/* PSIcon (botones PlayStation) */}
+                    {key.psIcon ? (
+                      <PSIcon
+                        char={PSIcons[key.psIcon as keyof typeof PSIcons]}
+                        size={isBottom ? s(20) : s(18)}
+                        color={isFocused ? '#FFFFFF' : 'rgba(255,255,255,0.80)'}
+                      />
+                    ) : isSpace ? (
                       <View style={styles.spaceBar} />
                     ) : (
                       <Text
                         style={[
                           styles.keyLabel,
-                          { fontSize: isBottom ? s(17) : isFunc ? s(14) : s(22) },
+                          { fontSize: isBottom ? s(16) : isFunc ? s(13) : s(20) },
                           isConfirm && styles.keyLabelConfirm,
                           isFocused && styles.keyLabelFocused,
-                          isBack && { fontSize: s(18) },
+                          isBack && { fontSize: s(17) },
                         ]}
                         numberOfLines={1}
                         adjustsFontSizeToFit
@@ -539,15 +627,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
     ...(Platform.OS === 'web'
       ? ({
-          backdropFilter: 'blur(32px)',
-          boxShadow: '0 -20px 80px rgba(0,0,0,0.85)',
-        } as any)
+        backdropFilter: 'blur(32px)',
+        boxShadow: '0 -20px 80px rgba(0,0,0,0.85)',
+      } as any)
       : {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -10 },
-          shadowOpacity: 0.8,
-          shadowRadius: 32,
-        }),
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.8,
+        shadowRadius: 32,
+      }),
   },
 
   previewRow: {
