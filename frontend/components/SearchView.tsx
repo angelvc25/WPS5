@@ -26,6 +26,7 @@ import PSIcon from './PSIcon';
 import { PSIcons } from '@/constants/psIcons';
 import SpinningBorderSearch from './SpinningBorderSearch';
 import BackgroundVideo from './BackgroundVideo';
+import VirtualKeyboard from './VirtualKeyboard';
 
 export interface SearchGameItem {
   id: string;
@@ -256,6 +257,7 @@ const SearchView: React.FC<SearchViewProps> = ({
   const [resultFocusIndex, setResultFocusIndex] = useState(0);
   const [subscriptionFocusIndex, setSubscriptionFocusIndex] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
+  const [showVirtualKeyboard, setShowVirtualKeyboard] = useState(false);
 
   const inputRef = useRef<TextInput>(null);
   const resultsScrollRef = useRef<ScrollView>(null);
@@ -462,7 +464,10 @@ const SearchView: React.FC<SearchViewProps> = ({
       setTabFocusIndex(0);
       setResultFocusIndex(0);
       setFocusArea('search');
+      setShowVirtualKeyboard(false);
       setTimeout(() => inputRef.current?.focus(), 120);
+    } else {
+      setShowVirtualKeyboard(false);
     }
   }, [visible]);
 
@@ -513,6 +518,8 @@ const SearchView: React.FC<SearchViewProps> = ({
     if (!visible || Platform.OS !== 'web') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // When virtual keyboard is open it handles all key events itself
+      if (showVirtualKeyboard) return;
       const inInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
       const typingInSearch = inInput || focusAreaRef.current === 'search';
 
@@ -662,7 +669,7 @@ const SearchView: React.FC<SearchViewProps> = ({
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [visible, query, activeTab, searchResults.length, onClose, switchTab, handleSelectEntry]);
+  }, [visible, query, activeTab, searchResults.length, onClose, switchTab, handleSelectEntry, showVirtualKeyboard]);
 
   const ui = useMemo(() => StyleSheet.create({
     root: { flex: 1, backgroundColor: '#0b0c10' },
@@ -845,6 +852,21 @@ const SearchView: React.FC<SearchViewProps> = ({
                 )}
               </View>
             </View>
+            {/* Virtual keyboard toggle */}
+            <TouchableOpacity
+              style={[
+                ui.micButton,
+                showVirtualKeyboard && { backgroundColor: 'rgba(0,112,209,0.25)', borderRadius: s(8) },
+              ]}
+              activeOpacity={0.7}
+              onPress={() => setShowVirtualKeyboard(prev => !prev)}
+            >
+              <Ionicons
+                name="keypad-outline"
+                size={s(22)}
+                color={showVirtualKeyboard ? '#0070D1' : 'rgba(255,255,255,0.55)'}
+              />
+            </TouchableOpacity>
             <TouchableOpacity style={ui.micButton} activeOpacity={0.7}>
               <Ionicons name="mic-outline" size={s(22)} color="rgba(255,255,255,0.55)" />
             </TouchableOpacity>
@@ -931,6 +953,15 @@ const SearchView: React.FC<SearchViewProps> = ({
           />
           <Text style={ui.footerText}>{t('search.changeTabs')}</Text>
         </View>
+
+        {/* Virtual Keyboard — floats above the modal content */}
+        <VirtualKeyboard
+          visible={showVirtualKeyboard}
+          value={query}
+          onChange={setQuery}
+          onClose={() => setShowVirtualKeyboard(false)}
+          onConfirm={() => setShowVirtualKeyboard(false)}
+        />
       </Animated.View>
     </Modal>
   );
