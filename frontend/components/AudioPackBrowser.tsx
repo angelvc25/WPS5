@@ -16,6 +16,7 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { soundService } from '@/services/soundService';
 import { toastService } from '@/services/toastService';
+import VirtualKeyboard from './VirtualKeyboard';
 import {
   BUNDLED_AUDIO_PACKS,
   getInstalledAudioPack,
@@ -89,7 +90,9 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
   const [preview, setPreview] = useState<DeckAudioPack | DownloadedEntry | null>(null);
 
   // Foco por mando/teclado (capture, para no chocar con SettingsView).
-  const [zone, setZone] = useState<'pills' | 'grid' | 'pager'>('pills');
+  const [showVK, setShowVK] = useState(false);
+  const searchInputRef = useRef<TextInput>(null);
+  const [zone, setZone] = useState<'pills' | 'search' | 'grid' | 'pager'>('pills');
   const [pillIndex, setPillIndex] = useState(0);
   const [gridIndex, setGridIndex] = useState(0);
   const [pagerIndex, setPagerIndex] = useState(0);
@@ -370,6 +373,8 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
         return;
       }
 
+      if (showVK) return;
+
       if (isInput) {
         if (e.key === 'Escape') (target as HTMLElement)?.blur?.();
         return;
@@ -381,9 +386,20 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
         e.key !== 'ArrowDown' &&
         e.key !== 'Enter' &&
         e.key !== 'Escape' &&
+        e.key !== 'x' && e.key !== 'X' &&
         e.key !== 'q' && e.key !== 'Q' &&
         e.key !== 'e' && e.key !== 'E'
       ) return;
+
+      if (e.key === 'x' || e.key === 'X') {
+        if (st.zone === 'search') {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowVK(true);
+          soundService.playActivation?.();
+          return;
+        }
+      }
 
       // Escape en pills sin modal: deja que SettingsView vuelva atrás.
       if (e.key === 'Escape' && st.zone === 'pills') return;
@@ -414,7 +430,10 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
           setPillIndex((p) => Math.min(st.pillsLen - 1, p + 1));
           soundService.playNavigation();
         } else if (e.key === 'ArrowDown') {
-          if (st.gridCount > 0) {
+          if (!st.isDownloadedTab) {
+            setZone('search');
+            soundService.playNavigation();
+          } else if (st.gridCount > 0) {
             setZone('grid');
             setGridIndex((p) => Math.min(p, st.gridCount - 1));
             soundService.playNavigation();
@@ -423,6 +442,20 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
           const pill = pills[pillIndex];
           if (pill?.kind === 'tab') setTab(pill.id as TabId);
           else if (pill?.kind === 'sort') setSort(pill.id as DeckAudioSort);
+          soundService.playActivation?.();
+        }
+      } else if (st.zone === 'search') {
+        if (e.key === 'ArrowUp') {
+          setZone('pills');
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowDown') {
+          if (st.gridCount > 0) {
+            setZone('grid');
+            setGridIndex(0);
+            soundService.playNavigation();
+          }
+        } else if (e.key === 'Enter') {
+          setShowVK(true);
           soundService.playActivation?.();
         }
       } else if (st.zone === 'grid') {
@@ -438,7 +471,7 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
             setGridIndex((p) => p - 3);
             soundService.playNavigation();
           } else {
-            setZone('pills');
+            setZone(!st.isDownloadedTab ? 'search' : 'pills');
             soundService.playNavigation();
           }
         } else if (e.key === 'ArrowDown') {
@@ -580,21 +613,35 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
 
       {/* Buscador (solo online) */}
       {!isDownloadedTab && (
-        <View style={styles.searchRow}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            setZone('search');
+            setShowVK(true);
+          }}
+          style={[styles.searchRow, zone === 'search' && { borderColor: '#FFFFFF', borderWidth: s(1.5) }]}
+        >
           <Ionicons name="search" size={s(16)} color="rgba(255,255,255,0.5)" />
           <TextInput
+            ref={searchInputRef}
             style={styles.searchInput}
             value={query}
             onChangeText={setQuery}
             placeholder={t('settings.audioSearch')}
             placeholderTextColor="rgba(255,255,255,0.35)"
+            showSoftInputOnFocus={false}
+            onFocus={() => {
+              setZone('search');
+              setShowVK(true);
+              setTimeout(() => searchInputRef.current?.blur(), 60);
+            }}
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery('')}>
               <Ionicons name="close-circle" size={s(16)} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
           )}
-        </View>
+        </TouchableOpacity>
       )}
 
       {/* Grid */}
@@ -677,6 +724,14 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
           </View>
         </View>
       )}
+
+      {/* Virtual Keyboard */}
+      <VirtualKeyboard
+        visible={showVK}
+        value={query}
+        onChange={setQuery}
+        onClose={() => setShowVK(false)}
+      />
     </View>
   );
 }

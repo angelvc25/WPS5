@@ -38,6 +38,7 @@ import { EmulationView } from './EmulationView';
 
 import OnlineAuthView from './OnlineAuthView';
 import PSIcon from './PSIcon';
+import VirtualKeyboard from './VirtualKeyboard';
 import { UserProfile } from './UserSelectScreen';
 import SpinningBorderSearch from './SpinningBorderSearch';
 import UserProfileView, { resolveImageSource } from './UserProfileView';
@@ -237,7 +238,9 @@ export default function SettingsView({
     return [];
   });
   // Navegación con mando/teclado dentro de la sección Splash Videos
-  const [splashFocusZone, setSplashFocusZone] = useState<'filters' | 'grid' | 'pager'>('filters');
+  const [showSplashVK, setShowSplashVK] = useState(false);
+  const splashInputRef = useRef<TextInput>(null);
+  const [splashFocusZone, setSplashFocusZone] = useState<'search' | 'filters' | 'grid' | 'pager'>('filters');
   const [splashFilterIndex, setSplashFilterIndex] = useState(0);
   const [splashGridFlatIndex, setSplashGridFlatIndex] = useState(0); // índice de tarjeta enfocada
   const [splashPagerIndex, setSplashPagerIndex] = useState(0); // 0=anterior, 1=siguiente
@@ -902,9 +905,23 @@ export default function SettingsView({
             return;
           }
 
+          if (showSplashVK) return;
+
+          if (e.key === 'x' || e.key === 'X') {
+            if (splashFocusZone === 'search') {
+              e.preventDefault();
+              setShowSplashVK(true);
+              soundService.playActivation?.();
+              return;
+            }
+          }
+
           if (e.key === 'ArrowLeft') {
             e.preventDefault();
-            if (splashFocusZone === 'filters') {
+            if (splashFocusZone === 'search') {
+              setAccessibilityFocusArea('left');
+              soundService.playNavigation();
+            } else if (splashFocusZone === 'filters') {
               if (splashFilterIndex === 0) {
                 setAccessibilityFocusArea('left');
               } else {
@@ -932,7 +949,10 @@ export default function SettingsView({
             }
           } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            if (splashFocusZone === 'filters') {
+            if (splashFocusZone === 'search') {
+              setSplashFocusZone('filters');
+              soundService.playNavigation();
+            } else if (splashFocusZone === 'filters') {
               if (displayedSplashItems.length > 0) {
                 setSplashFocusZone('grid');
                 setSplashGridFlatIndex(0);
@@ -951,7 +971,10 @@ export default function SettingsView({
             }
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            if (splashFocusZone === 'grid') {
+            if (splashFocusZone === 'filters') {
+              setSplashFocusZone('search');
+              soundService.playNavigation();
+            } else if (splashFocusZone === 'grid') {
               const prev = splashGridFlatIndex - cols;
               if (prev < 0) {
                 setSplashFocusZone('filters');
@@ -966,7 +989,9 @@ export default function SettingsView({
             }
           } else if (e.key === 'Enter') {
             e.preventDefault();
-            if (splashFocusZone === 'filters') {
+            if (splashFocusZone === 'search') {
+              setShowSplashVK(true);
+            } else if (splashFocusZone === 'filters') {
               const item = SPLASH_FILTER_ITEMS[splashFilterIndex];
               if (item?.kind === 'type') setSplashType(item.id as SplashFilterType);
               else if (item?.kind === 'sort') setSplashSort(item.id as SteamDeckRepoSort);
@@ -2011,17 +2036,43 @@ export default function SettingsView({
                     </View>
                   </View>
 
-                  {/* Buscador (solo mouse/teclado físico; el mando no lo enfoca) */}
+                  {/* Buscador */}
                   <View style={styles.cardSection}>
-                    <TextInput
-                      style={styles.raInput}
-                      placeholder={t('settings.bootPlaceholder')}
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={splashQuery}
-                      onChangeText={setSplashQuery}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setSplashFocusZone('search');
+                        setShowSplashVK(true);
+                      }}
+                      style={[
+                        styles.raInput,
+                        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
+                        isRightFocused && splashFocusZone === 'search' && styles.rightItemFocused,
+                      ]}
+                    >
+                      <Ionicons name="search" size={s(18)} color="rgba(255,255,255,0.4)" style={{ marginRight: 8 }} />
+                      <TextInput
+                        ref={splashInputRef}
+                        style={{ flex: 1, color: '#FFF', fontSize: 15, fontFamily: 'SSTLight', padding: 0 }}
+                        placeholder={t('settings.bootPlaceholder')}
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={splashQuery}
+                        onChangeText={setSplashQuery}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        showSoftInputOnFocus={false}
+                        onFocus={() => {
+                          setSplashFocusZone('search');
+                          setShowSplashVK(true);
+                          setTimeout(() => splashInputRef.current?.blur(), 60);
+                        }}
+                      />
+                      {splashQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => setSplashQuery('')}>
+                          <Ionicons name="close-circle" size={s(16)} color="rgba(255,255,255,0.5)" />
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
 
                     {/* Filtro por tipo + orden, aplanados para navegación con mando */}
                     <View ref={splashFiltersRef} style={{ flexDirection: 'row', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
@@ -2932,6 +2983,13 @@ export default function SettingsView({
           <Text style={styles.bottomBarText}>{t('common.back')}</Text>
         </View>
       </View>
+
+      <VirtualKeyboard
+        visible={showSplashVK}
+        value={splashQuery}
+        onChange={setSplashQuery}
+        onClose={() => setShowSplashVK(false)}
+      />
     </Animated.View>
   );
 }

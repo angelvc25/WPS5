@@ -34,6 +34,7 @@ import { PLATFORMS, PLATFORM_IDS, RETRO_SYSTEMS, isRetroPlatform } from '@/const
 import { useTranslation } from '@/contexts/LanguageContext';
 import BackgroundVideo from './BackgroundVideo';
 import { toastService } from '@/services/toastService';
+import VirtualKeyboard from './VirtualKeyboard';
 
 
 interface GameDetailViewProps {
@@ -123,6 +124,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const bottomScrollRef = useRef<ScrollView>(null);
   const [editModalFocusIndex, setEditModalFocusIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'basic' | 'path' | 'art'>('basic');
+  const [editVKField, setEditVKField] = useState<'title' | 'description' | 'path' | 'launchArgs' | null>(null);
   const { activeUser } = useUser();
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
 
@@ -1149,8 +1151,16 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         }
 
         if (isEditModalVisible) {
+          if (editVKField !== null) return;
           const isGame = (editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web';
           const platformCount = PLATFORMS.length;
+
+          if (e.key === 'x' || e.key === 'X') {
+            if (editModalFocusIndex === 2) { e.preventDefault(); setEditVKField('title'); soundService.playActivation?.(); return; }
+            if (editModalFocusIndex === 14) { e.preventDefault(); setEditVKField('description'); soundService.playActivation?.(); return; }
+            if (editModalFocusIndex === 22 && ((editData.type || item?.type) === 'web' || isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item))) { e.preventDefault(); setEditVKField('path'); soundService.playActivation?.(); return; }
+            if (editModalFocusIndex === 27) { e.preventDefault(); setEditVKField('launchArgs'); soundService.playActivation?.(); return; }
+          }
 
           if (e.key === 'ArrowDown') {
             soundService.playNavigation();
@@ -1254,16 +1264,16 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 24) { setActiveTab('path'); setEditModalFocusIndex(22); }
             else if (editModalFocusIndex === 25) { setActiveTab('art'); setEditModalFocusIndex(0); }
             else if (editModalFocusIndex === 0) handleUnifiedSync();
-            else if (editModalFocusIndex === 2) editTitleRef.current?.focus();
+            else if (editModalFocusIndex === 2) setEditVKField('title');
             else if (editModalFocusIndex === 22) {
-              if ((editData.type || item?.type) === 'web') editPathInputRef.current?.focus();
+              if ((editData.type || item?.type) === 'web' || isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item)) setEditVKField('path');
               else handleSelectPath();
             }
-            else if (editModalFocusIndex === 27) editLaunchArgsRef.current?.focus();
+            else if (editModalFocusIndex === 27) setEditVKField('launchArgs');
             else if (editModalFocusIndex >= 3 && editModalFocusIndex < 3 + platformCount) {
               setEditData({ ...editData, platform: PLATFORM_IDS[editModalFocusIndex - 3] });
             }
-            else if (editModalFocusIndex === 14) editDescRef.current?.focus();
+            else if (editModalFocusIndex === 14) setEditVKField('description');
             else if (editModalFocusIndex === 15) openAssetSelector('capsule');
             else if (editModalFocusIndex === 16) openAssetSelector('logo');
             else if (editModalFocusIndex === 17) openAssetSelector('hero');
@@ -2034,13 +2044,23 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <Text style={styles.editSectionTitle}>{t('edit.basic')}</Text>
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                           <Text style={styles.editLabel}>{t('edit.gameTitle')}</Text>
-                          <TextInput
-                            ref={editTitleRef}
-                            style={[styles.editInput, editModalFocusIndex === 2 && styles.editInputFocused]}
-                            value={editData.title}
-                            onChangeText={(text) => setEditData({ ...editData, title: text })}
-                            onFocus={() => setEditModalFocusIndex(2)}
-                          />
+                          <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() => { setEditModalFocusIndex(2); setEditVKField('title'); }}
+                          >
+                            <TextInput
+                              ref={editTitleRef}
+                              style={[styles.editInput, editModalFocusIndex === 2 && styles.editInputFocused]}
+                              value={editData.title}
+                              onChangeText={(text) => setEditData({ ...editData, title: text })}
+                              showSoftInputOnFocus={false}
+                              onFocus={() => {
+                                setEditModalFocusIndex(2);
+                                setEditVKField('title');
+                                setTimeout(() => editTitleRef.current?.blur(), 60);
+                              }}
+                            />
+                          </TouchableOpacity>
 
                           {((editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web') && (
                             <>
@@ -2103,14 +2123,24 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           )}
 
                           <Text style={styles.editLabel}>{t('edit.description')}</Text>
-                          <TextInput
-                            ref={editDescRef}
-                            style={[styles.editInput, { height: 140, textAlignVertical: 'top' }, editModalFocusIndex === 14 && styles.editInputFocused]}
-                            multiline
-                            value={editData.description}
-                            onChangeText={(text) => setEditData({ ...editData, description: text })}
-                            onFocus={() => setEditModalFocusIndex(14)}
-                          />
+                          <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() => { setEditModalFocusIndex(14); setEditVKField('description'); }}
+                          >
+                            <TextInput
+                              ref={editDescRef}
+                              style={[styles.editInput, { height: 140, textAlignVertical: 'top' }, editModalFocusIndex === 14 && styles.editInputFocused]}
+                              multiline
+                              value={editData.description}
+                              onChangeText={(text) => setEditData({ ...editData, description: text })}
+                              showSoftInputOnFocus={false}
+                              onFocus={() => {
+                                setEditModalFocusIndex(14);
+                                setEditVKField('description');
+                                setTimeout(() => editDescRef.current?.blur(), 60);
+                              }}
+                            />
+                          </TouchableOpacity>
 
                           {(() => {
                             const raw = Number(editData.rating ?? 0);
@@ -2146,26 +2176,46 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         <ScrollView showsVerticalScrollIndicator={false}>
                           <Text style={styles.editLabel}>{t('edit.executableLocation')}</Text>
                           {((editData.type || item?.type) === 'web') ? (
-                            <TextInput
-                              ref={editPathInputRef}
-                              style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
-                              placeholder="URL (https://...)"
-                              placeholderTextColor="#888"
-                              value={editData.path}
-                              onChangeText={(text) => setEditData({ ...editData, path: text })}
-                              onFocus={() => setEditModalFocusIndex(22)}
-                            />
-                          ) : isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item) ? (
-                            <>
+                            <TouchableOpacity
+                              activeOpacity={0.9}
+                              onPress={() => { setEditModalFocusIndex(22); setEditVKField('path'); }}
+                            >
                               <TextInput
                                 ref={editPathInputRef}
                                 style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
-                                placeholder="steam://rungameid/..."
+                                placeholder="URL (https://...)"
                                 placeholderTextColor="#888"
                                 value={editData.path}
                                 onChangeText={(text) => setEditData({ ...editData, path: text })}
-                                onFocus={() => setEditModalFocusIndex(22)}
+                                showSoftInputOnFocus={false}
+                                onFocus={() => {
+                                  setEditModalFocusIndex(22);
+                                  setEditVKField('path');
+                                  setTimeout(() => editPathInputRef.current?.blur(), 60);
+                                }}
                               />
+                            </TouchableOpacity>
+                          ) : isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item) ? (
+                            <>
+                              <TouchableOpacity
+                                activeOpacity={0.9}
+                                onPress={() => { setEditModalFocusIndex(22); setEditVKField('path'); }}
+                              >
+                                <TextInput
+                                  ref={editPathInputRef}
+                                  style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
+                                  placeholder="steam://rungameid/..."
+                                  placeholderTextColor="#888"
+                                  value={editData.path}
+                                  onChangeText={(text) => setEditData({ ...editData, path: text })}
+                                  showSoftInputOnFocus={false}
+                                  onFocus={() => {
+                                    setEditModalFocusIndex(22);
+                                    setEditVKField('path');
+                                    setTimeout(() => editPathInputRef.current?.blur(), 60);
+                                  }}
+                                />
+                              </TouchableOpacity>
                               <View style={styles.pathDisplayBox}>
                                 <Text style={styles.pathDisplayTextHeader}>{t('add.launchViaSteam')}</Text>
                                 <Text style={styles.pathDisplayText}>
@@ -2190,17 +2240,27 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               {isExternalExeGame && (
                                 <>
                                   <Text style={[styles.editLabel, { marginTop: 20 }]}>{t('edit.launchArgs')}</Text>
-                                  <TextInput
-                                    ref={editLaunchArgsRef}
-                                    style={[styles.editInput, editModalFocusIndex === 27 && styles.editInputFocused]}
-                                    placeholder="-dx11 -windowed"
-                                    placeholderTextColor="#888"
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    value={editData.launchArgs}
-                                    onChangeText={(text) => setEditData({ ...editData, launchArgs: text })}
-                                    onFocus={() => setEditModalFocusIndex(27)}
-                                  />
+                                  <TouchableOpacity
+                                    activeOpacity={0.9}
+                                    onPress={() => { setEditModalFocusIndex(27); setEditVKField('launchArgs'); }}
+                                  >
+                                    <TextInput
+                                      ref={editLaunchArgsRef}
+                                      style={[styles.editInput, editModalFocusIndex === 27 && styles.editInputFocused]}
+                                      placeholder="-dx11 -windowed"
+                                      placeholderTextColor="#888"
+                                      autoCapitalize="none"
+                                      autoCorrect={false}
+                                      value={editData.launchArgs}
+                                      onChangeText={(text) => setEditData({ ...editData, launchArgs: text })}
+                                      showSoftInputOnFocus={false}
+                                      onFocus={() => {
+                                        setEditModalFocusIndex(27);
+                                        setEditVKField('launchArgs');
+                                        setTimeout(() => editLaunchArgsRef.current?.blur(), 60);
+                                      }}
+                                    />
+                                  </TouchableOpacity>
                                   <Text style={styles.pathDisplayText}>{t('edit.launchArgsHint')}</Text>
                                 </>
                               )}
@@ -2741,6 +2801,23 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 </View>
               </View>
             )}
+
+            {/* VIRTUAL KEYBOARD OVERLAY */}
+            <VirtualKeyboard
+              visible={editVKField !== null}
+              value={
+                editVKField === 'title' ? (editData.title || '') :
+                editVKField === 'description' ? (editData.description || '') :
+                editVKField === 'path' ? (editData.path || '') :
+                editVKField === 'launchArgs' ? (editData.launchArgs || '') : ''
+              }
+              onChange={(val) => {
+                if (editVKField) {
+                  setEditData((prev) => ({ ...prev, [editVKField]: val }));
+                }
+              }}
+              onClose={() => setEditVKField(null)}
+            />
           </View>
         </Modal>
       </Modal>
