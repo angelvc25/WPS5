@@ -2111,7 +2111,7 @@ const styles = StyleSheet.create({
   infoCard: {
     padding: 16,
     borderRadius: 16,
-    backgroundColor: 'rgb(10 18 33)',
+    backgroundColor: 'var(--wps-accent-widgets, #0d1015)',
     //borderWidth: 1,
     //borderColor: 'rgba(255,255,255,0.05)',
     minWidth: 350,
