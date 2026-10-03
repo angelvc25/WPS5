@@ -167,23 +167,31 @@ const ROW_SYM4: KeyDef[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Cambia la capitalización de las teclas de letra (label y value) */
+function withCase(row: KeyDef[], upper: boolean): KeyDef[] {
+  return row.map(k => {
+    if (!k.value || !/^[a-zA-Z]$/.test(k.value)) return k;
+    const f = (t: string) => (upper ? t.toUpperCase() : t.toLowerCase());
+    return { ...k, label: f(k.label), value: f(k.value) };
+  });
+}
+
+/**
+ * `shift` = bloqueo de mayúsculas (caps lock): letras en mayúscula y se
+ * mantiene hasta volver a presionarlo. Apagado: letras en minúscula.
+ */
 function getRows(shift: boolean, symbols: boolean): KeyDef[][] {
   if (symbols) {
     return [ROW_SYM4, ROW_SYM1, ROW_SYM2, ROW_SYM3, ROW_FUNC, ROW_BOTTOM];
   }
-  if (shift) {
-    // uppercase — same structure, values already uppercase since we stored lowercase
-    return [
-      ROW_NUMBERS,
-      ROW_QWERTY.map(k => k.value ? { ...k, label: k.label.toUpperCase(), value: k.value.toUpperCase() } : k),
-      ROW_ASDF.map(k => k.value && /[a-z]/.test(k.value) ? { ...k, label: k.label.toUpperCase(), value: k.value.toUpperCase() } : k),
-      ROW_ZXCV.map(k => k.value && /[a-z]/.test(k.value) ? { ...k, label: k.label.toUpperCase(), value: k.value.toUpperCase() } : k),
-      ROW_FUNC,
-      ROW_BOTTOM,
-    ];
-  }
-  // default: show uppercase labels but lowercase values (PS5 style)
-  return [ROW_NUMBERS, ROW_QWERTY, ROW_ASDF, ROW_ZXCV, ROW_FUNC, ROW_BOTTOM];
+  return [
+    ROW_NUMBERS,
+    withCase(ROW_QWERTY, shift),
+    withCase(ROW_ASDF, shift),
+    withCase(ROW_ZXCV, shift),
+    ROW_FUNC,
+    ROW_BOTTOM,
+  ];
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -310,8 +318,6 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
 
     if (key.action === 'char' && key.value !== undefined) {
       insertText(key.value);
-      // auto-unshift after typing one uppercase letter
-      if (shiftRef.current) setShift(false);
       return;
     }
 
@@ -354,7 +360,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
 
   // ── Botones del mando (Gamepad API) ────────────────────────────────────────
   // □ (2) = borrar · △ (3) = espacio · L1 (4) / R1 (5) = mover cursor ←/→
-  // R2 (7) = cerrar teclado (Done).
+  // L2 (6) = bloqueo de mayúsculas · R2 (7) = cerrar teclado (Done).
   // Mientras estén presionados se ignoran los eventos de teclado que otros
   // mapeos generen para ellos (ver handler de keydown), para que no escriban
   // letras ni confirmen la tecla enfocada.
@@ -367,7 +373,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
     if (!visible || Platform.OS !== 'web') return;
     if (typeof navigator === 'undefined' || !navigator.getGamepads) return;
 
-    const BTN = { SQUARE: 2, TRIANGLE: 3, L1: 4, R1: 5, R2: 7 };
+    const BTN = { SQUARE: 2, TRIANGLE: 3, L1: 4, R1: 5, L2: 6, R2: 7 };
     const REPEAT_DELAY = 400;
     const REPEAT_RATE = 60;
 
@@ -402,6 +408,8 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
         () => pressKeyRef.current({ label: 'SPACE', action: 'space' }), false);
       handleBtn(BTN.L1, now, isDown(BTN.L1), () => moveCursorRef.current(-1), true);
       handleBtn(BTN.R1, now, isDown(BTN.R1), () => moveCursorRef.current(1), true);
+      handleBtn(BTN.L2, now, isDown(BTN.L2),
+        () => pressKeyRef.current({ label: '', action: 'shift' }), false);
       handleBtn(BTN.R2, now, isDown(BTN.R2),
         () => pressKeyRef.current({ label: 'Done', action: 'confirm' }), false);
       raf = requestAnimationFrame(loop);
@@ -418,14 +426,14 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
       e.preventDefault();
       e.stopPropagation();
 
-      // Botones del mando manejados por el loop del Gamepad API (□ △ L1 R1 R2):
+      // Botones del mando manejados por el loop del Gamepad API (□ △ L1 R1 L2 R2):
       // ignoramos cualquier tecla sintética que el mapeo del mando genere
       // para ellos (Enter, q, e, PageUp…), así no escriben ni confirman la tecla.
       if (
         typeof navigator !== 'undefined' &&
         navigator.getGamepads &&
         Array.from(navigator.getGamepads() || []).some(
-          g => g && [2, 3, 4, 5, 7].some(b => g.buttons[b]?.pressed)
+          g => g && [2, 3, 4, 5, 6, 7].some(b => g.buttons[b]?.pressed)
         )
       ) {
         return;
@@ -490,7 +498,6 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
           // Physical keyboard typing passes through
           if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
             insertText(e.key);
-            if (shiftRef.current) setShift(false);
           }
           break;
       }
@@ -550,6 +557,12 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
           >
             {value.slice(Math.min(cursor, value.length))}
           </Text>
+          {/* indicador de mayúsculas activas */}
+          {shift && !symbols && (
+            <View style={[styles.capsBadge, { marginLeft: 'auto', paddingHorizontal: s(8), paddingVertical: s(2), borderRadius: s(3) }]}>
+              <Text style={[styles.capsBadgeText, { fontSize: s(11) }]}>MAYÚS</Text>
+            </View>
+          )}
         </View>
 
         {/* Key rows */}
@@ -565,6 +578,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
                 const isConfirm = key.action === 'confirm';
                 const isBack = key.action === 'backspace';
                 const isSpace = key.action === 'space';
+                const isCapsOn = key.action === 'shift' && shift && !symbols;
 
                 return (
                   <TouchableOpacity
@@ -583,11 +597,12 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
                       isConfirm && styles.keyConfirm,
                       isFocused && styles.keyFocused,
                       isFocused && isConfirm && styles.keyConfirmFocused,
+                      isCapsOn && styles.keyCapsOn,
                     ]}
                   >
                     {/* sublabel hint (L1, R2 etc.) */}
                     {key.sub && (
-                      <Text style={[styles.subLabel, { fontSize: s(9) }]}>
+                      <Text style={[styles.subLabel, { fontSize: s(9) }, isCapsOn && { color: 'rgba(0,0,0,0.55)' }]}>
                         {key.sub}
                       </Text>
                     )}
@@ -608,7 +623,13 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
                       <PSIcon
                         char={PSIcons[key.psIcon as keyof typeof PSIcons]}
                         size={isBottom ? s(20) : s(18)}
-                        color={isFocused ? '#FFFFFF' : 'rgba(255,255,255,0.80)'}
+                        color={
+                          isCapsOn
+                            ? '#000000'
+                            : isFocused
+                              ? '#FFFFFF'
+                              : 'rgba(255,255,255,0.80)'
+                        }
                       />
                     ) : isSpace ? (
                       <View style={styles.spaceBar} />
@@ -756,6 +777,21 @@ const styles = StyleSheet.create({
   keyConfirmFocused: {
     borderColor: '#FFFFFF',
     backgroundColor: 'rgba(255,255,255,0.20)',
+  },
+
+  capsBadge: {
+    backgroundColor: '#FFFFFF',
+  },
+  capsBadgeText: {
+    color: '#000000',
+    fontFamily: 'SSTBold',
+    letterSpacing: 0.5,
+  },
+
+  /* ── mayúsculas activas: tecla rellena en blanco ── */
+  keyCapsOn: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
   },
 
   subLabel: {
