@@ -1256,6 +1256,9 @@ export default function ConsoleHome() {
         image: (override.image && override.image !== require('@/assets/images/Home.gif')) ? override.image : base.image,
         backgroundImage: (override.backgroundImage && override.backgroundImage !== require('@/assets/images/FondoDefault2.jpg')) ? override.backgroundImage : base.backgroundImage,
         logo: (override as any).logo || (base as any).logo,
+        // `...override` copia `isFavorite: undefined` (o un valor viejo) encima
+        // del favorito real del juego; priorizamos el de steamGames/epicGames.
+        isFavorite: base.isFavorite ?? override.isFavorite,
       };
       return { ...merged, path: resolveLaunchPath(merged) };
     };
@@ -3510,7 +3513,7 @@ export default function ConsoleHome() {
           if (summary && typeof summary.unlocked === 'number') {
             initialUnlockedRef.current[targetItem.id] = summary.unlocked;
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
 
@@ -3618,9 +3621,9 @@ export default function ConsoleHome() {
                   }
                   // Sincronizar trofeos locales a la cuenta online para refrescar widgets y perfil
                   const allGames = [...(games || []), ...(steamGames || [])];
-                  syncLocalTrophiesToOnline(allGames as any, { apiKey, steamId }).catch(() => {});
+                  syncLocalTrophiesToOnline(allGames as any, { apiKey, steamId }).catch(() => { });
                 }
-              }).catch(() => {});
+              }).catch(() => { });
             }
           } else {
             console.warn('[Playtime] No se encontró el item para actualizar tiempo jugado:', id);
@@ -3838,13 +3841,30 @@ export default function ConsoleHome() {
     if (!item) return;
     const newFav = !item.isFavorite;
 
+    const isSteamOrEpicId = item.id?.toString().startsWith('steam_') || item.id?.toString().startsWith('epic_');
+
     if (isSteamTrackedGame(item)) {
-      setSteamGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
+      // Steam: la fuente de verdad es `steamGames` + su caché en localStorage.
+      // Hay que persistirla, o el favorito se pierde al recargar/cambiar de usuario.
+      setSteamGames(prev => {
+        const updated = prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g);
+        steamGamesRef.current = updated;
+        const steamId = activeUser?.settings?.steamId;
+        if (steamId) {
+          try { localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updated)); } catch (e) { /* noop */ }
+        }
+        return updated;
+      });
+      // Si el usuario editó este juego, existe un registro en `games` que pisa
+      // a `steamGames` en `displayedLibraryGames`: mantenerlo sincronizado.
+      setGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
     } else {
       setGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
     }
 
-    if (Platform.OS === 'web' && (window as any).electronAPI?.updateApp) {
+    // Para Steam/Epic NO escribimos en games.json (evita registros "fantasma"
+    // sin título/portada, igual que en markGameAsLastPlayed).
+    if (!isSteamOrEpicId && Platform.OS === 'web' && (window as any).electronAPI?.updateApp) {
       await (window as any).electronAPI.updateApp({ id: item.id, isFavorite: newFav });
     }
     soundService.playNavigation();
