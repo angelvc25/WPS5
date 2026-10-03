@@ -276,7 +276,10 @@ const es = {
   'context.manage': 'Administrar contenido del juego',
   'context.location': 'Ubicación del juego',
   'context.delete': 'Eliminar',
+  'context.favorite': 'Añadir a favoritos',
+  'context.unfavorite': 'Quitar de favoritos',
   'context.pinToHome': 'Mantener en inicio',
+  'library.filterFavorites': 'Favoritos',
 
   'profile.onlineStatus': 'Estado online',
   'profile.profile': 'Perfil',
@@ -1264,7 +1267,10 @@ const en: Record<TranslationKey, string> = {
   'context.manage': 'Manage game content',
   'context.location': 'Game location',
   'context.delete': 'Delete',
+  'context.favorite': 'Add to favorites',
+  'context.unfavorite': 'Remove from favorites',
   'context.pinToHome': 'Pin to Home',
+  'library.filterFavorites': 'Favorites',
 
   'profile.onlineStatus': 'Online status',
   'profile.profile': 'Profile',
@@ -2246,7 +2252,10 @@ const pt: Record<TranslationKey, string> = {
   'context.manage': 'Gerir conteúdo do jogo',
   'context.location': 'Localização do jogo',
   'context.delete': 'Eliminar',
+  'context.favorite': 'Adicionar aos favoritos',
+  'context.unfavorite': 'Remover dos favoritos',
   'context.pinToHome': 'Manter em início',
+  'library.filterFavorites': 'Favoritos',
 
   'profile.onlineStatus': 'Estado online',
   'profile.profile': 'Perfil',

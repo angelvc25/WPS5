@@ -81,20 +81,28 @@ interface GameContextMenuProps {
   isPinned?: boolean;
   /** Se llama al activar/desactivar el switch de fijar */
   onTogglePin?: () => void;
+  /** Estado actual de "favorito" del juego seleccionado */
+  isFavorite?: boolean;
+  /** Se llama al activar/desactivar el favorito */
+  onToggleFavorite?: () => void;
 }
 
 const BASE_MENU_WIDTH = 320;
 const BASE_ITEM_HEIGHT = 50;
 const BASE_LEFT_OFFSET = 185; // offset de anclaje respecto a la tarjeta/ícono que abre el menú
 const GLOW_DURATION = 180;
+// Índice de foco que corresponde a la fila del switch "Favorito"
+const FAVORITE_INDEX = 3;
 // Índice de foco que corresponde a la fila del switch "Fijar"
-const PIN_INDEX = 3;
+const PIN_INDEX = 4;
 
 export default function GameContextMenu({
   focusedIndex,
   onPressItem,
   isPinned = false,
   onTogglePin,
+  isFavorite = false,
+  onToggleFavorite,
 }: GameContextMenuProps) {
   const { t } = useTranslation();
 
@@ -126,9 +134,9 @@ export default function GameContextMenu({
   ];
 
   // ─── Animated opacity per item for smooth focus glow transition ───────────
-  // Ahora incluye el índice extra del switch de fijar (PIN_INDEX)
+  // Cubre los 5 índices: 0, 1, 2 (opciones normales), 3 (favorito), 4 (fijar)
   const glowAnims = useRef(
-    [0, 1, 2, PIN_INDEX].map(i => new Animated.Value(i === focusedIndex ? 1 : 0))
+    [0, 1, 2, FAVORITE_INDEX, PIN_INDEX].map(i => new Animated.Value(i === focusedIndex ? 1 : 0))
   ).current;
   const prevFocusRef = useRef(focusedIndex);
 
@@ -213,8 +221,40 @@ export default function GameContextMenu({
           );
         })}
 
-        {/* Separador antes del switch de fijar */}
+        {/* Separador antes de los toggles */}
         <View style={[styles.divider, { marginVertical: s(4), marginHorizontal: s(4) }]} />
+
+        {/* ─── FAVORITO (switch) ─────────────────────────────────────────── */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={onToggleFavorite}
+          style={[
+            styles.item,
+            styles.pinItem,
+            { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
+            focusedIndex === FAVORITE_INDEX && styles.itemFocused,
+          ]}
+        >
+          <Animated.View
+            style={[styles.focusGlow, { opacity: glowAnims[3], borderRadius: s(3) }]}
+            pointerEvents="none"
+          />
+          {focusedIndex === FAVORITE_INDEX && <ShimmerOverlay />}
+
+          <Text
+            style={[
+              styles.label,
+              { fontSize: s(13) },
+              focusedIndex === FAVORITE_INDEX && styles.labelFocused,
+            ]}
+          >
+            {isFavorite ? t('context.unfavorite') : t('context.favorite')}
+          </Text>
+
+          <View style={[styles.toggleTrack, { width: s(40), height: s(22), borderRadius: s(11), padding: s(2) }, isFavorite && styles.toggleTrackActive]}>
+            <View style={[styles.toggleThumb, { width: s(18), height: s(18), borderRadius: s(9) }, isFavorite && [styles.toggleThumbActive, { transform: [{ translateX: s(18) }] }]]} />
+          </View>
+        </TouchableOpacity>
 
         {/* ─── FIJAR JUEGO (switch) ─────────────────────────────────────── */}
         <TouchableOpacity
@@ -228,7 +268,7 @@ export default function GameContextMenu({
           ]}
         >
           <Animated.View
-            style={[styles.focusGlow, { opacity: glowAnims[3], borderRadius: s(3) }]}
+            style={[styles.focusGlow, { opacity: glowAnims[4], borderRadius: s(3) }]}
             pointerEvents="none"
           />
           {focusedIndex === PIN_INDEX && <ShimmerOverlay />}

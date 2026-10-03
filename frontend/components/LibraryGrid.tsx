@@ -306,6 +306,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(new Set());
   const [selectedRetroPlatforms, setSelectedRetroPlatforms] = useState<Set<string>>(new Set());
   const [selectedSources, setSelectedSources] = useState<Set<'steam' | 'local' | 'epic'>>(new Set());
+  const [filterFavorites, setFilterFavorites] = useState(false);
   // Evita notificar al padre repetidamente cuando el filtrado produce la
   // misma lista. Sin este guard, un padre que reconstruye `games` durante
   // su render puede entrar en un ciclo: efecto -> setState del padre ->
@@ -328,6 +329,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     | { type: 'retroOption'; id: string; label: string }
     | { type: 'sourceHeader' }
     | { type: 'sourceOption'; id: 'steam' | 'local' | 'epic' }
+    | { type: 'favoriteToggle' }
     | { type: 'reset' };
 
   // Ciclo del ordenamiento: Más reciente -> A-Z -> Z-A -> Más reciente
@@ -397,6 +399,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     if (isSourceSectionOpen) {
       rows.push({ type: 'sourceOption', id: 'steam' }, { type: 'sourceOption', id: 'local' }, { type: 'sourceOption', id: 'epic' });
     }
+    rows.push({ type: 'favoriteToggle' });
     rows.push({ type: 'reset' });
     return rows;
   }, [
@@ -465,6 +468,9 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
       case 'sourceOption':
         toggleSourceFilter(row.id);
         break;
+      case 'favoriteToggle':
+        setFilterFavorites((v) => !v);
+        break;
       case 'reset':
         if (hasActiveFilters) resetFilters();
         break;
@@ -510,6 +516,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     selectedPlatforms.size > 0 ||
     selectedRetroPlatforms.size > 0 ||
     selectedSources.size > 0 ||
+    filterFavorites ||
     sortDirection !== 'none';
 
   const resetFilters = () => {
@@ -517,6 +524,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     setSelectedPlatforms(new Set());
     setSelectedRetroPlatforms(new Set());
     setSelectedSources(new Set());
+    setFilterFavorites(false);
   };
 
   // Mide la posición real del botón en pantalla antes de abrir el panel,
@@ -614,6 +622,9 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
         if (!selectedSources.has(source)) return false;
       }
 
+      // 4. Filtro por favoritos
+      if (filterFavorites && !game.isFavorite) return false;
+
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -623,6 +634,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     selectedPlatforms,
     selectedRetroPlatforms,
     selectedSources,
+    filterFavorites,
     installedSteamAppIds,
   ]);
 
@@ -942,6 +954,26 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                     })}
                   </View>
                 )}
+
+                {/* FAVORITES TOGGLE */}
+                <TouchableOpacity
+                  style={[
+                    styles.filterPanelCheckRow,
+                    panelRows[panelFocusIndex]?.type === 'favoriteToggle' && styles.filterPanelRowFocused,
+                  ]}
+                  onPress={() => setFilterFavorites((v) => !v)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.filterPanelCheckbox,
+                      filterFavorites && styles.filterPanelCheckboxChecked,
+                    ]}
+                  >
+                    {filterFavorites && <Ionicons name="checkmark" size={14} color="#000" />}
+                  </View>
+                  <Text style={styles.filterPanelCheckLabel}>{t('library.filterFavorites')}</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[

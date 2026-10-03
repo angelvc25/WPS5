@@ -2573,13 +2573,15 @@ export default function ConsoleHome() {
         setIsContextMenuOpen(false);
         soundService.playBack();
       } else if (e.key === 'ArrowDown') {
-        setContextMenuFocusIndex(prev => Math.min(prev + 1, 3)); // ahora hasta el switch
+        setContextMenuFocusIndex(prev => Math.min(prev + 1, 4)); // 0-2 opciones, 3 favorito, 4 pin
         soundService.playNavigation();
       } else if (e.key === 'ArrowUp') {
         setContextMenuFocusIndex(prev => Math.max(prev - 1, 0));
         soundService.playNavigation();
       } else if (e.key === 'Enter') {
         if (contextMenuFocusIndex === 3) {
+          handleToggleFavorite(); // no cierra el menú, solo alterna
+        } else if (contextMenuFocusIndex === 4) {
           handleTogglePin(); // no cierra el menú, solo alterna
         } else {
           handleContextMenuAction(contextMenuFocusIndex);
@@ -3831,6 +3833,23 @@ export default function ConsoleHome() {
     soundService.playNavigation();
   };
 
+  const handleToggleFavorite = async () => {
+    const item = currentData[activeIndex];
+    if (!item) return;
+    const newFav = !item.isFavorite;
+
+    if (isSteamTrackedGame(item)) {
+      setSteamGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
+    } else {
+      setGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
+    }
+
+    if (Platform.OS === 'web' && (window as any).electronAPI?.updateApp) {
+      await (window as any).electronAPI.updateApp({ id: item.id, isFavorite: newFav });
+    }
+    soundService.playNavigation();
+  };
+
   // Background del StoreFrontPanel: se computa sincrónicamente para evitar parpadeos
   const storeFocusedBackground = useMemo(() => {
     if (currentData[activeIndex]?.id !== '5') return null;
@@ -4278,6 +4297,8 @@ export default function ConsoleHome() {
             onPressItem={handleContextMenuAction}
             isPinned={!!currentData[activeIndex]?.isPinned}
             onTogglePin={handleTogglePin}
+            isFavorite={!!currentData[activeIndex]?.isFavorite}
+            onToggleFavorite={handleToggleFavorite}
           />
         </View>
       )}
