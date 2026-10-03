@@ -535,6 +535,14 @@ const SearchView: React.FC<SearchViewProps> = ({
           onClose();
           return;
         }
+        // X / Enter en la barra de búsqueda → abrir teclado virtual
+        if ((e.key === 'x' || e.key === 'X' || e.key === 'Enter') && focusAreaRef.current === 'search') {
+          e.preventDefault();
+          inputRef.current?.blur();
+          setShowVirtualKeyboard(true);
+          soundService.playActivation();
+          return;
+        }
         if (e.key === 'ArrowDown' && searchResults.length > 0) {
           e.preventDefault();
           setFocusArea('results');
@@ -829,7 +837,17 @@ const SearchView: React.FC<SearchViewProps> = ({
           </View>
 
           <View style={ui.searchRow}>
-            <View style={[ui.searchBar, focusArea === 'search' && ui.searchBarFocused]}>
+            {/* Wrap en TouchableOpacity para abrir teclado virtual al pulsar */}
+            <TouchableOpacity
+              activeOpacity={1}
+              style={[ui.searchBar, focusArea === 'search' && ui.searchBarFocused]}
+              onPress={() => {
+                setFocusArea('search');
+                setShowVirtualKeyboard(true);
+                inputRef.current?.blur();
+                soundService.playActivation();
+              }}
+            >
               {focusArea === 'search' && <SpinningBorderSearch size={s(56)} spread={3} borderRadius={s(4) + 3} />}
               <Ionicons name="search" size={s(20)} color="rgba(255, 255, 255, 0.6)" />
               <TextInput
@@ -839,10 +857,17 @@ const SearchView: React.FC<SearchViewProps> = ({
                 onChangeText={setQuery}
                 placeholder={t('search.placeholder')}
                 placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                onFocus={() => setFocusArea('search')}
+                onFocus={() => {
+                  setFocusArea('search');
+                  // Abrir teclado virtual al recibir foco (touch nativo)
+                  setShowVirtualKeyboard(true);
+                  // Blur el input nativo para no mostrar el teclado del sistema
+                  setTimeout(() => inputRef.current?.blur(), 60);
+                }}
                 autoCorrect={false}
                 autoCapitalize="none"
                 returnKeyType="search"
+                showSoftInputOnFocus={false}
               />
               <View style={ui.searchSpinnerWrap}>
                 {isSearching ? (
@@ -851,21 +876,6 @@ const SearchView: React.FC<SearchViewProps> = ({
                   <View style={{ width: s(20), height: s(20), borderRadius: s(10), borderWidth: 2, borderColor: 'rgba(255,255,255,0.6)' }} />
                 )}
               </View>
-            </View>
-            {/* Virtual keyboard toggle */}
-            <TouchableOpacity
-              style={[
-                ui.micButton,
-                showVirtualKeyboard && { backgroundColor: 'rgba(0,112,209,0.25)', borderRadius: s(8) },
-              ]}
-              activeOpacity={0.7}
-              onPress={() => setShowVirtualKeyboard(prev => !prev)}
-            >
-              <Ionicons
-                name="keypad-outline"
-                size={s(22)}
-                color={showVirtualKeyboard ? '#0070D1' : 'rgba(255,255,255,0.55)'}
-              />
             </TouchableOpacity>
             <TouchableOpacity style={ui.micButton} activeOpacity={0.7}>
               <Ionicons name="mic-outline" size={s(22)} color="rgba(255,255,255,0.55)" />
