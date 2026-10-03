@@ -140,8 +140,17 @@ export const fetchStoreOffers = async (): Promise<StoreOffer[]> => {
   }
 };
 
+export function extractSteamAppId(offer?: StoreOffer | null): number | null {
+  if (!offer) return null;
+  const matchId = offer.id?.match?.(/^steam_(?:release|special)_(\d+)$/);
+  if (matchId) return Number(matchId[1]);
+  const matchUrl = offer.url?.match?.(/\/app\/(\d+)/);
+  if (matchUrl) return Number(matchUrl[1]);
+  return null;
+}
+
 /**
- * Enriquece las ofertas de la tienda con imágenes hero y logos de SteamGridDB.
+ * Enriquece las ofertas de la tienda con imágenes hero y logos de SteamGridDB o Steam API/CDN.
  * Uso: fuente "Steam". Para la fuente "PS5 Store" usar
  * `enrichOffersWithPsnBackgrounds` (fondos PSN, logos SteamGrid).
  */
@@ -151,17 +160,45 @@ export const enrichOffersWithHeroes = async (offers: StoreOffer[]): Promise<Stor
 
     const enriched = await Promise.allSettled(
       offers.map(async (offer) => {
-        const needsHero = !offer.backgroundImage;
-        const needsLogo = !offer.logo;
-        if (!needsHero && !needsLogo) return offer;
+        const appId = extractSteamAppId(offer);
+        let backgroundImage = offer.backgroundImage;
+        let logo = offer.logo;
 
-        const result = await fetchSteamGridData(offer.title);
-        if (!result.success || !result.data) return offer;
+        // Para próximos lanzamientos o juegos de Steam: inicializar con assets oficiales de Steam
+        if (appId) {
+          if (!backgroundImage) {
+            backgroundImage = `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_hero.jpg`;
+          }
+          if (!logo) {
+            logo = `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/logo.png`;
+          }
+        }
+
+        // Si aún falta alguno, consultar SteamGridDB
+        if (!backgroundImage || !logo) {
+          try {
+            const result = await fetchSteamGridData(offer.title);
+            if (result.success && result.data) {
+              if (!backgroundImage && result.data.hero) backgroundImage = result.data.hero;
+              if (!logo && result.data.logo) logo = result.data.logo;
+            }
+          } catch {
+            // Continuar con los valores de Steam
+          }
+        }
+
+        // Si SteamGrid no lo tiene (común en próximos lanzamientos), asegurar fallbacks de Steam
+        if (!backgroundImage && appId) {
+          backgroundImage = `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_hero.jpg`;
+        }
+        if (!logo && appId) {
+          logo = `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/logo.png`;
+        }
 
         return {
           ...offer,
-          backgroundImage: needsHero ? (result.data.hero || offer.backgroundImage) : offer.backgroundImage,
-          logo: needsLogo ? (result.data.logo || offer.logo) : offer.logo,
+          backgroundImage: backgroundImage || offer.image,
+          logo: logo || undefined,
         };
       })
     );

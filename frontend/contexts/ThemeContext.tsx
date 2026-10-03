@@ -28,6 +28,8 @@ interface ThemeContextValue {
   soundPackId: string;
   visualTheme: VisualTheme | null;
   visualThemeId: string;
+  /** Si true, el fondo y personaje 3D solo se muestran en la pantalla de inicio (tarjeta de bienvenida). */
+  visualThemeOnlyHome: boolean;
   /** Si el personaje (foreground) se dibuja por encima de los widgets de la tarjeta de bienvenida. */
   foregroundOverWidgets: boolean;
   /** Pack de efectos aplicado (bundled-* o instalado), o null = original. */
@@ -39,6 +41,7 @@ interface ThemeContextValue {
   setAccent: (id: string) => void;
   setSoundPack: (id: string) => void;
   setVisualTheme: (id: string) => void;
+  setVisualThemeOnlyHome: (value: boolean) => void;
   setForegroundOverWidgets: (value: boolean) => void;
   setAudioPack: (id: string | null) => void;
   setMusicPack: (id: string | null) => void;
@@ -51,6 +54,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   soundPackId: DEFAULT_SOUND_PACK_ID,
   visualTheme: null,
   visualThemeId: DEFAULT_VISUAL_THEME_ID,
+  visualThemeOnlyHome: false,
   foregroundOverWidgets: true,
   audioPackId: null,
   audioPackName: null,
@@ -59,6 +63,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   setAccent: () => { },
   setSoundPack: () => { },
   setVisualTheme: () => { },
+  setVisualThemeOnlyHome: () => { },
   setForegroundOverWidgets: () => { },
   setAudioPack: () => { },
   setMusicPack: () => { },
@@ -80,6 +85,7 @@ interface ThemeIds {
   accentId: string;
   soundPackId: string;
   visualThemeId: string;
+  visualThemeOnlyHome: boolean;
   foregroundOverWidgets: boolean;
   audioPackId: string | null;
   musicPackId: string | null;
@@ -109,6 +115,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const accentId = themeSettings.accentId ?? DEFAULT_ACCENT_ID;
   const soundPackId = themeSettings.soundPackId ?? DEFAULT_SOUND_PACK_ID;
   const visualThemeId = themeSettings.visualThemeId ?? DEFAULT_VISUAL_THEME_ID;
+  const visualThemeOnlyHome: boolean = themeSettings.visualThemeOnlyHome ?? false;
   const foregroundOverWidgets: boolean = themeSettings.foregroundOverWidgets ?? true;
   const audioPackId: string | null = themeSettings.audioPackId ?? null;
   const musicPackId: string | null = themeSettings.musicPackId ?? null;
@@ -126,6 +133,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           accentId: parsed.accentId ?? DEFAULT_ACCENT_ID,
           soundPackId: parsed.soundPackId ?? DEFAULT_SOUND_PACK_ID,
           visualThemeId: parsed.visualThemeId ?? DEFAULT_VISUAL_THEME_ID,
+          visualThemeOnlyHome: parsed.visualThemeOnlyHome ?? false,
           foregroundOverWidgets: parsed.foregroundOverWidgets ?? true,
           audioPackId: parsed.audioPackId ?? null,
           musicPackId: parsed.musicPackId ?? null,
@@ -136,17 +144,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const effective: ThemeIds = useMemo(() => (
     activeUser
-      ? { accentId, soundPackId, visualThemeId, foregroundOverWidgets, audioPackId, musicPackId }
+      ? { accentId, soundPackId, visualThemeId, visualThemeOnlyHome, foregroundOverWidgets, audioPackId, musicPackId }
       : (localFallback ?? {
         accentId: DEFAULT_ACCENT_ID,
         soundPackId: DEFAULT_SOUND_PACK_ID,
         visualThemeId: DEFAULT_VISUAL_THEME_ID,
+        visualThemeOnlyHome: false,
         foregroundOverWidgets: true,
         audioPackId: null,
         musicPackId: null,
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [activeUser, accentId, soundPackId, visualThemeId, foregroundOverWidgets, audioPackId, musicPackId, localFallback]);
+  ), [activeUser, accentId, soundPackId, visualThemeId, visualThemeOnlyHome, foregroundOverWidgets, audioPackId, musicPackId, localFallback]);
   const accent = getAccent(effective.accentId);
   const visualTheme = getVisualTheme(effective.visualThemeId);
 
@@ -176,6 +185,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             accentId: effective.accentId,
             soundPackId: effective.soundPackId,
             visualThemeId: effective.visualThemeId,
+            visualThemeOnlyHome: effective.visualThemeOnlyHome,
             foregroundOverWidgets: effective.foregroundOverWidgets,
             audioPackId: effective.audioPackId,
             musicPackId: effective.musicPackId,
@@ -200,6 +210,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     soundPackId: effective.soundPackId,
     visualTheme,
     visualThemeId: effective.visualThemeId,
+    visualThemeOnlyHome: effective.visualThemeOnlyHome,
     foregroundOverWidgets: effective.foregroundOverWidgets,
     audioPackId: effective.audioPackId,
     audioPackName: audioResolved.name,
@@ -212,6 +223,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setVisualTheme: (id: string) => {
       if (id === DEFAULT_VISUAL_THEME_ID || VISUAL_THEMES.some((t) => t.id === id)) persist({ visualThemeId: id });
     },
+    setVisualThemeOnlyHome: (value: boolean) => persist({ visualThemeOnlyHome: value }),
     setForegroundOverWidgets: (value: boolean) => persist({ foregroundOverWidgets: value }),
     setAudioPack: (id: string | null) => persist({ audioPackId: id }),
     setMusicPack: (id: string | null) => persist({ musicPackId: id }),

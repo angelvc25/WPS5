@@ -34,6 +34,11 @@ export interface UserThemeSettings {
   accentId?: string;
   backgroundId?: string;
   soundPackId?: string;
+  visualThemeId?: string;
+  visualThemeOnlyHome?: boolean;
+  foregroundOverWidgets?: boolean;
+  audioPackId?: string | null;
+  musicPackId?: string | null;
 }
 
 export interface UserSettings {

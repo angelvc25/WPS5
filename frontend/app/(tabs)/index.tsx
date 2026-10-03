@@ -75,7 +75,7 @@ import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta
 import { Language } from '@/i18n/translations';
 import { fetchSteamGridData } from '@/services/steamGridService';
 import { getSteamAppId } from '@/services/steamLaunchService';
-import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer, enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds } from '@/services/storeService';
+import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer, enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId } from '@/services/storeService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { psnLocaleForLanguage } from '@/services/psnMetadataService';
 import {
@@ -316,7 +316,7 @@ HomeLightboxImage.displayName = 'HomeLightboxImage';
 
 export default function ConsoleHome() {
   const { activeUser, changeUser, updateUser } = useUser();
-  const { visualTheme, setVisualTheme, foregroundOverWidgets } = useTheme();
+  const { visualTheme, setVisualTheme, foregroundOverWidgets, visualThemeOnlyHome } = useTheme();
   // Zona del carrusel (borde inferior en px de pantalla): sirve para recortar el personaje cuando no debe cubrir los widgets.
   const carouselSectionRef = useRef<any>(null);
   const [carouselClipBottom, setCarouselClipBottom] = useState<number | null>(null);
@@ -951,9 +951,10 @@ export default function ConsoleHome() {
       .finally(() => setStoreLoading(false));
   }, [activeUser?.settings?.storeSource, language]);
 
+  const isStoreCard = (currentRenderedTab === 'Games' ? games : media)[activeIndex]?.id === '5';
   const isGamePanelFocused = focusArea === 'game_panel';
-  const isLowerSectionFocused = isGamePanelFocused && gamePanelFocusIndex >= 2;
-  const isDeepSectionFocused = isGamePanelFocused && gamePanelFocusIndex >= 4;
+  const isLowerSectionFocused = isGamePanelFocused && !isStoreCard && gamePanelFocusIndex >= 2;
+  const isDeepSectionFocused = isGamePanelFocused && !isStoreCard && gamePanelFocusIndex >= 4;
   const isTopHidden = focusArea === 'game_panel' || focusArea === 'library_grid';
 
   useEffect(() => {
@@ -3801,10 +3802,21 @@ export default function ConsoleHome() {
     } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
       focused = storeUpcoming[gamePanelFocusIndex - 10];
     }
-    return focused?.backgroundImage || storeOffers[0]?.backgroundImage || null;
+    const focusedSteamAppId = extractSteamAppId(focused);
+    return (
+      focused?.backgroundImage ||
+      (focusedSteamAppId
+        ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${focusedSteamAppId}/library_hero.jpg`
+        : null) ||
+      storeOffers[0]?.backgroundImage ||
+      null
+    );
   }, [gamePanelFocusIndex, currentData, activeIndex, storeOffers]);
 
-  const currentBg = visualTheme?.background && currentRenderedTab === 'Games' && currentData[activeIndex]?.id !== '5'
+  const isWelcomeCard = currentRenderedTab === 'Games' && currentData[activeIndex]?.id === '1';
+  const isThemeActiveForCurrentCard = visualTheme && (!visualThemeOnlyHome || isWelcomeCard);
+
+  const currentBg = (isThemeActiveForCurrentCard && currentRenderedTab === 'Games' && currentData[activeIndex]?.id !== '5')
     ? visualTheme.background
     : ((currentRenderedTab === 'Games' && activeIndex === 1)
       ? (homeBackground || require('@/assets/images/FondoDefault2.jpg'))
@@ -3812,7 +3824,7 @@ export default function ConsoleHome() {
         ? storeFocusedBackground
         : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg')))));
   const currentBackgroundVideo =
-    visualTheme
+    isThemeActiveForCurrentCard
       ? null
       : (currentRenderedTab === 'Games' && activeIndex === 0
         ? currentData[activeIndex]?.backgroundVideo
@@ -3821,8 +3833,7 @@ export default function ConsoleHome() {
   const prevActiveIndexRef = useRef(activeIndex);
   const wipeDirection = useSharedValue<1 | -1>(1);
 
-  const isWelcomeCard = currentRenderedTab === 'Games' && currentData[activeIndex]?.id === '1';
-  const slideshowActive = !visualTheme && slideshowImages.length > 0 && (isWelcomeCard || isPresentationMode);
+  const slideshowActive = !isThemeActiveForCurrentCard && slideshowImages.length > 0 && (isWelcomeCard || isPresentationMode);
 
   // "Sobre los widgets" desactivado: en la tarjeta de bienvenida el personaje se recorta a la zona del carrusel.
   const clipForegroundToCarousel = !foregroundOverWidgets && isWelcomeCard;
@@ -3848,6 +3859,7 @@ export default function ConsoleHome() {
 
   const showThemeForeground =
     !!visualTheme?.foreground &&
+    (!visualThemeOnlyHome || isWelcomeCard) &&
     currentRenderedTab === 'Games' &&
     currentData[activeIndex]?.id !== '5' &&
     !isSettingsVisible &&
@@ -4168,8 +4180,8 @@ export default function ConsoleHome() {
       )}
 
       {/* === GRADIENT OVERLAY (PS5 style: dark on left, transparent on right) === */}
-      <View style={[styles.gradientOverlay, visualTheme && { opacity: 0.28 }]} pointerEvents="none" />
-      <View style={[styles.gradientOverlayTop, visualTheme && { opacity: 0.45 }]} pointerEvents="none" />
+      <View style={[styles.gradientOverlay, isThemeActiveForCurrentCard && { opacity: 0.28 }]} pointerEvents="none" />
+      <View style={[styles.gradientOverlayTop, isThemeActiveForCurrentCard && { opacity: 0.45 }]} pointerEvents="none" />
 
       {/* === BOTTOM-TO-TOP GRADIENT — visible when welcome_widgets is focused === */}
       {Platform.OS === 'web' && (
@@ -5130,7 +5142,7 @@ const styles = StyleSheet.create({
   },
   miniHeader: {
     position: 'absolute',
-    top: 16,
+    top: 38,
     left: 50,
     zIndex: 10,
     flexDirection: 'row',

@@ -51,6 +51,7 @@ function bestImage(item: SteamFeaturedItem): string {
 }
 
 function mapSpecialItem(item: SteamFeaturedItem): StoreOffer {
+  const appId = item.id;
   return {
     id: `steam_special_${item.id}`,
     title: item.name,
@@ -58,17 +59,30 @@ function mapSpecialItem(item: SteamFeaturedItem): StoreOffer {
     originalPrice: item.discounted ? formatPrice(item.original_price, item.currency) : undefined,
     discountPercent: item.discounted ? item.discount_percent : undefined,
     image: bestImage(item),
+    backgroundImage: appId
+      ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_hero.jpg`
+      : undefined,
+    logo: appId
+      ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/logo.png`
+      : undefined,
     type: 'offer',
     url: `https://store.steampowered.com/app/${item.id}`,
   };
 }
 
 function mapComingSoonItem(item: SteamFeaturedItem): StoreOffer {
+  const appId = item.id;
   return {
     id: `steam_release_${item.id}`,
     title: item.name,
     price: formatPrice(item.final_price, item.currency) || 'Próximamente',
     image: bestImage(item),
+    backgroundImage: appId
+      ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_hero.jpg`
+      : undefined,
+    logo: appId
+      ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/logo.png`
+      : undefined,
     type: 'release',
     url: `https://store.steampowered.com/app/${item.id}`,
   };

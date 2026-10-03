@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -36,6 +36,7 @@ export const StoreFrontPanel = ({
   const dealsScrollRef = useRef<ScrollView>(null);
   const upcomingScrollRef = useRef<ScrollView>(null);
   const { t } = useTranslation();
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
 
   // Scale factor: 1.0 at 1080p
   const scale = Math.min(
@@ -56,12 +57,16 @@ export const StoreFrontPanel = ({
   const isUpcomingFocused = (index: number) => focusArea === 'game_panel' && gamePanelFocusIndex === 10 + index;
   const isFooterFocused = () => focusArea === 'game_panel' && gamePanelFocusIndex === 20;
 
-  // Logo del juego enfocado (o primer juego por defecto)
-  const focusedLogo = useMemo(() => {
-    if (gamePanelFocusIndex < 10) return deals[gamePanelFocusIndex]?.logo || deals[0]?.logo || null;
-    if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) return upcoming[gamePanelFocusIndex - 10]?.logo || deals[0]?.logo || null;
-    return deals[0]?.logo || null;
+  // Item enfocado actualmente en el panel de la tienda
+  const focusedItem = useMemo(() => {
+    if (gamePanelFocusIndex < 10) return deals[gamePanelFocusIndex] || deals[0] || null;
+    if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) return upcoming[gamePanelFocusIndex - 10] || deals[0] || null;
+    return deals[0] || null;
   }, [gamePanelFocusIndex, deals, upcoming]);
+
+  const focusedLogo = focusedItem?.logo || null;
+  const focusedTitle = focusedItem?.title || '';
+  const hasValidLogo = !!focusedLogo && !failedLogos[focusedLogo];
 
   // Horizontal scroll adjustment on focus change
   useEffect(() => {
@@ -87,22 +92,67 @@ export const StoreFrontPanel = ({
 
   return (
     <Animated.View
-      style={[styles.container, gameInfoPanelStyle, { paddingLeft: s(150) }]}
+      style={[styles.container, gameInfoPanelStyle, { paddingLeft: s(150), paddingTop: s(280) }]}
       entering={FadeInDown.duration(400)}
     >
-      {/* Logo del juego enfocado */}
-      {focusedLogo ? (
-        <Animated.View key={focusedLogo} entering={FadeIn.duration(300)} style={{ marginTop: s(180), marginBottom: s(-110) }}>
-          <Image
-            source={{ uri: focusedLogo }}
-            style={{ width: s(460), height: s(130) }}
-            contentFit="contain"
-          />
-        </Animated.View>
-      ) : null}
-
-      {/* Spacer calibrado para StoreFront: posiciona las cards en el tercio inferior visible */}
-      <View style={{ height: Math.max(windowHeight * 0.25, 140) }} />
+      {/* Header con altura fija para Logo o nombre del juego enfocado (elimina saltos de layout) */}
+      <View
+        style={{
+          height: s(180),
+          width: s(650),
+          justifyContent: 'flex-end',
+          alignItems: 'flex-start',
+          marginBottom: s(16),
+        }}
+      >
+        {hasValidLogo ? (
+          <Animated.View
+            key={`logo-${focusedItem?.id || focusedLogo}`}
+            entering={FadeIn.duration(250)}
+            style={{
+              width: s(550),
+              height: s(350),
+              justifyContent: 'flex-end',
+              alignItems: 'flex-start',
+            }}
+          >
+            <Image
+              source={{ uri: focusedLogo }}
+              style={{ width: s(550), height: s(350) }}
+              contentFit="contain"
+              contentPosition="left bottom"
+              onError={() => {
+                if (focusedLogo) {
+                  setFailedLogos((prev) => ({ ...prev, [focusedLogo]: true }));
+                }
+              }}
+            />
+          </Animated.View>
+        ) : focusedTitle ? (
+          <Animated.View
+            key={`title-${focusedItem?.id || focusedTitle}`}
+            entering={FadeIn.duration(250)}
+            style={{
+              width: s(650),
+              justifyContent: 'flex-end',
+              alignItems: 'flex-start',
+            }}
+          >
+            <Text
+              style={[
+                styles.focusedGameTitle,
+                {
+                  fontSize: s(44),
+                  lineHeight: s(50),
+                },
+              ]}
+              numberOfLines={2}
+            >
+              {focusedTitle}
+            </Text>
+          </Animated.View>
+        ) : null}
+      </View>
 
 
       {/* Must see / Ofertas */}
@@ -607,6 +657,15 @@ const styles = StyleSheet.create({
   storeLinkTextFocused: {
     color: '#FFFFFF',
     textDecorationLine: 'underline',
+  },
+  focusedGameTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'SSTBold',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
 });
 

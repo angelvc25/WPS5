@@ -105,6 +105,8 @@ const es = {
   'settings.patrons': 'Colaboradores y Patrocinadores',
   'settings.foregroundOverWidgets': 'Personaje sobre los widgets',
   'settings.foregroundOverWidgetsDesc': 'Cuando está activado, el personaje 3D aparece sobre los widgets de la página de inicio. Cuando está desactivado, queda detrás de los widgets.',
+  'settings.visualThemeOnlyHome': 'Tema 3D solo en Inicio',
+  'settings.visualThemeOnlyHomeDesc': 'Cuando está activado, el fondo y personaje 3D solo se muestran en la pantalla de inicio (tarjeta de bienvenida). Al seleccionar un juego, se muestra el fondo propio del juego.',
 
   'settings.updateAvailable': 'Hay una actualización disponible',
   'settings.youHaveTheLatestVersion': 'Tienes la última versión',
@@ -1094,6 +1096,8 @@ const en: Record<TranslationKey, string> = {
   'settings.patrons': 'Contributors and Sponsors',
   'settings.foregroundOverWidgets': 'Character over widgets',
   'settings.foregroundOverWidgetsDesc': 'When enabled, the 3D character appears on top of the widgets on the home page. When disabled, it stays behind the widgets.',
+  'settings.visualThemeOnlyHome': '3D Theme only on Home',
+  'settings.visualThemeOnlyHomeDesc': 'When enabled, the 3D background and character only appear on the home screen (welcome card). When selecting a game, the game\'s own background is shown.',
 
   'settings.updateAvailable': 'Update available',
   'settings.youHaveTheLatestVersion': 'You have the latest version',
@@ -2074,6 +2078,8 @@ const pt: Record<TranslationKey, string> = {
   'settings.patrons': 'Colaboradores e Patrocinadores',
   'settings.foregroundOverWidgets': 'Personagem sobre os widgets',
   'settings.foregroundOverWidgetsDesc': 'Quando ativado, o personagem 3D aparece sobre os widgets na página inicial. Quando desativado, fica atrás dos widgets.',
+  'settings.visualThemeOnlyHome': 'Tema 3D apenas no Início',
+  'settings.visualThemeOnlyHomeDesc': 'Quando ativado, o fundo e o personagem 3D só aparecem na tela inicial (cartão de boas-vindas). Ao selecionar um jogo, o fundo próprio do jogo é mostrado.',
 
   'settings.updateAvailable': 'Atualização disponível',
   'settings.youHaveTheLatestVersion': 'Você tem a versão mais recente',

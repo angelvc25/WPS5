@@ -290,6 +290,12 @@ export interface UserThemeSettings {
   soundPackId?: string;
   /** Tema visual con fondo + personaje 3D. `none` = wallpaper del usuario. */
   visualThemeId?: string;
+  /** Si true, el fondo y personaje 3D solo se muestran en la pantalla de inicio (tarjeta de bienvenida). */
+  visualThemeOnlyHome?: boolean;
+  /** Si el personaje (foreground) se dibuja por encima de los widgets de la tarjeta de bienvenida. */
+  foregroundOverWidgets?: boolean;
+  audioPackId?: string | null;
+  musicPackId?: string | null;
   /** @deprecated los temas ya no gestionan fondos sueltos. Se ignora si existe en perfiles viejos. */
   backgroundId?: string;
 }

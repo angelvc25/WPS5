@@ -54,6 +54,7 @@ export default function ThemeSettingsView({
   const { t } = useTranslation();
   const {
     accent, accentId, setAccent, visualThemeId, setVisualTheme,
+    visualThemeOnlyHome, setVisualThemeOnlyHome,
     foregroundOverWidgets, setForegroundOverWidgets,
     audioPackName, musicPackName,
   } = useTheme();
@@ -80,15 +81,16 @@ export default function ThemeSettingsView({
   const [view, setView] = useState<ThemeView>('menu');
   const [menuIndex, setMenuIndex] = useState(0);
 
-  // ── Tema visual: índice 0 = "Ninguno", 1..n = VISUAL_THEMES. Si hay tema activo, el último elemento es el interruptor.
+  // ── Tema visual: índice 0 = "Ninguno", 1..n = VISUAL_THEMES. Si hay tema activo, los últimos elementos son los interruptores.
   const hasVisualTheme = visualThemeId !== DEFAULT_VISUAL_THEME_ID;
   const visualItems = useMemo(() => [DEFAULT_VISUAL_THEME_ID, ...VISUAL_THEMES.map((th) => th.id)], []);
   const itemCount = visualItems.length;
-  const totalVisualRows = itemCount + (hasVisualTheme ? 1 : 0);
+  const totalVisualRows = itemCount + (hasVisualTheme ? 2 : 0);
   const selectedVisualIndex = Math.max(0, visualItems.indexOf(visualThemeId));
   const [visualIndexRaw, setVisualIndex] = useState(selectedVisualIndex);
   const visualIndex = Math.min(visualIndexRaw, totalVisualRows - 1);
-  const toggleFocused = hasVisualTheme && visualIndex === itemCount;
+  const toggleOnlyHomeFocused = hasVisualTheme && visualIndex === itemCount;
+  const toggleForegroundFocused = hasVisualTheme && visualIndex === itemCount + 1;
 
   // ── Acentos
   const selectedAccentIndex = Math.max(0, ACCENTS.findIndex((a) => a.id === accentId));
@@ -125,6 +127,11 @@ export default function ThemeSettingsView({
     setAccent(id);
     soundService.playActivation?.().catch(() => { });
   }, [setAccent]);
+
+  const toggleOnlyHome = useCallback(() => {
+    setVisualThemeOnlyHome(!visualThemeOnlyHome);
+    soundService.playActivation?.().catch(() => { });
+  }, [visualThemeOnlyHome, setVisualThemeOnlyHome]);
 
   const toggleForeground = useCallback(() => {
     setForegroundOverWidgets(!foregroundOverWidgets);
@@ -197,7 +204,8 @@ export default function ThemeSettingsView({
           if (visualIndex > 0) moveSound();
         } else if (isSelect) {
           consume();
-          if (toggleFocused) toggleForeground();
+          if (toggleOnlyHomeFocused) toggleOnlyHome();
+          else if (toggleForegroundFocused) toggleForeground();
           else selectVisual(visualItems[visualIndex]);
         }
       } else if (view === 'accent') {
@@ -223,8 +231,8 @@ export default function ThemeSettingsView({
     window.addEventListener('keydown', handle, useCapture);
     return () => window.removeEventListener('keydown', handle, useCapture);
   }, [
-    focused, view, menuIndex, visualIndex, totalVisualRows, toggleFocused, visualItems, accentIndex,
-    goBack, openView, selectVisual, selectAccent, toggleForeground, accentVerticalNeighbor, moveSound,
+    focused, view, menuIndex, visualIndex, totalVisualRows, toggleOnlyHomeFocused, toggleForegroundFocused, visualItems, accentIndex,
+    goBack, openView, selectVisual, selectAccent, toggleOnlyHome, toggleForeground, accentVerticalNeighbor, moveSound,
   ]);
 
   // ── Lista de temas: mantiene el elemento enfocado centrado ─────────────────
@@ -315,22 +323,39 @@ export default function ThemeSettingsView({
             })}
           </ScrollView>
 
-          {/* Ajuste: personaje sobre/bajo los widgets (solo con un tema visual activo) */}
+          {/* Ajustes extra (solo con un tema visual activo) */}
           {hasVisualTheme && (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[styles.toggleRow, { paddingLeft: padL }, focused && toggleFocused && styles.listRowFocused]}
-              onPress={() => { setVisualIndex(itemCount); toggleForeground(); }}
-              {...hoverProps(() => { if (visualIndex !== itemCount) { setVisualIndex(itemCount); moveSound(); } })}
-            >
-              <View style={styles.toggleTexts}>
-                <Text style={styles.toggleLabel}>{t('settings.foregroundOverWidgets')}</Text>
-                <Text style={styles.toggleDesc} numberOfLines={3}>{t('settings.foregroundOverWidgetsDesc')}</Text>
-              </View>
-              <View style={[styles.switchTrack, foregroundOverWidgets && { backgroundColor: accent.color }]}>
-                <View style={[styles.switchThumb, foregroundOverWidgets && styles.switchThumbOn]} />
-              </View>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.toggleRow, { paddingLeft: padL }, focused && toggleOnlyHomeFocused && styles.listRowFocused]}
+                onPress={() => { setVisualIndex(itemCount); toggleOnlyHome(); }}
+                {...hoverProps(() => { if (visualIndex !== itemCount) { setVisualIndex(itemCount); moveSound(); } })}
+              >
+                <View style={styles.toggleTexts}>
+                  <Text style={styles.toggleLabel}>{t('settings.visualThemeOnlyHome')}</Text>
+                  <Text style={styles.toggleDesc} numberOfLines={3}>{t('settings.visualThemeOnlyHomeDesc')}</Text>
+                </View>
+                <View style={[styles.switchTrack, visualThemeOnlyHome && { backgroundColor: accent.color }]}>
+                  <View style={[styles.switchThumb, visualThemeOnlyHome && styles.switchThumbOn]} />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.toggleRow, { paddingLeft: padL }, focused && toggleForegroundFocused && styles.listRowFocused]}
+                onPress={() => { setVisualIndex(itemCount + 1); toggleForeground(); }}
+                {...hoverProps(() => { if (visualIndex !== itemCount + 1) { setVisualIndex(itemCount + 1); moveSound(); } })}
+              >
+                <View style={styles.toggleTexts}>
+                  <Text style={styles.toggleLabel}>{t('settings.foregroundOverWidgets')}</Text>
+                  <Text style={styles.toggleDesc} numberOfLines={3}>{t('settings.foregroundOverWidgetsDesc')}</Text>
+                </View>
+                <View style={[styles.switchTrack, foregroundOverWidgets && { backgroundColor: accent.color }]}>
+                  <View style={[styles.switchThumb, foregroundOverWidgets && styles.switchThumbOn]} />
+                </View>
+              </TouchableOpacity>
+            </>
           )}
         </View>
 
