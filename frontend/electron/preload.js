@@ -41,8 +41,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getInstalledPrograms: () => ipcRenderer.invoke('get-installed-programs'),
   detectEmulatorExe: (exeNames) => ipcRenderer.invoke('detect-emulator-exe', exeNames),
   scanRoms: (dir, extensions, specialFiles) => ipcRenderer.invoke('scan-roms', dir, extensions, specialFiles),
-  checkBios: (dir, patterns) => ipcRenderer.invoke('check-bios', dir, patterns),
-  onGameClosed: (callback) => ipcRenderer.on('game-closed', (_event, id) => callback(id)),
+  onGameClosed: (callback) => {
+    const listener = (_event, id) => callback(id);
+    ipcRenderer.on('game-closed', listener);
+    return () => ipcRenderer.removeListener('game-closed', listener);
+  },
   removeGameClosedListener: () => ipcRenderer.removeAllListeners('game-closed'),
   getMediaSessions: () => ipcRenderer.invoke('get-media-sessions'),
   mediaControl: (action, target) => ipcRenderer.invoke('media-control', action, target),

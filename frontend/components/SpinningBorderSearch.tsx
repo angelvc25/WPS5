@@ -23,8 +23,8 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
     <>
       <style>{`
   @keyframes wcs-spin-border {
-    0%   { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
+    0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+    100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
   }
 
   .wcs-spinning-container {
@@ -35,10 +35,9 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
     bottom: -${resolvedSpread}px;
     border-radius: ${resolvedRadius}px;
     z-index: 20;
-    overflow: visible;
-    /* Decorativo: nunca debe interceptar clics de los botones que cubre
-       (p. ej. Aceptar/Rechazar en la fila enfocada de notificaciones). */
+    overflow: hidden;
     pointer-events: none;
+    contain: strict;
 
     -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
     mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
@@ -54,8 +53,9 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 10000%;
-    height: 10000%;
+    width: 250%;
+    height: 250%;
+    will-change: transform;
     animation: wcs-spin-border 9.8s linear infinite;
 
     background: conic-gradient(
@@ -74,11 +74,11 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
   }
 
   @keyframes wcs-content-shimmer {
-    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+    0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
     15% { opacity: 1; }
     50% { opacity: 1; }
-    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+    70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+    100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
   }
   .wcs-shimmer-line {
     position: absolute;
@@ -86,6 +86,7 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
     left: 50%;
     width: 140%;
     height: 420%;
+    will-change: transform;
     background: linear-gradient(
       to right,
       transparent 0%,

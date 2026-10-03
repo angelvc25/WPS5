@@ -28,7 +28,7 @@ export function useSystemMedia() {
       fetchMediaSessions().then((list) => {
         if (mounted) setSessions(list);
       });
-    }, 3000);
+    }, 8000);
 
     return () => {
       mounted = false;
@@ -46,7 +46,7 @@ export function useSystemMedia() {
     }
   }, [sessions]);
 
-  // Interpolar posición entre actualizaciones del backend
+  // Interpolar posición de forma controlada cada 1s sin recrear el timer
   useEffect(() => {
     if (tickRef.current) {
       clearInterval(tickRef.current);
@@ -54,9 +54,6 @@ export function useSystemMedia() {
     }
 
     if (!nowPlaying || nowPlaying.playbackStatus !== 'playing') return;
-
-    basePositionRef.current = nowPlaying.positionMs;
-    lastSyncRef.current = Date.now();
 
     tickRef.current = setInterval(() => {
       const nextPos = basePositionRef.current + (Date.now() - lastSyncRef.current);
@@ -67,12 +64,15 @@ export function useSystemMedia() {
         }
         return { ...prev, positionMs: nextPos };
       });
-    }, 500);
+    }, 1000);
 
     return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
     };
-  }, [nowPlaying?.id, nowPlaying?.playbackStatus, nowPlaying?.positionMs]);
+  }, [nowPlaying?.id, nowPlaying?.playbackStatus]);
 
   return { sessions, nowPlaying };
 }

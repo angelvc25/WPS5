@@ -307,7 +307,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   const [loadingFriends, setLoadingFriends] = useState(false);
   const steamId = activeUser?.settings?.steamId;
 
-  const FRIENDS_REFRESH_MS = 10000; // refresca cada 10s para reflejar cambios de estado/juego
+  const FRIENDS_REFRESH_MS = 30000; // refresca cada 30s para no saturar memoria/red
   const prevFriendsRef = useRef<Map<string, SteamFriend>>(new Map()); // Nuevo ref para recordar el estado anterior de cada amigo
 
   useEffect(() => {
@@ -326,7 +326,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
             const prev = prevMap.get(friend.steamid);
             const wasPlaying = prev?.gameextrainfo;
             const nowPlaying = friend.gameextrainfo;
-            // Solo notifica si antes NO jugaba (o jugaba otra cosa) y ahora sÃ­
+            // Solo notifica si antes NO jugaba (o jugaba otra cosa) y ahora sí
             if (nowPlaying && nowPlaying !== wasPlaying) {
               toastService.show(t('notifiactions.friendPlaying', { friendName: friend.personaname, gameName: nowPlaying }), {
                 icon: require('@/assets/images/amigos.png'),
@@ -354,15 +354,15 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   const topFriend = friends[0] || null;
   const onlineFriendsCount = friends.filter(f => f.personastate > 0 || f.gameextrainfo).length;
 
-  // FunciÃ³n extra: Steam no expone pÃºblicamente el lobbyid de la partida de un
-  // amigo, asÃ­ que "unirse" directo a su sesiÃ³n no es posible vÃ­a URL (por eso
-  // "steam://friends/joingame/..." nunca hacÃ­a nada). En su lugar, si el amigo
-  // estÃ¡ jugando algo, lanzamos TU copia de ese mismo juego (steam://rungameid,
+  // Función extra: Steam no expone públicamente el lobbyid de la partida de un
+  // amigo, así que "unirse" directo a su sesión no es posible vía URL (por eso
+  // "steam://friends/joingame/..." nunca hacía nada). En su lugar, si el amigo
+  // está jugando algo, lanzamos TU copia de ese mismo juego (steam://rungameid,
   // el mismo mecanismo que ya usa el resto de la app para lanzar juegos). Si no
-  // estÃ¡ jugando, abrimos su perfil de amigo dentro del cliente de Steam.
+  // está jugando, abrimos su perfil de amigo dentro del cliente de Steam.
   const handleFriendAction = async (friend: SteamFriend | null) => {
     if (!friend) {
-      // Sin amigo especÃ­fico (o sin cuenta conectada): abre el panel general de amigos de Steam.
+      // Sin amigo específico (o sin cuenta conectada): abre el panel general de amigos de Steam.
       const ok = await openWebLink('steam://friends/status');
       if (!ok) toastService.show(t('notifications.noFriendSteam'), { source: 'steam' });
       return;
@@ -370,19 +370,19 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
 
     if (friend.gameextrainfo && friend.gameid) {
       const url = buildSteamRunUrl(friend.gameid);
-      console.log('[Friends widget] Lanzando el mismo juego que', friend.personaname, 'â†’', url);
+      console.log('[Friends widget] Lanzando el mismo juego que', friend.personaname, '→', url);
       const ok = await openWebLink(url);
       if (!ok) toastService.show(t('notifications.noLaunchFriendGame', { friendGame: friend.gameextrainfo }), { source: 'steam' });
     } else {
       const url = `steam://url/SteamIDFriendsPage/${friend.steamid}`;
-      console.log('[Friends widget] Abriendo perfil de', friend.personaname, 'â†’', url);
+      console.log('[Friends widget] Abriendo perfil de', friend.personaname, '→', url);
       const ok = await openWebLink(url);
       if (!ok) toastService.show(t('notifications.friendProfile'), { source: 'steam' });
     }
   };
 
-  // Permite que index.tsx dispare esta misma acciÃ³n desde el manejador de
-  // teclado/mando (Enter / botÃ³n X), igual que ya se hace con LibraryGridHandle.
+  // Permite que index.tsx dispare esta misma acción desde el manejador de
+  // teclado/mando (Enter / botón X), igual que ya se hace con LibraryGridHandle.
   useImperativeHandle(ref, () => ({
     triggerFriendAction: () => {
       handleFriendAction(topFriend);
@@ -395,7 +395,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
       setActiveOfferIndex(prev => (prev + 1) % storeOffers.length);
     }, 8000);
     return () => clearInterval(timer);
-  }, [storeOffers]);
+  }, [storeOffers.length]);
 
   const activeOffer = storeOffers[activeOfferIndex] || null;
 

@@ -159,6 +159,7 @@ app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 if (process.platform === 'win32') {
   app.commandLine.appendSwitch('use-angle', 'd3d11');
 }
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=1024');
 
 // Si el proceso GPU se cae, Chromium puede pasar a render por software sin
 // avisar; este log permite detectarlo.
@@ -449,7 +450,7 @@ function startMediaSessionsBridge() {
     console.warn(
       '[MediaSessions] Paquete no instalado. Ejecuta: npm install windows-media-sessions',
     );
-    mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 2500);
+    mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 8000);
     return;
   }
 
@@ -459,11 +460,14 @@ function startMediaSessionsBridge() {
       mediaSessionsUnsubscribe = mediaModule.onSessionsChanged(() => {
         broadcastMediaSessions();
       });
+      // Con evento nativo activo, solo dejamos un timer de respaldo espaciado (15s)
+      mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 15000);
+    } else {
+      mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 6000);
     }
-    mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 2500);
   } catch (err) {
     console.warn('[MediaSessions] No disponible:', err.message);
-    mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 2500);
+    mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 8000);
   }
 }
 
@@ -2145,10 +2149,10 @@ app.whenReady().then(async () => {
     }
   }
 
-  // Backup timer: re-parse content_log.txt every 2 seconds for smooth progress
+  // Backup timer: re-parse content_log.txt every 4 seconds for smooth progress
   downloadParseInterval = setInterval(() => {
     broadcastDownloadProgress();
-  }, 2000);
+  }, 4000);
 
   // Registrar protocolo personalizado para cargar imágenes locales y videos de forma segura
   // Usamos protocol.handle para mejor soporte en versiones recientes de Electron

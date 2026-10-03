@@ -108,11 +108,13 @@ export function useSteamDownloads(pollIntervalMs: number = 2000) {
     mountedRef.current = true;
     fetchDownloads();
 
-    intervalRef.current = setInterval(fetchDownloads, pollIntervalMs);
-
     let removeListener: (() => void) | undefined;
-    if (Platform.OS === 'web' && (window as any).electronAPI?.onSteamDownloadUpdated) {
+    const hasIpc = Platform.OS === 'web' && typeof (window as any).electronAPI?.onSteamDownloadUpdated === 'function';
+
+    if (hasIpc) {
       removeListener = (window as any).electronAPI.onSteamDownloadUpdated(fetchDownloads);
+    } else {
+      intervalRef.current = setInterval(fetchDownloads, pollIntervalMs);
     }
 
     return () => {
