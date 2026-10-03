@@ -11,8 +11,8 @@ interface SpinningBorderConicProps {
 const SPIN_CSS = `
   /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
   @keyframes wc-spin-border {
-    0%   { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
+    0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+    100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
   }
   
   .wc-spinning-container {
@@ -24,8 +24,8 @@ const SPIN_CSS = `
     border-radius: 22px;
     z-index: 20;
     overflow: visible;
-    /* Decorativo: click-through hacia la tarjeta. */
     pointer-events: none;
+    // contain: strict;
 
     /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
     /* 1. Definimos dos capas de gradientes básicos como máscaras */
@@ -50,8 +50,9 @@ const SPIN_CSS = `
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 300%;
-    height: 300%;
+    width: 250%;
+    height: 250%;
+    will-change: transform;
     animation: wc-spin-border 9.8s linear infinite;
     
     background: conic-gradient(
@@ -71,11 +72,11 @@ const SPIN_CSS = `
 
   /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
   @keyframes wc-content-shimmer {
-    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+    0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
     15% { opacity: 1; }
     50% { opacity: 1; }
-    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+    70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+    100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
   }
   .wc-shimmer-line {
     position: absolute;
@@ -83,6 +84,7 @@ const SPIN_CSS = `
     left: 50%;
     width: 140%; 
     height: 420%; 
+    will-change: transform;
     background: linear-gradient(
       to right,
       transparent 0%,

@@ -13,8 +13,8 @@ export const SpinningborderDiscover = ({ borderRadius = 4 }: SpinningBorderProps
       <style>{`
   /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
   @keyframes wc-spin-border {
-    0%   { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
+    0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+    100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
   }
   
   .wc-spinning-container3 {
@@ -71,11 +71,11 @@ export const SpinningborderDiscover = ({ borderRadius = 4 }: SpinningBorderProps
 
   /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
   @keyframes wc-content-shimmer {
-    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+    0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
     15% { opacity: 1; }
     50% { opacity: 1; }
-    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+    70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+    100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
   }
   .wc-shimmer-line3 {
     position: absolute;

@@ -2,19 +2,19 @@ import React from 'react';
 import { View, Platform } from 'react-native';
 
 interface SpinningBorderLogrosProps {
-    size: number;
+  size: number;
 }
 
 export const SpinningBorderLogros = ({ size }: SpinningBorderLogrosProps) => {
-    if (Platform.OS !== 'web') return null;
+  if (Platform.OS !== 'web') return null;
 
-    return (
-        <>
-            <style>{`
+  return (
+    <>
+      <style>{`
   /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
   @keyframes wc-spin-border {
-    0%   { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
+    0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+    100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
   }
   
   .wc-spinning-container4 {
@@ -71,11 +71,11 @@ export const SpinningBorderLogros = ({ size }: SpinningBorderLogrosProps) => {
 
   /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
   @keyframes wc-content-shimmer4 {
-    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+    0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
     15% { opacity: 1; }
     50% { opacity: 1; }
-    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+    70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+    100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
   }
   .wc-shimmer-line4 {
     position: absolute;
@@ -95,33 +95,33 @@ export const SpinningBorderLogros = ({ size }: SpinningBorderLogrosProps) => {
   }
 `}</style>
 
-            {/* CAPA ATRÁS: Borde Giratorio con Máscara Rectangular */}
-            {/* Eliminamos los estilos inline que puedan chocar con la máscara */}
-            {/* @ts-ignore */}
-            <div className="wc-spinning-container4">
-                {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
-                <div className="wc-spinning-inner4" />
-            </div>
+      {/* CAPA ATRÁS: Borde Giratorio con Máscara Rectangular */}
+      {/* Eliminamos los estilos inline que puedan chocar con la máscara */}
+      {/* @ts-ignore */}
+      <div className="wc-spinning-container4">
+        {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
+        <div className="wc-spinning-inner4" />
+      </div>
 
-            {/* CAPA ADELANTE: Brillo Adaptado Amplio */}
-            <View
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 1,
-                    right: 1,
-                    bottom: 0,
-                    borderRadius: 12,
-                    zIndex: 5,
-                    overflow: 'hidden',
-                } as any}
-                pointerEvents="none"
-            >
-                {/* @ts-ignore */}
-                <div className="wc-shimmer-line4" />
-            </View>
-        </>
-    );
+      {/* CAPA ADELANTE: Brillo Adaptado Amplio */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 1,
+          right: 1,
+          bottom: 0,
+          borderRadius: 12,
+          zIndex: 5,
+          overflow: 'hidden',
+        } as any}
+        pointerEvents="none"
+      >
+        {/* @ts-ignore */}
+        <div className="wc-shimmer-line4" />
+      </View>
+    </>
+  );
 };
 
 export default SpinningBorderLogros;

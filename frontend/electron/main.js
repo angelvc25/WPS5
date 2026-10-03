@@ -159,7 +159,7 @@ app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 if (process.platform === 'win32') {
   app.commandLine.appendSwitch('use-angle', 'd3d11');
 }
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=1024');
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=1024 --expose-gc');
 
 // Si el proceso GPU se cae, Chromium puede pasar a render por software sin
 // avisar; este log permite detectarlo.
@@ -650,6 +650,19 @@ function createWindow() {
   // 👈 AÑADIR: mostrar la ventana solo cuando el renderer ya pintó su primer frame
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+  });
+
+  // Liberar memoria V8 y caché cuando la ventana se oculta (ej. al lanzar un juego) o minimiza
+  mainWindow.on('hide', () => {
+    try {
+      if (typeof global.gc === 'function') global.gc();
+    } catch (_) {}
+  });
+
+  mainWindow.on('minimize', () => {
+    try {
+      if (typeof global.gc === 'function') global.gc();
+    } catch (_) {}
   });
 
   mainWindow.webContents.on('did-finish-load', () => {

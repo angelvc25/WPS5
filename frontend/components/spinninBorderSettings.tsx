@@ -23,8 +23,8 @@ export const SpinningBorderSettings = ({ size, spread, borderRadius }: SpinningB
     <>
       <style>{`
   @keyframes wcs-spin-border-settings {
-    0%   { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
+    0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+    100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
   }
 
   .wcs-spinning-container-settings {
@@ -74,11 +74,11 @@ export const SpinningBorderSettings = ({ size, spread, borderRadius }: SpinningB
   }
 
   @keyframes wcs-content-shimmer-settings {
-    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+    0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
     15% { opacity: 1; }
     50% { opacity: 1; }
-    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+    70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+    100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
   }
   .wcs-shimmer-line-settings {
     position: absolute;

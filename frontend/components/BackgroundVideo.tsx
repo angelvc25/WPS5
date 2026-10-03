@@ -47,12 +47,32 @@ export default function BackgroundVideo({
 }: BackgroundVideoProps) {
   const [reloadKey, setReloadKey] = useState(0);
   const uri = useMemo(() => resolveVideoSource(source), [source]);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+
+    const handleVisibility = () => {
+      if (!videoRef.current) return;
+      if (document.hidden) {
+        videoRef.current.pause();
+      } else if (shouldPlay) {
+        videoRef.current.play().catch(() => {});
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [shouldPlay]);
 
   if (Platform.OS === 'web') {
     if (!uri) return null;
 
     return (
       <video
+        ref={videoRef}
         key={`${reloadKey}-${uri}`}
         src={uri}
         autoPlay={shouldPlay}
@@ -68,6 +88,7 @@ export default function BackgroundVideo({
           height: '100%',
           objectFit: resizeMode,
           pointerEvents: 'none',
+          willChange: 'transform, opacity',
         }}
         onError={() => {
           setReloadKey((current) => current + 1);

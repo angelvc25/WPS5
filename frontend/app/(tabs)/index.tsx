@@ -4183,13 +4183,13 @@ export default function ConsoleHome() {
 
         {/* VIDEO DE FONDO */}
         {currentBackgroundVideo ? (
-          <Video
+          <BackgroundVideo
             source={currentBackgroundVideo}
             style={StyleSheet.absoluteFillObject}
-            resizeMode={ResizeMode.STRETCH}
+            resizeMode="cover"
             shouldPlay
             isLooping
-            isMuted
+            muted
           />
         ) : showTrailer && currentData[activeIndex]?.youtubeId ? (
 
