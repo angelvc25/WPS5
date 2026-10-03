@@ -217,6 +217,8 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
   const shiftRef = useRef(false);
   const symbolsRef = useRef(false);
   const valueRef = useRef(value);
+  const [cursor, setCursor] = useState(value.length);
+  const cursorRef = useRef(value.length);
 
   focusRowRef.current = focusRow;
   focusColRef.current = focusCol;
@@ -224,12 +226,17 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
   symbolsRef.current = symbols;
   valueRef.current = value;
 
+  // Si el texto cambia desde fuera y el cursor queda fuera de rango, lo ajustamos
+  if (cursorRef.current > value.length) cursorRef.current = value.length;
+
   // ── Animation ──────────────────────────────────────────────────────────────
   const slideAnim = useRef(new RNAnimated.Value(400)).current;
   const opacityAnim = useRef(new RNAnimated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      cursorRef.current = valueRef.current.length;
+      setCursor(valueRef.current.length);
       setFocusRow(0);
       setFocusCol(0);
       setShift(false);
@@ -266,13 +273,43 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
     }
   }, [visible]);
 
+  // ── Edición con cursor ─────────────────────────────────────────────────────
+  const insertText = useCallback((text: string) => {
+    const v = valueRef.current;
+    const c = Math.min(cursorRef.current, v.length);
+    const newVal = v.slice(0, c) + text + v.slice(c);
+    const newCur = c + text.length;
+    valueRef.current = newVal;
+    cursorRef.current = newCur;
+    setCursor(newCur);
+    onChange(newVal);
+  }, [onChange]);
+
+  const deleteBack = useCallback(() => {
+    const v = valueRef.current;
+    const c = Math.min(cursorRef.current, v.length);
+    if (c <= 0) return;
+    const newVal = v.slice(0, c - 1) + v.slice(c);
+    valueRef.current = newVal;
+    cursorRef.current = c - 1;
+    setCursor(c - 1);
+    onChange(newVal);
+  }, [onChange]);
+
+  const moveCursor = useCallback((delta: number) => {
+    const next = Math.max(0, Math.min(valueRef.current.length, cursorRef.current + delta));
+    if (next === cursorRef.current) return;
+    cursorRef.current = next;
+    setCursor(next);
+    soundService.playNavigation();
+  }, []);
+
   // ── Key action ─────────────────────────────────────────────────────────────
   const pressKey = useCallback((key: KeyDef) => {
     soundService.playActivation();
 
     if (key.action === 'char' && key.value !== undefined) {
-      const newVal = valueRef.current + key.value;
-      onChange(newVal);
+      insertText(key.value);
       // auto-unshift after typing one uppercase letter
       if (shiftRef.current) setShift(false);
       return;
@@ -280,10 +317,12 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
 
     switch (key.action) {
       case 'backspace':
-        onChange(valueRef.current.slice(0, -1));
+      case 'square':
+        deleteBack();
         break;
       case 'space':
-        onChange(valueRef.current + ' ');
+      case 'triangle':
+        insertText(' ');
         break;
       case 'shift':
         setShift(prev => !prev);
@@ -297,72 +336,79 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
         else onClose();
         break;
       case 'close':
-      case 'prev':
         onClose();
         break;
-      case 'triangle':
-        onChange(valueRef.current + ' ');
+      case 'prev':
+        moveCursor(-1);
         break;
-      case 'square':
-        onChange(valueRef.current.slice(0, -1));
+      case 'next':
+        moveCursor(1);
         break;
       default:
         break;
     }
-  }, [onChange, onClose, onConfirm]);
+  }, [insertText, deleteBack, moveCursor, onClose, onConfirm]);
 
-  // ── Botones cuadrado (□) y triángulo (△) del mando ─────────────────────────
-  // □ (botón 2) = borrar, △ (botón 3) = espacio. Se leen directo del Gamepad API
-  // y, mientras estén presionados, se ignoran los eventos de teclado que otros
-  // mapeos generen (para que NO actúen como ✕ / confirmar tecla).
+  // ── Rows (memoised) ────────────────────────────────────────────────────────
+  const rows = useMemo(() => getRows(shift, symbols), [shift, symbols]);
+
+  // ── Botones del mando (Gamepad API) ────────────────────────────────────────
+  // □ (2) = borrar · △ (3) = espacio · L1 (4) / R1 (5) = mover cursor ←/→
+  // R2 (7) = cerrar teclado (Done).
+  // Mientras estén presionados se ignoran los eventos de teclado que otros
+  // mapeos generen para ellos (ver handler de keydown), para que no escriban
+  // letras ni confirmen la tecla enfocada.
   const pressKeyRef = useRef(pressKey);
   pressKeyRef.current = pressKey;
+  const moveCursorRef = useRef(moveCursor);
+  moveCursorRef.current = moveCursor;
 
   useEffect(() => {
     if (!visible || Platform.OS !== 'web') return;
     if (typeof navigator === 'undefined' || !navigator.getGamepads) return;
 
-    const BTN_SQUARE = 2;
-    const BTN_TRIANGLE = 3;
+    const BTN = { SQUARE: 2, TRIANGLE: 3, L1: 4, R1: 5, R2: 7 };
     const REPEAT_DELAY = 400;
     const REPEAT_RATE = 60;
 
-    const readPads = () =>
-      Array.from(navigator.getGamepads() || []).filter(Boolean) as Gamepad[];
     const isDown = (btn: number) =>
-      readPads().some(g => !!g.buttons[btn]?.pressed);
+      Array.from(navigator.getGamepads() || []).some(g => !!g?.buttons[btn]?.pressed);
 
-    let prevSq = isDown(BTN_SQUARE);   // estado inicial: evita disparo al abrir
-    let prevTr = isDown(BTN_TRIANGLE);
-    let sqNextRepeat = 0;
+    type St = { prev: boolean; next: number };
+    const st: Record<number, St> = {};
+    Object.values(BTN).forEach(b => {
+      st[b] = { prev: isDown(b), next: 0 }; // estado inicial: evita disparo al abrir
+    });
+
+    // dispara en el flanco de subida y, si repeat, mantiene repetición
+    const handleBtn = (btn: number, now: number, down: boolean, fire: () => void, repeat: boolean) => {
+      const t = st[btn];
+      if (down && !t.prev) {
+        fire();
+        t.next = now + REPEAT_DELAY;
+      } else if (repeat && down && now >= t.next) {
+        fire();
+        t.next = now + REPEAT_RATE;
+      }
+      t.prev = down;
+    };
+
     let raf = 0;
-
     const loop = () => {
       const now = performance.now();
-      const sq = isDown(BTN_SQUARE);
-      const tr = isDown(BTN_TRIANGLE);
-
-      if (sq && !prevSq) {
-        pressKeyRef.current({ label: '⌫', action: 'backspace' });
-        sqNextRepeat = now + REPEAT_DELAY;
-      } else if (sq && now >= sqNextRepeat) {
-        pressKeyRef.current({ label: '⌫', action: 'backspace' });
-        sqNextRepeat = now + REPEAT_RATE;
-      }
-      if (tr && !prevTr) {
-        pressKeyRef.current({ label: 'SPACE', action: 'space' });
-      }
-
-      prevSq = sq;
-      prevTr = tr;
+      handleBtn(BTN.SQUARE, now, isDown(BTN.SQUARE),
+        () => pressKeyRef.current({ label: '⌫', action: 'backspace' }), true);
+      handleBtn(BTN.TRIANGLE, now, isDown(BTN.TRIANGLE),
+        () => pressKeyRef.current({ label: 'SPACE', action: 'space' }), false);
+      handleBtn(BTN.L1, now, isDown(BTN.L1), () => moveCursorRef.current(-1), true);
+      handleBtn(BTN.R1, now, isDown(BTN.R1), () => moveCursorRef.current(1), true);
+      handleBtn(BTN.R2, now, isDown(BTN.R2),
+        () => pressKeyRef.current({ label: 'Done', action: 'confirm' }), false);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [visible]);
-
-  // ── Rows (memoised) ────────────────────────────────────────────────────────
-  const rows = useMemo(() => getRows(shift, symbols), [shift, symbols]);
 
   // ── Gamepad / keyboard navigation ──────────────────────────────────────────
   useEffect(() => {
@@ -372,14 +418,14 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
       e.preventDefault();
       e.stopPropagation();
 
-      // □ / △ del mando presionados → los maneja el loop del Gamepad API.
-      // Ignoramos cualquier tecla sintética que el mapeo del mando genere
-      // para ellos (p.ej. Enter), así no confirman la letra como ✕.
+      // Botones del mando manejados por el loop del Gamepad API (□ △ L1 R1 R2):
+      // ignoramos cualquier tecla sintética que el mapeo del mando genere
+      // para ellos (Enter, q, e, PageUp…), así no escriben ni confirman la tecla.
       if (
         typeof navigator !== 'undefined' &&
         navigator.getGamepads &&
         Array.from(navigator.getGamepads() || []).some(
-          g => g && (g.buttons[2]?.pressed || g.buttons[3]?.pressed)
+          g => g && [2, 3, 4, 5, 7].some(b => g.buttons[b]?.pressed)
         )
       ) {
         return;
@@ -438,12 +484,12 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
           onClose();
           break;
         case 'Backspace':
-          onChange(valueRef.current.slice(0, -1));
+          deleteBack();
           break;
         default:
           // Physical keyboard typing passes through
           if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-            onChange(valueRef.current + e.key);
+            insertText(e.key);
             if (shiftRef.current) setShift(false);
           }
           break;
@@ -452,7 +498,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
 
     window.addEventListener('keydown', handle, true);
     return () => window.removeEventListener('keydown', handle, true);
-  }, [visible, pressKey, onClose, onChange]);
+  }, [visible, pressKey, onClose, insertText, deleteBack]);
 
   // ── Layout ─────────────────────────────────────────────────────────────────
   const scale = Math.min(ww / 1920, wh / 1080);
@@ -493,10 +539,17 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
             numberOfLines={1}
             ellipsizeMode="head"
           >
-            {value}
+            {value.slice(0, Math.min(cursor, value.length))}
           </Text>
-          {/* blinking cursor */}
+          {/* blinking cursor (en la posición de edición) */}
           <BlinkingCursor height={s(20)} />
+          <Text
+            style={[styles.previewText, { fontSize: s(18) }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {value.slice(Math.min(cursor, value.length))}
+          </Text>
         </View>
 
         {/* Key rows */}
@@ -649,7 +702,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   previewText: {
-    flex: 1,
+    flexShrink: 1,
     color: '#FFFFFF',
     fontFamily: 'SSTLight',
     letterSpacing: 0.5,
