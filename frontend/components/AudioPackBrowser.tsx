@@ -104,9 +104,9 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
   const pills = tab === 'downloaded'
     ? TABS.map((tb) => ({ kind: 'tab' as const, id: tb.id, label: tb.label }))
     : [
-        ...TABS.map((tb) => ({ kind: 'tab' as const, id: tb.id, label: tb.label })),
-        ...SORTS.map((st) => ({ kind: 'sort' as const, id: st, label: t(`settings.audioSort${st[0].toUpperCase()}${st.slice(1)}` as any) })),
-      ];
+      ...TABS.map((tb) => ({ kind: 'tab' as const, id: tb.id, label: tb.label })),
+      ...SORTS.map((st) => ({ kind: 'sort' as const, id: st, label: t(`settings.audioSort${st[0].toUpperCase()}${st.slice(1)}` as any) })),
+    ];
 
   const downloaded: DownloadedEntry[] = useMemo(() => {
     const installed = listInstalledAudioPacks();
@@ -179,7 +179,7 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
       else setMusicPack(entry.key);
     }
     // Deja que los players recarguen antes de la demo.
-    setTimeout(() => soundService.playActivation?.().catch(() => {}), 800);
+    setTimeout(() => soundService.playActivation?.().catch(() => { }), 800);
   }, [setAudioPack, setMusicPack]);
 
   const openPreview = (entry: DownloadedEntry | DeckAudioPack) => {
@@ -212,14 +212,14 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
       if (kind === 'audio') {
         roles = mapDeckFilesToRoles(files, ignore);
         if (Object.keys(roles).length === 0) {
-          await (window as any).electronAPI.removeDeckAudioPack(res.dir).catch(() => {});
+          await (window as any).electronAPI.removeDeckAudioPack(res.dir).catch(() => { });
           toastService.show(t('settings.audioNoCompatible'));
           return;
         }
       } else {
         const musicFile = pickDeckMusicFile(files, ignore);
         if (!musicFile) {
-          await (window as any).electronAPI.removeDeckAudioPack(res.dir).catch(() => {});
+          await (window as any).electronAPI.removeDeckAudioPack(res.dir).catch(() => { });
           toastService.show(t('settings.audioNoCompatible'));
           return;
         }
@@ -242,7 +242,7 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
       else setMusicPack(safeId);
       // La música arranca sola al aplicar; los efectos necesitan demo diferida.
       if (kind === 'audio') {
-        setTimeout(() => soundService.playActivation?.().catch(() => {}), 900);
+        setTimeout(() => soundService.playActivation?.().catch(() => { }), 900);
       }
       setPreview(null);
     } catch (err: any) {
@@ -256,14 +256,14 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
     if (entry.bundled || !entry.installed) return;
     try {
       if (isElectron()) {
-        await (window as any).electronAPI.removeDeckAudioPack(entry.installed.dir).catch(() => {});
+        await (window as any).electronAPI.removeDeckAudioPack(entry.installed.dir).catch(() => { });
       }
       removeInstalledAudioPack(entry.key);
       if (entry.kind === 'audio' && audioPackId === entry.key) setAudioPack(null);
       if (entry.kind === 'music' && musicPackId === entry.key) setMusicPack(null);
       setRegistryBump((b) => b + 1);
       setPreview(null);
-      soundService.playBack?.().catch(() => {});
+      soundService.playBack?.().catch(() => { });
     } catch { /* noop */ }
   };
 
@@ -311,8 +311,45 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
   // ── Teclado/mando (capture: va antes que el handler de SettingsView) ──
   const activeRef = useRef(active);
   activeRef.current = active;
-  const stateRef = useRef({ zone, pillIndex, gridIndex, pagerIndex, page, totalPages, gridCount, pillsLen: pills.length, modalActionsLen: modalActions.length, preview: !!preview });
-  stateRef.current = { zone, pillIndex, gridIndex, pagerIndex, page, totalPages, gridCount, pillsLen: pills.length, modalActionsLen: modalActions.length, preview: !!preview };
+  const cardRefs = useRef(new Map<number, any>());
+  const stateRef = useRef({
+    zone,
+    pillIndex,
+    gridIndex,
+    pagerIndex,
+    page,
+    totalPages,
+    gridCount,
+    pillsLen: pills.length,
+    modalActionsLen: modalActions.length,
+    preview: !!preview,
+    isDownloadedTab,
+  });
+  stateRef.current = {
+    zone,
+    pillIndex,
+    gridIndex,
+    pagerIndex,
+    page,
+    totalPages,
+    gridCount,
+    pillsLen: pills.length,
+    modalActionsLen: modalActions.length,
+    preview: !!preview,
+    isDownloadedTab,
+  };
+
+  useEffect(() => {
+    if (zone === 'grid' && Platform.OS === 'web') {
+      try {
+        const { findNodeHandle } = require('react-native');
+        const node = findNodeHandle(cardRefs.current.get(gridIndex));
+        (node as any)?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+      } catch {
+        /* noop */
+      }
+    }
+  }, [gridIndex, zone]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -337,11 +374,25 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
         if (e.key === 'Escape') (target as HTMLElement)?.blur?.();
         return;
       }
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Enter' && e.key !== 'Escape' && e.key !== 'q' && e.key !== 'Q' && e.key !== 'e' && e.key !== 'E') return;
+      if (
+        e.key !== 'ArrowLeft' &&
+        e.key !== 'ArrowRight' &&
+        e.key !== 'ArrowUp' &&
+        e.key !== 'ArrowDown' &&
+        e.key !== 'Enter' &&
+        e.key !== 'Escape' &&
+        e.key !== 'q' && e.key !== 'Q' &&
+        e.key !== 'e' && e.key !== 'E'
+      ) return;
+
       // Escape en pills sin modal: deja que SettingsView vuelva atrás.
       if (e.key === 'Escape' && st.zone === 'pills') return;
+
+      // ArrowUp en pills: deja que el componente padre navegue hacia arriba.
+      if (e.key === 'ArrowUp' && st.zone === 'pills') return;
+
       // Q/E: paginar (solo online).
-      if ((e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E')) {
+      if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
         if (tab === 'downloaded') return;
         e.preventDefault();
         e.stopPropagation();
@@ -349,13 +400,26 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
         soundService.playNavigation();
         return;
       }
+
       e.preventDefault();
       e.stopPropagation();
+
       if (e.key === 'Escape') { setZone('pills'); return; }
+
       if (st.zone === 'pills') {
-        if (e.key === 'ArrowLeft') { setPillIndex((p) => Math.max(0, p - 1)); soundService.playNavigation(); }
-        else if (e.key === 'ArrowRight') { setPillIndex((p) => Math.min(st.pillsLen - 1, p + 1)); soundService.playNavigation(); }
-        else if (e.key === 'Enter') {
+        if (e.key === 'ArrowLeft') {
+          setPillIndex((p) => Math.max(0, p - 1));
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowRight') {
+          setPillIndex((p) => Math.min(st.pillsLen - 1, p + 1));
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowDown') {
+          if (st.gridCount > 0) {
+            setZone('grid');
+            setGridIndex((p) => Math.min(p, st.gridCount - 1));
+            soundService.playNavigation();
+          }
+        } else if (e.key === 'Enter') {
           const pill = pills[pillIndex];
           if (pill?.kind === 'tab') setTab(pill.id as TabId);
           else if (pill?.kind === 'sort') setSort(pill.id as DeckAudioSort);
@@ -363,15 +427,52 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
         }
       } else if (st.zone === 'grid') {
         const maxFlat = Math.max(0, st.gridCount - 1);
-        if (e.key === 'ArrowLeft') { setGridIndex((p) => Math.max(0, p - 1)); soundService.playNavigation(); }
-        else if (e.key === 'ArrowRight') { setGridIndex((p) => Math.min(maxFlat, p + 1)); soundService.playNavigation(); }
-        else if (e.key === 'Enter') {
-          const entry = isDownloadedTab ? downloaded[st.gridIndex] : items[st.gridIndex];
+        if (e.key === 'ArrowLeft') {
+          setGridIndex((p) => Math.max(0, p - 1));
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowRight') {
+          setGridIndex((p) => Math.min(maxFlat, p + 1));
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowUp') {
+          if (st.gridIndex >= 3) {
+            setGridIndex((p) => p - 3);
+            soundService.playNavigation();
+          } else {
+            setZone('pills');
+            soundService.playNavigation();
+          }
+        } else if (e.key === 'ArrowDown') {
+          if (st.gridIndex + 3 <= maxFlat) {
+            setGridIndex((p) => p + 3);
+            soundService.playNavigation();
+          } else {
+            const currentRow = Math.floor(st.gridIndex / 3);
+            const maxRow = Math.floor(maxFlat / 3);
+            if (maxRow > currentRow) {
+              setGridIndex(maxFlat);
+              soundService.playNavigation();
+            } else if (!st.isDownloadedTab && st.totalPages > 1) {
+              setZone('pager');
+              setPagerIndex(0);
+              soundService.playNavigation();
+            }
+          }
+        } else if (e.key === 'Enter') {
+          const entry = st.isDownloadedTab ? downloaded[st.gridIndex] : items[st.gridIndex];
           if (entry) { openPreview(entry); soundService.playActivation?.(); }
         }
       } else if (st.zone === 'pager') {
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { setPagerIndex((p) => (p === 0 ? 1 : 0)); soundService.playNavigation(); }
-        else if (e.key === 'Enter') {
+        if (e.key === 'ArrowLeft') {
+          setPagerIndex(0);
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowRight') {
+          setPagerIndex(1);
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowUp') {
+          setZone('grid');
+          setGridIndex(Math.max(0, st.gridCount - 1));
+          soundService.playNavigation();
+        } else if (e.key === 'Enter') {
           setPage((p) => pagerIndex === 0 ? Math.max(1, p - 1) : Math.min(st.totalPages, p + 1));
           soundService.playActivation?.();
         }
@@ -396,6 +497,10 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
     return (
       <TouchableOpacity
         key={'target' in entry ? entry.id : entry.key}
+        ref={(el) => {
+          if (el) cardRefs.current.set(idx, el);
+          else cardRefs.current.delete(idx);
+        }}
         style={[styles.card, isFocused && styles.cardFocused, applied && styles.cardApplied]}
         activeOpacity={0.9}
         onPress={() => { setGridIndex(idx); setZone('grid'); openPreview(entry); }}
@@ -610,7 +715,7 @@ function createStyles(s: ScaleFn) {
     },
     cardFocused: { borderColor: 'rgba(255,255,255,0.6)' },
     cardApplied: { borderColor: 'rgba(76,217,100,0.7)' },
-    cardImage: { width: '100%', height: s(110) },
+    cardImage: { width: '100%', height: s(150) },
     cardImageFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)' },
     cardBody: { padding: s(8), gap: s(2) },
     cardTitle: { color: '#FFF', fontSize: s(13), fontFamily: 'SSTMedium' },
