@@ -4,7 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useAchievementWatcher } from '../hooks/useAchievementWatcher';
 import {
@@ -574,6 +574,60 @@ export const GameInfoPanel = ({
       assignPath: t('action.assignPath'),
       download: t('action.download'),
     });
+
+  // ── Section-level progressive hide animations ─────────────────────────────
+  // Mirrors the infoCardsStyle pattern from the parent. Orden visual de las secciones:
+  //   capturas/trailers (100+) → logros (200+) → noticias (4..99) → ficha de descripción/metadatos (300)
+  // Cada sección se oculta cuando se enfoca cualquiera de las posteriores:
+  //   - Capturas: se ocultan al enfocar logros, noticias o metadatos
+  //   - Logros:   se ocultan al enfocar noticias o metadatos
+  //   - Noticias: se ocultan al enfocar metadatos
+  const inGamePanel = focusArea === 'game_panel';
+  const newsFocusedSection = inGamePanel && gamePanelFocusIndex >= 4 && gamePanelFocusIndex < 100;
+  const metadataFocusedSection = inGamePanel && gamePanelFocusIndex >= 300;
+  const mediaFocused = inGamePanel && (gamePanelFocusIndex >= 200 || newsFocusedSection);
+  const achieveFocused = newsFocusedSection || metadataFocusedSection;
+  const newsHidden = metadataFocusedSection;
+
+  const mediaHideAnim = useSharedValue(0);
+  const achieveHideAnim = useSharedValue(0);
+  const newsHideAnim = useSharedValue(0);
+
+  React.useEffect(() => {
+    mediaHideAnim.value = withTiming(mediaFocused ? 1 : 0, { duration: 300 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaFocused]);
+
+  React.useEffect(() => {
+    achieveHideAnim.value = withTiming(achieveFocused ? 1 : 0, { duration: 300 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [achieveFocused]);
+
+  React.useEffect(() => {
+    newsHideAnim.value = withTiming(newsHidden ? 1 : 0, { duration: 300 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newsHidden]);
+
+  const sectionMediaStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(mediaHideAnim.value, [0, 1], [1, 0]),
+    maxHeight: interpolate(mediaHideAnim.value, [0, 1], [2000, 0]),
+    overflow: 'hidden',
+    transform: [{ translateY: interpolate(mediaHideAnim.value, [0, 1], [0, -16]) }],
+  }));
+
+  const sectionAchieveStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(achieveHideAnim.value, [0, 1], [1, 0]),
+    maxHeight: interpolate(achieveHideAnim.value, [0, 1], [2000, 0]),
+    overflow: 'hidden',
+    transform: [{ translateY: interpolate(achieveHideAnim.value, [0, 1], [0, -16]) }],
+  }));
+
+  const sectionNewsStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(newsHideAnim.value, [0, 1], [1, 0]),
+    maxHeight: interpolate(newsHideAnim.value, [0, 1], [2000, 0]),
+    overflow: 'hidden',
+    transform: [{ translateY: interpolate(newsHideAnim.value, [0, 1], [0, -16]) }],
+  }));
 
   return (
     <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }]}>
@@ -1441,49 +1495,330 @@ export const GameInfoPanel = ({
         </Animated.View>
       )}
 
-      {/* Screenshots and Trailers row */}
+      {/* Screenshots and Trailers row — hidden when achievements, news or metadata are focused */}
       {canPlay && !isMediaSection && !isMediaGallery && (
-        <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(50) }]}>
-          <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.capturesAndTrailers')}</Text>
+        <Animated.View style={sectionMediaStyle}>
+          <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(50) }]}>
+            <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.capturesAndTrailers')}</Text>
 
-          <ScrollView
-            ref={mediaScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={steamMedia.length > 0}
-            scrollEnabled={steamMedia.length > 0}
-            nestedScrollEnabled
-            directionalLockEnabled
-            persistentScrollbar
-            contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
-          >
-            {steamMedia.length === 0 && mediaLoading ? (
-              [0, 1, 2, 3].map((i) => (
-                <Animated.View key={`media-skeleton-${i}`} entering={FadeInDown.duration(350).delay(i * 60)}>
-                  <ShimmerSkeletonCard width={s(500)} height={s(281)} borderRadius={8} />
-                </Animated.View>
-              ))
-            ) : steamMedia.length === 0 ? (
-              <View style={styles.newsLoadingRow}>
-                <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
-                <Text style={styles.newsEmptyText}>{t('game.noCaptures')}</Text>
+            <ScrollView
+              ref={mediaScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={steamMedia.length > 0}
+              scrollEnabled={steamMedia.length > 0}
+              nestedScrollEnabled
+              directionalLockEnabled
+              persistentScrollbar
+              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
+            >
+              {steamMedia.length === 0 && mediaLoading ? (
+                [0, 1, 2, 3].map((i) => (
+                  <Animated.View key={`media-skeleton-${i}`} entering={FadeInDown.duration(350).delay(i * 60)}>
+                    <ShimmerSkeletonCard width={s(500)} height={s(281)} borderRadius={8} />
+                  </Animated.View>
+                ))
+              ) : steamMedia.length === 0 ? (
+                <View style={styles.newsLoadingRow}>
+                  <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.25)" />
+                  <Text style={styles.newsEmptyText}>{t('game.noCaptures')}</Text>
+                </View>
+              ) : (
+                steamMedia.map((item, idx) => {
+                  const isMediaFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx;
+                  return (
+                    <Animated.View key={item.id} entering={FadeInDown.duration(380).delay(Math.min(idx, 8) * 45)}>
+                      <TouchableOpacity
+                        style={[styles.newsCard, { width: s(500), height: s(281) }, isMediaFocused && styles.newsCardFocused]}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          setGamePanelFocusIndex(100 + idx);
+                          setSelectedMediaIndex(idx);
+                        }}
+                      >
+
+                        {Platform.OS === 'web' &&
+                          focusArea === 'game_panel' &&
+                          gamePanelFocusIndex === 100 + idx && (
+                            <>
+                              <style>
+                                {`
+                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
+                        @keyframes wc-spin-border {
+                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
+                          100% { transform: translate(-50%, -50%) rotate(360deg); }
+                        }
+                        
+                        .wc-spinning-container2 {
+                          position: absolute;
+                          top: 0px;
+                          left: 0px;
+                          right: 0px;
+                          bottom: 0px;
+                          border-radius: 8px;
+                          z-index: 9999;
+                          overflow: visible !important;
+
+                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
+                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
+                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+
+                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
+                                El segundo gradiente se queda solo en el contenido (padding-box) */
+                          -webkit-mask-clip: border-box, padding-box;
+                          mask-clip: border-box, padding-box;
+
+                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
+                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
+                          -webkit-mask-composite: destination-out;
+                          mask-composite: exclude;
+
+                          /* 4. El grosor del anillo se define por el "border" del contenedor */
+                          border: 3px solid transparent; 
+                        }
+
+                        .wc-spinning-inner {
+                          position: absolute;
+                          top: 50%;
+                          left: 50%;
+                          width: 300%;
+                          height: 600%;
+                          animation: wc-spin-border 9.8s linear infinite;
+                          
+                          background: conic-gradient(
+                            from 0deg,
+                            rgba(255, 255, 255, 0.15) 0%,
+                            rgba(255, 255, 255, 0.79) 28%,
+                            rgba(180, 210, 255, 0.86) 33%,
+                            rgba(220, 235, 255, 0.95) 48%,
+                            rgba(255, 255, 255, 1.0) 50%,
+                            rgba(223, 248, 182, 0.95) 52%,
+                            rgba(180, 210, 255, 0.88) 57%,
+                            rgba(255, 255, 255, 0.75) 62%,
+                            rgba(255, 255, 255, 0.15) 100%
+                          );
+                          border-radius: 50%;
+                        }
+
+                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
+  @keyframes wc-content-shimmer {
+    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
+    15% { opacity: 1; }
+    50% { opacity: 1; }
+    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
+  }
+  .wc-shimmer-line2 {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 160%; 
+    height: 420%; 
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(255, 255, 255, 0.01) 20%,
+      rgba(255, 255, 255, 0.18) 50%, 
+      rgba(255, 255, 255, 0.01) 80%,
+      transparent 100%
+    );
+    animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+  }
+                      `}
+                              </style>
+
+                              <div className="wc-spinning-container2">
+                                {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
+                                <div className="wc-spinning-inner" />
+                              </div>
+                            </>
+                          )}
+
+                        {/* SHIMMER */}
+                        {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx && (
+                          <View
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 1,
+                              right: 1,
+                              bottom: 0,
+                              borderRadius: 8,
+                              zIndex: 5,
+                              overflow: 'hidden',
+                            } as any}
+                            pointerEvents="none"
+                          >
+                            {/* @ts-ignore */}
+                            <div className="wc-shimmer-line2" />
+                          </View>
+                        )}
+                        {/* DEGRADADO NEGRO (al estar enfocadas) */}
+                        {Platform.OS === 'web' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
+                              pointerEvents: 'none',
+                              zIndex: 1,
+                              opacity: isMediaFocused ? 1 : 0,
+                              transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                            }}
+                          />
+                        )}
+                        {/* Thumbnail */}
+                        <View style={[styles.newsCardThumbnail, { height: s(281) }]}>
+                          <Image
+                            source={{ uri: item.thumbnail }}
+                            style={{ width: '100%', height: '100%' }}
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                            transition={{ effect: 'cross-dissolve', duration: 250 }}
+                          />
+                          {/* Play badge para trailers */}
+                          {item.type === 'movie' && (
+                            <View style={styles.mediaPlayBadge}>
+                              <Ionicons name="play-circle" size={s(32)} color="rgba(255,255,255,0.92)" />
+                            </View>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </Animated.View>
+      )}
+
+      {/* Achievements row — hidden when news or metadata are focused */}
+      {canPlay && !isMediaSection && !isMediaGallery && steamAchievements && steamAchievements.achievements.length > 0 && (
+        <Animated.View style={sectionAchieveStyle}>
+          <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(30) }]}>
+            {/* Título + badge de fuente */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10), marginBottom: s(16), paddingLeft: s(50) }}>
+              <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium' }}>
+                {t('game.trophies')}
+              </Text>
+              {achievementsSource === 'aw' && (
+                <View style={{ backgroundColor: 'rgba(255,200,80,0.18)', borderRadius: s(6), paddingHorizontal: s(8), paddingVertical: s(2) }}>
+                  <Text style={{ color: 'rgba(255,200,80,0.9)', fontSize: s(11), fontFamily: 'SSTMedium' }}>
+                    AchievementWatcher
+                  </Text>
+                </View>
+              )}
+              {achievementsSource === 'retro' && (
+                <View style={{ backgroundColor: 'rgba(255,160,0,0.18)', borderRadius: s(6), paddingHorizontal: s(8), paddingVertical: s(2) }}>
+                  <Text style={{ color: 'rgba(255,190,80,0.95)', fontSize: s(11), fontFamily: 'SSTMedium' }}>
+                    RetroAchievements
+                  </Text>
+                </View>
+              )}
+              {achievementsSource === 'rpcs3' && (
+                <View style={{ backgroundColor: 'rgba(0,160,255,0.18)', borderRadius: s(6), paddingHorizontal: s(8), paddingVertical: s(2) }}>
+                  <Text style={{ color: 'rgba(100,200,255,0.9)', fontSize: s(11), fontFamily: 'SSTMedium' }}>
+                    RPCS3
+                  </Text>
+                </View>
+              )}
+            </View>
+            <ScrollView
+              ref={achievementsScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator
+              scrollEnabled
+              nestedScrollEnabled
+              directionalLockEnabled
+              persistentScrollbar
+              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
+            >
+              {steamAchievements.achievements.map((achievement, idx) => {
+                const globalPercentage = Number(achievement.globalPercentage);
+                const hasGlobalPercentage = Number.isFinite(globalPercentage);
+                const isAchievementFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 200 + idx;
+                return (
+                  <TouchableOpacity
+                    key={achievement.apiName}
+                    onPress={() => setGamePanelFocusIndex(200 + idx)}
+                    activeOpacity={0.8}
+                    style={{
+                      width: s(250),
+                      height: s(180),
+                      borderRadius: s(12),
+                      overflow: 'hidden',
+                      padding: s(16),
+                      justifyContent: 'flex-end',
+                      backgroundColor: achievement.achieved ? 'rgba(29, 37, 52, 0.96)' : 'rgba(18, 20, 27, 0.96)',
+                      position: 'relative',
+                    }}
+                  >
+                    {isAchievementFocused && <SpinningBorderLogros size={s(250)} />}
+                    <Image
+                      source={{ uri: achievement.achieved ? achievement.icon : achievement.lockedIcon }}
+                      style={{ position: 'absolute', top: s(16), right: s(16), width: s(68), height: s(68), borderRadius: s(8), opacity: achievement.achieved ? 1 : 0.34 }}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      transition={{ effect: 'cross-dissolve', duration: 250 }}
+                    />
+                    {!achievement.achieved && (
+                      <View style={{ position: 'absolute', top: s(35), right: s(35), zIndex: 1 }}>
+                        <Ionicons name="lock-closed" size={s(28)} color="rgba(255,255,255,0.88)" />
+                      </View>
+                    )}
+                    <Text style={{ color: achievement.achieved ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.45)', fontSize: s(11), fontFamily: 'SSTMedium', marginBottom: s(4) }}>
+                      {achievement.achieved ? t('game.trophiesUnlock') : t('game.trophiesLock')}{hasGlobalPercentage ? ` · ${globalPercentage.toFixed(1)}%` : ''}
+                    </Text>
+                    <Text numberOfLines={1} style={{ color: '#FFF', fontSize: s(17), fontFamily: 'SSTBold', marginBottom: s(5) }}>
+                      {achievement.name}
+                    </Text>
+                    <Text numberOfLines={2} style={{ color: 'rgba(255,255,255,0.62)', fontSize: s(12), lineHeight: s(16), fontFamily: 'SSTLight' }}>
+                      {achievement.description || (achievement.achieved ? 'Logro conseguido' : t('game.trophiesDesc'))}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </Animated.View>
+      )}
+
+      {/* Steam News row — hidden when metadata (descripciones) is focused */}
+      {canPlay && !isMediaSection && !isMediaGallery && activeUser?.settings?.showNews !== false && (
+        <Animated.View style={sectionNewsStyle}>
+          <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
+            <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.latestNews')}</Text>
+
+            {steamNews.length === 0 ? (
+              <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
+                <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
+                <Text style={styles.newsEmptyText}>{t('game.noNews')}</Text>
               </View>
             ) : (
-              steamMedia.map((item, idx) => {
-                const isMediaFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx;
-                return (
-                  <Animated.View key={item.id} entering={FadeInDown.duration(380).delay(Math.min(idx, 8) * 45)}>
+              <ScrollView
+                ref={newsScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator
+                scrollEnabled
+                nestedScrollEnabled
+                directionalLockEnabled
+                persistentScrollbar
+                contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
+              >
+                {steamNews.slice(0, 8).map((news, idx) => {
+                  const isNewsFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx;
+                  const fallbackItem = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
+                  return (
                     <TouchableOpacity
-                      style={[styles.newsCard, { width: s(500), height: s(281) }, isMediaFocused && styles.newsCardFocused]}
+                      key={news.gid}
+                      style={[styles.newsCard2, { width: s(320) }, isNewsFocused && styles.newsCardFocused]}
                       activeOpacity={0.8}
-                      onPress={() => {
-                        setGamePanelFocusIndex(100 + idx);
-                        setSelectedMediaIndex(idx);
-                      }}
+                      onPress={() => { if (news.url) Linking.openURL(news.url); }}
                     >
-
                       {Platform.OS === 'web' &&
                         focusArea === 'game_panel' &&
-                        gamePanelFocusIndex === 100 + idx && (
+                        gamePanelFocusIndex === 4 + idx && (
                           <>
                             <style>
                               {`
@@ -1580,7 +1915,7 @@ export const GameInfoPanel = ({
                         )}
 
                       {/* SHIMMER */}
-                      {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 100 + idx && (
+                      {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx && (
                         <View
                           style={{
                             position: 'absolute',
@@ -1607,318 +1942,43 @@ export const GameInfoPanel = ({
                             background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
                             pointerEvents: 'none',
                             zIndex: 1,
-                            opacity: isMediaFocused ? 1 : 0,
+                            opacity: isNewsFocused ? 1 : 0,
                             transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
                           }}
                         />
                       )}
-                      {/* Thumbnail */}
+
+                      {/* SHIMMER (al estar enfocadas) */}
+                      {Platform.OS === 'web' && isNewsFocused && (
+                        <div
+                          className="widget-shimmer-line"
+                          style={{
+                            animationDuration: '7s',
+                            opacity: 0.8,
+                          }}
+                        />
+                      )}
                       <View style={[styles.newsCardThumbnail, { height: s(281) }]}>
                         <Image
-                          source={{ uri: item.thumbnail }}
-                          style={{ width: '100%', height: '100%' }}
+                          source={
+                            news.image_url
+                              ? { uri: news.image_url }
+                              : (fallbackItem?.backgroundImage ?? fallbackItem?.image ?? require('@/assets/images/FondoDefault2.jpg'))
+                          }
+                          style={{ width: '100%', height: '100%', opacity: news.image_url ? 1 : 0.4 }}
                           contentFit="cover"
-                          cachePolicy="memory-disk"
-                          transition={{ effect: 'cross-dissolve', duration: 250 }}
                         />
-                        {/* Play badge para trailers */}
-                        {item.type === 'movie' && (
-                          <View style={styles.mediaPlayBadge}>
-                            <Ionicons name="play-circle" size={s(32)} color="rgba(255,255,255,0.92)" />
-                          </View>
-                        )}
+                      </View>
+                      <View style={styles.newsCardContent}>
+                        <Text style={styles.newsCardTitle} numberOfLines={1}>{news.title}</Text>
                       </View>
                     </TouchableOpacity>
-                  </Animated.View>
-                );
-              })
-            )}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Achievements row: Steam legítimo, AchievementWatcher (emulado) o RPCS3 */}
-      {canPlay && !isMediaSection && !isMediaGallery && steamAchievements && steamAchievements.achievements.length > 0 && (
-        <View style={[styles.newsSectionWrapper, { width: windowWidth, marginTop: s(30) }]}>
-          {/* Título + badge de fuente */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10), marginBottom: s(16), paddingLeft: s(50) }}>
-            <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium' }}>
-              {t('game.trophies')}
-            </Text>
-            {achievementsSource === 'aw' && (
-              <View style={{ backgroundColor: 'rgba(255,200,80,0.18)', borderRadius: s(6), paddingHorizontal: s(8), paddingVertical: s(2) }}>
-                <Text style={{ color: 'rgba(255,200,80,0.9)', fontSize: s(11), fontFamily: 'SSTMedium' }}>
-                  AchievementWatcher
-                </Text>
-              </View>
-            )}
-            {achievementsSource === 'retro' && (
-              <View style={{ backgroundColor: 'rgba(255,160,0,0.18)', borderRadius: s(6), paddingHorizontal: s(8), paddingVertical: s(2) }}>
-                <Text style={{ color: 'rgba(255,190,80,0.95)', fontSize: s(11), fontFamily: 'SSTMedium' }}>
-                  RetroAchievements
-                </Text>
-              </View>
-            )}
-            {achievementsSource === 'rpcs3' && (
-              <View style={{ backgroundColor: 'rgba(0,160,255,0.18)', borderRadius: s(6), paddingHorizontal: s(8), paddingVertical: s(2) }}>
-                <Text style={{ color: 'rgba(100,200,255,0.9)', fontSize: s(11), fontFamily: 'SSTMedium' }}>
-                  RPCS3
-                </Text>
-              </View>
+                  );
+                })}
+              </ScrollView>
             )}
           </View>
-          <ScrollView
-            ref={achievementsScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator
-            scrollEnabled
-            nestedScrollEnabled
-            directionalLockEnabled
-            persistentScrollbar
-            contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
-          >
-            {steamAchievements.achievements.map((achievement, idx) => {
-              const globalPercentage = Number(achievement.globalPercentage);
-              const hasGlobalPercentage = Number.isFinite(globalPercentage);
-              const isAchievementFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 200 + idx;
-              return (
-                <TouchableOpacity
-                  key={achievement.apiName}
-                  onPress={() => setGamePanelFocusIndex(200 + idx)}
-                  activeOpacity={0.8}
-                  style={{
-                    width: s(250),
-                    height: s(180),
-                    borderRadius: s(12),
-                    overflow: 'hidden',
-                    padding: s(16),
-                    justifyContent: 'flex-end',
-                    backgroundColor: achievement.achieved ? 'rgba(29, 37, 52, 0.96)' : 'rgba(18, 20, 27, 0.96)',
-                    position: 'relative',
-                  }}
-                >
-                  {isAchievementFocused && <SpinningBorderLogros size={s(250)} />}
-                  <Image
-                    source={{ uri: achievement.achieved ? achievement.icon : achievement.lockedIcon }}
-                    style={{ position: 'absolute', top: s(16), right: s(16), width: s(68), height: s(68), borderRadius: s(8), opacity: achievement.achieved ? 1 : 0.34 }}
-                    contentFit="cover"
-                    cachePolicy="memory-disk"
-                    transition={{ effect: 'cross-dissolve', duration: 250 }}
-                  />
-                  {!achievement.achieved && (
-                    <View style={{ position: 'absolute', top: s(35), right: s(35), zIndex: 1 }}>
-                      <Ionicons name="lock-closed" size={s(28)} color="rgba(255,255,255,0.88)" />
-                    </View>
-                  )}
-                  <Text style={{ color: achievement.achieved ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.45)', fontSize: s(11), fontFamily: 'SSTMedium', marginBottom: s(4) }}>
-                    {achievement.achieved ? t('game.trophiesUnlock') : t('game.trophiesLock')}{hasGlobalPercentage ? ` · ${globalPercentage.toFixed(1)}%` : ''}
-                  </Text>
-                  <Text numberOfLines={1} style={{ color: '#FFF', fontSize: s(17), fontFamily: 'SSTBold', marginBottom: s(5) }}>
-                    {achievement.name}
-                  </Text>
-                  <Text numberOfLines={2} style={{ color: 'rgba(255,255,255,0.62)', fontSize: s(12), lineHeight: s(16), fontFamily: 'SSTLight' }}>
-                    {achievement.description || (achievement.achieved ? 'Logro conseguido' : t('game.trophiesDesc'))}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Steam News row */}
-      {canPlay && !isMediaSection && !isMediaGallery && activeUser?.settings?.showNews !== false && (
-        <View style={[styles.newsSectionWrapper, { width: windowWidth }]}>
-          <Text style={{ color: '#FFF', fontSize: s(18), fontFamily: 'SSTMedium', marginBottom: s(16), paddingLeft: s(50) }}>{t('game.latestNews')}</Text>
-
-          {steamNews.length === 0 ? (
-            <View style={[styles.newsLoadingRow, { paddingLeft: s(50) }]}>
-              <Ionicons name="newspaper-outline" size={14} color="rgba(255,255,255,0.25)" />
-              <Text style={styles.newsEmptyText}>{t('game.noNews')}</Text>
-            </View>
-          ) : (
-            <ScrollView
-              ref={newsScrollRef}
-              horizontal
-              showsHorizontalScrollIndicator
-              scrollEnabled
-              nestedScrollEnabled
-              directionalLockEnabled
-              persistentScrollbar
-              contentContainerStyle={[styles.newsScrollContent, { paddingLeft: s(50), paddingRight: s(50) }]}
-            >
-              {steamNews.slice(0, 8).map((news, idx) => {
-                const isNewsFocused = focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx;
-                const fallbackItem = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
-                return (
-                  <TouchableOpacity
-                    key={news.gid}
-                    style={[styles.newsCard2, { width: s(320) }, isNewsFocused && styles.newsCardFocused]}
-                    activeOpacity={0.8}
-                    onPress={() => { if (news.url) Linking.openURL(news.url); }}
-                  >
-                    {Platform.OS === 'web' &&
-                      focusArea === 'game_panel' &&
-                      gamePanelFocusIndex === 4 + idx && (
-                        <>
-                          <style>
-                            {`
-                          /* --- ANIMACIÓN 1: BORDE GIRATORIO CON BASE VISIBLE --- */
-                        @keyframes wc-spin-border {
-                          0%   { transform: translate(-50%, -50%) rotate(0deg); }
-                          100% { transform: translate(-50%, -50%) rotate(360deg); }
-                        }
-                        
-                        .wc-spinning-container2 {
-                          position: absolute;
-                          top: 0px;
-                          left: 0px;
-                          right: 0px;
-                          bottom: 0px;
-                          border-radius: 8px;
-                          z-index: 9999;
-                          overflow: visible !important;
-
-                          /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
-                          /* 1. Definimos dos capas de gradientes básicos como máscaras */
-                          -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
-                          mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
-
-                          /* 2. El primer gradiente se expande hasta el borde (border-box). 
-                                El segundo gradiente se queda solo en el contenido (padding-box) */
-                          -webkit-mask-clip: border-box, padding-box;
-                          mask-clip: border-box, padding-box;
-
-                          /* 3. ¡RESTAR! Le decimos que excluya la capa del padding-box (el centro).
-                                Nota: Webkit usa 'destination-out' y la propiedad estándar usa 'exclude' */
-                          -webkit-mask-composite: destination-out;
-                          mask-composite: exclude;
-
-                          /* 4. El grosor del anillo se define por el "border" del contenedor */
-                          border: 3px solid transparent; 
-                        }
-
-                        .wc-spinning-inner {
-                          position: absolute;
-                          top: 50%;
-                          left: 50%;
-                          width: 300%;
-                          height: 600%;
-                          animation: wc-spin-border 9.8s linear infinite;
-                          
-                          background: conic-gradient(
-                            from 0deg,
-                            rgba(255, 255, 255, 0.15) 0%,
-                            rgba(255, 255, 255, 0.79) 28%,
-                            rgba(180, 210, 255, 0.86) 33%,
-                            rgba(220, 235, 255, 0.95) 48%,
-                            rgba(255, 255, 255, 1.0) 50%,
-                            rgba(223, 248, 182, 0.95) 52%,
-                            rgba(180, 210, 255, 0.88) 57%,
-                            rgba(255, 255, 255, 0.75) 62%,
-                            rgba(255, 255, 255, 0.15) 100%
-                          );
-                          border-radius: 50%;
-                        }
-
-                          /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
-  @keyframes wc-content-shimmer {
-    0% { transform: translate(-160%, -50%) rotate(48deg); opacity: 0; }
-    15% { opacity: 1; }
-    50% { opacity: 1; }
-    70% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-    100% { transform: translate(130%, -50%) rotate(48deg); opacity: 0; }
-  }
-  .wc-shimmer-line2 {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 160%; 
-    height: 420%; 
-    background: linear-gradient(
-      to right,
-      transparent 0%,
-      rgba(255, 255, 255, 0.01) 20%,
-      rgba(255, 255, 255, 0.18) 50%, 
-      rgba(255, 255, 255, 0.01) 80%,
-      transparent 100%
-    );
-    animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
-  }
-                      `}
-                          </style>
-
-                          <div className="wc-spinning-container2">
-                            {/* El gradiente cónico gira aquí adentro, siendo recortado perfectamente por el padre */}
-                            <div className="wc-spinning-inner" />
-                          </div>
-                        </>
-                      )}
-
-                    {/* SHIMMER */}
-                    {Platform.OS === 'web' && focusArea === 'game_panel' && gamePanelFocusIndex === 4 + idx && (
-                      <View
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 1,
-                          right: 1,
-                          bottom: 0,
-                          borderRadius: 8,
-                          zIndex: 5,
-                          overflow: 'hidden',
-                        } as any}
-                        pointerEvents="none"
-                      >
-                        {/* @ts-ignore */}
-                        <div className="wc-shimmer-line2" />
-                      </View>
-                    )}
-                    {/* DEGRADADO NEGRO (al estar enfocadas) */}
-                    {Platform.OS === 'web' && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          inset: 0,
-                          background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.85) 100%)',
-                          pointerEvents: 'none',
-                          zIndex: 1,
-                          opacity: isNewsFocused ? 1 : 0,
-                          transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-                        }}
-                      />
-                    )}
-
-                    {/* SHIMMER (al estar enfocadas) */}
-                    {Platform.OS === 'web' && isNewsFocused && (
-                      <div
-                        className="widget-shimmer-line"
-                        style={{
-                          animationDuration: '7s',
-                          opacity: 0.8,
-                        }}
-                      />
-                    )}
-                    <View style={[styles.newsCardThumbnail, { height: s(281) }]}>
-                      <Image
-                        source={
-                          news.image_url
-                            ? { uri: news.image_url }
-                            : (fallbackItem?.backgroundImage ?? fallbackItem?.image ?? require('@/assets/images/FondoDefault2.jpg'))
-                        }
-                        style={{ width: '100%', height: '100%', opacity: news.image_url ? 1 : 0.4 }}
-                        contentFit="cover"
-                      />
-                    </View>
-                    <View style={styles.newsCardContent}>
-                      <Text style={styles.newsCardTitle} numberOfLines={1}>{news.title}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-        </View>
+        </Animated.View>
       )}
 
       {/* Ficha de metadatos estilo PS5 (opcional desde Accesibilidad) */}
