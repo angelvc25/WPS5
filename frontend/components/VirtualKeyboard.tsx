@@ -433,6 +433,8 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
           break;
         }
         case 'Escape':
+        case 'b':
+        case 'B':
           onClose();
           break;
         case 'Backspace':

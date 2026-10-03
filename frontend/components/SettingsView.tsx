@@ -796,6 +796,15 @@ export default function SettingsView({
       const target = e.target as HTMLElement | null;
       const isInput = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
 
+      if (showSplashVK) {
+        if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+          e.preventDefault();
+          setShowSplashVK(false);
+          soundService.playNavigation?.();
+        }
+        return;
+      }
+
       // Modal de preview de Splash Video: mientras está abierto, captura el
       // teclado por completo (no se mezcla con la navegación de la grilla).
       if (splashPreviewPost) {
