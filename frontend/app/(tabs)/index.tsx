@@ -16,7 +16,8 @@ import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLa
 import { resolveGameScreenshots, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
-import { fetchSteamOwnedGames } from '@/services/steamUserService';
+import { fetchSteamOwnedGames, fetchSteamGameAchievements } from '@/services/steamUserService';
+import { extractSteamAppId as extractTrophySteamAppId, syncLocalTrophiesToOnline } from '@/services/onlineTrophiesService';
 import { syncProfileMediaToOnline } from '@/services/onlineAccountService';
 import { fetchWishlistDeals, WishlistDeal } from '@/services/steamWishlistService';
 import { toastService } from '@/services/toastService';
@@ -705,6 +706,7 @@ export default function ConsoleHome() {
   const [uiReady, setUiReady] = useState(false);
   const launchStartTimeRef = useRef<Record<string, number>>({});
   const sessionPlaytimeRef = useRef<Record<string, number>>({});
+  const initialUnlockedRef = useRef<Record<string, number>>({});
 
   const getEffectiveSteamGames = (): ConsoleItem[] => {
     if (steamGamesRef.current.length > 0) return steamGamesRef.current;
@@ -3496,6 +3498,18 @@ export default function ConsoleHome() {
     if (targetItem?.id && (!targetItem.type || targetItem.type === 'game') && !launchStartTimeRef.current[targetItem.id]) {
       launchStartTimeRef.current[targetItem.id] = Date.now();
       sessionPlaytimeRef.current[targetItem.id] = Number(targetItem.playtimeMinutes ?? targetItem.playtime_forever ?? 0);
+
+      // Guardar cantidad de logros desbloqueados antes de jugar
+      const appId = extractTrophySteamAppId(targetItem);
+      const steamId = activeUser?.settings?.steamId;
+      if (appId && steamId) {
+        const apiKey = activeUser?.settings?.steamApiKey || process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
+        fetchSteamGameAchievements(apiKey, steamId, appId).then(summary => {
+          if (summary && typeof summary.unlocked === 'number') {
+            initialUnlockedRef.current[targetItem.id] = summary.unlocked;
+          }
+        }).catch(() => {});
+      }
     }
 
     if (targetItem?.id && (!targetItem.type || targetItem.type === 'game')) {
@@ -3580,6 +3594,32 @@ export default function ConsoleHome() {
             const updatedMinutes = currentMinutes + elapsedMinutes;
             sessionPlaytimeRef.current[id] = updatedMinutes;
             syncGamePlaytime(id, updatedMinutes);
+
+            // Comprobar si se desbloquearon nuevos logros al cerrar el juego
+            const appId = extractTrophySteamAppId(trackedItem);
+            const steamId = activeUser?.settings?.steamId;
+            if (appId && steamId) {
+              const apiKey = activeUser?.settings?.steamApiKey || process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
+              const prevUnlocked = initialUnlockedRef.current[id];
+              delete initialUnlockedRef.current[id];
+
+              fetchSteamGameAchievements(apiKey, steamId, appId).then(async summary => {
+                if (summary && typeof summary.unlocked === 'number') {
+                  const newUnlocked = summary.unlocked;
+                  if (typeof prevUnlocked === 'number' && newUnlocked > prevUnlocked) {
+                    const diff = newUnlocked - prevUnlocked;
+                    const gameTitle = trackedItem.title || 'el juego';
+                    const msg = diff === 1
+                      ? `🏆 ¡1 logro desbloqueado en ${gameTitle}!`
+                      : `🏆 ¡${diff} logros desbloqueados en ${gameTitle}!`;
+                    toastService.show(msg, { duration: 6000, saveToHistory: true });
+                  }
+                  // Sincronizar trofeos locales a la cuenta online para refrescar widgets y perfil
+                  const allGames = [...(games || []), ...(steamGames || [])];
+                  syncLocalTrophiesToOnline(allGames as any, { apiKey, steamId }).catch(() => {});
+                }
+              }).catch(() => {});
+            }
           } else {
             console.warn('[Playtime] No se encontró el item para actualizar tiempo jugado:', id);
           }
