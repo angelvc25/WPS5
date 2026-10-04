@@ -229,6 +229,54 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   const [storeOffers, setStoreOffers] = useState<StoreOffer[]>([]);
   const [activeOfferIndex, setActiveOfferIndex] = useState(0);
 
+  // --- Mandos conectados (todos los que reporta la Gamepad API) ---
+  // La Gamepad API NO expone la batería: useGamepadInput usa un valor fijo (0.99) para el
+  // mando activo. Esa cifra se asigna solo al mando que el hook está usando; los demás
+  // muestran su anillo y número sin porcentaje.
+  const [pads, setPads] = useState<{ index: number; id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.getGamepads) return;
+
+    const scan = () => {
+      const list = Array.from(navigator.getGamepads())
+        .filter((g): g is Gamepad => !!g && g.connected)
+        .map((g) => ({ index: g.index, id: g.id, name: (g.id || '').split('(')[0].trim() }));
+      setPads((prev) => {
+        const key = (l: typeof list) => l.map((p) => `${p.index}:${p.id}`).join('|');
+        return key(prev) === key(list) ? prev : list;
+      });
+    };
+
+    scan();
+    const timer = setInterval(scan, 1500);
+    window.addEventListener('gamepadconnected', scan);
+    window.addEventListener('gamepaddisconnected', scan);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('gamepadconnected', scan);
+      window.removeEventListener('gamepaddisconnected', scan);
+    };
+  }, []);
+
+  // Si el escaneo no ve nada pero el hook sí, se usa el del hook como mando 1.
+  // El mando activo (el que lee el hook, identificado por gamepadInfo.name === g.id) va primero.
+  const effectivePads: { index: number; name: string; battery: number | null }[] = (() => {
+    if (pads.length === 0) {
+      return gamepadInfo.connected
+        ? [{ index: 0, name: gamepadInfo.name.split('(')[0].trim(), battery: gamepadInfo.battery }]
+        : [];
+    }
+    const activeFirst = [...pads].sort(
+      (a, b) => Number(b.id === gamepadInfo.name) - Number(a.id === gamepadInfo.name)
+    );
+    return activeFirst.map((p) => ({
+      index: p.index,
+      name: p.name,
+      battery: gamepadInfo.connected && p.id === gamepadInfo.name ? gamepadInfo.battery : null,
+    }));
+  })();
+
 
   useEffect(() => {
     fetchSteamNewsByName('Helldivers 2', language).then(data => {
@@ -687,8 +735,13 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     );
     const k = diam / 80;
 
+    const colorFor = (pct: number) => (pct <= 20 ? '#FF3B30' : pct <= 50 ? '#FF9500' : '#4CD964');
+
     const renderRing = (idx: number) => {
-      const isFirst = idx === 0;
+      const p = effectivePads[idx];
+      const pct = p && p.battery != null ? Math.round(p.battery * 100) : null;
+      const color = pct != null ? colorFor(pct) : '#FFFFFF';
+      const icon = pct == null || pct > 50 ? 'battery-full' : pct > 20 ? 'battery-half' : 'battery-dead';
       return (
         <View key={idx} style={{ width: diam, height: diam, justifyContent: 'center', alignItems: 'center' }}>
           {Platform.OS === 'web' ? (
@@ -698,8 +751,10 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                   position: 'absolute',
                   inset: 0,
                   borderRadius: '50%',
-                  background: isFirst
-                    ? `conic-gradient(${batteryColor} ${batteryPct}%, rgba(255,255,255,0.1) 0)`
+                  background: p
+                    ? pct != null
+                      ? `conic-gradient(${color} ${pct}%, rgba(255,255,255,0.1) 0)`
+                      : 'rgba(255,255,255,0.35)' // conectado, sin dato de batería
                     : 'rgba(255,255,255,0.1)',
                   zIndex: 0,
                 }}
@@ -713,22 +768,26 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                 top: 0, left: 0, right: 0, bottom: 0,
                 borderRadius: diam / 2,
                 borderWidth: 3,
-                borderColor: 'rgba(255,255,255,0.12)',
+                borderColor: p ? color : 'rgba(255,255,255,0.12)',
                 backgroundColor: 'var(--wps-accent-widgets, #0d1015)',
               }}
             />
           )}
-          {isFirst && (
+          {p && (
             <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#FFF', fontSize: Math.round(14 * k), fontFamily: 'SSTMedium', marginBottom: 2 }}>
-                {gamepadInfo.connected ? '1' : '-'}
+                {idx + 1}
               </Text>
               <Image
                 source={require('@/assets/images/controller2.png')}
                 style={{ width: Math.round(35 * k), height: Math.round(35 * k), tintColor: '#FFF' }}
                 contentFit="contain"
               />
-              <Ionicons name={batteryIcon as any} size={Math.round(16 * k)} color={gamepadInfo.connected ? batteryColor : '#fff'} />
+              {pct != null ? (
+                <Ionicons name={icon as any} size={Math.round(16 * k)} color={color} />
+              ) : (
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: Math.round(11 * k), fontFamily: 'SSTLight' }}>—</Text>
+              )}
             </View>
           )}
         </View>
