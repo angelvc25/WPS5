@@ -57,7 +57,14 @@ function isElectron(): boolean {
   return Platform.OS === 'web' && !!(window as any).electronAPI?.downloadDeckAudioPack;
 }
 
-export default function AudioPackBrowser({ active }: { active: boolean }) {
+export default function AudioPackBrowser({
+  active,
+  gamepadConnected,
+}: {
+  active: boolean;
+  /** Hay un mando conectado. El teclado virtual solo se muestra si es true. */
+  gamepadConnected: boolean;
+}) {
   const { t } = useTranslation();
   const {
     audioPackId, audioPackName, musicPackId, musicPackName,
@@ -90,8 +97,27 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
   const [preview, setPreview] = useState<DeckAudioPack | DownloadedEntry | null>(null);
 
   // Foco por mando/teclado (capture, para no chocar con SettingsView).
-  const [showVK, setShowVK] = useState(false);
+  const [showVK, setShowVKState] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
+
+  // Abrir el teclado virtual solo si hay mando conectado. Sin mando se enfoca
+  // el input nativo para escribir con teclado físico / del sistema.
+  const setShowVK = (show: boolean) => {
+    if (show && !gamepadConnected) {
+      searchInputRef.current?.focus();
+      return;
+    }
+    setShowVKState(show);
+  };
+
+  // Si el mando se desconecta con el teclado virtual abierto, ciérralo y
+  // devuelve el foco al input nativo.
+  useEffect(() => {
+    if (!gamepadConnected && showVK) {
+      setShowVKState(false);
+      setTimeout(() => searchInputRef.current?.focus(), 60);
+    }
+  }, [gamepadConnected, showVK]);
   const [zone, setZone] = useState<'pills' | 'search' | 'grid' | 'pager'>('pills');
   const [pillIndex, setPillIndex] = useState(0);
   const [gridIndex, setGridIndex] = useState(0);
@@ -391,7 +417,7 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
         e.key !== 'e' && e.key !== 'E'
       ) return;
 
-      if (e.key === 'x' || e.key === 'X') {
+      if (gamepadConnected && (e.key === 'x' || e.key === 'X')) {
         if (st.zone === 'search') {
           e.preventDefault();
           e.stopPropagation();
@@ -514,7 +540,7 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, isDownloadedTab, items, downloaded, pills, pillIndex, pagerIndex, modalActions, downloadingId]);
+  }, [tab, isDownloadedTab, items, downloaded, pills, pillIndex, pagerIndex, modalActions, downloadingId, showVK, gamepadConnected]);
 
   const goGrid = () => setZone('grid');
 
@@ -629,11 +655,11 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
             onChangeText={setQuery}
             placeholder={t('settings.audioSearch')}
             placeholderTextColor="rgba(255,255,255,0.35)"
-            showSoftInputOnFocus={false}
+            showSoftInputOnFocus={!gamepadConnected}
             onFocus={() => {
               setZone('search');
               setShowVK(true);
-              setTimeout(() => searchInputRef.current?.blur(), 60);
+              if (gamepadConnected) setTimeout(() => searchInputRef.current?.blur(), 60);
             }}
           />
           {query.length > 0 && (
@@ -727,7 +753,7 @@ export default function AudioPackBrowser({ active }: { active: boolean }) {
 
       {/* Virtual Keyboard */}
       <VirtualKeyboard
-        visible={showVK}
+        visible={showVK && gamepadConnected}
         value={query}
         onChange={setQuery}
         onClose={() => setShowVK(false)}

@@ -35,9 +35,8 @@ export const SpinningBorderSearch = ({ size, spread, borderRadius }: SpinningBor
     bottom: -${resolvedSpread}px;
     border-radius: ${resolvedRadius}px;
     z-index: 20;
-    overflow: hidden;
+    overflow: visible;
     pointer-events: none;
-    contain: strict;
 
     -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
     mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);

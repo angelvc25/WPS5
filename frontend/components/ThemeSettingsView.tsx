@@ -44,8 +44,11 @@ export default function ThemeSettingsView({
   focused,
   onExit,
   bleed,
+  gamepadConnected,
 }: {
   focused: boolean;
+  /** Hay un mando conectado (se pasa al AudioPackBrowser para decidir si usa el teclado virtual). */
+  gamepadConnected: boolean;
   /** Se llama al pulsar Atrás estando en el menú de Temas (vuelve a Ajustes). */
   onExit: () => void;
   /** Padding del contenedor padre (SettingsView). La vista de lista + preview lo usa para llegar a los bordes de la pantalla. */
@@ -185,10 +188,10 @@ export default function ThemeSettingsView({
       if (view === 'menu') {
         if (e.key === 'ArrowDown') {
           consume();
-          setMenuIndex((i) => { const n = Math.min(i + 1, MENU_ORDER.length - 1); if (n !== i) moveSound(); return n; });
+          setMenuIndex((i) => { const n = (i + 1) % MENU_ORDER.length; if (n !== i) moveSound(); return n; });
         } else if (e.key === 'ArrowUp') {
           consume();
-          setMenuIndex((i) => { const n = Math.max(i - 1, 0); if (n !== i) moveSound(); return n; });
+          setMenuIndex((i) => { const n = (i - 1 + MENU_ORDER.length) % MENU_ORDER.length; if (n !== i) moveSound(); return n; });
         } else if (isSelect || e.key === 'ArrowRight') {
           consume();
           openView(MENU_ORDER[menuIndex]);
@@ -196,12 +199,14 @@ export default function ThemeSettingsView({
       } else if (view === 'visual') {
         if (e.key === 'ArrowDown') {
           consume();
-          setVisualIndex(Math.min(visualIndex + 1, totalVisualRows - 1));
-          if (visualIndex < totalVisualRows - 1) moveSound();
+          // Circular: del último vuelve al primero
+          setVisualIndex((visualIndex + 1) % totalVisualRows);
+          if (totalVisualRows > 1) moveSound();
         } else if (e.key === 'ArrowUp') {
           consume();
-          setVisualIndex(Math.max(visualIndex - 1, 0));
-          if (visualIndex > 0) moveSound();
+          // Circular: del primero salta al último
+          setVisualIndex((visualIndex - 1 + totalVisualRows) % totalVisualRows);
+          if (totalVisualRows > 1) moveSound();
         } else if (isSelect) {
           consume();
           if (toggleOnlyHomeFocused) toggleOnlyHome();
@@ -217,7 +222,19 @@ export default function ThemeSettingsView({
           setAccentIndex((i) => { const n = Math.max(i - 1, 0); if (n !== i) moveSound(); return n; });
         } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           consume();
-          const next = accentVerticalNeighbor(accentIndex, e.key === 'ArrowDown' ? 1 : -1);
+          const dir: -1 | 1 = e.key === 'ArrowDown' ? 1 : -1;
+          let next = accentVerticalNeighbor(accentIndex, dir);
+          if (next === null) {
+            // Circular: sin fila en esa dirección, salta a la fila del extremo opuesto
+            // (misma columna aproximada).
+            let cur = accentIndex;
+            for (let guard = 0; guard < 50; guard++) {
+              const back = accentVerticalNeighbor(cur, (dir === 1 ? -1 : 1) as -1 | 1);
+              if (back === null) break;
+              cur = back;
+            }
+            if (cur !== accentIndex) next = cur;
+          }
           if (next !== null) { setAccentIndex(next); moveSound(); }
         } else if (isSelect) {
           consume();
@@ -484,7 +501,7 @@ export default function ThemeSettingsView({
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
           <Text style={styles.sectionDesc}>{t('settings.audioPacksDesc')}</Text>
-          <AudioPackBrowser active={focused} />
+          <AudioPackBrowser active={focused} gamepadConnected={gamepadConnected} />
         </View>
       </ScrollView>
     </View>

@@ -135,6 +135,7 @@ interface SettingsViewProps {
   libraryGames?: any[];
   media?: any[];
   language: Language;
+  gamepadConnected: boolean;
   changeLanguage: (lang: Language) => void;
   onOpenBgModal: () => void;
   onSelectWallpaperFolder: () => void;
@@ -161,6 +162,7 @@ export default function SettingsView({
   libraryGames = NO_GAMES,
   media = [],
   language,
+  gamepadConnected,
   changeLanguage,
   onOpenBgModal,
   onSelectWallpaperFolder,
@@ -238,8 +240,27 @@ export default function SettingsView({
     return [];
   });
   // Navegación con mando/teclado dentro de la sección Splash Videos
-  const [showSplashVK, setShowSplashVK] = useState(false);
+  const [showSplashVK, setShowSplashVKState] = useState(false);
   const splashInputRef = useRef<TextInput>(null);
+
+  // Abrir el teclado virtual solo si hay mando conectado. Sin mando se enfoca
+  // el input nativo para escribir con teclado físico / del sistema.
+  const setShowSplashVK = (show: boolean) => {
+    if (show && !gamepadConnected) {
+      splashInputRef.current?.focus();
+      return;
+    }
+    setShowSplashVKState(show);
+  };
+
+  // Si el mando se desconecta con el teclado virtual abierto, ciérralo y
+  // devuelve el foco al input nativo.
+  useEffect(() => {
+    if (!gamepadConnected && showSplashVK) {
+      setShowSplashVKState(false);
+      setTimeout(() => splashInputRef.current?.focus(), 60);
+    }
+  }, [gamepadConnected, showSplashVK]);
   const [splashFocusZone, setSplashFocusZone] = useState<'search' | 'filters' | 'grid' | 'pager'>('filters');
   const [splashFilterIndex, setSplashFilterIndex] = useState(0);
   const [splashGridFlatIndex, setSplashGridFlatIndex] = useState(0); // índice de tarjeta enfocada
@@ -922,7 +943,7 @@ export default function SettingsView({
 
           if (showSplashVK) return;
 
-          if (e.key === 'x' || e.key === 'X') {
+          if (gamepadConnected && (e.key === 'x' || e.key === 'X')) {
             if (splashFocusZone === 'search') {
               e.preventDefault();
               setShowSplashVK(true);
@@ -1126,6 +1147,7 @@ export default function SettingsView({
     accessibilityLeftIndex,
     accessibilityFocusArea,
     splashFocusZone,
+    gamepadConnected,
     splashFilterIndex,
     splashGridFlatIndex,
     splashGridCols,
@@ -2075,11 +2097,11 @@ export default function SettingsView({
                         onChangeText={setSplashQuery}
                         autoCapitalize="none"
                         autoCorrect={false}
-                        showSoftInputOnFocus={false}
+                        showSoftInputOnFocus={!gamepadConnected}
                         onFocus={() => {
                           setSplashFocusZone('search');
                           setShowSplashVK(true);
-                          setTimeout(() => splashInputRef.current?.blur(), 60);
+                          if (gamepadConnected) setTimeout(() => splashInputRef.current?.blur(), 60);
                         }}
                       />
                       {splashQuery.length > 0 && (
@@ -2950,6 +2972,7 @@ export default function SettingsView({
           <View style={styles.contentWrapper}>
             {/* ThemeSettingsView dibuja su propio encabezado y gestiona su navegación (menú → lista/preview, acento, audio). */}
             <ThemeSettingsView
+              gamepadConnected={gamepadConnected}
               focused={true}
               onExit={handleBack}
               bleed={{ top: s(56), horizontal: s(72), bottom: s(60) }}
@@ -3000,7 +3023,7 @@ export default function SettingsView({
       </View>
 
       <VirtualKeyboard
-        visible={showSplashVK}
+        visible={showSplashVK && gamepadConnected}
         value={splashQuery}
         onChange={setSplashQuery}
         onClose={() => setShowSplashVK(false)}

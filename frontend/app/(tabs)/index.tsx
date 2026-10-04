@@ -4693,6 +4693,7 @@ export default function ConsoleHome() {
       <GameDetailView
         isVisible={isDetailVisible}
         item={selectedItem}
+        gamepadConnected={gamepadInfo.connected}
         onClose={() => setDetailVisible(false)}
         onRefresh={(updatedGame) => {
           if (updatedGame) mergeGameIntoState(updatedGame);
@@ -4889,6 +4890,7 @@ export default function ConsoleHome() {
       {/* SEARCH VIEW */}
       <SearchView
         visible={isSearchVisible}
+        gamepadConnected={gamepadInfo.connected}
         onClose={() => setSearchVisible(false)}
         libraryGames={searchableLibraryGames}
         mediaItems={searchableMedia.length > 0 ? searchableMedia : media}
@@ -4955,6 +4957,7 @@ export default function ConsoleHome() {
       {/* SETTINGS VIEW */}
       <SettingsView
         visible={isSettingsVisible}
+        gamepadConnected={gamepadInfo.connected}
         onClose={() => {
           setSettingsVisible(false);
           setSettingsInitialScreen('main');
