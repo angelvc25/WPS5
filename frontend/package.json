@@ -14,6 +14,8 @@
     "electron:dev": "concurrently \"npm run backend:dev\" \"npm run electron:start\"",
     "backend:build": "npm --prefix ../backend run build",
     "electron:build": "npm run backend:build && expo export -p web && electron-builder",
+    "electron:build:win": "npm run backend:build && expo export -p web && electron-builder --win",
+    "electron:build:linux": "npm run backend:build && expo export -p web && electron-builder --linux",
     "sync-music": "node scripts/sync-music.mjs"
   },
   "dependencies": {
@@ -123,6 +125,14 @@
       "installerIcon": "assets/icons/wps5.ico",
       "uninstallerIcon": "assets/icons/wps5.ico",
       "installerHeaderIcon": "assets/icons/wps5.ico"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Game",
+      "icon": "assets/icons/logo.png"
     }
   }
 }

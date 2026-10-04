@@ -955,6 +955,7 @@ function disableOverlayHotkey() {
 // puede ejecutar con spawn() — falla en silencio. Por eso descartamos
 // explícitamente cualquier candidato "atrapado" en el asar sin unpack.
 function resolveXinputWatcherPath() {
+  if (process.platform !== 'win32') return null; // xinput-watcher.exe es exclusivo de Windows
   const candidates = app.isPackaged
     ? [
       // 1) extraResources: build config copia electron/bin -> resources/bin
@@ -1056,21 +1057,26 @@ function stopGamepadOverlayListener() {
 // igual que hace isProcessRunningUnderDir() para detectarlos.
 function killProcessTree(pid) {
   return new Promise((resolve) => {
-    if (process.platform !== 'win32') return resolve(false);
-    exec(`taskkill /PID ${pid} /T /F`, { timeout: 8000 }, (error) => {
-      resolve(!error);
-    });
+    if (process.platform === 'win32') {
+      exec(`taskkill /PID ${pid} /T /F`, { timeout: 8000 }, (error) => resolve(!error));
+    } else {
+      // Linux / macOS: kill el grupo de procesos completo
+      try { process.kill(-pid, 'SIGKILL'); resolve(true); } catch { resolve(false); }
+    }
   });
 }
 
 function killProcessesUnderDir(dirPath) {
   return new Promise((resolve) => {
-    if (!dirPath || process.platform !== 'win32') return resolve(false);
-    const escaped = dirPath.replace(/'/g, "''");
-    const psCommand = `Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '${escaped}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`;
-    exec(`powershell -NoProfile -Command "${psCommand}"`, { timeout: 8000 }, (error) => {
-      resolve(!error);
-    });
+    if (!dirPath) return resolve(false);
+    if (process.platform === 'win32') {
+      const escaped = dirPath.replace(/'/g, "''");
+      const psCommand = `Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '${escaped}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`;
+      exec(`powershell -NoProfile -Command "${psCommand}"`, { timeout: 8000 }, (error) => resolve(!error));
+    } else {
+      // Linux: pkill por prefijo de ruta
+      exec(`pkill -f "${dirPath.replace(/"/g, '\\"')}"`, { timeout: 8000 }, () => resolve(true));
+    }
   });
 }
 
@@ -1104,13 +1110,20 @@ function findSteamGameInstallDir(appId) {
 
 function isProcessRunningUnderDir(dirPath) {
   return new Promise((resolve) => {
-    if (!dirPath || process.platform !== 'win32') return resolve(false);
-    const escaped = dirPath.replace(/'/g, "''");
-    const psCommand = `(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '${escaped}*' } | Select-Object -First 1 -ExpandProperty ProcessId)`;
-    exec(`powershell -NoProfile -Command "${psCommand}"`, { timeout: 8000 }, (error, stdout) => {
-      if (error) return resolve(false);
-      resolve(Boolean(stdout && stdout.trim().length > 0));
-    });
+    if (!dirPath) return resolve(false);
+    if (process.platform === 'win32') {
+      const escaped = dirPath.replace(/'/g, "''");
+      const psCommand = `(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '${escaped}*' } | Select-Object -First 1 -ExpandProperty ProcessId)`;
+      exec(`powershell -NoProfile -Command "${psCommand}"`, { timeout: 8000 }, (error, stdout) => {
+        if (error) return resolve(false);
+        resolve(Boolean(stdout && stdout.trim().length > 0));
+      });
+    } else {
+      // Linux / macOS: pgrep por prefijo de ruta
+      exec(`pgrep -f "${dirPath.replace(/"/g, '\\"')}"`, { timeout: 8000 }, (error, stdout) => {
+        resolve(!error && Boolean(stdout && stdout.trim().length > 0));
+      });
+    }
   });
 }
 
@@ -1608,13 +1621,23 @@ function attachExternalLinkHandlers(win) {
 }
 
 function getEpicManifestsPath() {
-  return path.join(
-    process.env.ProgramData || 'C:\\ProgramData',
-    'Epic',
-    'EpicGamesLauncher',
-    'Data',
-    'Manifests'
-  );
+  if (process.platform === 'win32') {
+    return path.join(
+      process.env.ProgramData || 'C:\\ProgramData',
+      'Epic', 'EpicGamesLauncher', 'Data', 'Manifests'
+    );
+  }
+  // En Linux Epic no existe de forma nativa. Las alternativas más usadas son
+  // Heroic Games Launcher y Bottles/Lutris. Devolvemos el path de Heroic
+  // que es el gestor de Epic más popular en Linux / SteamOS / Steam Deck.
+  const home = process.env.HOME || '';
+  if (!home) return '';
+  // Heroic (nativo + Flatpak)
+  const heroicNative = path.join(home, '.config', 'heroic', 'GamesConfig');
+  if (fs.existsSync(heroicNative)) return heroicNative;
+  const heroicFlatpak = path.join(home, '.var', 'app', 'com.heroicgameslauncher.hgl', 'config', 'heroic', 'GamesConfig');
+  if (fs.existsSync(heroicFlatpak)) return heroicFlatpak;
+  return '';
 }
 
 function getEpicInstalledGames() {
@@ -1740,12 +1763,24 @@ function getSteamInstallPath() {
       if (fs.existsSync(path.join(candidate, 'steam.exe'))) return candidate;
     }
   } else if (process.platform === 'linux') {
+    const home = process.env.HOME || '';
     const candidates = [
-      path.join(process.env.HOME || '', '.steam', 'steam'),
-      path.join(process.env.HOME || '', '.local', 'share', 'Steam'),
+      // ── Flatpak Steam (SteamOS / Steam Deck / Ubuntu con Flatpak) ──────────
+      // Es la ruta estándar en SteamOS 3.x (Steam Deck) y en distros que
+      // instalan Steam como Flatpak desde Flathub.
+      path.join(home, '.var', 'app', 'com.valvesoftware.Steam', 'data', 'Steam'),
+      // ── Steam nativo (paquete .deb/.rpm/snap) ──────────────────────────────
+      path.join(home, '.local', 'share', 'Steam'),
+      path.join(home, '.steam', 'steam'),
+      // Enlace simbólico alternativo creado por algunos paquetes de distribución
+      path.join(home, '.steam', 'root'),
     ];
     for (const candidate of candidates) {
-      if (fs.existsSync(path.join(candidate, 'steam.sh'))) return candidate;
+      // En Linux el ejecutable se llama steam.sh o simplemente steam
+      if (
+        fs.existsSync(path.join(candidate, 'steam.sh')) ||
+        fs.existsSync(path.join(candidate, 'ubuntu12_32', 'steam'))
+      ) return candidate;
     }
   } else if (process.platform === 'darwin') {
     const candidate = path.join(process.env.HOME || '', 'Library', 'Application Support', 'Steam');
@@ -3660,43 +3695,49 @@ app.whenReady().then(async () => {
     app.quit();
   });
 
-  // IPC: Obtener info de almacenamiento (Windows) — devuelve hasta 3 discos locales
+  // IPC: Obtener info de almacenamiento — Windows (PowerShell) y Linux (df)
   ipcMain.handle('get-storage-info', async () => {
     return new Promise((resolve) => {
-      if (process.platform !== 'win32') {
+      if (process.platform === 'win32') {
+        // DriveType=3 → disco local fijo; excluimos CD-ROMs, unidades de red, etc.
+        const cmd = 'powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | Select-Object DeviceID, Size, FreeSpace | ConvertTo-Json -Compress"';
+        exec(cmd, (error, stdout) => {
+          if (error) { resolve({ success: false, error: error.message }); return; }
+          try {
+            let raw = JSON.parse(stdout.trim());
+            if (!Array.isArray(raw)) raw = [raw];
+            const MAX_DISKS = 3;
+            const disks = raw.slice(0, MAX_DISKS).map((d) => {
+              const size = Number(d.Size) || 0;
+              const free = Number(d.FreeSpace) || 0;
+              const used = size - free;
+              const percent = size > 0 ? Math.round((used / size) * 100) : 0;
+              const freeGB = Math.round(free / (1024 * 1024 * 1024) * 10) / 10;
+              const totalGB = Math.round(size / (1024 * 1024 * 1024) * 10) / 10;
+              return { name: d.DeviceID, percent, freeGB, totalGB };
+            });
+            const first = disks[0] || { percent: 0, freeGB: 0 };
+            resolve({ success: true, percent: first.percent, freeGB: first.freeGB, disks });
+          } catch { resolve({ success: false, error: 'No se pudo parsear la info del disco' }); }
+        });
+      } else if (process.platform === 'linux') {
+        // Linux: df -BG para partición raíz
+        exec('df -BG /', (error, stdout) => {
+          if (error) { resolve({ success: false, error: error.message }); return; }
+          try {
+            const lines = stdout.trim().split('\n');
+            const parts = lines[1].split(/\s+/);
+            const totalGB = parseFloat(parts[1]) || 0;
+            const usedGB = parseFloat(parts[2]) || 0;
+            const freeGB = parseFloat(parts[3]) || 0;
+            const percent = totalGB > 0 ? Math.round((usedGB / totalGB) * 100) : 0;
+            const disks = [{ name: '/', percent, freeGB: Math.round(freeGB * 10) / 10, totalGB: Math.round(totalGB * 10) / 10 }];
+            resolve({ success: true, percent, freeGB: Math.round(freeGB * 10) / 10, disks });
+          } catch { resolve({ success: false, error: 'No se pudo parsear df' }); }
+        });
+      } else {
         resolve({ success: false, error: 'Plataforma no soportada' });
-        return;
       }
-      // DriveType=3 → disco local fijo; excluimos CD-ROMs, unidades de red, etc.
-      const cmd = 'powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | Select-Object DeviceID, Size, FreeSpace | ConvertTo-Json -Compress"';
-      exec(cmd, (error, stdout) => {
-        if (error) {
-          resolve({ success: false, error: error.message });
-          return;
-        }
-        try {
-          let raw = JSON.parse(stdout.trim());
-          // PowerShell devuelve un objeto (no array) si solo hay 1 disco
-          if (!Array.isArray(raw)) raw = [raw];
-
-          const MAX_DISKS = 3;
-          const disks = raw.slice(0, MAX_DISKS).map((d) => {
-            const size = Number(d.Size) || 0;
-            const free = Number(d.FreeSpace) || 0;
-            const used = size - free;
-            const percent = size > 0 ? Math.round((used / size) * 100) : 0;
-            const freeGB = Math.round(free / (1024 * 1024 * 1024) * 10) / 10;
-            const totalGB = Math.round(size / (1024 * 1024 * 1024) * 10) / 10;
-            return { name: d.DeviceID, percent, freeGB, totalGB };
-          });
-
-          // Compatibilidad hacia atrás: campos del primer disco en el nivel raíz
-          const first = disks[0] || { percent: 0, freeGB: 0 };
-          resolve({ success: true, percent: first.percent, freeGB: first.freeGB, disks });
-        } catch (parseErr) {
-          resolve({ success: false, error: 'No se pudo parsear la info del disco' });
-        }
-      });
     });
   });
 
@@ -4284,7 +4325,7 @@ app.on('before-quit', () => {
   disableOverlayHotkey();
   stopGamepadOverlayListener();
   globalShortcut.unregisterAll();
-  showWindowsTaskbar(); // red de seguridad: nunca dejar la taskbar oculta al salir
+  if (process.platform === 'win32') showWindowsTaskbar(); // red de seguridad: nunca dejar la taskbar oculta al salir
   if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.destroy();
   for (const id of Array.from(activeGameWatchers.keys())) {
     stopSteamGameWatch(id);

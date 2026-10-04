@@ -50,7 +50,15 @@ function getXml2js() {
 const glob = require('fast-glob');
 const { crc32 } = require('crc');
 const { parse: parseIni } = require('@xan105/ini');
-const regedit = require('regodit');
+
+let regedit = null;
+if (process.platform === 'win32') {
+  try {
+    regedit = require('regodit');
+  } catch (err) {
+    console.warn('[AchievementReader] regodit no disponible:', err?.message);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers internos
@@ -386,32 +394,48 @@ async function parseAchievementsFromDir(dirPath, schemaList) {
 
 /** Rutas base de cada emulador, con su etiqueta de fuente. */
 function getEmulatorSearchPaths() {
-  const pub = process.env.PUBLIC || process.env.Public || 'C:\\Users\\Public';
-  const appdata = process.env.APPDATA || '';
-  const local = process.env.LOCALAPPDATA || '';
-  const progdata = process.env.PROGRAMDATA || 'C:\\ProgramData';
+  const home = process.env.HOME || '';
+  const pub = process.env.PUBLIC || process.env.Public || (process.platform === 'win32' ? 'C:\\Users\\Public' : '');
+  const appdata = process.env.APPDATA || (home ? path.join(home, '.config') : '');
+  const local = process.env.LOCALAPPDATA || (home ? path.join(home, '.local', 'share') : '');
+  const progdata = process.env.PROGRAMDATA || (process.platform === 'win32' ? 'C:\\ProgramData' : '');
 
-  return [
+  const paths = [
+    // ── Linux / SteamOS / Wine ───────────────────────────────────────────────
+    ...(home ? [
+      { base: path.join(home, '.local', 'share', 'Goldberg SteamEmu Saves'), source: 'Goldberg' },
+      { base: path.join(home, '.local', 'share', 'GSE Saves'), source: 'Goldberg (GSE)' },
+      { base: path.join(home, '.config', 'Goldberg SteamEmu Saves'), source: 'Goldberg' },
+      { base: path.join(home, '.config', 'GSE Saves'), source: 'Goldberg (GSE)' },
+      { base: path.join(home, '.local', 'share', 'Steam'), source: 'Steam (Linux)' },
+    ] : []),
+
     // ── Public\Documents ────────────────────────────────────────────────────
-    { base: path.join(pub, 'Documents', 'Steam', 'CODEX'), source: 'Codex' },
-    { base: path.join(pub, 'Documents', 'Steam', 'RUNE'), source: 'RUNE' },
-    { base: path.join(pub, 'Documents', 'OnlineFix'), source: 'OnlineFix' },
-    { base: path.join(pub, 'Documents', 'EMPRESS'), source: 'Goldberg (EMPRESS)', empressStyle: true },
+    ...(pub ? [
+      { base: path.join(pub, 'Documents', 'Steam', 'CODEX'), source: 'Codex' },
+      { base: path.join(pub, 'Documents', 'Steam', 'RUNE'), source: 'RUNE' },
+      { base: path.join(pub, 'Documents', 'OnlineFix'), source: 'OnlineFix' },
+      { base: path.join(pub, 'Documents', 'EMPRESS'), source: 'Goldberg (EMPRESS)', empressStyle: true },
+    ] : []),
 
     // ── AppData\Roaming ─────────────────────────────────────────────────────
-    { base: path.join(appdata, 'Goldberg SteamEmu Saves'), source: 'Goldberg' },
-    { base: path.join(appdata, 'GSE Saves'), source: 'Goldberg (GSE)' },
-    { base: path.join(appdata, 'EMPRESS'), source: 'Goldberg (EMPRESS)', empressStyle: true },
-    { base: path.join(appdata, 'Steam', 'CODEX'), source: 'Codex' },
-    { base: path.join(appdata, 'Steam', 'RUNE'), source: 'RUNE' },
-    { base: path.join(appdata, 'Steam'), source: 'Steam (AppData)' },
-    { base: path.join(appdata, 'SmartSteamEmu'), source: 'SmartSteamEmu' },
-    { base: path.join(appdata, 'CreamAPI'), source: 'CreamAPI' },
+    ...(appdata ? [
+      { base: path.join(appdata, 'Goldberg SteamEmu Saves'), source: 'Goldberg' },
+      { base: path.join(appdata, 'GSE Saves'), source: 'Goldberg (GSE)' },
+      { base: path.join(appdata, 'EMPRESS'), source: 'Goldberg (EMPRESS)', empressStyle: true },
+      { base: path.join(appdata, 'Steam', 'CODEX'), source: 'Codex' },
+      { base: path.join(appdata, 'Steam', 'RUNE'), source: 'RUNE' },
+      { base: path.join(appdata, 'Steam'), source: 'Steam (AppData)' },
+      { base: path.join(appdata, 'SmartSteamEmu'), source: 'SmartSteamEmu' },
+      { base: path.join(appdata, 'CreamAPI'), source: 'CreamAPI' },
+    ] : []),
 
     // ── Otros ────────────────────────────────────────────────────────────────
-    { base: path.join(progdata, 'Steam'), source: 'Reloaded - 3DM' },
-    { base: path.join(local, 'SKIDROW'), source: 'Skidrow' },
-  ].filter(({ base }) => path.isAbsolute(base)); // descarta rutas relativas si falta una variable de entorno
+    ...(progdata ? [{ base: path.join(progdata, 'Steam'), source: 'Reloaded - 3DM' }] : []),
+    ...(local ? [{ base: path.join(local, 'SKIDROW'), source: 'Skidrow' }] : []),
+  ];
+
+  return paths.filter(({ base }) => base && path.isAbsolute(base));
 }
 
 /**
@@ -587,6 +611,7 @@ async function findLocalAchievementDirs(exePath, appId) {
  * @returns {Map<string, {achieved, unlockTime}> | null}
  */
 async function readGreenLumaAchievements(appId) {
+  if (process.platform !== 'win32' || !regedit) return null;
   const strId = String(appId);
   const variants = [
     { root: 'HKCU', key: `SOFTWARE/GLR/AppID/${strId}`, skipKey: 'SkipStatsAndAchievements', achPath: `SOFTWARE/GLR/AppID/${strId}/Achievements` },
