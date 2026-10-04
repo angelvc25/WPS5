@@ -543,12 +543,18 @@ export default function SettingsView({
 
   const handleBack = () => {
     soundService.playBack?.();
+    if (currentScreen === 'main') {
+      setScreenHistory([]);
+      onClose();
+      return;
+    }
     if (screenHistory.length > 0) {
       const prevScreen = screenHistory[screenHistory.length - 1];
       setScreenHistory((prev) => prev.slice(0, -1));
       setCurrentScreen(prevScreen);
     } else {
-      onClose();
+      setCurrentScreen('main');
+      setScreenHistory([]);
     }
   };
 

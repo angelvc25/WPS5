@@ -2463,6 +2463,7 @@ export default function ConsoleHome() {
     if (Date.now() - mountTimeRef.current < 400) return;
     if (!e.fromGamepad) setInputMode('keyboard');
     if (isWelcomeSettingsVisible) return;
+    if (isSettingsVisible) return;
     if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
     if (isLaunching) return;
     if (isMediaGalleryVisible) return;
@@ -4957,7 +4958,8 @@ export default function ConsoleHome() {
         onClose={() => {
           setSettingsVisible(false);
           setSettingsInitialScreen('main');
-          setFocusArea('header_user');
+          setFocusArea('header_avatar');
+          setFocusIndex(1);
         }}
         activeUser={activeUser}
         updateUser={updateUser}
