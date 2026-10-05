@@ -8,10 +8,11 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  runOnJS
+  runOnJS,
+  FadeOut
 } from 'react-native-reanimated';
 
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import { UserContext } from '@/contexts/UserContext';
@@ -94,22 +95,30 @@ const OVERLAY_CSS_TRANSPARENT = `
 `;
 
 export default function RootLayout() {
+  // Fuentes bloqueantes: solo las que se usan siempre (incluye las de iconos,
+  // para que no aparezcan vacíos y luego "de golpe").
   const [fontsLoaded] = useFonts({
+    ...Ionicons.font,
+    ...MaterialCommunityIcons.font,
     PSIcons: require('../assets/fonts/PSIcons.ttf'),
     SSTBold: require('../assets/fonts/sst/SSTBold.ttf'),
+    SSTLight: require('../assets/fonts/sst/SSTLight.ttf'),
+    SSTMedium: require('../assets/fonts/sst/SSTMedium.ttf'),
+    SSTRg: require('../assets/fonts/sst/SSTRg.ttf'),
+    SSTBadge: require('../assets/fonts/sst/SSTBadge.ttf'),
+  });
+
+  // Variantes secundarias (Cn, It, Heavy): cargan en segundo plano sin bloquear el render.
+  useFonts({
     SSTBoldCn: require('../assets/fonts/sst/SSTBoldCn.ttf'),
     SSTBoldIt: require('../assets/fonts/sst/SSTBoldIt.ttf'),
     SSTHeavy: require('../assets/fonts/sst/SSTHeavy.ttf'),
     SSTHeavyIt: require('../assets/fonts/sst/SSTHeavyIt.ttf'),
-    SSTLight: require('../assets/fonts/sst/SSTLight.ttf'),
     SSTLightIt: require('../assets/fonts/sst/SSTLightIt.ttf'),
-    SSTMedium: require('../assets/fonts/sst/SSTMedium.ttf'),
     SSTMediumCn: require('../assets/fonts/sst/SSTMediumCn.ttf'),
     SSTMediumIt: require('../assets/fonts/sst/SSTMediumIt.ttf'),
-    SSTRg: require('../assets/fonts/sst/SSTRg.ttf'),
     SSTRgCn: require('../assets/fonts/sst/SSTRgCn.ttf'),
     SSTRgIt: require('../assets/fonts/sst/SSTRgIt.ttf'),
-    SSTBadge: require('../assets/fonts/sst/SSTBadge.ttf'),
   });
 
   if (!fontsLoaded) {
@@ -138,6 +147,21 @@ function RootLayoutInner() {
     if (isOverlayMode) return;
     setBootVideoUri(getLastBootVideoUri());
   }, [isOverlayMode]);
+
+  // Overlay de carga tras elegir perfil: se mantiene hasta que Home avisa que está listo.
+  // Los hooks van antes de cualquier return temprano.
+  const [homeReady, setHomeReady] = useState(false);
+
+  useEffect(() => {
+    if (!activeUser) { setHomeReady(false); return; }
+    const done = () => setHomeReady(true);
+    window.addEventListener('wps5-home-ready', done, { once: true });
+    const safety = setTimeout(done, 8000); // red de seguridad
+    return () => {
+      window.removeEventListener('wps5-home-ready', done);
+      clearTimeout(safety);
+    };
+  }, [activeUser?.id]);
 
   // Valores compartidos de Reanimated
   const splashOpacity = useSharedValue(1);
@@ -241,57 +265,57 @@ function RootLayoutInner() {
 
   if (!activeUser) {
     return (
-      <UserContext.Provider value={{ activeUser, changeUser: () => setActiveUser(null), updateUser: async () => {} }}>
-      <WPSThemeProvider>
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
-        <style dangerouslySetInnerHTML={{
-          __html: GLOBAL_CSS_FONTS
-        }} />
+      <UserContext.Provider value={{ activeUser, changeUser: () => setActiveUser(null), updateUser: async () => { } }}>
+        <WPSThemeProvider>
+          <View style={{ flex: 1, backgroundColor: '#000' }}>
+            <style dangerouslySetInnerHTML={{
+              __html: GLOBAL_CSS_FONTS
+            }} />
 
-        <UserSelectScreen onUserSelected={(user) => {
-          // Fijar el ámbito online ANTES de montar la app del perfil para que
-          // nunca herede la sesión de otro perfil.
-          setCurrentOnlineProfileId(user.id, (user.settings as any)?.onlineUserId ?? null);
-          setActiveUser(user);
-          if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            localStorage.setItem(LAST_USER_STORAGE_KEY, user.id);
-          }
-          if (isLanguage(user.settings?.language)) {
-            setLanguage(user.settings.language);
-          }
-          if ((window as any).electronAPI?.setOverlaySettings) {
-            (window as any).electronAPI.setOverlaySettings({
-              enabled: user.settings?.overlayEnabled !== false,
-              combo: user.settings?.overlayCombo || 'SELECT_START',
-            });
-          }
-        }} />
+            <UserSelectScreen onUserSelected={(user) => {
+              // Fijar el ámbito online ANTES de montar la app del perfil para que
+              // nunca herede la sesión de otro perfil.
+              setCurrentOnlineProfileId(user.id, (user.settings as any)?.onlineUserId ?? null);
+              setActiveUser(user);
+              if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                localStorage.setItem(LAST_USER_STORAGE_KEY, user.id);
+              }
+              if (isLanguage(user.settings?.language)) {
+                setLanguage(user.settings.language);
+              }
+              if ((window as any).electronAPI?.setOverlaySettings) {
+                (window as any).electronAPI.setOverlaySettings({
+                  enabled: user.settings?.overlayEnabled !== false,
+                  combo: user.settings?.overlayCombo || 'SELECT_START',
+                });
+              }
+            }} />
 
-        {showSplash && (
-          <Animated.View style={[
-            StyleSheet.absoluteFillObject,
-            styles.splashContainer,
-            animatedSplashStyle
-          ]}>
-            {bootVideoUri && !bootVideoFailed ? (
-              <BackgroundVideo
-                source={{ uri: bootVideoUri }}
-                style={StyleSheet.absoluteFillObject}
-                resizeMode="cover"
-                muted={false}
-                shouldPlay
-                isLooping={false}
-                onEnd={finishSplash}
-                onError={() => setBootVideoFailed(true)}
-              />
-            ) : (
-              <MaterialCommunityIcons name="sony-playstation" size={110} color="#FFFFFF" />
+            {showSplash && (
+              <Animated.View style={[
+                StyleSheet.absoluteFillObject,
+                styles.splashContainer,
+                animatedSplashStyle
+              ]}>
+                {bootVideoUri && !bootVideoFailed ? (
+                  <BackgroundVideo
+                    source={{ uri: bootVideoUri }}
+                    style={StyleSheet.absoluteFillObject}
+                    resizeMode="cover"
+                    muted={false}
+                    shouldPlay
+                    isLooping={false}
+                    onEnd={finishSplash}
+                    onError={() => setBootVideoFailed(true)}
+                  />
+                ) : (
+                  <MaterialCommunityIcons name="sony-playstation" size={110} color="#FFFFFF" />
+                )}
+              </Animated.View>
             )}
-          </Animated.View>
-        )}
-        <StatusBar style="light" />
-      </View>
-      </WPSThemeProvider>
+            <StatusBar style="light" />
+          </View>
+        </WPSThemeProvider>
       </UserContext.Provider>
     );
   }
@@ -322,23 +346,34 @@ function RootLayoutInner() {
   return (
     <UserContext.Provider value={{ activeUser, changeUser: () => setActiveUser(null), updateUser }}>
       <WPSThemeProvider>
-      <style dangerouslySetInnerHTML={{
-        __html: GLOBAL_CSS_FONTS
-      }} />
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="overlay" options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
-        <ToastHost />
-        <StatusBar style="auto" />
-      </ThemeProvider>
+        <style dangerouslySetInnerHTML={{
+          __html: GLOBAL_CSS_FONTS
+        }} />
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="overlay" options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
+          <ToastHost />
+          {!homeReady && (
+            <Animated.View
+              exiting={FadeOut.duration(450)}
+              style={[
+                StyleSheet.absoluteFillObject,
+                { backgroundColor: '#000', zIndex: 9000, alignItems: 'center', justifyContent: 'center' },
+              ]}
+            >
+              <MaterialCommunityIcons name="sony-playstation" size={90} color="#FFF" />
+            </Animated.View>
+          )}
+          <StatusBar style="auto" />
+        </ThemeProvider>
       </WPSThemeProvider>
     </UserContext.Provider>
   );

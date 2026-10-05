@@ -704,6 +704,10 @@ export default function ConsoleHome() {
   const epicGamesRef = useRef<ConsoleItem[]>([]);
   epicGamesRef.current = epicGames;
   const [uiReady, setUiReady] = useState(false);
+  // Home avisa al _layout (evento 'wps5-home-ready') cuando la UI y los datos
+  // base están listos, para quitar el overlay de carga sin saltos.
+  const [appsLoaded, setAppsLoaded] = useState(false);
+  const readySentRef = useRef(false);
   const launchStartTimeRef = useRef<Record<string, number>>({});
   const sessionPlaytimeRef = useRef<Record<string, number>>({});
   const initialUnlockedRef = useRef<Record<string, number>>({});
@@ -887,6 +891,18 @@ export default function ConsoleHome() {
   }, []);
 
   useEffect(() => {
+    if (!uiReady || !appsLoaded || readySentRef.current) return;
+    readySentRef.current = true;
+    requestAnimationFrame(() => requestAnimationFrame(() =>
+      window.dispatchEvent(new Event('wps5-home-ready'))
+    ));
+  }, [uiReady, appsLoaded]);
+
+  // Evita que el efecto de cambio de pestaña corra en el primer render
+  // (desmontaba y volvía a montar todas las tarjetas del carrusel al arrancar).
+  const firstTabRun = useRef(true);
+  useEffect(() => {
+    if (firstTabRun.current) { firstTabRun.current = false; return; }
     // Fade out old content
     tabFade.value = withTiming(0, { duration: 150, easing: Easing.out(Easing.quad) }, (isFinished) => {
       if (isFinished) {
@@ -2014,9 +2030,13 @@ export default function ConsoleHome() {
         } else {
           setLastPlayedGame(null);
         }
+        setAppsLoaded(true);
       }).catch((e: any) => {
         console.error('[loadApps] Error refrescando la lista:', e);
+        setAppsLoaded(true); // no dejar el overlay esperando si falla
       });
+    } else {
+      setAppsLoaded(true); // sin Electron no hay nada que cargar
     }
   };
 
