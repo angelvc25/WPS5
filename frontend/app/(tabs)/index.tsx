@@ -338,6 +338,16 @@ export default function ConsoleHome() {
   // Debe coincidir con `toLocalFileUri` en electron/main.js y en _layout.tsx.
   const toLocalFileUri = (filePath: string) => `local-file:///${filePath.replace(/\\/g, '/')}`;
 
+  // Video de suspensión: el personalizado del usuario; si no tiene (o falla),
+  // el video por defecto empaquetado; si ese también falla, se cierra directo.
+  const [suspendCustomFailed, setSuspendCustomFailed] = useState(false);
+  const [suspendDefaultFailed, setSuspendDefaultFailed] = useState(false);
+  const suspendCustomActive = !!suspendVideoPath && !suspendCustomFailed;
+  const suspendVideoSource = useMemo(
+    () => (suspendCustomActive ? { uri: toLocalFileUri(suspendVideoPath as string) } : require('@/assets/splash/suspend.webm')),
+    [suspendCustomActive, suspendVideoPath]
+  );
+
   const finishShutdown = () => {
     if (shutdownFinishedRef.current) return;
     shutdownFinishedRef.current = true;
@@ -351,7 +361,8 @@ export default function ConsoleHome() {
   // de suspensión configurado, cierra directo (comportamiento anterior).
   const requestAppShutdown = () => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI) return;
-    if (!suspendVideoPath) {
+    if (suspendCustomActive === false && suspendDefaultFailed) {
+      // Ni el video personalizado ni el de por defecto están disponibles.
       (window as any).electronAPI.closeApp();
       return;
     }
@@ -5164,16 +5175,21 @@ export default function ConsoleHome() {
           el usuario (Settings -> Splash Videos) antes de cerrar la app. */}
       <Modal visible={isShuttingDown} transparent animationType="fade">
         <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }]}>
-          {suspendVideoPath ? (
+          {(suspendCustomActive || !suspendDefaultFailed) ? (
             <BackgroundVideo
-              source={{ uri: toLocalFileUri(suspendVideoPath) }}
+              key={suspendCustomActive ? 'suspend-custom' : 'suspend-default'}
+              source={suspendVideoSource}
               style={StyleSheet.absoluteFillObject}
               resizeMode="cover"
               muted={false}
               shouldPlay
               isLooping={false}
               onEnd={finishShutdown}
-              onError={finishShutdown}
+              onError={() => {
+                if (suspendCustomActive) { setSuspendCustomFailed(true); return; }
+                setSuspendDefaultFailed(true);
+                finishShutdown(); // el de por defecto también falló: cerrar sin esperar
+              }}
             />
           ) : (
             <Ionicons name="power-outline" size={64} color="#FFFFFF" />
