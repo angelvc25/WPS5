@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  Easing,
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -14,10 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { ResizeMode } from '@/components/AppVideo';
 import ControlPrompt from './ControlPrompt';
 import { soundService } from '../services/soundService';
-import { toastService } from '@/services/toastService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import BackgroundVideo from './BackgroundVideo';
 import ProfileContextMenu, { ProfileMenuMode } from './ProfileContextMenu';
+import { toastService } from '@/services/toastService';
 
 import type { FieldSyncPreferences } from '../services/metadataPreferences';
 import type { EmulatorConfig } from '../services/emulationService';
@@ -196,6 +197,14 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
   const animatedIndex = useRef(new Animated.Value(0)).current;
 
+  // ── Transición de selección (estado de carga) ───────────────────────────
+  // Al elegir perfil: los demás elementos se desvanecen, el seleccionado se
+  // centra y su radar pulsa hasta que _layout desmonta esta pantalla (Home listo).
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [titleH, setTitleH] = useState(0);
+  const othersOpacity = useRef(new Animated.Value(1)).current;
+  const centerShift = useRef(new Animated.Value(0)).current;
+
   // Store cleanup functions for radar animations
   const radarCleanups = useRef<Record<string, () => void>>({});
 
@@ -217,6 +226,14 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       @keyframes shimmerMove {
         0%   { left: -100%; top: -100%; }
         100% { left: 200%;  top: 200%;  }
+      }
+      @keyframes wps5UserPulse {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.06); }
+      }
+      @keyframes wps5UserRing {
+        0%   { transform: scale(1);   opacity: 0.55; }
+        100% { transform: scale(1.9); opacity: 0; }
       }
     `;
     document.head.appendChild(style);
@@ -360,6 +377,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
     // ── Keyboard navigation ──────────────────────────────────────────────
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedRef.current) return; // ya hay un perfil elegido: entrada bloqueada
       if (!(e as any).fromGamepad) setInputMode('keyboard');
       // Con el menú abierto, todo el input se redirige al menú.
       if (menu) {
@@ -439,6 +457,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
     let wheelTimeout: ReturnType<typeof setTimeout> | null = null;
     const handleWheel = (e: WheelEvent) => {
+      if (selectedRef.current) return;
       if (wheelTimeout || menu) return;
 
       const totalItems = users.length + 1;
@@ -520,10 +539,16 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     if (selectedRef.current) return;
     selectedRef.current = true;
     soundService.playActivation?.();
-    setTimeout(() => {
-      toastService.show(t('toast.loggedPS5'), { source: 'system', icon: require('@/assets/icons/Logonegro.png') });
-    }, 700);
-    onUserSelected(user);
+    setSelectedId(user.id);
+    setHoveredId(user.id);
+
+    // Primero termina la animación (el hilo de JS aún está libre) y solo
+    // después se notifica al layout, que monta Home y bloquea el hilo.
+    const useNative = Platform.OS !== 'web';
+    Animated.parallel([
+      Animated.timing(othersOpacity, { toValue: 0, duration: 400, easing: Easing.out(Easing.quad), useNativeDriver: useNative }),
+      Animated.timing(centerShift, { toValue: 1, duration: 550, easing: Easing.out(Easing.cubic), useNativeDriver: useNative }),
+    ]).start(() => onUserSelected(user));
   };
 
   const bgInterpolate = bgPulse.interpolate({
@@ -551,6 +576,13 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     outputRange: [(middleIndex - -10) * 204, (middleIndex - 100) * 204]
   });
 
+  // Al elegir perfil, la fila sube lo justo para que el usuario quede en el
+  // centro vertical real de la pantalla (compensa el bloque de título oculto).
+  const translateY = centerShift.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -(titleH / 2 + 20)],
+  });
+
   return (
     <View style={styles.container}>
       {/* BACKGROUND — COVER en vez de STRETCH: STRETCH deforma la imagen al
@@ -568,26 +600,32 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       <View style={styles.overlay} />
 
       {/* CLOCK */}
-      <View style={styles.topRight}>
+      <Animated.View style={[styles.topRight, { opacity: othersOpacity }]}>
         <Text style={styles.timeText}>{time}</Text>
-      </View>
+      </Animated.View>
 
       {/* TITLE */}
-      <View style={styles.titleArea}>
+      <Animated.View
+        style={[styles.titleArea, { opacity: othersOpacity }]}
+        onLayout={(e) => setTitleH(e.nativeEvent.layout.height)}
+      >
         <Text style={styles.title}>{t('userSelect.title')}</Text>
         <Text style={styles.subtitle}>{t('userSelect.subtitle')}</Text>
-      </View>
+      </Animated.View>
 
       {/* USER CARDS */}
-      <Animated.View style={[styles.cardsRow, { transform: [{ translateX }] }]}>
+      <Animated.View style={[styles.cardsRow, { transform: [{ translateX }, { translateY }] }]}>
 
         {/* ADD USER */}
         <Animated.View style={{
-          opacity: animatedIndex.interpolate({
-            inputRange: [-2, -1, 0, 1, 2],
-            outputRange: [0.1, 0.4, 1, 0.4, 0.1],
-            extrapolate: 'clamp'
-          })
+          opacity: Animated.multiply(
+            animatedIndex.interpolate({
+              inputRange: [-2, -1, 0, 1, 2],
+              outputRange: [0.1, 0.4, 1, 0.4, 0.1],
+              extrapolate: 'clamp'
+            }),
+            othersOpacity
+          )
         }}>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -607,30 +645,53 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
         {users.map((user, idx) => {
           const isFocused = hoveredId === user.id;
           const itemIndex = idx + 1;
+          const isSelected = selectedId === user.id;
+          const baseOpacity = animatedIndex.interpolate({
+            inputRange: [itemIndex - 2, itemIndex - 1, itemIndex, itemIndex + 1, itemIndex + 2],
+            outputRange: [0.1, 0.4, 1, 0.4, 0.1],
+            extrapolate: 'clamp'
+          });
           return (
             <Animated.View key={user.id} style={{
-              opacity: animatedIndex.interpolate({
-                inputRange: [itemIndex - 2, itemIndex - 1, itemIndex, itemIndex + 1, itemIndex + 2],
-                outputRange: [0.1, 0.4, 1, 0.4, 0.1],
-                extrapolate: 'clamp'
-              })
+              opacity: isSelected ? baseOpacity : Animated.multiply(baseOpacity, othersOpacity)
             }}>
               <TouchableOpacity
                 ref={isFocused ? focusedCardRef : undefined}
                 activeOpacity={0.8}
                 style={styles.cardWrapper}
                 onPress={() => handleSelect(user)}
-                onLongPress={() => { if (isFocused) openProfileMenu(user.id); }}
+                onLongPress={() => { if (isFocused && !selectedRef.current) openProfileMenu(user.id); }}
               >
                 {/* ¡Toda la magia ocurre aquí dentro de manera limpia! */}
-                <RadarFocusWrapper id={user.id} isFocused={isFocused} size={205} innerSize={isFocused ? 180 : 160}>
-                  <View style={[styles.card, isFocused && styles.cardFocused]}>
-                    <Image
-                      source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
-                      style={styles.avatarImg}
-                    />
-                  </View>
-                </RadarFocusWrapper>
+                <View style={{ width: 205, height: 205, alignItems: 'center', justifyContent: 'center' }}>
+                  {/* Anillos que se expanden: solo CSS, así siguen fluidos aunque Home esté bloqueando el hilo de JS. */}
+                  {isSelected && Platform.OS === 'web' && (
+                    <>
+                      <div style={{
+                        position: 'absolute', inset: 0, margin: 'auto', width: 180, height: 180,
+                        borderRadius: '50%', border: '2px solid rgba(255,255,255,0.55)',
+                        pointerEvents: 'none', animation: 'wps5UserRing 2.4s ease-out infinite',
+                      }} />
+                      <div style={{
+                        position: 'absolute', inset: 0, margin: 'auto', width: 180, height: 180,
+                        borderRadius: '50%', border: '2px solid rgba(255,255,255,0.55)',
+                        pointerEvents: 'none', animation: 'wps5UserRing 2.4s ease-out 1.2s infinite',
+                      }} />
+                    </>
+                  )}
+                  <div style={isSelected && Platform.OS === 'web'
+                    ? { display: 'flex', animation: 'wps5UserPulse 1.8s ease-in-out infinite' }
+                    : { display: 'flex' }}>
+                    <RadarFocusWrapper id={user.id} isFocused={isFocused} size={205} innerSize={isFocused ? 180 : 160}>
+                      <View style={[styles.card, isFocused && styles.cardFocused]}>
+                        <Image
+                          source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
+                          style={styles.avatarImg}
+                        />
+                      </View>
+                    </RadarFocusWrapper>
+                  </div>
+                </View>
                 <Text style={[styles.userName, isFocused && styles.userNameFocused]}>
                   {user.name}
                 </Text>
@@ -641,17 +702,22 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       </Animated.View>
 
       {/* POWER BUTTON */}
-      <TouchableOpacity
-        style={[styles.powerButton, hoveredId === 'power' && styles.powerButtonFocused]}
-        activeOpacity={0.7}
-        onPress={() => {
-          if (Platform.OS === 'web' && (window as any).electronAPI) {
-            (window as any).electronAPI.closeApp();
-          }
-        }}
+      <Animated.View
+        style={[styles.powerWrapper, { opacity: othersOpacity }]}
+        pointerEvents={selectedId ? 'none' : 'auto'}
       >
-        <Ionicons name="power" size={35} color={hoveredId === 'power' ? '#000000ff' : '#FFF'} />
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.powerButton, hoveredId === 'power' && styles.powerButtonFocused]}
+          activeOpacity={0.7}
+          onPress={() => {
+            if (Platform.OS === 'web' && (window as any).electronAPI) {
+              (window as any).electronAPI.closeApp();
+            }
+          }}
+        >
+          <Ionicons name="power" size={35} color={hoveredId === 'power' ? '#000000ff' : '#FFF'} />
+        </TouchableOpacity>
+      </Animated.View>
 
       {/* PROFILE CONTEXT MENU */}
       {menu && (
@@ -795,10 +861,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
   },
-  powerButton: {
+  powerWrapper: {
     position: 'absolute',
     bottom: 50,
     alignSelf: 'center',
+  },
+  powerButton: {
     width: 60,
     height: 60,
     borderRadius: 30,
