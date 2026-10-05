@@ -209,6 +209,10 @@ const es = {
   'profile.updateOnlineBio': 'Actualizar bio en línea',
   'profile.onlineBioUpdated': 'Bio actualizada en línea.',
   'profile.onlineBioLength': 'La bio admite hasta 500 caracteres.',
+  'userSelect.deleteProfile': 'Eliminar perfil',
+  'userSelect.deleteConfirmTitle': '¿Eliminar el perfil {name}?',
+  'userSelect.deleteConfirmAction': 'Eliminar',
+  'userSelect.profileDeleted': '	Perfil {name} eliminado',
 
   'common.cancel': 'Cancelar',
   'common.open': 'Abrir',
@@ -1200,6 +1204,10 @@ const en: Record<TranslationKey, string> = {
   'profile.updateOnlineBio': 'Update online bio',
   'profile.onlineBioUpdated': 'Online bio updated.',
   'profile.onlineBioLength': 'Bio supports up to 500 characters.',
+  'userSelect.deleteProfile': 'Delete profile',
+  'userSelect.deleteConfirmTitle': 'Delete profile {name}?',
+  'userSelect.deleteConfirmAction': 'Delete',
+  'userSelect.profileDeleted': 'Profile {name} deleted.',
 
   'common.cancel': 'Cancel',
   'common.open': 'Open',
@@ -2185,6 +2193,10 @@ const pt: Record<TranslationKey, string> = {
   'profile.updateOnlineBio': 'Atualizar bio online',
   'profile.onlineBioUpdated': 'Bio online atualizada.',
   'profile.onlineBioLength': 'A bio admite até 500 caracteres.',
+  'userSelect.deleteProfile': 'Excluir perfil',
+  'userSelect.deleteConfirmTitle': 'Excluir o perfil {name}?',
+  'userSelect.deleteConfirmAction': 'Excluir',
+  'userSelect.profileDeleted': 'Perfil {name} excluído.',
 
   'common.cancel': 'Cancelar',
   'common.open': 'Abrir',
