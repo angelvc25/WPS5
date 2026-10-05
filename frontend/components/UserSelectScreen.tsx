@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
-  Easing,
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -15,8 +14,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { ResizeMode } from '@/components/AppVideo';
 import ControlPrompt from './ControlPrompt';
 import { soundService } from '../services/soundService';
+import { toastService } from '@/services/toastService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import BackgroundVideo from './BackgroundVideo';
+import ProfileContextMenu, { ProfileMenuMode } from './ProfileContextMenu';
 
 import type { FieldSyncPreferences } from '../services/metadataPreferences';
 import type { EmulatorConfig } from '../services/emulationService';
@@ -84,6 +85,15 @@ export interface UserProfile {
 
 interface UserSelectScreenProps {
   onUserSelected: (user: UserProfile) => void;
+}
+
+interface ProfileMenuState {
+  userId: string;
+  mode: ProfileMenuMode;
+  index: number;
+  /** Coordenadas de pantalla donde se ancla el menú (a la derecha del avatar). */
+  left: number;
+  top: number;
 }
 
 const DEFAULT_SYNC_PREFERENCES: SyncPreferences = {
@@ -179,16 +189,12 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   const [homeBg, setHomeBg] = useState<string | null>(null);
   const [time, setTime] = useState('');
   const [inputMode, setInputMode] = useState<'keyboard' | 'gamepad'>('keyboard');
+  // Menú contextual del perfil (Options / S / X / M o pulsación larga).
+  const [menu, setMenu] = useState<ProfileMenuState | null>(null);
+  // Ref de la tarjeta enfocada: sirve para anclar el menú junto al avatar.
+  const focusedCardRef = useRef<any>(null);
 
   const animatedIndex = useRef(new Animated.Value(0)).current;
-
-  // ── Transición de selección (estado de carga) ───────────────────────────
-  // Al elegir perfil: los demás elementos se desvanecen, el seleccionado se
-  // centra y su radar pulsa hasta que _layout desmonta esta pantalla (Home listo).
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [titleH, setTitleH] = useState(0);
-  const othersOpacity = useRef(new Animated.Value(1)).current;
-  const centerShift = useRef(new Animated.Value(0)).current;
 
   // Store cleanup functions for radar animations
   const radarCleanups = useRef<Record<string, () => void>>({});
@@ -211,14 +217,6 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       @keyframes shimmerMove {
         0%   { left: -100%; top: -100%; }
         100% { left: 200%;  top: 200%;  }
-      }
-      @keyframes wps5UserPulse {
-        0%, 100% { transform: scale(1); }
-        50%      { transform: scale(1.06); }
-      }
-      @keyframes wps5UserRing {
-        0%   { transform: scale(1);   opacity: 0.55; }
-        100% { transform: scale(1.9); opacity: 0; }
       }
     `;
     document.head.appendChild(style);
@@ -277,6 +275,61 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     soundService.init();
   }, []);
 
+  // ── Menú contextual de perfil ───────────────────────────────────────────
+  const openProfileMenu = (userId: string) => {
+    const place = (left: number, top: number) => {
+      setMenu({ userId, mode: 'menu', index: 0, left, top });
+    };
+    const node = focusedCardRef.current;
+    if (node && typeof node.getBoundingClientRect === 'function') {
+      const r = node.getBoundingClientRect();
+      place(r.right + 10, r.top + 30);
+    } else if (node && typeof node.measureInWindow === 'function') {
+      node.measureInWindow((x: number, y: number, w: number) => place(x + w + 10, y + 30));
+    } else {
+      place(window.innerWidth / 2 + 120, window.innerHeight / 2 - 80);
+    }
+  };
+
+  const deleteUser = (userId: string) => {
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx === -1) return;
+    const removed = users[idx];
+    const newList = users.filter(u => u.id !== userId);
+
+    setUsers(newList);
+    localStorage.setItem('console_users', JSON.stringify(newList));
+    if (Platform.OS === 'web' && (window as any).electronAPI) {
+      (window as any).electronAPI.saveUsers(newList).catch?.(console.error);
+    }
+    // Si era el último perfil usado, olvidarlo para que el splash de arranque
+    // no intente leer un perfil que ya no existe.
+    if (localStorage.getItem('console_last_user_id') === userId) {
+      localStorage.removeItem('console_last_user_id');
+    }
+
+    // Enfocar al vecino (el siguiente; si no hay, el anterior; si no, "añadir").
+    const neighbor = newList[idx] ?? newList[idx - 1];
+    setHoveredId(neighbor ? neighbor.id : 'add');
+
+    toastService.show(t('userSelect.profileDeleted', { name: removed.name }), {
+      source: 'system',
+      icon: require('@/assets/icons/Logonegro.png'),
+    });
+  };
+
+  const runMenuAction = (current: ProfileMenuState, optionIndex: number) => {
+    if (current.mode === 'menu') {
+      // Paso 1 -> pedir confirmación (el foco arranca en "Cancelar", por seguridad).
+      setMenu({ ...current, mode: 'confirm', index: 1 });
+    } else if (optionIndex === 0) {
+      setMenu(null);
+      deleteUser(current.userId);
+    } else {
+      setMenu(null);
+    }
+  };
+
   // ── Background pulse (fallback) ─────────────────────────────────────────
   const bgPulse = useRef(new Animated.Value(0)).current;
 
@@ -307,8 +360,36 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
     // ── Keyboard navigation ──────────────────────────────────────────────
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (selectedRef.current) return; // ya hay un perfil elegido: entrada bloqueada
       if (!(e as any).fromGamepad) setInputMode('keyboard');
+      // Con el menú abierto, todo el input se redirige al menú.
+      if (menu) {
+        const optionCount = menu.mode === 'menu' ? 1 : 2;
+        if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+          soundService.playBack?.();
+          setMenu(null);
+        } else if (e.key === 'ArrowDown') {
+          soundService.playNavigation();
+          setMenu({ ...menu, index: Math.min(menu.index + 1, optionCount - 1) });
+        } else if (e.key === 'ArrowUp') {
+          soundService.playNavigation();
+          setMenu({ ...menu, index: Math.max(menu.index - 1, 0) });
+        } else if (e.key === 'Enter') {
+          soundService.playActivation();
+          runMenuAction(menu, menu.index);
+        }
+        return;
+      }
+
+      // Options (mando) / S / X / M -> menú contextual del perfil enfocado.
+      if (
+        ['s', 'S', 'x', 'X', 'm', 'M'].includes(e.key) &&
+        hoveredId && hoveredId !== 'add' && hoveredId !== 'power'
+      ) {
+        soundService.playContextMenu?.();
+        openProfileMenu(hoveredId);
+        return;
+      }
+
       const totalItems = users.length + 1;
       const allIds = ['add', ...users.map(u => u.id)];
       const currentIndex = allIds.indexOf(hoveredId || 'add');
@@ -358,8 +439,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
     let wheelTimeout: ReturnType<typeof setTimeout> | null = null;
     const handleWheel = (e: WheelEvent) => {
-      if (selectedRef.current) return;
-      if (wheelTimeout) return;
+      if (wheelTimeout || menu) return;
 
       const totalItems = users.length + 1;
       const allIds = ['add', ...users.map(u => u.id)];
@@ -418,6 +498,8 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
           prevGamepadButtonsRef.current[idx] = !!gp.buttons[idx]?.pressed;
         };
         check(0, 'Enter');
+        check(1, 'Escape'); // Círculo / B -> cerrar menú
+        check(9, 's');      // Options -> menú contextual
       }
       rafId = requestAnimationFrame(poll);
     };
@@ -432,22 +514,16 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
         window.removeEventListener('wheel', handleWheel);
       }
     };
-  }, [hoveredId, users]);
+  }, [hoveredId, users, menu]);
 
   const handleSelect = (user: UserProfile) => {
     if (selectedRef.current) return;
     selectedRef.current = true;
     soundService.playActivation?.();
-    setSelectedId(user.id);
-    setHoveredId(user.id);
-
-    // Primero termina la animación (el hilo de JS aún está libre) y solo
-    // después se notifica al layout, que monta Home y bloquea el hilo.
-    const useNative = Platform.OS !== 'web';
-    Animated.parallel([
-      Animated.timing(othersOpacity, { toValue: 0, duration: 400, easing: Easing.out(Easing.quad), useNativeDriver: useNative }),
-      Animated.timing(centerShift, { toValue: 1, duration: 550, easing: Easing.out(Easing.cubic), useNativeDriver: useNative }),
-    ]).start(() => onUserSelected(user));
+    setTimeout(() => {
+      toastService.show(t('toast.loggedPS5'), { source: 'system', icon: require('@/assets/icons/Logonegro.png') });
+    }, 700);
+    onUserSelected(user);
   };
 
   const bgInterpolate = bgPulse.interpolate({
@@ -475,13 +551,6 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     outputRange: [(middleIndex - -10) * 204, (middleIndex - 100) * 204]
   });
 
-  // Al elegir perfil, la fila sube lo justo para que el usuario quede en el
-  // centro vertical real de la pantalla (compensa el bloque de título oculto).
-  const translateY = centerShift.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -(titleH / 2 + 20)],
-  });
-
   return (
     <View style={styles.container}>
       {/* BACKGROUND — COVER en vez de STRETCH: STRETCH deforma la imagen al
@@ -499,32 +568,26 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       <View style={styles.overlay} />
 
       {/* CLOCK */}
-      <Animated.View style={[styles.topRight, { opacity: othersOpacity }]}>
+      <View style={styles.topRight}>
         <Text style={styles.timeText}>{time}</Text>
-      </Animated.View>
+      </View>
 
       {/* TITLE */}
-      <Animated.View
-        style={[styles.titleArea, { opacity: othersOpacity }]}
-        onLayout={(e) => setTitleH(e.nativeEvent.layout.height)}
-      >
+      <View style={styles.titleArea}>
         <Text style={styles.title}>{t('userSelect.title')}</Text>
         <Text style={styles.subtitle}>{t('userSelect.subtitle')}</Text>
-      </Animated.View>
+      </View>
 
       {/* USER CARDS */}
-      <Animated.View style={[styles.cardsRow, { transform: [{ translateX }, { translateY }] }]}>
+      <Animated.View style={[styles.cardsRow, { transform: [{ translateX }] }]}>
 
         {/* ADD USER */}
         <Animated.View style={{
-          opacity: Animated.multiply(
-            animatedIndex.interpolate({
-              inputRange: [-2, -1, 0, 1, 2],
-              outputRange: [0.1, 0.4, 1, 0.4, 0.1],
-              extrapolate: 'clamp'
-            }),
-            othersOpacity
-          )
+          opacity: animatedIndex.interpolate({
+            inputRange: [-2, -1, 0, 1, 2],
+            outputRange: [0.1, 0.4, 1, 0.4, 0.1],
+            extrapolate: 'clamp'
+          })
         }}>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -544,51 +607,30 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
         {users.map((user, idx) => {
           const isFocused = hoveredId === user.id;
           const itemIndex = idx + 1;
-          const isSelected = selectedId === user.id;
-          const baseOpacity = animatedIndex.interpolate({
-            inputRange: [itemIndex - 2, itemIndex - 1, itemIndex, itemIndex + 1, itemIndex + 2],
-            outputRange: [0.1, 0.4, 1, 0.4, 0.1],
-            extrapolate: 'clamp'
-          });
           return (
             <Animated.View key={user.id} style={{
-              opacity: isSelected ? baseOpacity : Animated.multiply(baseOpacity, othersOpacity)
+              opacity: animatedIndex.interpolate({
+                inputRange: [itemIndex - 2, itemIndex - 1, itemIndex, itemIndex + 1, itemIndex + 2],
+                outputRange: [0.1, 0.4, 1, 0.4, 0.1],
+                extrapolate: 'clamp'
+              })
             }}>
               <TouchableOpacity
+                ref={isFocused ? focusedCardRef : undefined}
                 activeOpacity={0.8}
                 style={styles.cardWrapper}
                 onPress={() => handleSelect(user)}
+                onLongPress={() => { if (isFocused) openProfileMenu(user.id); }}
               >
                 {/* ¡Toda la magia ocurre aquí dentro de manera limpia! */}
-                <View style={{ width: 205, height: 205, alignItems: 'center', justifyContent: 'center' }}>
-                  {/* Anillos que se expanden: solo CSS, así siguen fluidos aunque Home esté bloqueando el hilo de JS. */}
-                  {isSelected && Platform.OS === 'web' && (
-                    <>
-                      <div style={{
-                        position: 'absolute', inset: 0, margin: 'auto', width: 180, height: 180,
-                        borderRadius: '50%', border: '2px solid rgba(255,255,255,0.55)',
-                        pointerEvents: 'none', animation: 'wps5UserRing 2.4s ease-out infinite',
-                      }} />
-                      <div style={{
-                        position: 'absolute', inset: 0, margin: 'auto', width: 180, height: 180,
-                        borderRadius: '50%', border: '2px solid rgba(255,255,255,0.55)',
-                        pointerEvents: 'none', animation: 'wps5UserRing 2.4s ease-out 1.2s infinite',
-                      }} />
-                    </>
-                  )}
-                  <div style={isSelected && Platform.OS === 'web'
-                    ? { display: 'flex', animation: 'wps5UserPulse 1.8s ease-in-out infinite' }
-                    : { display: 'flex' }}>
-                    <RadarFocusWrapper id={user.id} isFocused={isFocused} size={205} innerSize={isFocused ? 180 : 160}>
-                      <View style={[styles.card, isFocused && styles.cardFocused]}>
-                        <Image
-                          source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
-                          style={styles.avatarImg}
-                        />
-                      </View>
-                    </RadarFocusWrapper>
-                  </div>
-                </View>
+                <RadarFocusWrapper id={user.id} isFocused={isFocused} size={205} innerSize={isFocused ? 180 : 160}>
+                  <View style={[styles.card, isFocused && styles.cardFocused]}>
+                    <Image
+                      source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
+                      style={styles.avatarImg}
+                    />
+                  </View>
+                </RadarFocusWrapper>
                 <Text style={[styles.userName, isFocused && styles.userNameFocused]}>
                   {user.name}
                 </Text>
@@ -599,22 +641,36 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       </Animated.View>
 
       {/* POWER BUTTON */}
-      <Animated.View
-        style={[styles.powerWrapper, { opacity: othersOpacity }]}
-        pointerEvents={selectedId ? 'none' : 'auto'}
+      <TouchableOpacity
+        style={[styles.powerButton, hoveredId === 'power' && styles.powerButtonFocused]}
+        activeOpacity={0.7}
+        onPress={() => {
+          if (Platform.OS === 'web' && (window as any).electronAPI) {
+            (window as any).electronAPI.closeApp();
+          }
+        }}
       >
-        <TouchableOpacity
-          style={[styles.powerButton, hoveredId === 'power' && styles.powerButtonFocused]}
-          activeOpacity={0.7}
-          onPress={() => {
-            if (Platform.OS === 'web' && (window as any).electronAPI) {
-              (window as any).electronAPI.closeApp();
-            }
-          }}
-        >
-          <Ionicons name="power" size={35} color={hoveredId === 'power' ? '#000000ff' : '#FFF'} />
-        </TouchableOpacity>
-      </Animated.View>
+        <Ionicons name="power" size={35} color={hoveredId === 'power' ? '#000000ff' : '#FFF'} />
+      </TouchableOpacity>
+
+      {/* PROFILE CONTEXT MENU */}
+      {menu && (
+        <>
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.menuBackdrop}
+            onPress={() => setMenu(null)}
+          />
+          <View style={{ position: 'absolute', left: menu.left, top: menu.top, zIndex: 9999 }}>
+            <ProfileContextMenu
+              mode={menu.mode}
+              focusedIndex={menu.index}
+              userName={users.find(u => u.id === menu.userId)?.name ?? ''}
+              onPressItem={(i) => runMenuAction(menu, i)}
+            />
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -739,12 +795,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
   },
-  powerWrapper: {
+  powerButton: {
     position: 'absolute',
     bottom: 50,
     alignSelf: 'center',
-  },
-  powerButton: {
     width: 60,
     height: 60,
     borderRadius: 30,
@@ -762,6 +816,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 15,
+  },
+  menuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    zIndex: 9990,
   },
   bottomRightHint: {
     position: 'absolute',

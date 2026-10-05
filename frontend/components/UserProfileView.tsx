@@ -926,6 +926,14 @@ export default function UserProfileView({
         setCoverSearchVisible(false);
         return;
       }
+      // 'B' = atrás, pero solo fuera del campo de texto: dentro, es una letra más
+      // (p. ej. "dragon ball"). Con el mando, B llega como 'Escape' (arriba).
+      if (!inInput && (e.key === 'b' || e.key === 'B')) {
+        e.stopPropagation();
+        e.preventDefault();
+        setCoverSearchVisible(false);
+        return;
+      }
       if (inInput) {
         if (e.key === 'Enter') {
           e.stopPropagation();
@@ -934,12 +942,13 @@ export default function UserProfileView({
         } else if (e.key === 'ArrowDown') {
           e.stopPropagation();
           e.preventDefault();
+          // Soltar el foco del input: si no, seguiría "escribiendo" y la
+          // navegación por la cuadrícula quedaría atascada en este bloque.
+          coverSearchInputRef.current?.blur();
           setCoverSelIndex(1);
-        } else if (e.key === 'b' || e.key === 'B') {
-          e.stopPropagation();
-          e.preventDefault();
-          setCoverSearchVisible(false);
         }
+        // Cualquier otra tecla (letras, espacio, flechas laterales...) se deja
+        // pasar tal cual al input, sin tocarla.
         return;
       }
       // Q/E (L1/R1) y RePág/AvPág cambian de página estés donde estés.

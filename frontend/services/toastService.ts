@@ -44,7 +44,7 @@ const MAX_HISTORY = 50;
 // se guarda al instante, así que nada se pierde aunque un toast espere.
 const MAX_VISIBLE = 2;
 // Debe coincidir con la duración por defecto del componente que dibuja los toasts.
-const DEFAULT_DURATION = 4000;
+const DEFAULT_DURATION = 5000;
 // Margen para la animación de salida antes de liberar el lugar.
 const EXIT_BUFFER = 400;
 // Tope de espera: si llegan muchos de golpe (p. ej. descuentos) se descartan
