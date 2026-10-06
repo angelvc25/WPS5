@@ -2847,113 +2847,6 @@ app.whenReady().then(async () => {
     });
   }
 
-  let winePathCache;
-  function findWine() {
-    if (process.platform === 'win32') return null;
-    if (winePathCache !== undefined) return winePathCache;
-
-    const candidates = [
-      '/usr/bin/wine',
-      '/usr/local/bin/wine',
-      '/opt/wine-stable/bin/wine',
-      '/opt/wine/bin/wine'
-    ];
-
-    for (const c of candidates) {
-      if (fs.existsSync(c)) {
-        winePathCache = c;
-        return winePathCache;
-      }
-    }
-
-    try {
-      const { execSync } = require('child_process');
-      const out = execSync('which wine 2>/dev/null', { encoding: 'utf8', timeout: 500 }).trim();
-      if (out) {
-        winePathCache = out;
-        return winePathCache;
-      }
-    } catch {}
-
-    winePathCache = null;
-    return null;
-  }
-
-  // Devuelve la información completa del Proton encontrado: { execPath, name, steamInstallPath }
-  // Se prioriza en orden: Proton oficial de Steam (más reciente), luego Proton-GE/GE-Proton.
-  let protonPathCache;
-  function findProton() {
-    if (process.platform === 'win32') return null;
-    if (protonPathCache !== undefined) return protonPathCache;
-
-    const home = app.getPath('home') || process.env.HOME || '/home/' + process.env.USER;
-
-    // Rutas de Steam que pueden contener Proton oficial y Proton-GE
-    const steamRoots = [
-      path.join(home, '.local', 'share', 'Steam'),
-      path.join(home, '.steam', 'steam'),
-      path.join(home, '.var', 'app', 'com.valvesoftware.Steam', 'data', 'Steam'),
-    ].filter(p => fs.existsSync(p));
-
-    const searchDirs = [];
-    for (const root of steamRoots) {
-      // Proton oficial: steamapps/common
-      searchDirs.push({ dir: path.join(root, 'steamapps', 'common'), steamRoot: root });
-      // Proton-GE / herramientas de compatibilidad de terceros
-      searchDirs.push({ dir: path.join(root, 'compatibilitytools.d'), steamRoot: root });
-    }
-    // Fallbacks globales
-    searchDirs.push({ dir: '/usr/share/steam/compatibilitytools.d', steamRoot: null });
-
-    // Candidatos encontrados: [{execPath, name, steamRoot, isGE}]
-    const candidates = [];
-
-    for (const { dir, steamRoot } of searchDirs) {
-      if (!fs.existsSync(dir)) continue;
-      try {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
-          const lname = entry.name.toLowerCase();
-          if (!lname.includes('proton')) continue;
-          const protonExec = path.join(dir, entry.name, 'proton');
-          if (fs.existsSync(protonExec)) {
-            const isGE = lname.includes('ge') || lname.includes('ge-proton') || lname.includes('proton-ge');
-            candidates.push({ execPath: protonExec, name: entry.name, steamRoot, isGE });
-          }
-        }
-      } catch {}
-    }
-
-    if (candidates.length === 0) {
-      protonPathCache = null;
-      return null;
-    }
-
-    // Ordenar: Proton oficial (no-GE) primero, luego Proton-GE; dentro de cada grupo,
-    // por nombre descendente (versión más alta primero gracias al comparador numérico).
-    candidates.sort((a, b) => {
-      if (a.isGE !== b.isGE) return a.isGE ? 1 : -1; // oficial primero
-      return b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' });
-    });
-
-    const best = candidates[0];
-    const steamInstallPath = best.steamRoot || steamRoots[0] || path.join(home, '.local', 'share', 'Steam');
-    console.log(`[Proton] Seleccionado: "${best.name}" → ${best.execPath}`);
-    protonPathCache = { execPath: best.execPath, name: best.name, steamInstallPath };
-    return protonPathCache;
-  }
-
-  // IPC: Devuelve info del runner disponible en Linux (para que el frontend lo muestre)
-  ipcMain.handle('get-linux-runner-info', async () => {
-    if (process.platform === 'win32') return { runner: null };
-    const proton = findProton();
-    if (proton) return { runner: 'proton', name: proton.name, path: proton.execPath };
-    const wine = findWine();
-    if (wine) return { runner: 'wine', name: 'Wine', path: wine };
-    return { runner: null };
-  });
-
   // IPC: Ejecutar un programa externo (con suspensión del launcher)
   ipcMain.handle('launch-app', async (event, id, executablePath, extraLaunchArgs) => {
     if (!executablePath) return;
@@ -3113,72 +3006,13 @@ app.whenReady().then(async () => {
       console.log('Lanzando:', targetExe, launchArgs);
       console.log('Directorio de trabajo:', gameCwd);
 
-      let spawnExe = targetExe;
-      let spawnArgs = launchArgs;
-      let gameEnv = envForExternalApp();
-
-      // En Linux: asegurar permisos de ejecución para AppImages y scripts .sh
-      if (process.platform === 'linux') {
-        const lowerTarget = targetExe.toLowerCase();
-        if (lowerTarget.endsWith('.appimage') || lowerTarget.endsWith('.sh')) {
-          try { fs.chmodSync(targetExe, 0o755); } catch {}
-        }
-      }
-
-      if (process.platform !== 'win32' && targetExe.toLowerCase().endsWith('.exe')) {
-        const protonInfo = findProton();
-        const wine = findWine();
-
-        if (protonInfo) {
-          // ── Prefijo por juego: evita que juegos distintos compartan el mismo prefijo Wine
-          // y se contaminen mutuamente (diferentes versiones de DXVK, VC redistribuibles, etc.)
-          const home = app.getPath('home') || process.env.HOME || '/home/' + process.env.USER;
-          const safeId = (id || 'unknown').toString().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
-          const compatDataPath = path.join(home, '.local', 'share', 'wps5', 'proton_prefixes', safeId);
-          try { fs.mkdirSync(compatDataPath, { recursive: true }); } catch {}
-
-          console.log(`[Launch Linux] Usando Proton "${protonInfo.name}" → ${protonInfo.execPath}`);
-          console.log(`[Launch Linux] Prefijo Wine (compat data): ${compatDataPath}`);
-
-          gameEnv = {
-            ...gameEnv,
-            STEAM_COMPAT_CLIENT_INSTALL_PATH: protonInfo.steamInstallPath,
-            STEAM_COMPAT_DATA_PATH: compatDataPath,
-            // Esync/Fsync: reducen la sobrecarga de sincronización de Windows → Linux
-            WINEESYNC: process.env.WINEESYNC || '1',
-            WINEFSYNC: process.env.WINEFSYNC || '1',
-            // Permite que ejecutables de 32 bits accedan a más de 2 GB de RAM bajo Wine
-            WINE_LARGE_ADDRESS_AWARE: process.env.WINE_LARGE_ADDRESS_AWARE || '1',
-          };
-
-          spawnExe = 'sh';
-          // sh -c: $0 = proton, "$@" = args del juego. exec reemplaza el proceso sh
-          // con proton, por lo que Node obtiene el PID real de python3/proton directamente.
-          spawnArgs = ['-c', 'ulimit -n 524288 2>/dev/null || true; exec "$0" "run" "$@"', protonInfo.execPath, targetExe, ...launchArgs];
-        } else if (wine) {
-          console.log('[Launch Linux] Proton no encontrado, usando Wine:', wine);
-          gameEnv = {
-            ...gameEnv,
-            WINEESYNC: process.env.WINEESYNC || '1',
-            WINEFSYNC: process.env.WINEFSYNC || '1',
-            WINE_LARGE_ADDRESS_AWARE: process.env.WINE_LARGE_ADDRESS_AWARE || '1',
-          };
-          spawnExe = 'sh';
-          spawnArgs = ['-c', 'ulimit -n 524288 2>/dev/null || true; exec "$0" "$@"', wine, targetExe, ...launchArgs];
-        } else {
-          console.error('[Launch Linux] Ni Proton ni Wine encontrados para ejecutar .exe en Linux');
-          resumeLauncher();
-          return { success: false, error: 'Neither Proton nor Wine found on Linux system' };
-        }
-      }
-
-      const child = spawn(spawnExe, spawnArgs, {
+      const child = spawn(targetExe, launchArgs, {
         cwd: gameCwd,
-        env: gameEnv,
+        env: envForExternalApp(),
         detached: true,
         stdio: 'ignore',
         windowsHide: false,
-        windowsVerbatimArguments: process.platform === 'win32',
+        windowsVerbatimArguments: true,
       });
 
       // ── NUEVO: registrar juego activo + habilitar overlay ──
@@ -3213,21 +3047,12 @@ app.whenReady().then(async () => {
 
   // IPC: Abrir diálogo para seleccionar ejecutable
   ipcMain.handle('select-file', async () => {
-    // En Linux también se pueden seleccionar ejecutables ELF nativos (sin extensión),
-    // scripts .sh y AppImages. En Windows solo se muestran los tipos de Windows.
-    const filters = process.platform === 'linux'
-      ? [
-          { name: 'Ejecutables (Windows + Linux)', extensions: ['exe', 'bat', 'lnk', 'url', 'sh', 'AppImage'] },
-          { name: 'Todos los archivos', extensions: ['*'] },
-        ]
-      : [
-          { name: 'Ejecutables', extensions: ['exe', 'bat', 'lnk', 'url'] },
-          { name: 'Todos los archivos', extensions: ['*'] },
-        ];
-
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'noResolveAliases'],
-      filters,
+      filters: [
+        { name: 'Ejecutables', extensions: ['exe', 'bat', 'lnk', 'url'] },
+        { name: 'Todos los archivos', extensions: ['*'] }
+      ]
     });
     if (!result.canceled && result.filePaths.length > 0) {
       return result.filePaths[0];
