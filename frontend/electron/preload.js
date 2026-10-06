@@ -120,6 +120,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Batería de mandos PlayStation (DualShock 4 / DualSense) vía HID ─────────
   // Devuelve [{ vendorId, productId, model, battery (0..1 | null), charging, wired }].
   getPsBatteries: () => ipcRenderer.invoke('get-ps-batteries'),
+  // ── Runner de compatibilidad en Linux (Proton / Wine) ────────────────────
+  // Devuelve { runner: 'proton'|'wine'|null, name, path } según qué esté instalado.
+  getLinuxRunnerInfo: () => ipcRenderer.invoke('get-linux-runner-info'),
 });
 
 // ── Detección de ventana overlay ────────────────────────────────────────────
