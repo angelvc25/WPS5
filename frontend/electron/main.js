@@ -257,6 +257,26 @@ function getWindowsMediaSessionsModule() {
   return null;
 }
 
+// ── Linux: sesiones de medios vía MPRIS (D-Bus) ──────────────────────────
+// Mismo contrato que `windows-media-sessions`, pero sobre el bus de sesión.
+// Se carga de forma perezosa para no arrastrar dbus-next en win32/macOS.
+let linuxMediaSessionsModule = null;
+let linuxMediaSessionsError = null;
+
+function getLinuxMediaSessionsModule() {
+  if (linuxMediaSessionsModule) return linuxMediaSessionsModule;
+  if (linuxMediaSessionsError || process.platform !== 'linux') return null;
+
+  try {
+    linuxMediaSessionsModule = require('./linuxMediaSessions');
+    return linuxMediaSessionsModule;
+  } catch (err) {
+    linuxMediaSessionsError = err;
+    console.warn('[MediaSessions] MPRIS no disponible:', err.message);
+    return null;
+  }
+}
+
 let winMediaControlModulePromise = null;
 
 function resolveWinMediaControlImportUrl() {
@@ -310,6 +330,20 @@ function resolveMediaControlApp(target) {
 }
 
 async function sendMediaControlAction(action, target) {
+  if (process.platform === 'linux') {
+    const mediaModule = getLinuxMediaSessionsModule();
+    if (!mediaModule) return { success: false, error: 'MPRIS no disponible' };
+
+    try {
+      const result = await mediaModule.control(action, target);
+      setTimeout(broadcastMediaSessions, 350);
+      return result;
+    } catch (err) {
+      console.warn('[MediaControl]', action, err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
   if (process.platform !== 'win32') return { success: false };
 
   const media = await getWinMediaControlModule();
@@ -410,14 +444,26 @@ function clearWps5WebMediaHintIfMatched(sessions) {
 
 async function fetchMediaSessionsForRenderer() {
   let sessions = [];
-  const mediaModule = getWindowsMediaSessionsModule();
 
-  if (process.platform === 'win32' && mediaModule?.getAllSessions) {
-    try {
-      sessions = await mediaModule.getAllSessions();
-      clearWps5WebMediaHintIfMatched(sessions);
-    } catch (err) {
-      console.warn('[MediaSessions] fetch:', err.message);
+  if (process.platform === 'win32') {
+    const mediaModule = getWindowsMediaSessionsModule();
+    if (mediaModule?.getAllSessions) {
+      try {
+        sessions = await mediaModule.getAllSessions();
+        clearWps5WebMediaHintIfMatched(sessions);
+      } catch (err) {
+        console.warn('[MediaSessions] fetch:', err.message);
+      }
+    }
+  } else if (process.platform === 'linux') {
+    const mediaModule = getLinuxMediaSessionsModule();
+    if (mediaModule) {
+      try {
+        sessions = await mediaModule.getAllSessions();
+        clearWps5WebMediaHintIfMatched(sessions);
+      } catch (err) {
+        console.warn('[MediaSessions] fetch (MPRIS):', err.message);
+      }
     }
   }
 
@@ -444,6 +490,28 @@ function broadcastMediaSessions() {
 }
 
 function startMediaSessionsBridge() {
+  if (process.platform === 'linux') {
+    const mediaModule = getLinuxMediaSessionsModule();
+    if (!mediaModule) {
+      console.warn('[MediaSessions] MPRIS no disponible: no se mostrará lo que se reproduce en el sistema.');
+      return;
+    }
+
+    try {
+      broadcastMediaSessions();
+      // El módulo ya hace su propio poll (6s) y avisa con PropertiesChanged
+      mediaSessionsUnsubscribe = mediaModule.onSessionsChanged(() => {
+        broadcastMediaSessions();
+      });
+      // Timer de respaldo por si el bus se cae y se reconecta sin avisar
+      mediaSessionsPollTimer = setInterval(broadcastMediaSessions, 15000);
+      if (typeof mediaSessionsPollTimer.unref === 'function') mediaSessionsPollTimer.unref();
+    } catch (err) {
+      console.warn('[MediaSessions] MPRIS no arrancó:', err.message);
+    }
+    return;
+  }
+
   if (process.platform !== 'win32') return;
 
   const mediaModule = getWindowsMediaSessionsModule();
@@ -480,6 +548,11 @@ function stopMediaSessionsBridge() {
   if (mediaSessionsUnsubscribe) {
     mediaSessionsUnsubscribe();
     mediaSessionsUnsubscribe = null;
+  }
+
+  const linuxModule = getLinuxMediaSessionsModule();
+  if (linuxModule?.shutdown) {
+    try { linuxModule.shutdown(); } catch (_) { /* ya desconectado */ }
   }
 
   const mediaModule = getWindowsMediaSessionsModule();
@@ -2481,19 +2554,46 @@ app.whenReady().then(async () => {
   // Usamos protocol.handle para mejor soporte en versiones recientes de Electron
   protocol.handle('local-file', async (request) => {
     try {
-      let filePath = decodeURIComponent(request.url.replace('local-file://', ''));
+      const rawPath = decodeURIComponent(request.url.replace('local-file://', ''));
+      const candidates = [];
+      const pushCandidate = (candidate) => {
+        if (candidate && !candidates.includes(candidate)) candidates.push(candidate);
+      };
 
-      // En Windows, las rutas pueden venir como /C:/ o C/ o C:/
       if (process.platform === 'win32') {
-        if (filePath.startsWith('/')) filePath = filePath.slice(1);
-        if (/^[a-zA-Z]\//.test(filePath)) {
-          filePath = filePath[0] + ':' + filePath.slice(1);
+        // En Windows la URL llega como local-file://c/Users/... (Chromium canoniza
+        // local-file:///C:/Users/... minúsculizando la unidad y descartando los ':')
+        let winPath = rawPath.startsWith('/') ? rawPath.slice(1) : rawPath;
+        if (/^[a-zA-Z]\//.test(winPath)) {
+          winPath = winPath[0] + ':' + winPath.slice(1);
         }
+        pushCandidate(winPath);
+        pushCandidate(rawPath);
+        pushCandidate(`/${rawPath}`);
+      } else {
+        // En POSIX Chromium absorbe el primer segmento como host:
+        // local-file:///home/usuario/x.jpg se canoniza como local-file://home/usuario/x.jpg,
+        // por lo que hay que recolocar la barra inicial para recuperar la ruta absoluta.
+        pushCandidate(rawPath.startsWith('/') ? rawPath : `/${rawPath}`);
+        pushCandidate(rawPath);
+      }
+
+      const target = candidates.find((candidate) => {
+        try {
+          return fs.statSync(candidate).isFile();
+        } catch (_) {
+          return false;
+        }
+      });
+
+      if (!target) {
+        console.warn('[LocalFile] 404:', request.url, '| candidatos:', candidates.join(' , '));
+        return new Response('Not found', { status: 404 });
       }
 
       // Convertimos la ruta a un formato de URL de archivo válido
-      const fileUrl = pathToFileURL(path.normalize(filePath)).toString();
-      return net.fetch(fileUrl);
+      const fileUrl = pathToFileURL(path.normalize(target)).toString();
+      return await net.fetch(fileUrl);
     } catch (err) {
       console.error('Protocol error:', err);
       return new Response('Error loading local file', { status: 500 });
