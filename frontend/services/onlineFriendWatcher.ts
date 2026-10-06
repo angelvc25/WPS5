@@ -30,7 +30,7 @@ export type FriendWatcherTranslate = (key: string, params?: any) => string;
 /** Cada cuánto se encuesta al servidor. */
 const POLL_MS = 15000;
 /** Margen tras iniciar sesión antes del primer chequeo. */
-const SESSION_DELAY_MS = 2000;
+const SESSION_DELAY_MS = 8000;
 /** Cuánto vive una solicitud enviada pendiente de aceptación (30 días). */
 const SENT_TTL_MS = 30 * 24 * 3600 * 1000;
 
@@ -207,7 +207,7 @@ function notifyIncomingRequest(req: FriendRequestItem) {
       displayName: name,
     },
   });
-  soundService.playNotification?.().catch(() => {});
+  soundService.playNotification?.().catch(() => { });
 }
 
 function notifyRequestAccepted(user: OnlineUser) {
@@ -216,7 +216,7 @@ function notifyRequestAccepted(user: OnlineUser) {
     source: 'friends',
     icon: avatarIconOf(user),
   });
-  soundService.playNotification?.().catch(() => {});
+  soundService.playNotification?.().catch(() => { });
   emitFriendsChanged();
 }
 
