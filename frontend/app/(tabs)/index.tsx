@@ -3594,7 +3594,14 @@ export default function ConsoleHome() {
         setFavoritesVisible(false);
         setRandomSelectorVisible(false);
 
-        if (!result?.suspended) {
+        if (result?.error) {
+          // Fallo de lanzamiento (p. ej. un .exe en Linux sin Proton/Wine
+          // instalado): avisar con un toast y deshacer el estado "iniciando"
+          // en cuanto responda el proceso principal.
+          toastService.show(t(result.error === 'wine_missing' ? 'toast.wineMissing' : 'toast.error'));
+          setIsLaunching(false);
+          setLaunchingItem(null);
+        } else if (!result?.suspended) {
           setTimeout(() => {
             setIsLaunching(false);
             setLaunchingItem(null);

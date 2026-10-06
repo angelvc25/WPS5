@@ -715,6 +715,7 @@ const es = {
   'toast.controllerNotResponding': 'Tu mando no responde. Apágalo y vuelve a encenderlo para reconectarlo. Si Steam está abierto, ciérralo o desactiva Steam Input para ese mando.',
   'toast.noPath': 'La aplicación no tiene ruta asignada.',
   'toast.error': 'Error.',
+  'toast.wineMissing': 'Para ejecutar juegos .exe en Linux necesitas Proton (se instala con Steam) o Wine. Instálalos y vuelve a intentarlo.',
   'toast.noGameLaunched': 'Aún no has jugado a ningún juego.',
 
   'edit.title': 'Editar Datos',
@@ -1710,6 +1711,7 @@ const en: Record<TranslationKey, string> = {
   'toast.controllerNotResponding': 'Your controller isn\'t responding. Turn it off and back on to reconnect it. If Steam is open, close it or disable Steam Input for that controller.',
   'toast.noPath': 'The application has no path assigned.',
   'toast.error': 'Error.',
+  'toast.wineMissing': 'To run .exe games on Linux you need Proton (installed with Steam) or Wine. Install one and try again.',
   'toast.noGameLaunched': 'You haven\'t played any games yet.',
 
   'edit.title': 'Edit Data',
@@ -2700,6 +2702,7 @@ const pt: Record<TranslationKey, string> = {
   'toast.controllerNotResponding': 'Seu controle não está respondendo. Desligue e ligue novamente para reconectá-lo. Se o Steam estiver aberto, feche-o ou desative o Steam Input para esse controle.',
   'toast.noPath': 'A aplicação não tem rota atribuída.',
   'toast.error': 'Erro.',
+  'toast.wineMissing': 'Para jogar jogos .exe no Linux precisas do Proton (instalado com o Steam) ou do Wine. Instala um e tenta novamente.',
   'toast.noGameLaunched': 'Você ainda não jogou nenhum jogo.',
 
   'edit.title': 'Editar Datos',

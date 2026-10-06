@@ -6,6 +6,7 @@ const zlib = require('zlib');
 const { exec, spawn, fork } = require('child_process');
 const { pathToFileURL } = require('url');
 const http = require('http');
+const os = require('os');
 
 // Desactivar advertencias de seguridad de Electron en consola de desarrollo
 // (webSecurity se desactiva deliberadamente para permitir la carga de assets locales y de emuladores)
@@ -1049,6 +1050,225 @@ function stopGamepadOverlayListener() {
     } catch (_) { }
     xinputWatcherChild = null;
   }
+}
+
+// ── Multiplataforma: ejecutar juegos .exe en Linux con Proton (Steam) o Wine ──
+// El launcher nació en Windows, donde un .exe se lanza directo. En Linux (y
+// macOS) un .exe no se puede ejecutar tal cual: hace falta el runtime de
+// compatibilidad. Se busca primero el `proton` de Steam (NO requiere que
+// Steam esté abierto ni que el juego esté comprado, solo tenerlo instalado)
+// y, si no está, `wine` como alternativa.
+const IS_WIN = process.platform === 'win32';
+const IS_POSIX = process.platform !== 'win32';
+const USER_HOME = os.homedir();
+
+/** Expande `~` al home del usuario (rutas de config de Steam, etc.). */
+function expandHome(value) {
+  if (!value) return value;
+  if (value === '~') return USER_HOME;
+  if (value.startsWith('~/')) return path.join(USER_HOME, value.slice(2));
+  return value;
+}
+
+/** Devuelve la primera ruta existente de la lista (ignora vacíos/undefined). */
+function firstExisting(paths) {
+  for (const candidate of paths) {
+    if (!candidate) continue;
+    const full = expandHome(candidate);
+    try {
+      if (fs.existsSync(full)) return full;
+    } catch (_) { /* ignore */ }
+  }
+  return null;
+}
+
+/** ¿El fichero tiene permiso de ejecución en POSIX? */
+function isPosixExecutable(file) {
+  try {
+    return (fs.statSync(file).mode & 0o111) !== 0;
+  } catch (_) {
+    return false;
+  }
+}
+
+/** Busca un binario en el PATH (solo POSIX). */
+function findInPath(binary) {
+  if (IS_WIN) return null;
+  for (const dir of (process.env.PATH || '').split(':').filter(Boolean)) {
+    const candidate = path.join(dir, binary);
+    try {
+      if (fs.existsSync(candidate) && isPosixExecutable(candidate)) return candidate;
+    } catch (_) { /* ignore */ }
+  }
+  return null;
+}
+
+/** Ruta de `wine` si está instalado (cacheada). Nulo en Windows. */
+let winePathCache;
+function findWine() {
+  if (IS_WIN) return null;
+  if (winePathCache !== undefined) return winePathCache;
+  winePathCache =
+    firstExisting([
+      '/usr/bin/wine',
+      '/usr/local/bin/wine',
+      '/opt/wine-stable/bin/wine',
+      '/opt/wine/bin/wine'
+    ]) || findInPath('wine');
+  return winePathCache;
+}
+
+/** Ruta del ejecutable `proton` de Steam si está instalado (cacheada). Nulo en Windows. */
+let protonPathCache;
+function findProton() {
+  if (IS_WIN) return null;
+  if (protonPathCache !== undefined) return protonPathCache;
+
+  const searchDirs = [
+    path.join(USER_HOME, '.local/share/Steam/steamapps/common'),
+    path.join(USER_HOME, '.local/share/Steam/compatibilitytools.d'),
+    path.join(USER_HOME, '.steam/root/compatibilitytools.d'),
+    path.join(USER_HOME, '.steam/steam/steamapps/common'),
+    path.join(USER_HOME, '.var/app/com.valvesoftware.Steam/data/Steam/steamapps/common'),
+    path.join(USER_HOME, '.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d'),
+    '/usr/share/steam/compatibilitytools.d'
+  ];
+
+  for (const dir of searchDirs) {
+    if (!fs.existsSync(dir)) continue;
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      entries.sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }));
+      for (const entry of entries) {
+        if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+        if (!entry.name.toLowerCase().includes('proton')) continue;
+        const protonExec = path.join(dir, entry.name, 'proton');
+        if (fs.existsSync(protonExec)) {
+          protonPathCache = protonExec;
+          return protonPathCache;
+        }
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  protonPathCache = null;
+  return null;
+}
+
+/**
+ * Lanza un ejecutable de forma detached (sobrevive si el launcher se cierra).
+ * Devuelve null si en esta plataforma no hay forma de lanzarlo.
+ * - Windows: spawn directo del .exe (respeta args, cwd y el entorno limpio).
+ * - Linux/macOS: .exe → Proton (prioridad) o Wine; .sh/.run → intérprete;
+ *   binarios nativos/AppImage → chmod + ejecución directa.
+ *
+ * El wrapper `sh -c 'ulimit -n 524288; exec ...'` hace dos cosas:
+ *  1. sube el límite de descriptores de fichero (muchos juegos Unity/Unreal
+ *     con Esync/Fsync revientan con el valor por defecto);
+ *  2. `exec` reemplaza el shell por Proton/Wine, de modo que el PID que
+ *     devuelve spawn() es el del proceso del juego y su evento 'close'
+ *     llega cuando el juego termina realmente.
+ */
+function spawnGameProcess(targetExe, launchArgs, cwd, baseEnv) {
+  if (IS_WIN) {
+    return spawn(targetExe, launchArgs, {
+      cwd,
+      env: baseEnv,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
+      windowsVerbatimArguments: true
+    });
+  }
+
+  const ext = path.extname(targetExe).toLowerCase();
+
+  if (ext === '.exe') {
+    const proton = findProton();
+    const wine = findWine();
+
+    if (proton) {
+      const steamInstallPath =
+        firstExisting([
+          path.join(USER_HOME, '.local/share/Steam'),
+          path.join(USER_HOME, '.steam/steam'),
+          path.join(USER_HOME, '.var/app/com.valvesoftware.Steam/data/Steam')
+        ]) || path.join(USER_HOME, '.local/share/Steam');
+
+      // Prefijo Wine propio del launcher: NUNCA se reutiliza el de Steam
+      // (compatdata/steamapps), porque Steam lo consideraría suyo y podría
+      // corromperlo o bloquear el juego correspondiente.
+      const compatDataPath = path.join(USER_HOME, '.local/share/wps5/proton_prefix');
+      try {
+        fs.mkdirSync(compatDataPath, { recursive: true });
+      } catch (_) { /* ignore */ }
+
+      const gameEnv = {
+        ...baseEnv,
+        STEAM_COMPAT_CLIENT_INSTALL_PATH: steamInstallPath,
+        STEAM_COMPAT_DATA_PATH: compatDataPath,
+        WINEESYNC: baseEnv.WINEESYNC ?? '1',
+        WINEFSYNC: baseEnv.WINEFSYNC ?? '1'
+      };
+
+      const child = spawn(
+        'sh',
+        ['-c', 'ulimit -n 524288 2>/dev/null || true; exec "$0" "run" "$@"', proton, targetExe, ...launchArgs],
+        { cwd, env: gameEnv, detached: true, stdio: 'ignore' }
+      );
+      child.unref();
+      return child;
+    }
+
+    if (wine) {
+      const gameEnv = {
+        ...baseEnv,
+        WINEESYNC: baseEnv.WINEESYNC ?? '1',
+        WINEFSYNC: baseEnv.WINEFSYNC ?? '1'
+      };
+      const child = spawn(
+        'sh',
+        ['-c', 'ulimit -n 524288 2>/dev/null || true; exec "$0" "$@"', wine, targetExe, ...launchArgs],
+        { cwd, env: gameEnv, detached: true, stdio: 'ignore' }
+      );
+      child.unref();
+      return child;
+    }
+
+    return null;
+  }
+
+  // Scripts (el .sh puede no ser ejecutable, así que lo pasamos al intérprete)
+  if (ext === '.sh' || ext === '.bash' || ext === '.run') {
+    const interpreter =
+      firstExisting(['/bin/bash', '/usr/bin/bash', '/bin/sh']) || findInPath('bash') || '/bin/sh';
+    const child = spawn(interpreter, [targetExe, ...launchArgs], {
+      cwd,
+      env: baseEnv,
+      detached: true,
+      stdio: 'ignore'
+    });
+    child.unref();
+    return child;
+  }
+
+  // Binarios nativos y AppImage: garantizar permiso de ejecución
+  try {
+    if (!isPosixExecutable(targetExe)) {
+      fs.chmodSync(targetExe, fs.statSync(targetExe).mode | 0o755);
+    }
+  } catch (_) {
+    // ignore: si no se puede chmod, el spawn emitirá 'error'
+  }
+
+  const child = spawn(targetExe, launchArgs, {
+    cwd,
+    env: baseEnv,
+    detached: true,
+    stdio: 'ignore'
+  });
+  child.unref();
+  return child;
 }
 
 // Mata el proceso (o árbol de procesos) del juego activo.
@@ -2972,6 +3192,15 @@ app.whenReady().then(async () => {
       console.log('Argumentos extra de usuario aplicados:', extraLaunchArgs.trim());
     }
 
+    // ── Linux/macOS: un .exe necesita Proton o Wine ──
+    // Se comprueba ANTES de programar la suspensión del launcher para no
+    // dejar la sesión de juego (y el spinner de "iniciando") colgada cuando
+    // falta el runtime de compatibilidad.
+    if (IS_POSIX && path.extname(targetExe).toLowerCase() === '.exe' && !findProton() && !findWine()) {
+      console.warn('[Launch] No se encontró Proton ni Wine: no se puede ejecutar', targetExe);
+      return { success: false, suspended: false, error: 'wine_missing' };
+    }
+
     // --- Suspensión del launcher mientras el juego está activo ---
     let gameExited = false;
     let hideTimer = null;
@@ -3006,14 +3235,16 @@ app.whenReady().then(async () => {
       console.log('Lanzando:', targetExe, launchArgs);
       console.log('Directorio de trabajo:', gameCwd);
 
-      const child = spawn(targetExe, launchArgs, {
-        cwd: gameCwd,
-        env: envForExternalApp(),
-        detached: true,
-        stdio: 'ignore',
-        windowsHide: false,
-        windowsVerbatimArguments: true,
-      });
+      const child = spawnGameProcess(targetExe, launchArgs, gameCwd, envForExternalApp());
+
+      // Sin forma de lanzarlo (p. ej. un .exe en Linux sin Proton ni Wine,
+      // o un acceso directo que no se pudo resolver): cancelar la suspensión
+      // programada y devolver el fallo para que el UI no se quede esperando.
+      if (!child) {
+        if (hideTimer) clearTimeout(hideTimer);
+        console.warn('[Launch] No hay forma de lanzar este ejecutable en', process.platform, '-', targetExe);
+        return { success: false, suspended: false, error: 'no_launcher' };
+      }
 
       // ── NUEVO: registrar juego activo + habilitar overlay ──
       activeGameInfo = {
