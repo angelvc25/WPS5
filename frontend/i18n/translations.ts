@@ -212,7 +212,7 @@ const es = {
   'userSelect.deleteProfile': 'Eliminar perfil',
   'userSelect.deleteConfirmTitle': '¿Eliminar el perfil {name}?',
   'userSelect.deleteConfirmAction': 'Eliminar',
-  'userSelect.profileDeleted': '	Perfil {name} eliminado',
+  'userSelect.profileDeleted': 'Perfil {name} eliminado',
 
   'common.cancel': 'Cancelar',
   'common.open': 'Abrir',

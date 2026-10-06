@@ -1,17 +1,19 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Image } from 'expo-image';
 import { useFonts } from 'expo-font';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, Linking, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  runOnJS
+  runOnJS,
+  FadeOut
 } from 'react-native-reanimated';
 
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import { UserContext } from '@/contexts/UserContext';
@@ -21,6 +23,7 @@ import { isLanguage } from '@/i18n/translations';
 import { openWebLink } from '@/services/linkService';
 import { setCurrentOnlineProfileId } from '@/services/onlineAccountService';
 import ToastHost from '@/components/ToastHost';
+import { toastService } from '@/services/toastService';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import { soundService } from '@/services/soundService';
 import OverlayScreen from './overlay';
@@ -47,6 +50,10 @@ const LAST_USER_STORAGE_KEY = 'console_last_user_id';
 function toLocalFileUri(filePath: string) {
   return `local-file:///${filePath.replace(/\\/g, '/')}`;
 }
+
+// Video de arranque por defecto (empaquetado con la app). Se usa cuando el
+// último usuario no tiene un video de boot personalizado, o si ese falla.
+const DEFAULT_BOOT_VIDEO = require('../assets/splash/boot.webm');
 
 function getLastBootVideoUri(): string | null {
   if (Platform.OS !== 'web' || typeof window === 'undefined' || !(window as any).electronAPI) {
@@ -94,22 +101,30 @@ const OVERLAY_CSS_TRANSPARENT = `
 `;
 
 export default function RootLayout() {
+  // Fuentes bloqueantes: solo las que se usan siempre (incluye las de iconos,
+  // para que no aparezcan vacíos y luego "de golpe").
   const [fontsLoaded] = useFonts({
+    ...Ionicons.font,
+    ...MaterialCommunityIcons.font,
     PSIcons: require('../assets/fonts/PSIcons.ttf'),
     SSTBold: require('../assets/fonts/sst/SSTBold.ttf'),
+    SSTLight: require('../assets/fonts/sst/SSTLight.ttf'),
+    SSTMedium: require('../assets/fonts/sst/SSTMedium.ttf'),
+    SSTRg: require('../assets/fonts/sst/SSTRg.ttf'),
+    SSTBadge: require('../assets/fonts/sst/SSTBadge.ttf'),
+  });
+
+  // Variantes secundarias (Cn, It, Heavy): cargan en segundo plano sin bloquear el render.
+  useFonts({
     SSTBoldCn: require('../assets/fonts/sst/SSTBoldCn.ttf'),
     SSTBoldIt: require('../assets/fonts/sst/SSTBoldIt.ttf'),
     SSTHeavy: require('../assets/fonts/sst/SSTHeavy.ttf'),
     SSTHeavyIt: require('../assets/fonts/sst/SSTHeavyIt.ttf'),
-    SSTLight: require('../assets/fonts/sst/SSTLight.ttf'),
     SSTLightIt: require('../assets/fonts/sst/SSTLightIt.ttf'),
-    SSTMedium: require('../assets/fonts/sst/SSTMedium.ttf'),
     SSTMediumCn: require('../assets/fonts/sst/SSTMediumCn.ttf'),
     SSTMediumIt: require('../assets/fonts/sst/SSTMediumIt.ttf'),
-    SSTRg: require('../assets/fonts/sst/SSTRg.ttf'),
     SSTRgCn: require('../assets/fonts/sst/SSTRgCn.ttf'),
     SSTRgIt: require('../assets/fonts/sst/SSTRgIt.ttf'),
-    SSTBadge: require('../assets/fonts/sst/SSTBadge.ttf'),
   });
 
   if (!fontsLoaded) {
@@ -125,19 +140,56 @@ export default function RootLayout() {
 
 function RootLayoutInner() {
   const colorScheme = useColorScheme();
-  const { setLanguage } = useTranslation();
+  const { setLanguage, t } = useTranslation();
+  const tRef = useRef(t);
+  tRef.current = t;
   const [activeUser, setActiveUser] = useState<UserProfile | null>(null);
   const [showSplash, setShowSplash] = useState(true);
-  const [bootVideoUri, setBootVideoUri] = useState<string | null>(null);
+  // Se resuelve de forma síncrona en el primer render (una sola vez) para que
+  // el splash no arranque con el video por defecto y cambie al personalizado.
+  const [bootVideoUri] = useState<string | null>(() => getLastBootVideoUri());
   const [bootVideoFailed, setBootVideoFailed] = useState(false);
+  const [defaultBootFailed, setDefaultBootFailed] = useState(false);
   const pathname = usePathname();
   const isOverlayMode = checkIsOverlay() || pathname === '/overlay' || pathname?.includes('overlay');
 
-  // Resuelve, una sola vez, el splash de arranque del último usuario activo.
+  // Splash de arranque: video personalizado del último usuario; si no tiene
+  // (o falla), el video por defecto; si este también falla, solo el logo.
+  const customBootActive = !!bootVideoUri && !bootVideoFailed;
+  const hasBootVideo = customBootActive || !defaultBootFailed;
+  const bootVideoSource = useMemo(
+    () => (customBootActive ? { uri: bootVideoUri as string } : DEFAULT_BOOT_VIDEO),
+    [customBootActive, bootVideoUri]
+  );
+
+  // La pantalla de selección de usuario se queda como capa de carga (con el
+  // perfil elegido y su radar pulsando) hasta que Home avisa que está listo.
+  // Los hooks van antes de cualquier return temprano.
+  const [homeReady, setHomeReady] = useState(false);
+
   useEffect(() => {
-    if (isOverlayMode) return;
-    setBootVideoUri(getLastBootVideoUri());
-  }, [isOverlayMode]);
+    if (!activeUser) { setHomeReady(false); return; }
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(safety);
+      setHomeReady(true);
+      // El aviso de bienvenida sale cuando la capa de carga ya se está retirando.
+      setTimeout(() => {
+        toastService.show(tRef.current('toast.loggedPS5'), {
+          source: 'system',
+          icon: require('@/assets/icons/Logonegro.png'),
+        });
+      }, 500);
+    };
+    window.addEventListener('wps5-home-ready', done, { once: true });
+    const safety = setTimeout(done, 8000); // red de seguridad
+    return () => {
+      window.removeEventListener('wps5-home-ready', done);
+      clearTimeout(safety);
+    };
+  }, [activeUser?.id]);
 
   // Valores compartidos de Reanimated
   const splashOpacity = useSharedValue(1);
@@ -206,14 +258,14 @@ function RootLayoutInner() {
     splashOpacity.value = 1;
     setShowSplash(true);
 
-    if (!bootVideoUri || bootVideoFailed) {
+    if (!hasBootVideo) {
       const timer = setTimeout(finishSplash, 1800);
       return () => clearTimeout(timer);
     }
 
     const safetyTimer = setTimeout(finishSplash, 20000);
     return () => clearTimeout(safetyTimer);
-  }, [isOverlayMode, bootVideoUri, bootVideoFailed]);
+  }, [isOverlayMode, hasBootVideo, customBootActive]);
 
   // Estilos animados
   const animatedSplashStyle = useAnimatedStyle(() => ({
@@ -239,62 +291,24 @@ function RootLayoutInner() {
     );
   }
 
-  if (!activeUser) {
-    return (
-      <UserContext.Provider value={{ activeUser, changeUser: () => setActiveUser(null), updateUser: async () => {} }}>
-      <WPSThemeProvider>
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
-        <style dangerouslySetInnerHTML={{
-          __html: GLOBAL_CSS_FONTS
-        }} />
-
-        <UserSelectScreen onUserSelected={(user) => {
-          // Fijar el ámbito online ANTES de montar la app del perfil para que
-          // nunca herede la sesión de otro perfil.
-          setCurrentOnlineProfileId(user.id, (user.settings as any)?.onlineUserId ?? null);
-          setActiveUser(user);
-          if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            localStorage.setItem(LAST_USER_STORAGE_KEY, user.id);
-          }
-          if (isLanguage(user.settings?.language)) {
-            setLanguage(user.settings.language);
-          }
-          if ((window as any).electronAPI?.setOverlaySettings) {
-            (window as any).electronAPI.setOverlaySettings({
-              enabled: user.settings?.overlayEnabled !== false,
-              combo: user.settings?.overlayCombo || 'SELECT_START',
-            });
-          }
-        }} />
-
-        {showSplash && (
-          <Animated.View style={[
-            StyleSheet.absoluteFillObject,
-            styles.splashContainer,
-            animatedSplashStyle
-          ]}>
-            {bootVideoUri && !bootVideoFailed ? (
-              <BackgroundVideo
-                source={{ uri: bootVideoUri }}
-                style={StyleSheet.absoluteFillObject}
-                resizeMode="cover"
-                muted={false}
-                shouldPlay
-                isLooping={false}
-                onEnd={finishSplash}
-                onError={() => setBootVideoFailed(true)}
-              />
-            ) : (
-              <MaterialCommunityIcons name="sony-playstation" size={110} color="#FFFFFF" />
-            )}
-          </Animated.View>
-        )}
-        <StatusBar style="light" />
-      </View>
-      </WPSThemeProvider>
-      </UserContext.Provider>
-    );
-  }
+  const handleUserSelected = (user: UserProfile) => {
+    // Fijar el ámbito online ANTES de montar la app del perfil para que
+    // nunca herede la sesión de otro perfil.
+    setCurrentOnlineProfileId(user.id, (user.settings as any)?.onlineUserId ?? null);
+    setActiveUser(user);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      localStorage.setItem(LAST_USER_STORAGE_KEY, user.id);
+    }
+    if (isLanguage(user.settings?.language)) {
+      setLanguage(user.settings.language);
+    }
+    if ((window as any).electronAPI?.setOverlaySettings) {
+      (window as any).electronAPI.setOverlaySettings({
+        enabled: user.settings?.overlayEnabled !== false,
+        combo: user.settings?.overlayCombo || 'SELECT_START',
+      });
+    }
+  };
 
   const updateUser = async (updates: Partial<UserProfile>) => {
     setActiveUser(prevUser => {
@@ -319,26 +333,74 @@ function RootLayoutInner() {
     });
   };
 
+  // UserSelectScreen vive en la misma posición del árbol antes y después de
+  // elegir perfil, así que NO se remonta: sigue mostrando al usuario elegido
+  // con el radar pulsando mientras Home se monta detrás, y se retira con un
+  // fade cuando Home avisa que está listo.
+  const showSelectLayer = !activeUser || !homeReady;
+
   return (
     <UserContext.Provider value={{ activeUser, changeUser: () => setActiveUser(null), updateUser }}>
       <WPSThemeProvider>
-      <style dangerouslySetInnerHTML={{
-        __html: GLOBAL_CSS_FONTS
-      }} />
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="overlay" options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
-        <ToastHost />
-        <StatusBar style="auto" />
-      </ThemeProvider>
+        <style dangerouslySetInnerHTML={{
+          __html: GLOBAL_CSS_FONTS
+        }} />
+        <View style={{ flex: 1, backgroundColor: activeUser ? 'transparent' : '#000' }}>
+          {activeUser && (
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: 'transparent' },
+                }}
+              >
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="overlay" options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+              </Stack>
+              <ToastHost />
+              <StatusBar style="auto" />
+            </ThemeProvider>
+          )}
+
+          {showSelectLayer && (
+            <Animated.View
+              exiting={FadeOut.duration(450)}
+              style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', zIndex: 9000 }]}
+            >
+              <UserSelectScreen onUserSelected={handleUserSelected} />
+            </Animated.View>
+          )}
+
+          {!activeUser && showSplash && (
+            <Animated.View style={[
+              StyleSheet.absoluteFillObject,
+              styles.splashContainer,
+              animatedSplashStyle
+            ]}>
+              {hasBootVideo ? (
+                <BackgroundVideo
+                  key={customBootActive ? 'boot-custom' : 'boot-default'}
+                  source={bootVideoSource}
+                  style={StyleSheet.absoluteFillObject}
+                  resizeMode="cover"
+                  muted={false}
+                  shouldPlay
+                  isLooping={false}
+                  onEnd={finishSplash}
+                  onError={() => (customBootActive ? setBootVideoFailed(true) : setDefaultBootFailed(true))}
+                />
+              ) : (
+                <Image
+                  source={require('../assets/images/IntroLogo.png')}
+                  style={{ width: 180, height: 180 }}
+                  contentFit="contain"
+                />
+              )}
+            </Animated.View>
+          )}
+          {!activeUser && <StatusBar style="light" />}
+        </View>
       </WPSThemeProvider>
     </UserContext.Provider>
   );

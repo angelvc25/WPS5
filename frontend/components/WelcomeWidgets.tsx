@@ -216,18 +216,99 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     }
   }, [focusIndex, focusedColumn, focusArea, windowWidth, windowHeight]);
 
-  const batteryPct = gamepadInfo.connected ? Math.round(gamepadInfo.battery * 100) : 0;
-  let batteryColor = '#4CD964';
-  if (batteryPct <= 20) batteryColor = '#FF3B30';
-  else if (batteryPct <= 50) batteryColor = '#FF9500';
-
-  const batteryIcon = gamepadInfo.connected
-    ? (batteryPct > 50 ? "battery-full" : (batteryPct > 20 ? "battery-half" : "battery-dead"))
-    : "battery-dead";
-
   const [realNews, setRealNews] = useState<SteamNewsItem[]>([]);
   const [storeOffers, setStoreOffers] = useState<StoreOffer[]>([]);
   const [activeOfferIndex, setActiveOfferIndex] = useState(0);
+
+  // --- Mandos conectados (todos los que reporta la Gamepad API) ---
+  // La Gamepad API NO expone la batería: se obtiene aparte por HID (ver psBatteries más abajo).
+  // Los mandos sin dato real muestran su anillo y número sin porcentaje.
+  const [pads, setPads] = useState<{ index: number; id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.getGamepads) return;
+
+    const scan = () => {
+      const list = Array.from(navigator.getGamepads())
+        .filter((g): g is Gamepad => !!g && g.connected)
+        .map((g) => ({ index: g.index, id: g.id, name: (g.id || '').split('(')[0].trim() }));
+      setPads((prev) => {
+        const key = (l: typeof list) => l.map((p) => `${p.index}:${p.id}`).join('|');
+        return key(prev) === key(list) ? prev : list;
+      });
+    };
+
+    scan();
+    const timer = setInterval(scan, 1500);
+    window.addEventListener('gamepadconnected', scan);
+    window.addEventListener('gamepaddisconnected', scan);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('gamepadconnected', scan);
+      window.removeEventListener('gamepaddisconnected', scan);
+    };
+  }, []);
+
+  // Batería real de mandos PlayStation (DualShock 4 / DualSense) leída por HID en el proceso
+  // principal de Electron (electronAPI.getPsBatteries, ver psBattery.js). Se refresca cada 30 s.
+  const [psBatteries, setPsBatteries] = useState<
+    { productId: number; battery: number | null; charging: boolean }[]
+  >([]);
+
+  useEffect(() => {
+    const api = Platform.OS === 'web' ? (window as any)?.electronAPI : null;
+    if (!api?.getPsBatteries) return;
+    let cancelled = false;
+    const load = () =>
+      api.getPsBatteries()
+        .then((list: any) => { if (!cancelled && Array.isArray(list)) setPsBatteries(list); })
+        .catch(() => { });
+    load();
+    const timer = setInterval(load, 30000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+
+  // Si el escaneo no ve nada pero el hook sí, se usa el del hook como mando 1.
+  // El mando activo (el que lee el hook, identificado por gamepadInfo.name === g.id) va primero.
+  // La batería se empareja por Product ID (el id de la Gamepad API trae "Product: 09cc"); si hay
+  // varios mandos iguales se asignan en orden. Sin dato real queda null (el anillo muestra "—").
+  const effectivePads: { index: number; name: string; battery: number | null; charging: boolean }[] = (() => {
+    const pool = [...psBatteries];
+    const takeFor = (id: string) => {
+      const m = /Product:\s*([0-9a-f]{4})/i.exec(id || '');
+      if (!m) return null;
+      const pid = parseInt(m[1], 16);
+      const i = pool.findIndex((b) => b.productId === pid);
+      return i >= 0 ? pool.splice(i, 1)[0] : null;
+    };
+    if (pads.length === 0) {
+      if (!gamepadInfo.connected) return [];
+      const hit = takeFor(gamepadInfo.name);
+      return [{
+        index: 0,
+        name: gamepadInfo.name.split('(')[0].trim(),
+        battery: hit?.battery ?? null,
+        charging: hit?.charging ?? false,
+      }];
+    }
+    const activeFirst = [...pads].sort(
+      (a, b) => Number(b.id === gamepadInfo.name) - Number(a.id === gamepadInfo.name)
+    );
+    return activeFirst.map((p) => {
+      const hit = takeFor(p.id);
+      return { index: p.index, name: p.name, battery: hit?.battery ?? null, charging: hit?.charging ?? false };
+    });
+  })();
+
+  // Batería del mando activo (el primero de effectivePads) para el widget de tamaño normal.
+  // null = conectado pero sin dato real (DS4Windows/Steam Input, mando no PlayStation…).
+  const mainPad = effectivePads[0];
+  const batteryReal: number | null = mainPad && mainPad.battery != null ? mainPad.battery : null;
+  const batteryPct = batteryReal != null ? Math.round(batteryReal * 100) : null;
+  const batteryColor = batteryPct == null ? '#FFFFFF' : batteryPct <= 20 ? '#FF3B30' : batteryPct <= 50 ? '#FF9500' : '#4CD964';
+  const batteryIcon = mainPad?.charging
+    ? 'battery-charging'
+    : batteryPct == null || batteryPct > 50 ? 'battery-full' : batteryPct > 20 ? 'battery-half' : 'battery-dead';
 
 
   useEffect(() => {
@@ -687,8 +768,15 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     );
     const k = diam / 80;
 
+    const colorFor = (pct: number) => (pct <= 20 ? '#FF3B30' : pct <= 50 ? '#FF9500' : '#4CD964');
+
     const renderRing = (idx: number) => {
-      const isFirst = idx === 0;
+      const p = effectivePads[idx];
+      const pct = p && p.battery != null ? Math.round(p.battery * 100) : null;
+      const color = pct != null ? colorFor(pct) : '#FFFFFF';
+      const icon = p?.charging
+        ? 'battery-charging'
+        : pct == null || pct > 50 ? 'battery-full' : pct > 20 ? 'battery-half' : 'battery-dead';
       return (
         <View key={idx} style={{ width: diam, height: diam, justifyContent: 'center', alignItems: 'center' }}>
           {Platform.OS === 'web' ? (
@@ -698,8 +786,10 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                   position: 'absolute',
                   inset: 0,
                   borderRadius: '50%',
-                  background: isFirst
-                    ? `conic-gradient(${batteryColor} ${batteryPct}%, rgba(255,255,255,0.1) 0)`
+                  background: p
+                    ? pct != null
+                      ? `conic-gradient(${color} ${pct}%, rgba(255,255,255,0.1) 0)`
+                      : 'rgba(255,255,255,0.35)' // conectado, sin dato de batería
                     : 'rgba(255,255,255,0.1)',
                   zIndex: 0,
                 }}
@@ -713,22 +803,26 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                 top: 0, left: 0, right: 0, bottom: 0,
                 borderRadius: diam / 2,
                 borderWidth: 3,
-                borderColor: 'rgba(255,255,255,0.12)',
+                borderColor: p ? color : 'rgba(255,255,255,0.12)',
                 backgroundColor: 'var(--wps-accent-widgets, #0d1015)',
               }}
             />
           )}
-          {isFirst && (
+          {p && (
             <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#FFF', fontSize: Math.round(14 * k), fontFamily: 'SSTMedium', marginBottom: 2 }}>
-                {gamepadInfo.connected ? '1' : '-'}
+                {idx + 1}
               </Text>
               <Image
                 source={require('@/assets/images/controller2.png')}
                 style={{ width: Math.round(35 * k), height: Math.round(35 * k), tintColor: '#FFF' }}
                 contentFit="contain"
               />
-              <Ionicons name={batteryIcon as any} size={Math.round(16 * k)} color={gamepadInfo.connected ? batteryColor : '#fff'} />
+              {pct != null ? (
+                <Ionicons name={icon as any} size={Math.round(16 * k)} color={color} />
+              ) : (
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: Math.round(11 * k), fontFamily: 'SSTLight' }}>—</Text>
+              )}
             </View>
           )}
         </View>
@@ -1280,7 +1374,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                             position: 'absolute',
                             inset: 0,
                             borderRadius: '50%',
-                            background: `conic-gradient(${batteryColor} ${batteryPct}%, rgba(255,255,255,0.1) 0)`,
+                            background: !gamepadInfo.connected ? 'rgba(255,255,255,0.1)' : batteryPct != null ? `conic-gradient(${batteryColor} ${batteryPct}%, rgba(255,255,255,0.1) 0)` : 'rgba(255,255,255,0.35)',
                             zIndex: 0,
                           }}
                         />
@@ -1299,7 +1393,11 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                       <View style={{ zIndex: 2, alignItems: 'center', justifyContent: 'center' }}>
                         <Text style={{ color: "#FFF", fontSize: s(14), fontFamily: 'SSTMedium', marginBottom: vs(2) }}>{gamepadInfo.connected ? "1" : "-"}</Text>
                         <Image source={require('@/assets/images/controller2.png')} style={{ width: vs(35), height: vs(35), tintColor: "#FFF" }} contentFit="contain" />
-                        <Ionicons name={batteryIcon as any} size={vs(16)} color={gamepadInfo.connected ? batteryColor : "#fff"} />
+                        {gamepadInfo.connected && batteryPct == null ? (
+                          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: s(11), fontFamily: 'SSTLight' }}>—</Text>
+                        ) : (
+                          <Ionicons name={(gamepadInfo.connected ? batteryIcon : 'battery-dead') as any} size={vs(16)} color={gamepadInfo.connected ? batteryColor : "#fff"} />
+                        )}
                       </View>
                     </View>
                     <View style={{ flex: 1 }}>
@@ -1307,7 +1405,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
                         <Text style={[styles.widgetSubtitle, { color: '#FFF' }]}>
                           {gamepadInfo.connected ? gamepadInfo.name.split('(')[0].trim() : t('widgets.controller')}
                         </Text>
-                        <Text style={styles.widgetSubtitle}>{gamepadInfo.connected ? `${batteryPct}%` : t('widgets.disconnected')}</Text>
+                        <Text style={styles.widgetSubtitle}>{gamepadInfo.connected ? (batteryPct != null ? `${batteryPct}%` : '—') : t('widgets.disconnected')}</Text>
                       </View>
                     </View>
                   </View>

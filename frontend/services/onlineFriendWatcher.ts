@@ -28,9 +28,9 @@ import { soundService } from './soundService';
 export type FriendWatcherTranslate = (key: string, params?: any) => string;
 
 /** Cada cuánto se encuesta al servidor. */
-const POLL_MS = 45000;
+const POLL_MS = 15000;
 /** Margen tras iniciar sesión antes del primer chequeo. */
-const SESSION_DELAY_MS = 5000;
+const SESSION_DELAY_MS = 2000;
 /** Cuánto vive una solicitud enviada pendiente de aceptación (30 días). */
 const SENT_TTL_MS = 30 * 24 * 3600 * 1000;
 
@@ -157,11 +157,13 @@ async function tick() {
     if (!requests || !friends) return;
 
     // ── 1. Solicitudes entrantes nuevas → toast ──
+    // NOTA: se notifica siempre que el id no estuviera en `knownRequests`
+    // (persistido en localStorage). Así las solicitudes que llegaron con la
+    // app cerrada o antes del primer chequeo también generan toast, que era
+    // el bug reportado ("no me llega la notificación").
     const incoming = requests.filter((r) => !knownRequests.includes(r.id));
-    if (baselineDone) {
-      for (const req of incoming) {
-        notifyIncomingRequest(req);
-      }
+    for (const req of incoming) {
+      notifyIncomingRequest(req);
     }
     knownRequests = requests.map((r) => r.id);
 
@@ -169,7 +171,7 @@ async function tick() {
     const sent = readSentRequests(uid);
     const sentIds = new Set(sent.map((s) => s.userId));
     const freshFriends = friends.filter((f) => !knownFriends.includes(f.user.id));
-    if (baselineDone) {
+    {
       const remaining = sent.filter((s) => sentIds.has(s.userId));
       for (const f of freshFriends) {
         if (sentIds.has(f.user.id)) {
@@ -262,12 +264,24 @@ export function initOnlineFriendWatcher(t: FriendWatcherTranslate): void {
   if (initialized) return;
   initialized = true;
   if (getOnlineSession()) {
-    // Primer chequeo: siembra el estado sin avisar de lo ya pendiente.
+    // Primer chequeo inmediato: avisa de todo lo pendiente no visto.
     void tick();
   }
   subscribeOnlineSession((session) => {
-    if (session) setTimeout(() => void tick(), SESSION_DELAY_MS);
+    if (session) {
+      setTimeout(() => void tick(), SESSION_DELAY_MS);
+    } else {
+      // Sin sesión: resetea para que el próximo login vuelva a evaluar
+      // pendientes como nuevos si corresponde.
+      currentUid = '';
+      baselineDone = false;
+    }
   });
   if (timer) clearInterval(timer);
   timer = setInterval(() => void tick(), POLL_MS);
+}
+
+/** Fuerza un chequeo inmediato (p. ej. al abrir notificaciones o amigos). */
+export function checkFriendUpdatesNow(): void {
+  void tick();
 }

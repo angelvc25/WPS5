@@ -24,6 +24,7 @@ import { soundService } from '@/services/soundService';
 import { toastService, ToastHistoryItem } from '@/services/toastService';
 import {
     acceptFriendRequestTracked,
+    checkFriendUpdatesNow,
     isFriendRequestHandled,
     rejectFriendRequestTracked,
     subscribeFriendUpdates,
@@ -146,6 +147,11 @@ export default function NotificationsExpandedCard({
 
     useEffect(() => {
         if (isOpen) setShouldRender(true);
+    }, [isOpen]);
+    // Al abrir la card, fuerza un chequeo para que las solicitudes recién
+    // llegadas aparezcan sin esperar al siguiente intervalo de polling.
+    useEffect(() => {
+        if (isOpen) checkFriendUpdatesNow();
     }, [isOpen]);
 
     useEffect(() => {

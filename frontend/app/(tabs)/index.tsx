@@ -338,6 +338,16 @@ export default function ConsoleHome() {
   // Debe coincidir con `toLocalFileUri` en electron/main.js y en _layout.tsx.
   const toLocalFileUri = (filePath: string) => `local-file:///${filePath.replace(/\\/g, '/')}`;
 
+  // Video de suspensión: el personalizado del usuario; si no tiene (o falla),
+  // el video por defecto empaquetado; si ese también falla, se cierra directo.
+  const [suspendCustomFailed, setSuspendCustomFailed] = useState(false);
+  const [suspendDefaultFailed, setSuspendDefaultFailed] = useState(false);
+  const suspendCustomActive = !!suspendVideoPath && !suspendCustomFailed;
+  const suspendVideoSource = useMemo(
+    () => (suspendCustomActive ? { uri: toLocalFileUri(suspendVideoPath as string) } : require('@/assets/splash/suspend.webm')),
+    [suspendCustomActive, suspendVideoPath]
+  );
+
   const finishShutdown = () => {
     if (shutdownFinishedRef.current) return;
     shutdownFinishedRef.current = true;
@@ -351,7 +361,8 @@ export default function ConsoleHome() {
   // de suspensión configurado, cierra directo (comportamiento anterior).
   const requestAppShutdown = () => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI) return;
-    if (!suspendVideoPath) {
+    if (suspendCustomActive === false && suspendDefaultFailed) {
+      // Ni el video personalizado ni el de por defecto están disponibles.
       (window as any).electronAPI.closeApp();
       return;
     }
@@ -704,6 +715,10 @@ export default function ConsoleHome() {
   const epicGamesRef = useRef<ConsoleItem[]>([]);
   epicGamesRef.current = epicGames;
   const [uiReady, setUiReady] = useState(false);
+  // Home avisa al _layout (evento 'wps5-home-ready') cuando la UI y los datos
+  // base están listos, para quitar el overlay de carga sin saltos.
+  const [appsLoaded, setAppsLoaded] = useState(false);
+  const readySentRef = useRef(false);
   const launchStartTimeRef = useRef<Record<string, number>>({});
   const sessionPlaytimeRef = useRef<Record<string, number>>({});
   const initialUnlockedRef = useRef<Record<string, number>>({});
@@ -887,6 +902,18 @@ export default function ConsoleHome() {
   }, []);
 
   useEffect(() => {
+    if (!uiReady || !appsLoaded || readySentRef.current) return;
+    readySentRef.current = true;
+    requestAnimationFrame(() => requestAnimationFrame(() =>
+      window.dispatchEvent(new Event('wps5-home-ready'))
+    ));
+  }, [uiReady, appsLoaded]);
+
+  // Evita que el efecto de cambio de pestaña corra en el primer render
+  // (desmontaba y volvía a montar todas las tarjetas del carrusel al arrancar).
+  const firstTabRun = useRef(true);
+  useEffect(() => {
+    if (firstTabRun.current) { firstTabRun.current = false; return; }
     // Fade out old content
     tabFade.value = withTiming(0, { duration: 150, easing: Easing.out(Easing.quad) }, (isFinished) => {
       if (isFinished) {
@@ -2014,9 +2041,13 @@ export default function ConsoleHome() {
         } else {
           setLastPlayedGame(null);
         }
+        setAppsLoaded(true);
       }).catch((e: any) => {
         console.error('[loadApps] Error refrescando la lista:', e);
+        setAppsLoaded(true); // no dejar el overlay esperando si falla
       });
+    } else {
+      setAppsLoaded(true); // sin Electron no hay nada que cargar
     }
   };
 
@@ -4693,6 +4724,7 @@ export default function ConsoleHome() {
       <GameDetailView
         isVisible={isDetailVisible}
         item={selectedItem}
+        gamepadConnected={gamepadInfo.connected}
         onClose={() => setDetailVisible(false)}
         onRefresh={(updatedGame) => {
           if (updatedGame) mergeGameIntoState(updatedGame);
@@ -4889,6 +4921,7 @@ export default function ConsoleHome() {
       {/* SEARCH VIEW */}
       <SearchView
         visible={isSearchVisible}
+        gamepadConnected={gamepadInfo.connected}
         onClose={() => setSearchVisible(false)}
         libraryGames={searchableLibraryGames}
         mediaItems={searchableMedia.length > 0 ? searchableMedia : media}
@@ -4955,6 +4988,7 @@ export default function ConsoleHome() {
       {/* SETTINGS VIEW */}
       <SettingsView
         visible={isSettingsVisible}
+        gamepadConnected={gamepadInfo.connected}
         onClose={() => {
           setSettingsVisible(false);
           setSettingsInitialScreen('main');
@@ -5141,16 +5175,21 @@ export default function ConsoleHome() {
           el usuario (Settings -> Splash Videos) antes de cerrar la app. */}
       <Modal visible={isShuttingDown} transparent animationType="fade">
         <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }]}>
-          {suspendVideoPath ? (
+          {(suspendCustomActive || !suspendDefaultFailed) ? (
             <BackgroundVideo
-              source={{ uri: toLocalFileUri(suspendVideoPath) }}
+              key={suspendCustomActive ? 'suspend-custom' : 'suspend-default'}
+              source={suspendVideoSource}
               style={StyleSheet.absoluteFillObject}
               resizeMode="cover"
               muted={false}
               shouldPlay
               isLooping={false}
               onEnd={finishShutdown}
-              onError={finishShutdown}
+              onError={() => {
+                if (suspendCustomActive) { setSuspendCustomFailed(true); return; }
+                setSuspendDefaultFailed(true);
+                finishShutdown(); // el de por defecto también falló: cerrar sin esperar
+              }}
             />
           ) : (
             <Ionicons name="power-outline" size={64} color="#FFFFFF" />

@@ -656,13 +656,13 @@ function createWindow() {
   mainWindow.on('hide', () => {
     try {
       if (typeof global.gc === 'function') global.gc();
-    } catch (_) {}
+    } catch (_) { }
   });
 
   mainWindow.on('minimize', () => {
     try {
       if (typeof global.gc === 'function') global.gc();
-    } catch (_) {}
+    } catch (_) { }
   });
 
   mainWindow.webContents.on('did-finish-load', () => {
@@ -2222,6 +2222,28 @@ app.whenReady().then(async () => {
     } catch (err) {
       console.error('Protocol error:', err);
       return new Response('Error loading local file', { status: 500 });
+    }
+  });
+
+  // ── IPC: Batería de mandos PlayStation (DualShock 4 / DualSense) por HID ──
+  // La Gamepad API del navegador no expone la batería, así que se lee aquí con
+  // node-hid (ver psBattery.js). Se carga bajo demanda: si el módulo nativo no
+  // está instalado/compilado, el launcher arranca igual y el widget muestra "—".
+  let psBatteryModule;
+  ipcMain.handle('get-ps-batteries', async () => {
+    try {
+      if (psBatteryModule === undefined) {
+        try {
+          psBatteryModule = require('./psBattery.js');
+        } catch (err) {
+          console.warn('[PsBattery] node-hid no disponible:', err.message);
+          psBatteryModule = null;
+        }
+      }
+      return psBatteryModule ? psBatteryModule.getPsBatteries() : [];
+    } catch (err) {
+      console.warn('[PsBattery] Error leyendo baterías:', err.message);
+      return [];
     }
   });
 

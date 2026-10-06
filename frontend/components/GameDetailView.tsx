@@ -47,6 +47,8 @@ interface GameDetailViewProps {
   inputMode: 'keyboard' | 'gamepad';
   installedSteamAppIds?: Set<string> | null;
   onOpenMediaGallery?: () => void;
+  /** Hay un mando conectado. El teclado virtual solo se muestra si es true. */
+  gamepadConnected: boolean;
 }
 
 // Normaliza un string de path/url de editData a un source { uri } válido.
@@ -113,7 +115,7 @@ const DetailLightboxImage = React.memo(({
 });
 DetailLightboxImage.displayName = 'DetailLightboxImage';
 
-const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery }) => {
+const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery, gamepadConnected }) => {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
@@ -124,7 +126,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const bottomScrollRef = useRef<ScrollView>(null);
   const [editModalFocusIndex, setEditModalFocusIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'basic' | 'path' | 'art'>('basic');
-  const [editVKField, setEditVKField] = useState<'title' | 'description' | 'path' | 'launchArgs' | null>(null);
+  const [editVKField, setEditVKFieldState] = useState<'title' | 'description' | 'path' | 'launchArgs' | null>(null);
   const { activeUser } = useUser();
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
 
@@ -989,6 +991,34 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const editDescRef = React.useRef<TextInput>(null);
   const editPathInputRef = React.useRef<TextInput>(null);
   const editLaunchArgsRef = React.useRef<TextInput>(null);
+
+  // Abrir un campo con teclado virtual solo si hay mando conectado.
+  // Sin mando, se enfoca el input nativo para escribir con teclado físico/sistema.
+  const setEditVKField = (field: 'title' | 'description' | 'path' | 'launchArgs' | null) => {
+    if (field !== null && !gamepadConnected) {
+      const ref =
+        field === 'title' ? editTitleRef :
+          field === 'description' ? editDescRef :
+            field === 'path' ? editPathInputRef : editLaunchArgsRef;
+      ref.current?.focus();
+      return;
+    }
+    setEditVKFieldState(field);
+  };
+
+  // Si el mando se desconecta con el teclado virtual abierto, ciérralo
+  // y devuelve el foco al input nativo del campo que se estaba editando.
+  useEffect(() => {
+    if (!gamepadConnected && editVKField !== null) {
+      const field = editVKField;
+      setEditVKFieldState(null);
+      const ref =
+        field === 'title' ? editTitleRef :
+          field === 'description' ? editDescRef :
+            field === 'path' ? editPathInputRef : editLaunchArgsRef;
+      setTimeout(() => ref.current?.focus(), 60);
+    }
+  }, [gamepadConnected, editVKField]);
   const editPlatformScrollRef = React.useRef<ScrollView>(null);
   const editPlatformOffsets = React.useRef<number[]>([]);
 
@@ -1152,15 +1182,18 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
         if (isEditModalVisible) {
           if (editVKField !== null) return;
+          // Sin mando: si se escribe en un input nativo, dejar pasar las letras (x, b…)
+          if (!gamepadConnected && e.key.length === 1 &&
+            (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) return;
           const isGame = (editData.type || item?.type) !== 'media' && (editData.type || item?.type) !== 'web';
           const isRetro = editData.platform === 'Retro' || isRetroPlatform(editData.platform);
           const retroCount = RETRO_SYSTEMS.length;
 
           if (e.key === 'x' || e.key === 'X') {
-            if (editModalFocusIndex === 2) { e.preventDefault(); setEditVKField('title'); soundService.playActivation?.(); return; }
-            if (editModalFocusIndex === 14) { e.preventDefault(); setEditVKField('description'); soundService.playActivation?.(); return; }
-            if (editModalFocusIndex === 22 && ((editData.type || item?.type) === 'web' || isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item))) { e.preventDefault(); setEditVKField('path'); soundService.playActivation?.(); return; }
-            if (editModalFocusIndex === 27) { e.preventDefault(); setEditVKField('launchArgs'); soundService.playActivation?.(); return; }
+            if (gamepadConnected && editModalFocusIndex === 2) { e.preventDefault(); setEditVKField('title'); soundService.playActivation?.(); return; }
+            if (gamepadConnected && editModalFocusIndex === 14) { e.preventDefault(); setEditVKField('description'); soundService.playActivation?.(); return; }
+            if (gamepadConnected && editModalFocusIndex === 22 && ((editData.type || item?.type) === 'web' || isSteamGame(editData.id ? { id: editData.id, platform: editData.platform } : item))) { e.preventDefault(); setEditVKField('path'); soundService.playActivation?.(); return; }
+            if (gamepadConnected && editModalFocusIndex === 27) { e.preventDefault(); setEditVKField('launchArgs'); soundService.playActivation?.(); return; }
             if (editModalFocusIndex >= 30 && editModalFocusIndex <= 41) {
               e.preventDefault();
               setEditData({ ...editData, platform: PLATFORM_IDS[editModalFocusIndex - 30] });
@@ -1444,6 +1477,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     }
   }, [
     isVisible,
+    gamepadConnected,
     isEditModalVisible,
     isDeleteConfirmVisible,
     isAssetSelectorVisible,
@@ -2097,11 +2131,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               style={[styles.editInput, editModalFocusIndex === 2 && styles.editInputFocused]}
                               value={editData.title}
                               onChangeText={(text) => setEditData({ ...editData, title: text })}
-                              showSoftInputOnFocus={false}
+                              showSoftInputOnFocus={!gamepadConnected}
                               onFocus={() => {
                                 setEditModalFocusIndex(2);
                                 setEditVKField('title');
-                                setTimeout(() => editTitleRef.current?.blur(), 60);
+                                if (gamepadConnected) setTimeout(() => editTitleRef.current?.blur(), 60);
                               }}
                             />
                           </TouchableOpacity>
@@ -2186,11 +2220,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               multiline
                               value={editData.description}
                               onChangeText={(text) => setEditData({ ...editData, description: text })}
-                              showSoftInputOnFocus={false}
+                              showSoftInputOnFocus={!gamepadConnected}
                               onFocus={() => {
                                 setEditModalFocusIndex(14);
                                 setEditVKField('description');
-                                setTimeout(() => editDescRef.current?.blur(), 60);
+                                if (gamepadConnected) setTimeout(() => editDescRef.current?.blur(), 60);
                               }}
                             />
                           </TouchableOpacity>
@@ -2240,11 +2274,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                 placeholderTextColor="#888"
                                 value={editData.path}
                                 onChangeText={(text) => setEditData({ ...editData, path: text })}
-                                showSoftInputOnFocus={false}
+                                showSoftInputOnFocus={!gamepadConnected}
                                 onFocus={() => {
                                   setEditModalFocusIndex(22);
                                   setEditVKField('path');
-                                  setTimeout(() => editPathInputRef.current?.blur(), 60);
+                                  if (gamepadConnected) setTimeout(() => editPathInputRef.current?.blur(), 60);
                                 }}
                               />
                             </TouchableOpacity>
@@ -2261,11 +2295,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                   placeholderTextColor="#888"
                                   value={editData.path}
                                   onChangeText={(text) => setEditData({ ...editData, path: text })}
-                                  showSoftInputOnFocus={false}
+                                  showSoftInputOnFocus={!gamepadConnected}
                                   onFocus={() => {
                                     setEditModalFocusIndex(22);
                                     setEditVKField('path');
-                                    setTimeout(() => editPathInputRef.current?.blur(), 60);
+                                    if (gamepadConnected) setTimeout(() => editPathInputRef.current?.blur(), 60);
                                   }}
                                 />
                               </TouchableOpacity>
@@ -2306,11 +2340,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                       autoCorrect={false}
                                       value={editData.launchArgs}
                                       onChangeText={(text) => setEditData({ ...editData, launchArgs: text })}
-                                      showSoftInputOnFocus={false}
+                                      showSoftInputOnFocus={!gamepadConnected}
                                       onFocus={() => {
                                         setEditModalFocusIndex(27);
                                         setEditVKField('launchArgs');
-                                        setTimeout(() => editLaunchArgsRef.current?.blur(), 60);
+                                        if (gamepadConnected) setTimeout(() => editLaunchArgsRef.current?.blur(), 60);
                                       }}
                                     />
                                   </TouchableOpacity>
@@ -2857,12 +2891,12 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
             {/* VIRTUAL KEYBOARD OVERLAY */}
             <VirtualKeyboard
-              visible={editVKField !== null}
+              visible={editVKField !== null && gamepadConnected}
               value={
                 editVKField === 'title' ? (editData.title || '') :
-                editVKField === 'description' ? (editData.description || '') :
-                editVKField === 'path' ? (editData.path || '') :
-                editVKField === 'launchArgs' ? (editData.launchArgs || '') : ''
+                  editVKField === 'description' ? (editData.description || '') :
+                    editVKField === 'path' ? (editData.path || '') :
+                      editVKField === 'launchArgs' ? (editData.launchArgs || '') : ''
               }
               onChange={(val) => {
                 if (editVKField) {

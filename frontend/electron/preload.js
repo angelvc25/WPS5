@@ -117,6 +117,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteImageFile: (filePath) => ipcRenderer.invoke('delete-image-file', filePath),
   // ── Info de GPU / Aceleración por hardware ──────────────────────────────
   getGpuInfo: () => ipcRenderer.invoke('get-gpu-info'),
+  // ── Batería de mandos PlayStation (DualShock 4 / DualSense) vía HID ─────────
+  // Devuelve [{ vendorId, productId, model, battery (0..1 | null), charging, wired }].
+  getPsBatteries: () => ipcRenderer.invoke('get-ps-batteries'),
 });
 
 // ── Detección de ventana overlay ────────────────────────────────────────────

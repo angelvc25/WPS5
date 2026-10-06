@@ -61,6 +61,8 @@ interface SearchViewProps {
   storeOffers: StoreOffer[];
   onOpenGameDetail: (item: SearchGameItem) => void;
   onOpenOnlineUser?: (username: string) => void;
+  /** Hay un mando conectado. El teclado virtual solo se muestra si es true. */
+  gamepadConnected: boolean;
 }
 
 const TABS: { id: SearchTab; labelKey: any }[] = [
@@ -246,6 +248,7 @@ const SearchView: React.FC<SearchViewProps> = ({
   storeOffers,
   onOpenGameDetail,
   onOpenOnlineUser,
+  gamepadConnected,
 }) => {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { t } = useTranslation();
@@ -260,6 +263,15 @@ const SearchView: React.FC<SearchViewProps> = ({
   const [showVirtualKeyboard, setShowVirtualKeyboard] = useState(false);
 
   const inputRef = useRef<TextInput>(null);
+
+  // Si el mando se desconecta con el teclado virtual abierto, ciérralo y
+  // devuelve el foco al input nativo para poder seguir escribiendo.
+  useEffect(() => {
+    if (!gamepadConnected && showVirtualKeyboard) {
+      setShowVirtualKeyboard(false);
+      setTimeout(() => inputRef.current?.focus(), 60);
+    }
+  }, [gamepadConnected, showVirtualKeyboard]);
   const resultsScrollRef = useRef<ScrollView>(null);
   const focusAreaRef = useRef(focusArea);
   const tabFocusIndexRef = useRef(tabFocusIndex);
@@ -535,8 +547,8 @@ const SearchView: React.FC<SearchViewProps> = ({
           onClose();
           return;
         }
-        // X / Enter en la barra de búsqueda → abrir teclado virtual
-        if ((e.key === 'x' || e.key === 'X' || e.key === 'Enter') && focusAreaRef.current === 'search') {
+        // X / Enter en la barra de búsqueda → abrir teclado virtual (solo con mando conectado)
+        if (gamepadConnected && (e.key === 'x' || e.key === 'X' || e.key === 'Enter') && focusAreaRef.current === 'search') {
           e.preventDefault();
           inputRef.current?.blur();
           setShowVirtualKeyboard(true);
@@ -677,7 +689,7 @@ const SearchView: React.FC<SearchViewProps> = ({
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [visible, query, activeTab, searchResults.length, onClose, switchTab, handleSelectEntry, showVirtualKeyboard]);
+  }, [visible, query, activeTab, searchResults.length, onClose, switchTab, handleSelectEntry, showVirtualKeyboard, gamepadConnected]);
 
   const ui = useMemo(() => StyleSheet.create({
     root: { flex: 1, backgroundColor: '#0b0c10' },
@@ -843,9 +855,14 @@ const SearchView: React.FC<SearchViewProps> = ({
               style={[ui.searchBar, focusArea === 'search' && ui.searchBarFocused]}
               onPress={() => {
                 setFocusArea('search');
-                setShowVirtualKeyboard(true);
-                inputRef.current?.blur();
-                soundService.playActivation();
+                if (gamepadConnected) {
+                  setShowVirtualKeyboard(true);
+                  inputRef.current?.blur();
+                  soundService.playActivation();
+                } else {
+                  // Sin mando: teclado físico / del sistema sobre el input nativo
+                  inputRef.current?.focus();
+                }
               }}
             >
               {focusArea === 'search' && <SpinningBorderSearch size={s(56)} spread={3} borderRadius={s(4) + 3} />}
@@ -859,15 +876,17 @@ const SearchView: React.FC<SearchViewProps> = ({
                 placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 onFocus={() => {
                   setFocusArea('search');
-                  // Abrir teclado virtual al recibir foco (touch nativo)
-                  setShowVirtualKeyboard(true);
-                  // Blur el input nativo para no mostrar el teclado del sistema
-                  setTimeout(() => inputRef.current?.blur(), 60);
+                  // Solo con mando conectado: abrir teclado virtual al recibir foco
+                  if (gamepadConnected) {
+                    setShowVirtualKeyboard(true);
+                    // Blur el input nativo para no mostrar el teclado del sistema
+                    setTimeout(() => inputRef.current?.blur(), 60);
+                  }
                 }}
                 autoCorrect={false}
                 autoCapitalize="none"
                 returnKeyType="search"
-                showSoftInputOnFocus={false}
+                showSoftInputOnFocus={!gamepadConnected}
               />
               <View style={ui.searchSpinnerWrap}>
                 {isSearching ? (
@@ -966,7 +985,7 @@ const SearchView: React.FC<SearchViewProps> = ({
 
         {/* Virtual Keyboard — floats above the modal content */}
         <VirtualKeyboard
-          visible={showVirtualKeyboard}
+          visible={showVirtualKeyboard && gamepadConnected}
           value={query}
           onChange={setQuery}
           onClose={() => setShowVirtualKeyboard(false)}
