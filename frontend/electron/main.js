@@ -2743,6 +2743,36 @@ app.whenReady().then(async () => {
     return args;
   }
 
+  // Entrecomilla un argumento al estilo CommandLineToArgvW (Windows) si
+  // contiene espacios o comillas. Necesario porque se lanza con
+  // windowsVerbatimArguments: true (Node no escapa nada por nosotros) y
+  // parseCommandLineArgs() ya quitó las comillas originales.
+  function quoteWinArg(arg) {
+    if (arg === '') return '""';
+    if (!/[\s"]/.test(arg)) return arg;
+    return '"' + arg
+      .replace(/(\\*)"/g, '$1$1\\"')   // escapa comillas internas
+      .replace(/(\\+)$/, '$1$1')         // duplica backslashes finales
+      + '"';
+  }
+
+  function isRpcs3Exe(exePath) {
+    return /^rpcs3(-.*)?\.exe$/i.test(path.basename(exePath || ''));
+  }
+
+  // Argumentos escritos a mano para RPCS3: si el usuario pegó la ruta del
+  // juego SIN comillas (ej: C:\Mis Juegos\Uncharted\PS3_GAME\USRDIR\EBOOT.BIN),
+  // los flags iniciales (--algo) se separan normalmente y todo lo demás se
+  // trata como UNA sola ruta, en vez de cortarla en cada espacio.
+  function parseRpcs3Args(str) {
+    if (!str) return [];
+    if (str.includes('"')) return parseCommandLineArgs(str);
+    const m = str.match(/^((?:--?[^\s]+\s+)*)(.*)$/);
+    const flags = m && m[1] ? m[1].trim().split(/\s+/).filter(Boolean) : [];
+    const rest = m ? m[2].trim() : str.trim();
+    return rest ? [...flags, rest] : flags;
+  }
+
   // Helper: Resolver acceso directo .lnk a su ruta real, argumentos y
   // directorio de trabajo (Windows).
   //
@@ -2933,7 +2963,10 @@ app.whenReady().then(async () => {
       // Solo aplican a .exe externos lanzados directamente (esta rama "else"
       // del if de arriba), NUNCA a accesos directos .lnk, que ya resuelven
       // sus propios argumentos desde el acceso directo original.
-      launchArgs = launchArgs.concat(parseCommandLineArgs(extraLaunchArgs.trim()));
+      const parsedExtra = isRpcs3Exe(targetExe)
+        ? parseRpcs3Args(extraLaunchArgs.trim())
+        : parseCommandLineArgs(extraLaunchArgs.trim());
+      launchArgs = launchArgs.concat(parsedExtra);
       console.log('Argumentos extra de usuario aplicados:', extraLaunchArgs.trim());
     }
 
@@ -2968,10 +3001,22 @@ app.whenReady().then(async () => {
     // Lanzar el juego y monitorear el proceso
     try {
       const gameCwd = launchWorkingDir || path.dirname(targetExe);
-      console.log('Lanzando:', targetExe, launchArgs);
+      // RPCS3: arrancar el juego directo, sin mostrar la interfaz del emulador.
+      const finalArgs = [...launchArgs];
+      if (isRpcs3Exe(targetExe) && finalArgs.length > 0 && !finalArgs.includes('--no-gui')) {
+        finalArgs.unshift('--no-gui');
+      }
+
+      // Con windowsVerbatimArguments Node no entrecomilla: lo hacemos aquí
+      // para que las rutas con espacios lleguen como UN solo argumento.
+      const spawnArgs = process.platform === 'win32'
+        ? finalArgs.map(quoteWinArg)
+        : finalArgs;
+
+      console.log('Lanzando:', targetExe, spawnArgs);
       console.log('Directorio de trabajo:', gameCwd);
 
-      const child = spawn(targetExe, launchArgs, {
+      const child = spawn(targetExe, spawnArgs, {
         cwd: gameCwd,
         env: envForExternalApp(),
         detached: true,
