@@ -906,22 +906,26 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     infoCardsAnim.value = withTiming(focusIndex >= 4 ? 0 : 1, { duration: 300 });
   }, [focusIndex]);
 
-  // Auto-scroll del panel inferior en GameDetailView para mantener la fila enfocada en pantalla
+  // Auto-scroll del panel inferior en GameDetailView para mantener la fila enfocada en pantalla.
+  // Los valores anteriores eran coordenadas fijas que NO tenían en cuenta que GameInfoPanel
+  // colapsa las secciones superiores (maxHeight → 0, 300 ms) cuando se navega hacia abajo.
+  // Una vez que esas animaciones terminan, el elemento enfocado siempre queda en y≈0 del
+  // ScrollView (sólo el paddingTop=60 queda como margen visual). Por eso scrolleamos a y=0
+  // con un retraso mínimo mayor que la duración de la animación (350 ms).
   useEffect(() => {
     if (!isVisible || !bottomScrollRef.current) return;
+    // Al volver al área de título/botones el panel baja a su posición original
     if (focusIndex <= 1) {
       bottomScrollRef.current.scrollTo({ y: 0, animated: true });
-    } else if (focusIndex === 2 || focusIndex === 3) {
-      bottomScrollRef.current.scrollTo({ y: 160, animated: true });
-    } else if (focusIndex >= 100 && focusIndex < 200) {
-      bottomScrollRef.current.scrollTo({ y: 240, animated: true });
-    } else if (focusIndex === 300) {
-      bottomScrollRef.current.scrollTo({ y: 900, animated: true });
-    } else if (focusIndex >= 200) {
-      bottomScrollRef.current.scrollTo({ y: 380, animated: true });
-    } else if (focusIndex >= 4 && focusIndex < 100) {
-      bottomScrollRef.current.scrollTo({ y: 620, animated: true });
+      return;
     }
+    // Para cualquier sección inferior (cards, capturas, logros, noticias, metadata)
+    // las secciones precedentes se colapsan via GameInfoPanel (maxHeight→0, 300 ms).
+    // Esperamos 320 ms para que el layout se estabilice y luego scrolleamos a 0.
+    const timer = setTimeout(() => {
+      bottomScrollRef.current?.scrollTo({ y: 0, animated: true });
+    }, 320);
+    return () => clearTimeout(timer);
   }, [focusIndex, isVisible]);
 
   // Reset card layout cache whenever the paginated list (or page) changes

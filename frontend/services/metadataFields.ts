@@ -40,6 +40,14 @@ const igdbCache = new Map<string, SourceFieldData | null>();
 const rawgCache = new Map<string, SourceFieldData | null>();
 const psnCache = new Map<string, SourceFieldData | null>();
 
+// ── Deduplicación de peticiones in-flight ─────────────────────────────────────
+// Si dos componentes piden los metadatos del mismo juego al mismo tiempo,
+// comparten UNA sola petición en vuelo en vez de disparar N redundantes.
+const steamInFlight = new Map<string, Promise<SourceFieldData | null>>();
+const igdbInFlight = new Map<string, Promise<SourceFieldData | null>>();
+const rawgInFlight = new Map<string, Promise<SourceFieldData | null>>();
+const psnInFlight = new Map<string, Promise<SourceFieldData | null>>();
+
 function cacheGet(map: Map<string, SourceFieldData | null>, key: string): SourceFieldData | null | undefined {
   if (!map.has(key)) return undefined;
   return map.get(key) ?? null;
@@ -100,23 +108,31 @@ export async function fetchSteamFieldData(title: string, language: Language): Pr
   const key = `${language}:${title.toLowerCase().trim()}`;
   const cached = cacheGet(steamCache, key);
   if (cached !== undefined) return cached;
-  try {
-    const info = await fetchSteamInfo(title, language);
-    if (!info.description && info.rating == null) {
+  const inFlight = steamInFlight.get(key);
+  if (inFlight) return inFlight;
+  const promise = (async () => {
+    try {
+      const info = await fetchSteamInfo(title, language);
+      if (!info.description && info.rating == null) {
+        steamCache.set(key, null);
+        return null;
+      }
+      const data: SourceFieldData = {
+        ...emptyData(),
+        description: info.description,
+        rating: info.rating,
+      };
+      steamCache.set(key, data);
+      return data;
+    } catch {
       steamCache.set(key, null);
       return null;
+    } finally {
+      steamInFlight.delete(key);
     }
-    const data: SourceFieldData = {
-      ...emptyData(),
-      description: info.description,
-      rating: info.rating,
-    };
-    steamCache.set(key, data);
-    return data;
-  } catch {
-    steamCache.set(key, null);
-    return null;
-  }
+  })();
+  steamInFlight.set(key, promise);
+  return promise;
 }
 
 /** IGDB vía Electron (la API Key vive en el proceso principal). */
@@ -127,35 +143,43 @@ export async function fetchIgdbFieldData(title: string): Promise<SourceFieldData
   if (typeof window === 'undefined' || !(window as any).electronAPI?.fetchGameData) {
     return null;
   }
-  try {
-    const result = await (window as any).electronAPI.fetchGameData(title);
-    if (!result?.success || !result.data) {
+  const inFlight = igdbInFlight.get(key);
+  if (inFlight) return inFlight;
+  const promise = (async () => {
+    try {
+      const result = await (window as any).electronAPI.fetchGameData(title);
+      if (!result?.success || !result.data) {
+        igdbCache.set(key, null);
+        return null;
+      }
+      const game = result.data;
+      const rating = game.rating
+        ? Math.round((game.rating / 20) * 10) / 10
+        : (game.aggregated_rating ? Math.round((game.aggregated_rating / 20) * 10) / 10 : null);
+      const data: SourceFieldData = {
+        description: game.summary || null,
+        rating,
+        publisher: parseIgdbPublishers(game)[0] || null,
+        genres: parseIgdbGenres(game),
+        releaseDate: toIsoDate(game.first_release_date),
+        coverUrl: httpsCover(game.cover?.url, 't_thumb', 't_cover_big'),
+        backgroundUrl:
+          httpsCover(game.screenshots?.[0]?.url, 't_thumb', 't_1080p') ||
+          httpsCover(game.artworks?.[0]?.url, 't_thumb', 't_1080p'),
+        classification: null,
+        youtubeId: game.videos?.[0]?.video_id || null,
+      };
+      igdbCache.set(key, data);
+      return data;
+    } catch {
       igdbCache.set(key, null);
       return null;
+    } finally {
+      igdbInFlight.delete(key);
     }
-    const game = result.data;
-    const rating = game.rating
-      ? Math.round((game.rating / 20) * 10) / 10
-      : (game.aggregated_rating ? Math.round((game.aggregated_rating / 20) * 10) / 10 : null);
-    const data: SourceFieldData = {
-      description: game.summary || null,
-      rating,
-      publisher: parseIgdbPublishers(game)[0] || null,
-      genres: parseIgdbGenres(game),
-      releaseDate: toIsoDate(game.first_release_date),
-      coverUrl: httpsCover(game.cover?.url, 't_thumb', 't_cover_big'),
-      backgroundUrl:
-        httpsCover(game.screenshots?.[0]?.url, 't_thumb', 't_1080p') ||
-        httpsCover(game.artworks?.[0]?.url, 't_thumb', 't_1080p'),
-      classification: null,
-      youtubeId: game.videos?.[0]?.video_id || null,
-    };
-    igdbCache.set(key, data);
-    return data;
-  } catch {
-    igdbCache.set(key, null);
-    return null;
-  }
+  })();
+  igdbInFlight.set(key, promise);
+  return promise;
 }
 
 /** RAWG: rating 0-5, publicadoras, géneros y fecha tal cual. */
@@ -163,30 +187,38 @@ export async function fetchRawgFieldData(title: string): Promise<SourceFieldData
   const key = title.toLowerCase().trim();
   const cached = cacheGet(rawgCache, key);
   if (cached !== undefined) return cached;
-  try {
-    const result = await fetchRawgGameData(title);
-    if (!result.success || !result.data) {
+  const inFlight = rawgInFlight.get(key);
+  if (inFlight) return inFlight;
+  const promise = (async () => {
+    try {
+      const result = await fetchRawgGameData(title);
+      if (!result.success || !result.data) {
+        rawgCache.set(key, null);
+        return null;
+      }
+      const game = result.data;
+      const data: SourceFieldData = {
+        description: game.description_raw || game.description || null,
+        rating: game.rating || null,
+        publisher: game.publishers?.[0]?.name || null,
+        genres: (game.genres || []).map((g) => g.name).filter(Boolean),
+        releaseDate: toIsoDate(game.released),
+        coverUrl: game.background_image || null,
+        backgroundUrl: game.background_image_additional || game.background_image || null,
+        classification: null,
+        youtubeId: null,
+      };
+      rawgCache.set(key, data);
+      return data;
+    } catch {
       rawgCache.set(key, null);
       return null;
+    } finally {
+      rawgInFlight.delete(key);
     }
-    const game = result.data;
-    const data: SourceFieldData = {
-      description: game.description_raw || game.description || null,
-      rating: game.rating || null,
-      publisher: game.publishers?.[0]?.name || null,
-      genres: (game.genres || []).map((g) => g.name).filter(Boolean),
-      releaseDate: toIsoDate(game.released),
-      coverUrl: game.background_image || null,
-      backgroundUrl: game.background_image_additional || game.background_image || null,
-      classification: null,
-      youtubeId: null,
-    };
-    rawgCache.set(key, data);
-    return data;
-  } catch {
-    rawgCache.set(key, null);
-    return null;
-  }
+  })();
+  rawgInFlight.set(key, promise);
+  return promise;
 }
 
 /** PSN (API propia /api/psn) con locale según el idioma de la app. */
@@ -195,29 +227,37 @@ export async function fetchPsnFieldData(title: string, language?: string | null)
   const key = `${locale}:${title.toLowerCase().trim()}`;
   const cached = cacheGet(psnCache, key);
   if (cached !== undefined) return cached;
-  try {
-    const result = await fetchPsnMetadata(title, { locale });
-    if (!result || (!result.details && !result.match)) {
+  const inFlight = psnInFlight.get(key);
+  if (inFlight) return inFlight;
+  const promise = (async () => {
+    try {
+      const result = await fetchPsnMetadata(title, { locale });
+      if (!result || (!result.details && !result.match)) {
+        psnCache.set(key, null);
+        return null;
+      }
+      const data: SourceFieldData = {
+        description: result.details?.description || null,
+        rating: result.details?.communityScore != null
+          ? Math.round((result.details.communityScore / 20) * 10) / 10
+          : null,
+        publisher: result.details?.publisher || null,
+        genres: result.details?.genres || [],
+        releaseDate: toIsoDate(result.details?.releaseDate),
+        coverUrl: result.details?.coverUrl || result.match?.coverUrl || null,
+        backgroundUrl: result.details?.backgroundUrl || result.match?.backgroundUrl || null,
+        classification: result.match?.classificationLabel || result.match?.classification || null,
+        youtubeId: null,
+      };
+      psnCache.set(key, data);
+      return data;
+    } catch {
       psnCache.set(key, null);
       return null;
+    } finally {
+      psnInFlight.delete(key);
     }
-    const data: SourceFieldData = {
-      description: result.details?.description || null,
-      rating: result.details?.communityScore != null
-        ? Math.round((result.details.communityScore / 20) * 10) / 10
-        : null,
-      publisher: result.details?.publisher || null,
-      genres: result.details?.genres || [],
-      releaseDate: toIsoDate(result.details?.releaseDate),
-      coverUrl: result.details?.coverUrl || result.match?.coverUrl || null,
-      backgroundUrl: result.details?.backgroundUrl || result.match?.backgroundUrl || null,
-      classification: result.match?.classificationLabel || result.match?.classification || null,
-      youtubeId: null,
-    };
-    psnCache.set(key, data);
-    return data;
-  } catch {
-    psnCache.set(key, null);
-    return null;
-  }
+  })();
+  psnInFlight.set(key, promise);
+  return promise;
 }

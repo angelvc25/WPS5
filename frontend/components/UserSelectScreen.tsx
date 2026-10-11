@@ -590,7 +590,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
           original del video; COVER recorta manteniendo proporciones, igual
           que BackgroundVideo.tsx hace en el resto de la app. */}
       <BackgroundVideo
-        source={require('@/assets/video/particles.webp')}
+        source={require('@/assets/video/particles.webm')}
         style={StyleSheet.absoluteFillObject}
         resizeMode={ResizeMode.COVER}
         shouldPlay

@@ -15,6 +15,16 @@ export interface SteamMediaItem {
   mp4_url?: string;
 }
 
+// ─── Caché en memoria para Steam media ────────────────────────────────────────
+const STEAM_MEDIA_TTL = 30 * 60 * 1000; // 30 minutos
+interface SteamMediaCacheEntry {
+  items: SteamMediaItem[];
+  appid: number | null;
+  cachedAt: number;
+}
+const steamMediaCache = new Map<string, SteamMediaCacheEntry>();
+const steamMediaInFlight = new Map<string, Promise<{ items: SteamMediaItem[]; appid: number | null }>>();
+
 /**
  * Obtiene las capturas de pantalla y trailers de un juego en Steam
  * usando el endpoint público de appdetails.
@@ -69,32 +79,59 @@ export const fetchSteamMedia = async (appid: number, language: Language = 'es') 
 
 /**
  * Busca el appid de un juego por nombre y luego obtiene sus capturas/trailers.
+ * Usa caché en memoria (30 min) y deduplicación de peticiones in-flight.
  */
 export const fetchSteamMediaByName = async (gameName: string, language: Language = 'es') => {
-  try {
-    const encoded = encodeURIComponent(gameName);
-    const searchRes = await fetch(
-      `https://store.steampowered.com/api/storesearch/?term=${encoded}&l=${STEAM_API_LANG[language]}&cc=US`
-    );
-    if (!searchRes.ok) return { items: [], appid: null };
-    const searchData = await searchRes.json();
-    const appid: number | null = searchData?.items?.[0]?.id ?? null;
-    if (!appid) return { items: [], appid: null };
+  const cacheKey = `${gameName.trim().toLowerCase()}:${language}`;
 
-    const items = await fetchSteamMedia(appid, language);
-    return { items, appid };
-  } catch (error) {
-    console.error('[SteamMedia] Error:', error);
-    return { items: [], appid: null };
+  // 1. Caché en memoria
+  const cached = steamMediaCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < STEAM_MEDIA_TTL) {
+    return { items: cached.items, appid: cached.appid };
   }
+
+  // 2. Deduplicación de peticiones concurrentes
+  const inFlight = steamMediaInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const promise = (async () => {
+    try {
+      const encoded = encodeURIComponent(gameName);
+      const searchRes = await fetch(
+        `https://store.steampowered.com/api/storesearch/?term=${encoded}&l=${STEAM_API_LANG[language]}&cc=US`
+      );
+      if (!searchRes.ok) return { items: [], appid: null };
+      const searchData = await searchRes.json();
+      const appid: number | null = searchData?.items?.[0]?.id ?? null;
+      if (!appid) {
+        steamMediaCache.set(cacheKey, { items: [], appid: null, cachedAt: Date.now() });
+        return { items: [], appid: null };
+      }
+
+      const items = await fetchSteamMedia(appid, language);
+      steamMediaCache.set(cacheKey, { items, appid, cachedAt: Date.now() });
+      return { items, appid };
+    } catch (error) {
+      console.error('[SteamMedia] Error:', error);
+      return { items: [], appid: null };
+    } finally {
+      steamMediaInFlight.delete(cacheKey);
+    }
+  })();
+
+  steamMediaInFlight.set(cacheKey, promise);
+  return promise;
 };
 
+// ─── Caché de capturas resueltas (Steam + RAWG + IGDB combinado) ──────────────
+const SCREENSHOTS_TTL = 15 * 60 * 1000; // 15 minutos
+const screenshotsCache = new Map<string, { items: SteamMediaItem[]; cachedAt: number }>();
+const screenshotsInFlight = new Map<string, Promise<SteamMediaItem[]>>();
+
 /**
- * Capturas de un juego con filtro de plataforma: la búsqueda de Steam por
- * nombre trae el juego homónimo equivocado en plataformas que no son PC
- * (ej. el "Puppet Master" de Steam para el Puppeteer de PS3), así que solo
- * se usa Steam en PC (o sin plataforma). En el resto se va directo a las
- * fuentes de respaldo: RAWG y luego capturas/artworks de IGDB.
+ * Capturas de un juego con filtro de plataforma: dispara Steam, RAWG e IGDB
+ * EN PARALELO (Promise.all) y devuelve la fuente con más resultados.
+ * En plataformas distintas de PC se omite Steam para evitar homónimos.
  */
 export const resolveGameScreenshots = async (
   title: string,
@@ -102,37 +139,62 @@ export const resolveGameScreenshots = async (
 ): Promise<SteamMediaItem[]> => {
   const platform = (opts.platform || '').trim().toLowerCase();
   const useSteam = !platform || platform === 'pc';
+  const lang = opts.language || 'es';
+  const cacheKey = `${title.trim().toLowerCase()}:${platform}:${lang}`;
 
-  if (useSteam) {
-    const steamResult = await fetchSteamMediaByName(title, opts.language || 'es');
-    const steamImages = (steamResult.items || []).filter((m) => m.type === 'screenshot');
-    if (steamImages.length > 0) return steamImages;
+  // 1. Caché en memoria
+  const cached = screenshotsCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < SCREENSHOTS_TTL) {
+    return cached.items;
   }
 
-  const rawgImagesResult = await fetchRawgMediaByName(title);
-  if (rawgImagesResult.success && rawgImagesResult.data?.length) {
-    return mapRawgScreenshotsToMedia(rawgImagesResult.data);
-  }
+  // 2. Deduplicación in-flight
+  const inFlight = screenshotsInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
 
-  if (typeof window !== 'undefined' && (window as any).electronAPI?.fetchIgdbAssets) {
+  const promise = (async (): Promise<SteamMediaItem[]> => {
     try {
-      const igdb = await (window as any).electronAPI.fetchIgdbAssets(title);
-      const shots = igdb?.success && igdb.data
-        ? [...(igdb.data.artworks || []), ...(igdb.data.screenshots || [])]
-        : [];
-      const mapped = shots
-        .filter((shot: any) => shot?.url)
-        .map((shot: any) => ({
-          id: String(shot.id),
-          type: 'screenshot' as const,
-          thumbnail: shot.thumb || shot.url,
-          full: shot.url,
-        }));
-      if (mapped.length > 0) return mapped;
-    } catch {
-      /* sin respaldo de IGDB */
-    }
-  }
+      // Lanzar todas las fuentes EN PARALELO simultáneamente
+      const steamPromise = useSteam
+        ? fetchSteamMediaByName(title, lang).then(r => (r.items || []).filter(m => m.type === 'screenshot'))
+        : Promise.resolve<SteamMediaItem[]>([]);
 
-  return [];
+      const rawgPromise = fetchRawgMediaByName(title).then(r =>
+        r.success && r.data?.length ? mapRawgScreenshotsToMedia(r.data) : []
+      );
+
+      const igdbPromise = (typeof window !== 'undefined' && (window as any).electronAPI?.fetchIgdbAssets)
+        ? (window as any).electronAPI.fetchIgdbAssets(title).then((igdb: any) => {
+          if (!igdb?.success || !igdb.data) return [];
+          const shots = [...(igdb.data.artworks || []), ...(igdb.data.screenshots || [])];
+          return shots
+            .filter((shot: any) => shot?.url)
+            .map((shot: any): SteamMediaItem => ({
+              id: String(shot.id),
+              type: 'screenshot' as const,
+              thumbnail: shot.thumb || shot.url,
+              full: shot.url,
+            }));
+        }).catch(() => [] as SteamMediaItem[])
+        : Promise.resolve<SteamMediaItem[]>([]);
+
+      // Esperar todas en paralelo y priorizar: Steam > RAWG > IGDB
+      const [steamImages, rawgImages, igdbImages] = await Promise.all([steamPromise, rawgPromise, igdbPromise]);
+
+      const result = steamImages.length > 0 ? steamImages
+        : rawgImages.length > 0 ? rawgImages
+          : igdbImages;
+
+      screenshotsCache.set(cacheKey, { items: result, cachedAt: Date.now() });
+      return result;
+    } catch (err) {
+      console.error('[SteamMedia] resolveGameScreenshots error:', err);
+      return [];
+    } finally {
+      screenshotsInFlight.delete(cacheKey);
+    }
+  })();
+
+  screenshotsInFlight.set(cacheKey, promise);
+  return promise;
 };

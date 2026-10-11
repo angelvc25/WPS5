@@ -3420,6 +3420,8 @@ export default function ConsoleHome() {
 
         if (!cancelled) {
           setSteamMedia([...videos, ...images]);
+          // Actualizar trailers directamente desde la misma petición (evita un segundo fetch)
+          setGameVideos(igdbVideos as any);
         }
       } catch (error) {
         console.error('[Media] Error obteniendo capturas:', error);
@@ -3438,24 +3440,6 @@ export default function ConsoleHome() {
       clearTimeout(timer);
     };
   }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language]);
-
-  // Trailers de IGDB cacheados en localStorage (7 días de TTL)
-  useEffect(() => {
-    const item = currentData[activeIndex];
-    const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
-    if (!playable) { setGameVideos([]); return; }
-    const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
-    if (!title) { setGameVideos([]); return; }
-
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      fetchGameVideosByName(title).then(videos => {
-        if (!cancelled) setGameVideos(videos);
-      });
-    }, 400);
-
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id]);
 
   // Auto-scroll main vertical scrollview when focus moves to lower sections
   useEffect(() => {
