@@ -2242,6 +2242,19 @@ export default function ConsoleHome() {
   // dispara igual porque activeIndex/focusArea cambian al lanzar, y el
   // setTimeout de 2.5s sigue corriendo aunque la ventana esté oculta —
   // haciendo sonar el tema del juego mientras ya estás jugando.
+  const stopFocusAudio = useCallback(async (resumeBackground: boolean) => {
+    if (focusAudioDelayRef.current) {
+      clearTimeout(focusAudioDelayRef.current);
+      focusAudioDelayRef.current = null;
+    }
+    const sound = focusAudioSoundRef.current;
+    focusAudioSoundRef.current = null;
+    if (sound) {
+      try { sound.remove(); } catch (_) { }
+    }
+    if (resumeBackground && !isLaunching) await soundService.playBackground();
+  }, [isLaunching]);
+
   useEffect(() => {
     const requestId = ++focusAudioRequestRef.current;
     const shouldPlayFocusAudio =
@@ -2249,19 +2262,6 @@ export default function ConsoleHome() {
       focusArea === 'main_carousel' &&
       !!focusedCarouselAudio &&
       !isLaunching;
-
-    const stopFocusAudio = async (resumeBackground: boolean) => {
-      if (focusAudioDelayRef.current) {
-        clearTimeout(focusAudioDelayRef.current);
-        focusAudioDelayRef.current = null;
-      }
-      const sound = focusAudioSoundRef.current;
-      focusAudioSoundRef.current = null;
-      if (sound) {
-        try { sound.remove(); } catch (_) { }
-      }
-      if (resumeBackground && !isLaunching) await soundService.playBackground();
-    };
 
     void stopFocusAudio(!shouldPlayFocusAudio || !!focusAudioSoundRef.current);
     if (!shouldPlayFocusAudio) return;
@@ -2291,7 +2291,7 @@ export default function ConsoleHome() {
     }, 500);
 
     return () => { void stopFocusAudio(true); };
-  }, [activeIndex, activeTab, focusArea, focusedCarouselAudio, isLaunching]);
+  }, [activeIndex, activeTab, focusArea, focusedCarouselAudio, isLaunching, stopFocusAudio]);
 
   const openContextMenu = () => {
     const item = currentData[activeIndex];
@@ -3608,6 +3608,33 @@ export default function ConsoleHome() {
       });
     }
   };
+
+  // Escuchar suspensión del launcher para pausar videos en el DOM y sonido mientras se juega
+  useEffect(() => {
+    if (Platform.OS === 'web' && (window as any).electronAPI?.onLauncherSuspended) {
+      const removeListener = (window as any).electronAPI.onLauncherSuspended((suspended: boolean) => {
+        if (suspended) {
+          if (typeof document !== 'undefined') {
+            document.querySelectorAll('video').forEach((v) => {
+              try { v.pause(); } catch (_) { }
+            });
+          }
+          try { soundService.pauseBackground(); } catch (_) { }
+          void stopFocusAudio(false);
+        } else {
+          if (typeof document !== 'undefined') {
+            document.querySelectorAll('video').forEach((v) => {
+              try { v.play().catch(() => {}); } catch (_) { }
+            });
+          }
+          try { soundService.playBackground(); } catch (_) { }
+        }
+      });
+      return () => {
+        if (removeListener) removeListener();
+      };
+    }
+  }, [stopFocusAudio]);
 
   // Escuchar evento game-closed del proceso principal (launcher resume tras cerrar juego)
   useEffect(() => {

@@ -41,3 +41,9 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Electron builds & diagnostics
+dist-electron/
+crash-dumps/
+repomix-output.xml
+*.bak

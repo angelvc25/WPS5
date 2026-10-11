@@ -24,7 +24,6 @@
     "@react-navigation/native": "^7.1.8",
     "@xan105/ini": "^2.2.0",
     "crc": "^4.3.2",
-    "electron-serve": "^3.0.1",
     "expo": "~54.0.37",
     "expo-audio": "~1.1.1",
     "expo-blur": "~15.0.8",
@@ -78,6 +77,7 @@
   "build": {
     "appId": "com.fifthstationui.app",
     "productName": "FifthStation UI",
+    "compression": "maximum",
     "directories": {
       "output": "dist-electron"
     },
@@ -100,7 +100,7 @@
     "files": [
       "electron/**/*",
       "package.json",
-      "assets/**/*",
+      "assets/icons/**/*",
       "node_modules/windows-media-sessions/**/*",
       "node_modules/win-media-control/**/*",
       "node_modules/node-hid/**/*"

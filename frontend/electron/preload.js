@@ -46,6 +46,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('game-closed', listener);
     return () => ipcRenderer.removeListener('game-closed', listener);
   },
+  onLauncherSuspended: (callback) => {
+    const listener = (_event, suspended) => callback(suspended);
+    ipcRenderer.on('launcher-suspended', listener);
+    return () => ipcRenderer.removeListener('launcher-suspended', listener);
+  },
   removeGameClosedListener: () => ipcRenderer.removeAllListeners('game-closed'),
   getMediaSessions: () => ipcRenderer.invoke('get-media-sessions'),
   mediaControl: (action, target) => ipcRenderer.invoke('media-control', action, target),

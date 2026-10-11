@@ -62,8 +62,22 @@ export default function BackgroundVideo({
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
+
+    let removeSuspendListener: (() => void) | undefined;
+    if ((window as any).electronAPI?.onLauncherSuspended) {
+      removeSuspendListener = (window as any).electronAPI.onLauncherSuspended((suspended: boolean) => {
+        if (!videoRef.current) return;
+        if (suspended) {
+          videoRef.current.pause();
+        } else if (shouldPlay) {
+          videoRef.current.play().catch(() => {});
+        }
+      });
+    }
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
+      if (removeSuspendListener) removeSuspendListener();
     };
   }, [shouldPlay]);
 

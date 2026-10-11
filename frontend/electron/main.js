@@ -67,25 +67,75 @@ function createLocalStaticServer(rootDir) {
           return;
         }
 
+        const serveFile = (targetPath, fileStats) => {
+          const ext = path.extname(targetPath).toLowerCase();
+          const contentType = LOCAL_SERVER_MIME_TYPES[ext] || 'application/octet-stream';
+          const range = req.headers.range;
+
+          // Headers de caché: assets con hash y fuentes son inmutables
+          const isImmutableAsset = decodedPath.startsWith('/assets/') || decodedPath.startsWith('/_expo/');
+          const cacheControl = isImmutableAsset
+            ? 'public, max-age=31536000, immutable'
+            : 'no-cache';
+
+          // Soporte de Range Requests para videos / audio y streaming de memoria
+          if (range) {
+            const parts = range.replace(/bytes=/, '').split('-');
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : fileStats.size - 1;
+
+            if (isNaN(start) || start >= fileStats.size || (parts[1] && end >= fileStats.size) || start > end) {
+              res.writeHead(416, { 'Content-Range': `bytes */${fileStats.size}` });
+              res.end();
+              return;
+            }
+
+            const chunkSize = (end - start) + 1;
+            const fileStream = fs.createReadStream(targetPath, { start, end });
+            res.writeHead(206, {
+              'Content-Range': `bytes ${start}-${end}/${fileStats.size}`,
+              'Accept-Ranges': 'bytes',
+              'Content-Length': chunkSize,
+              'Content-Type': contentType,
+              'Cache-Control': cacheControl,
+            });
+            fileStream.pipe(res);
+            fileStream.on('error', () => {
+              if (!res.headersSent) res.writeHead(500);
+              res.end();
+            });
+          } else {
+            res.writeHead(200, {
+              'Content-Length': fileStats.size,
+              'Content-Type': contentType,
+              'Accept-Ranges': 'bytes',
+              'Cache-Control': cacheControl,
+            });
+            const fileStream = fs.createReadStream(targetPath);
+            fileStream.pipe(res);
+            fileStream.on('error', () => {
+              if (!res.headersSent) res.writeHead(500);
+              res.end();
+            });
+          }
+        };
+
         fs.stat(filePath, (err, stats) => {
           if (err || !stats.isFile()) {
             // SPA fallback: cualquier ruta no encontrada -> index.html
-            // (necesario para el enrutado por historial de expo-router)
-            filePath = path.join(rootDir, 'index.html');
+            const fallbackPath = path.join(rootDir, 'index.html');
+            fs.stat(fallbackPath, (fallbackErr, fallbackStats) => {
+              if (fallbackErr || !fallbackStats.isFile()) {
+                res.writeHead(404);
+                res.end('Not found');
+                return;
+              }
+              serveFile(fallbackPath, fallbackStats);
+            });
+            return;
           }
 
-          const ext = path.extname(filePath).toLowerCase();
-          const contentType = LOCAL_SERVER_MIME_TYPES[ext] || 'application/octet-stream';
-
-          fs.readFile(filePath, (readErr, data) => {
-            if (readErr) {
-              res.writeHead(404);
-              res.end('Not found');
-              return;
-            }
-            res.writeHead(200, { 'Content-Type': contentType });
-            res.end(data);
-          });
+          serveFile(filePath, stats);
         });
       } catch (err) {
         console.error('[LocalServer] Error sirviendo', req.url, err);
@@ -198,6 +248,7 @@ let toastOverlayTimer = null;
 let backendProcess = null;
 let mediaSessionsUnsubscribe = null;
 let mediaSessionsPollTimer = null;
+let downloadParseInterval = null;
 let wps5WebMediaHint = null;
 let windowsMediaSessionsModule = null;
 let trayIcon = null;
@@ -484,6 +535,32 @@ function stopMediaSessionsBridge() {
   const mediaModule = getWindowsMediaSessionsModule();
   if (mediaModule?.shutdown) {
     mediaModule.shutdown().catch(() => { });
+  }
+}
+
+// ── Control de tareas y polling de fondo al suspender el launcher ─────────
+function pauseBackgroundTasksForGame() {
+  try {
+    stopMediaSessionsBridge();
+  } catch (err) {
+    console.warn('[Suspend] Error deteniendo media sessions:', err?.message);
+  }
+  if (downloadParseInterval) {
+    clearInterval(downloadParseInterval);
+    downloadParseInterval = null;
+  }
+}
+
+function resumeBackgroundTasksAfterGame() {
+  try {
+    startMediaSessionsBridge();
+  } catch (err) {
+    console.warn('[Resume] Error reanudando media sessions:', err?.message);
+  }
+  if (!downloadParseInterval) {
+    downloadParseInterval = setInterval(() => {
+      broadcastDownloadProgress();
+    }, 4000);
   }
 }
 
@@ -1122,6 +1199,24 @@ function isProcessRunningUnderDir(dirPath) {
 function suspendLauncherForGame(sourceLabel = 'Steam') {
   if (!mainWindow) return;
 
+  // 1. Congelar rendering de background y timers en Chromium mientras se juega
+  try {
+    mainWindow.webContents.setBackgroundThrottling(true);
+  } catch (_) { }
+
+  // 2. Notificar al renderer para pausar todos los <video> y audios activos
+  try {
+    mainWindow.webContents.send('launcher-suspended', true);
+  } catch (_) { }
+
+  // 3. Pausar timers y polling de fondo (MediaSessions, progreso de descargas)
+  pauseBackgroundTasksForGame();
+
+  // 4. Liberar memoria heap de Node / V8 si el recolector de basura está expuesto
+  try {
+    if (typeof global.gc === 'function') global.gc();
+  } catch (_) { }
+
   if (launcherPlayBehavior === 'minimize') {
     mainWindow.minimize();
     console.log(`Launcher minimizado (${sourceLabel})`);
@@ -1141,6 +1236,20 @@ function suspendLauncherForGame(sourceLabel = 'Steam') {
 // haber quedado detrás de la ventana del juego, así que solo la enfocamos.
 function refocusLauncherAfterGame(sourceLabel = 'Steam') {
   if (!mainWindow) return;
+
+  // 1. Restaurar throttling para render suave a 60fps
+  try {
+    mainWindow.webContents.setBackgroundThrottling(false);
+  } catch (_) { }
+
+  // 2. Notificar al renderer para reactivar videos y UI
+  try {
+    mainWindow.webContents.send('launcher-suspended', false);
+  } catch (_) { }
+
+  // 3. Reanudar timers de fondo
+  resumeBackgroundTasksAfterGame();
+
   if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
     setTimeout(() => {
       if (mainWindow) {
@@ -2134,8 +2243,6 @@ function getSteamDownloadProgress() {
 
   return downloads;
 }
-
-let downloadParseInterval = null;
 
 // Cuando el sistema (o una herramienta externa como Omniconsola) intenta
 // abrir una segunda instancia del launcher, Electron dispara este evento en
