@@ -48,7 +48,7 @@ interface GameDetailViewProps {
   installedSteamAppIds?: Set<string> | null;
   onOpenMediaGallery?: () => void;
   /** Hay un mando conectado. El teclado virtual solo se muestra si es true. */
-  gamepadConnected: boolean;
+  gamepadConnected?: boolean;
 }
 
 // Normaliza un string de path/url de editData a un source { uri } válido.
@@ -115,7 +115,7 @@ const DetailLightboxImage = React.memo(({
 });
 DetailLightboxImage.displayName = 'DetailLightboxImage';
 
-const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery, gamepadConnected }) => {
+const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery, gamepadConnected = false }) => {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});

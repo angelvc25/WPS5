@@ -93,6 +93,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hideOverlay: () => ipcRenderer.invoke('hide-overlay'),
   setOverlaySettings: (settings) => ipcRenderer.invoke('set-overlay-settings', settings),
   getOverlaySettings: () => ipcRenderer.invoke('get-overlay-settings'),
+  captureOverlayCombo: () => ipcRenderer.invoke('capture-overlay-combo'),
   setLauncherPlayBehavior: (behavior) => ipcRenderer.invoke('set-launcher-play-behavior', behavior),
   getLauncherPlayBehavior: () => ipcRenderer.invoke('get-launcher-play-behavior'),
   showMainWindowToSwitchGame: () => ipcRenderer.invoke('show-main-window-to-switch-game'),

@@ -871,7 +871,8 @@ function showWindowsTaskbar() {
 function showOverlay() {
   const win = createOverlayWindow();
   win.setIgnoreMouseEvents(false);
-  win.showInactive();
+  win.show();
+  win.moveTop();
   win.focus();
 
   if (process.platform === 'win32') {
@@ -909,7 +910,6 @@ function isOverlayVisible() {
 
 function toggleOverlay() {
   if (!overlayEnabled) return;
-  if (!activeGameInfo) return; // no hay juego corriendo, no tiene sentido mostrarlo
   if (isOverlayVisible()) {
     hideOverlayWindow();
   } else {
@@ -978,27 +978,28 @@ function startGamepadOverlayListener() {
   stopGamepadOverlayListener();
   if (!overlayEnabled) return;
 
-  // 2. Monitoreo para mandos XInput (Xbox o controladores emulados) y
-  // PlayStation (DualShock 4 / DualSense vía Legacy Joystick API).
-  // El overlay se activará mediante el detector externo (xinput-watcher.exe)
-  // con la combinación configurada (Select + Start, L3 + R3, L1 + R1, etc.).
+  // Monitoreo universal de mandos: XInput (Xbox/DS4Windows/Steam Input) y
+  // Legacy Joystick API (mandos PlayStation/genéricos HID sin driver extra).
+  // xinput-watcher.exe acepta tanto combos predefinidos (SELECT_START, L3_R3,
+  // L1_R1, L2_R2_START) como combos personalizados en formato RAW:<b0>,<b1>,...
+  // donde los índices corresponden al orden estándar de la Gamepad API.
   if (process.platform === 'win32') {
     const xinputExe = resolveXinputWatcherPath();
 
     if (xinputExe) {
       try {
-        console.log('[GamepadListener] Iniciando xinput-watcher desde:', xinputExe);
+        console.log('[GamepadListener] Iniciando xinput-watcher desde:', xinputExe, '- combo:', overlayCombo);
         xinputWatcherChild = spawn(xinputExe, [overlayCombo], {
           windowsHide: true,
           stdio: ['ignore', 'pipe', 'pipe'],
         });
 
         xinputWatcherChild.stdout.on('data', (data) => {
-          if (data && (data.toString().includes('SELECT_START') || data.toString().includes('OVERLAY_TRIGGER'))) {
+          if (data && data.toString().includes('OVERLAY_TRIGGER')) {
             const now = Date.now();
             if (now - lastGamepadToggleTime > 600) {
               lastGamepadToggleTime = now;
-              console.log(`[GamepadListener] Combo ${overlayCombo} pulsado en mando`);
+              console.log('[GamepadListener] Combo pulsado en mando:', overlayCombo);
               toggleOverlay();
             }
           }
@@ -1213,10 +1214,13 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
     stopSteamGameWatch(id);
     hideTrayIcon();
 
-    // ── NUEVO ──
-    disableOverlayHotkey();
-    stopGamepadOverlayListener();
+    // ── Limpieza de overlay tras salir del juego ──
+    hideOverlayWindow();
     activeGameInfo = null;
+    if (!overlayEnabled) {
+      disableOverlayHotkey();
+      stopGamepadOverlayListener();
+    }
 
     if (mainWindow) {
       mainWindow.setAlwaysOnTop(false);
@@ -2979,10 +2983,13 @@ app.whenReady().then(async () => {
       gameExited = true;
       if (hideTimer) clearTimeout(hideTimer);
       hideTrayIcon();
-      // ── NUEVO ──
-      disableOverlayHotkey();
-      stopGamepadOverlayListener();
+      // ── Limpieza de overlay tras salir del juego ──
+      hideOverlayWindow();
       activeGameInfo = null;
+      if (!overlayEnabled) {
+        disableOverlayHotkey();
+        stopGamepadOverlayListener();
+      }
 
       if (mainWindow) {
         mainWindow.webContents.send('game-closed', id);
@@ -4301,14 +4308,15 @@ app.whenReady().then(async () => {
           hideOverlayWindow();
           disableOverlayHotkey();
           stopGamepadOverlayListener();
-        } else if (activeGameInfo) {
+        } else {
           enableOverlayHotkey();
           startGamepadOverlayListener();
+          createOverlayWindow();
         }
       }
       if (settings.combo) {
         overlayCombo = settings.combo;
-        if (overlayEnabled && activeGameInfo) {
+        if (overlayEnabled) {
           startGamepadOverlayListener();
         }
       }
@@ -4318,6 +4326,80 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('get-overlay-settings', async () => {
     return { enabled: overlayEnabled, combo: overlayCombo };
+  });
+
+  // ── Captura de combo personalizado desde mando ─────────────────────────────
+  // Lanza xinput-watcher en modo --capture: espera a que el usuario pulse
+  // una combinación de botones en cualquier mando y devuelve el combo
+  // detectado como string en formato RAW:<b0>,<b1>,... listo para usarse
+  // directamente como overlayCombo.
+  ipcMain.handle('capture-overlay-combo', async () => {
+    if (process.platform !== 'win32') {
+      return { success: false, error: 'only-windows' };
+    }
+    const xinputExe = resolveXinputWatcherPath();
+    if (!xinputExe) {
+      return { success: false, error: 'exe-not-found' };
+    }
+
+    return new Promise((resolve) => {
+      let captureChild = null;
+      let settled = false;
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        try { if (captureChild) captureChild.kill(); } catch (_) {}
+        resolve(result);
+      };
+
+      // Timeout de seguridad: si el proceso tarda más de 18 s lo cancelamos
+      const safetyTimer = setTimeout(() => {
+        finish({ success: false, error: 'timeout' });
+      }, 18000);
+
+      try {
+        captureChild = spawn(xinputExe, ['--capture'], {
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+
+        let buffer = '';
+        captureChild.stdout.on('data', (data) => {
+          buffer += data.toString();
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // última línea incompleta
+          for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (!line) continue;
+            if (line.startsWith('COMBO:')) {
+              // Convertir a formato RAW: para overlayCombo
+              const indices = line.substring(6); // "b0,b1,..."
+              clearTimeout(safetyTimer);
+              finish({ success: true, combo: 'RAW:' + indices });
+            } else if (line === 'TIMEOUT') {
+              clearTimeout(safetyTimer);
+              finish({ success: false, error: 'timeout' });
+            } else if (line === 'DONE') {
+              clearTimeout(safetyTimer);
+              // DONE llegará después de COMBO:; si no recibimos COMBO antes, ignorar
+            }
+          }
+        });
+
+        captureChild.on('error', (err) => {
+          clearTimeout(safetyTimer);
+          finish({ success: false, error: err.message });
+        });
+
+        captureChild.on('exit', () => {
+          clearTimeout(safetyTimer);
+          if (!settled) finish({ success: false, error: 'process-exited' });
+        });
+      } catch (err) {
+        clearTimeout(safetyTimer);
+        finish({ success: false, error: err.message });
+      }
+    });
   });
 
   ipcMain.handle('set-launcher-play-behavior', async (_event, behavior) => {
@@ -4333,6 +4415,11 @@ app.whenReady().then(async () => {
 
   createWindow();
 
+  // Inicializar overlay en arranque si está habilitado
+  if (overlayEnabled) {
+    enableOverlayHotkey();
+    startGamepadOverlayListener();
+  }
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

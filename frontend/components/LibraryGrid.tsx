@@ -1264,6 +1264,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
         onRefresh={onRefresh}
         isLaunching={isLaunching}
         inputMode={inputMode}
+        gamepadConnected={inputMode === 'gamepad'}
         installedSteamAppIds={installedSteamAppIds}
       />
     </Animated.View>

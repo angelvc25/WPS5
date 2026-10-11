@@ -78,6 +78,33 @@ const OVERLAY_COMBO_OPTIONS = [
   { id: 'L2_R2_START', labelKey: 'settings.comboL2R2Start' },
 ] as const;
 
+// Mapeo de índice de botón (Gamepad API) a nombre legible
+const GAMEPAD_BUTTON_NAMES: Record<number, string> = {
+  0: 'A/×',
+  1: 'B/○',
+  2: 'X/□',
+  3: 'Y/△',
+  4: 'L1',
+  5: 'R1',
+  6: 'L2',
+  7: 'R2',
+  8: 'Select/Share',
+  9: 'Start/Options',
+  10: 'L3',
+  11: 'R3',
+  12: 'D↑',
+  13: 'D↓',
+  14: 'D←',
+  15: 'D→',
+  16: 'Guía / PS',
+};
+
+function formatCustomCombo(combo: string): string {
+  if (!combo?.startsWith('RAW:')) return combo;
+  const indices = combo.substring(4).split(',').map(Number);
+  return indices.map(i => GAMEPAD_BUTTON_NAMES[i] ?? `Btn${i}`).join(' + ');
+}
+
 // Tipo de filtro de la sección Splash Videos: los tipos que soporta la API de
 // SteamDeckRepo, más un pseudo-tipo local 'downloaded' que no viaja a la API
 // y en su lugar muestra los videos que el usuario ya descargó anteriormente.
@@ -270,6 +297,9 @@ export default function SettingsView({
   // botón enfocado dentro del modal (Usar en Boot / Usar en Suspend / Quitar).
   const [splashPreviewPost, setSplashPreviewPost] = useState<SteamDeckRepoPost | null>(null);
   const [splashModalFocusIndex, setSplashModalFocusIndex] = useState(0);
+
+  // ── Captura de combo de mando para el overlay ──────────────────────────────
+  const [captureState, setCaptureState] = useState<'idle' | 'capturing' | 'captured' | 'error'>('idle');
 
   // Guarda (o actualiza) un post en el historial local de descargas y lo
   // persiste en localStorage.
@@ -611,7 +641,7 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 4) return 1; // RetroAchievements: 2 inputs
     if (accessibilityLeftIndex === 5) return 7; // Smart Sync: 8 campos
     if (accessibilityLeftIndex === 6) return 1; // Panel del juego: 2 toggles
-    if (accessibilityLeftIndex === 7) return 1; // Overlay: toggle + combo
+    if (accessibilityLeftIndex === 7) return 2; // Overlay: 0=toggle, 1=presets, 2=capturar custom
     if (accessibilityLeftIndex === 8) return 0; // Splash Videos: navegación por mouse/touch en la grilla
     return 0;
   };
@@ -627,6 +657,26 @@ export default function SettingsView({
       } as any,
     });
     applyOverlaySettingsToElectron(nextEnabled, nextCombo);
+  };
+
+  // Captura interactiva: lanza xinput-watcher en modo --capture y aplica el combo
+  const captureCombo = async () => {
+    if (captureState === 'capturing') return;
+    setCaptureState('capturing');
+    try {
+      const result = await (window as any).electronAPI?.captureOverlayCombo?.();
+      if (result?.success && result.combo) {
+        persistOverlaySettings({ overlayCombo: result.combo });
+        setCaptureState('captured');
+        setTimeout(() => setCaptureState('idle'), 2500);
+      } else {
+        setCaptureState('error');
+        setTimeout(() => setCaptureState('idle'), 3000);
+      }
+    } catch {
+      setCaptureState('error');
+      setTimeout(() => setCaptureState('idle'), 3000);
+    }
   };
 
   const persistLauncherBehavior = (behavior: LauncherPlayBehavior) => {
@@ -782,6 +832,8 @@ export default function SettingsView({
         const curIdx = OVERLAY_COMBO_OPTIONS.findIndex((opt) => opt.id === overlayCombo);
         const next = OVERLAY_COMBO_OPTIONS[(curIdx + 1) % OVERLAY_COMBO_OPTIONS.length];
         persistOverlaySettings({ overlayCombo: next.id });
+      } else if (subFocusIndex === 2) {
+        captureCombo();
       }
       return;
     }
@@ -2036,8 +2088,64 @@ export default function SettingsView({
                           </TouchableOpacity>
                         );
                       })}
+                      {overlayCombo.startsWith('RAW:') && (
+                        <View style={[styles.platformBtn, styles.platformBtnActive]}>
+                          <Text style={[styles.platformBtnText, styles.platformBtnTextActive]}>
+                            {formatCustomCombo(overlayCombo)}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
+
+                  {/* Fila 2: Mapeo interactivo personalizado */}
+                  {Platform.OS === 'web' && (window as any).electronAPI?.captureOverlayCombo && (
+                    <View
+                      style={[
+                        styles.toggleRowSection,
+                        { alignItems: 'center' },
+                        isRightFocused && subFocusIndex === 2 && styles.rightItemFocused,
+                      ]}
+                    >
+                      {isRightFocused && subFocusIndex === 2 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
+                      <View style={{ flex: 1, paddingRight: 20 }}>
+                        <Text style={styles.toggleRowTitle}>{t('settings.customMapping')}</Text>
+                        <Text style={styles.toggleRowDesc}>{t('settings.captureComboDesc')}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end', minWidth: 220 }}>
+                        <TouchableOpacity
+                          style={[
+                            styles.platformBtn,
+                            { paddingHorizontal: 16, paddingVertical: 10 },
+                            overlayCombo.startsWith('RAW:') && styles.platformBtnActive,
+                            captureState === 'capturing' && { opacity: 0.85, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.2)' },
+                            captureState === 'captured' && { borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.2)' },
+                            captureState === 'error' && { borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.2)' },
+                          ]}
+                          onPress={captureCombo}
+                          disabled={captureState === 'capturing'}
+                        >
+                          <Text style={[
+                            styles.platformBtnText,
+                            overlayCombo.startsWith('RAW:') && styles.platformBtnTextActive,
+                            captureState === 'capturing' && { color: '#60a5fa' },
+                            captureState === 'captured' && { color: '#34d399' },
+                            captureState === 'error' && { color: '#f87171' },
+                          ]}>
+                            {captureState === 'capturing'
+                              ? t('settings.captureComboPressButtons')
+                              : captureState === 'captured'
+                              ? `${t('settings.comboCaptured')}: ${formatCustomCombo(overlayCombo)}`
+                              : captureState === 'error'
+                              ? t('settings.comboCaptureError')
+                              : overlayCombo.startsWith('RAW:')
+                              ? `🎮 ${formatCustomCombo(overlayCombo)}`
+                              : `🎮 ${t('settings.captureCombo')}`}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
                 </ScrollView>
               );
             })()}
