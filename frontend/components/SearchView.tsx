@@ -817,7 +817,7 @@ const SearchView: React.FC<SearchViewProps> = ({
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <Animated.View style={ui.root} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
         <BackgroundVideo
-          source={require('../assets/video/particles.webp')}
+          source={require('../assets/video/particles.webm')}
           style={StyleSheet.absoluteFillObject}
           resizeMode="cover"
           shouldPlay
