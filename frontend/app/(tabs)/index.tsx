@@ -1920,9 +1920,9 @@ export default function ConsoleHome() {
         // nunca rompa el refresco de toda la lista.
         const toUri = (v: unknown) => {
           if (typeof v !== 'string' || !v) return null;
-          return v.startsWith('http')
-            ? { uri: v }
-            : { uri: `local-file:///${v.replace(/\\/g, '/')}` };
+          if (v.startsWith('http')) return { uri: v };
+          const clean = v.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
+          return { uri: `local-file:///${clean}` };
         };
         const formatApp = (app: any) => ({
           id: app.id,
@@ -2095,7 +2095,8 @@ export default function ConsoleHome() {
           if (val.startsWith('http')) {
             (merged as any)[field] = { uri: val };
           } else {
-            (merged as any)[field] = { uri: `local-file:///${val.replace(/\\/g, '/')}` };
+            const clean = val.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
+            (merged as any)[field] = { uri: `local-file:///${clean}` };
           }
         }
       });
@@ -2149,13 +2150,19 @@ export default function ConsoleHome() {
           if (val.startsWith('http')) {
             newGame[field] = { uri: val };
           } else {
-            newGame[field] = { uri: `local-file:///${val.replace(/\\/g, '/')}` };
+            const clean = val.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
+            newGame[field] = { uri: `local-file:///${clean}` };
           }
         }
       });
       return [...prev, newGame];
     });
   };
+
+  const mergeGameIntoStateRef = useRef(mergeGameIntoState);
+  useEffect(() => {
+    mergeGameIntoStateRef.current = mergeGameIntoState;
+  });
 
   const handleConfirmDeleteGame = async () => {
     const target = deleteConfirmItem;
@@ -3635,6 +3642,20 @@ export default function ConsoleHome() {
       };
     }
   }, [stopFocusAudio]);
+
+  // Escuchar actualizaciones de apps desde el proceso principal (ej. migración de imágenes a local para offline)
+  useEffect(() => {
+    if (Platform.OS === 'web' && (window as any).electronAPI?.onAppUpdated) {
+      const removeListener = (window as any).electronAPI.onAppUpdated((updatedApp: any) => {
+        if (updatedApp && updatedApp.id) {
+          mergeGameIntoStateRef.current(updatedApp);
+        }
+      });
+      return () => {
+        if (removeListener) removeListener();
+      };
+    }
+  }, []);
 
   // Escuchar evento game-closed del proceso principal (launcher resume tras cerrar juego)
   useEffect(() => {

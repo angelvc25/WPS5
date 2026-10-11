@@ -2135,12 +2135,12 @@ export default function SettingsView({
                             {captureState === 'capturing'
                               ? t('settings.captureComboPressButtons')
                               : captureState === 'captured'
-                              ? `${t('settings.comboCaptured')}: ${formatCustomCombo(overlayCombo)}`
-                              : captureState === 'error'
-                              ? t('settings.comboCaptureError')
-                              : overlayCombo.startsWith('RAW:')
-                              ? `🎮 ${formatCustomCombo(overlayCombo)}`
-                              : `🎮 ${t('settings.captureCombo')}`}
+                                ? `${t('settings.comboCaptured')}: ${formatCustomCombo(overlayCombo)}`
+                                : captureState === 'error'
+                                  ? t('settings.comboCaptureError')
+                                  : overlayCombo.startsWith('RAW:')
+                                    ? `🎮 ${formatCustomCombo(overlayCombo)}`
+                                    : `🎮 ${t('settings.captureCombo')}`}
                           </Text>
                         </TouchableOpacity>
                       </View>

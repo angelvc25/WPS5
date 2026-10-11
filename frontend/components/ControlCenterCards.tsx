@@ -1906,7 +1906,7 @@ const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
         description: t('cc.changeLanguageDesc'),
       },
       {
-        video: require('@/assets/video/controlCenter.mp4'),
+        video: require('@/assets/video/controlCenter.webp'),
         title: t('cc.floatingMenu'),
         description: (
           <>
@@ -1980,7 +1980,7 @@ const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
     icon: 'compass',
     tips: [
       {
-        video: require('@/assets/video/addGames2.mp4'),
+        video: require('@/assets/video/addGames2.webp'),
         title: t('cc.addGameManually'),
         description: t('cc.addGameManuallyDesc'),
       },
@@ -1995,17 +1995,17 @@ const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
         description: t('cc.emulatedGamesDesc2'),
       },
       {
-        video: require('@/assets/video/addGames2.mp4'),
+        video: require('@/assets/video/addGames2.webp'),
         title: t('cc.addEmulatedGames'),
         description: t('cc.addEmulatedGamesDesc'),
       },
       {
-        video: require('@/assets/video/wallpaper.mp4'),
+        video: require('@/assets/video/wallpaper.webp'),
         title: t('cc.personalizeBg2'),
         description: t('cc.personalizeBg2Desc'),
       },
       {
-        video: require('@/assets/video/avatarPicker.mp4'),
+        video: require('@/assets/video/avatarPicker.webp'),
         title: t('cc.avatarPicker'),
         description: t('cc.avatarPickerDesc'),
       },
@@ -2049,7 +2049,7 @@ const getDiscoverCategories = (t: ReturnType<typeof useTranslation>['t']) => [
         ),
       },
       {
-        video: require('@/assets/video/editorGames.mp4'),
+        video: require('@/assets/video/editorGames.webp'),
         title: t('cc.editorGames'),
         description: t('cc.editorGamesDesc'),
       },

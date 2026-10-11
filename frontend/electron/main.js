@@ -610,6 +610,280 @@ function getOrCreateThumbnail(sourcePath, mtimeMs) {
   }
 }
 
+// ── Caché de Metadatos Persistente en Disco (IGDB, SteamGridDB, RAWG) ──────
+const METADATA_CACHE_PATH = path.join(app.getPath('userData'), 'metadata-cache.json');
+let metadataCache = {};
+
+function loadMetadataCache() {
+  try {
+    if (fs.existsSync(METADATA_CACHE_PATH)) {
+      metadataCache = JSON.parse(fs.readFileSync(METADATA_CACHE_PATH, 'utf8'));
+    } else {
+      metadataCache = {};
+    }
+  } catch (err) {
+    console.warn('[MetadataCache] Error cargando caché:', err.message);
+    metadataCache = {};
+  }
+}
+
+let saveMetadataCacheTimer = null;
+function persistMetadataCache() {
+  if (saveMetadataCacheTimer) clearTimeout(saveMetadataCacheTimer);
+  saveMetadataCacheTimer = setTimeout(() => {
+    try {
+      fs.writeFileSync(METADATA_CACHE_PATH, JSON.stringify(metadataCache, null, 2));
+    } catch (err) {
+      console.warn('[MetadataCache] Error guardando caché:', err.message);
+    }
+  }, 1000);
+}
+
+function getFromMetadataCache(key) {
+  if (!key) return null;
+  const normalizedKey = key.trim().toLowerCase();
+  const entry = metadataCache[normalizedKey];
+  return entry?.data ?? null;
+}
+
+function saveToMetadataCache(key, data) {
+  if (!key || !data) return;
+  const normalizedKey = key.trim().toLowerCase();
+  metadataCache[normalizedKey] = {
+    timestamp: Date.now(),
+    data,
+  };
+  persistMetadataCache();
+}
+
+// ── Gestor y Descargador Local de Arte de Juegos (Modo Offline) ───────────
+const GAME_MEDIA_DIR = path.join(app.getPath('userData'), 'game-media');
+
+function ensureGameMediaDir() {
+  if (!fs.existsSync(GAME_MEDIA_DIR)) {
+    fs.mkdirSync(GAME_MEDIA_DIR, { recursive: true });
+  }
+}
+
+function getMediaExtension(url) {
+  try {
+    const parsed = new URL(url);
+    const ext = path.extname(parsed.pathname).toLowerCase();
+    if (ext && ['.jpg', '.jpeg', '.png', '.webp', '.svg', '.gif', '.ico'].includes(ext)) {
+      return ext;
+    }
+  } catch (_) { }
+  return '.jpg';
+}
+
+function getMediaFileName(url) {
+  const hash = crypto.createHash('md5').update(url).digest('hex');
+  const ext = getMediaExtension(url);
+  return `${hash}${ext}`;
+}
+
+async function downloadAndCacheMedia(url) {
+  if (!url || typeof url !== 'string') return url;
+  const trimmed = url.trim();
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return trimmed; // Ya es local-file://, ruta de archivo o data: URI
+  }
+
+  ensureGameMediaDir();
+  const filename = getMediaFileName(trimmed);
+  const targetPath = path.join(GAME_MEDIA_DIR, filename);
+
+  // Si ya fue descargada previamente, devolver ruta local de inmediato (0 ms)
+  if (fs.existsSync(targetPath)) {
+    return toLocalFileUri(targetPath);
+  }
+
+  const tempPath = path.join(GAME_MEDIA_DIR, `${filename}.tmp.${Date.now()}`);
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(trimmed, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return trimmed;
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer || buffer.length === 0) {
+      return trimmed;
+    }
+
+    fs.writeFileSync(tempPath, buffer);
+    fs.renameSync(tempPath, targetPath);
+
+    return toLocalFileUri(targetPath);
+  } catch (err) {
+    if (fs.existsSync(tempPath)) {
+      try { fs.unlinkSync(tempPath); } catch (_) { }
+    }
+    // Si no hay conexión o falla, devolver URL original como fallback
+    return trimmed;
+  }
+}
+
+async function cacheAppArtwork(app) {
+  if (!app) return { app, modified: false };
+  const clone = { ...app };
+  const fields = ['image', 'backgroundImage', 'logo', 'icon'];
+  let modified = false;
+
+  for (const field of fields) {
+    const val = clone[field];
+    if (val && typeof val === 'string' && (val.startsWith('http://') || val.startsWith('https://'))) {
+      const localUri = await downloadAndCacheMedia(val);
+      if (localUri && localUri !== val) {
+        clone[field] = localUri;
+        modified = true;
+      }
+    }
+  }
+
+  return { app: clone, modified };
+}
+
+// Migración progresiva en segundo plano para convertir imágenes remotas existentes a local
+let isMediaMigrationRunning = false;
+async function migrateExistingGamesMedia() {
+  if (isMediaMigrationRunning) return;
+  isMediaMigrationRunning = true;
+
+  try {
+    if (!fs.existsSync(dbPath)) return;
+    const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    const games = Array.isArray(data.games) ? data.games : [];
+    let anyModified = false;
+
+    for (let i = 0; i < games.length; i++) {
+      const game = games[i];
+      if (!game) continue;
+
+      const hasRemoteMedia = ['image', 'backgroundImage', 'logo', 'icon'].some(
+        f => game[f] && typeof game[f] === 'string' && (game[f].startsWith('http://') || game[f].startsWith('https://'))
+      );
+
+      if (hasRemoteMedia) {
+        const { app: updatedGame, modified } = await cacheAppArtwork(game);
+        if (modified) {
+          games[i] = updatedGame;
+          anyModified = true;
+
+          // Guardar progreso en disco
+          fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+
+          // Notificar a la ventana si está abierta
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('app-updated', updatedGame);
+          }
+        }
+
+        // Delay suave para no saturar ancho de banda
+        await new Promise(r => setTimeout(r, 60));
+      }
+    }
+
+    if (anyModified) {
+      console.log('[MediaCache] Todos los juegos remotos se han descargado a disco para uso offline.');
+    }
+  } catch (err) {
+    console.warn('[MediaCache] Error durante migración de arte:', err.message);
+  } finally {
+    isMediaMigrationRunning = false;
+  }
+}
+
+const normalizeIgdbTitle = (value) => String(value || '')
+  .toLowerCase()
+  .replace(/[®™©]/g, '')
+  .replace(/&/g, 'and')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const pickBestIgdbMatch = (games, title) => {
+  if (!Array.isArray(games) || games.length === 0) return null;
+  const wanted = normalizeIgdbTitle(title);
+  const exact = games.find((g) => normalizeIgdbTitle(g?.name) === wanted);
+  if (exact) return exact;
+  const prefix = games.find((g) => {
+    const name = normalizeIgdbTitle(g?.name);
+    return name && wanted && (name.startsWith(wanted) || wanted.startsWith(name));
+  });
+  return prefix || games[0];
+};
+
+async function fetchIgdbFullData(title) {
+  if (!title) return null;
+  const cacheKey = `igdb_raw:${title}`;
+  const cached = getFromMetadataCache(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const response = await fetch(`${WORKER_API_BASE}/api/game?title=${encodeURIComponent(title.trim())}`);
+    if (!response.ok) return null;
+    const json = await response.json();
+    if (json.success && Array.isArray(json.games) && json.games.length > 0) {
+      saveToMetadataCache(cacheKey, json);
+      return json;
+    }
+  } catch (err) {
+    console.warn('[IGDB] Error consultando Worker:', err.message);
+  }
+  return null;
+}
+
+async function fetchSteamGridFullData(title) {
+  if (!title) return null;
+  const cacheKey = `steamgrid_raw:${title}`;
+  const cached = getFromMetadataCache(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const response = await fetch(`${WORKER_API_BASE}/api/steamgrid?title=${encodeURIComponent(title.trim())}`);
+    if (!response.ok) return null;
+    const json = await response.json();
+    if (json.success) {
+      saveToMetadataCache(cacheKey, json);
+      return json;
+    }
+  } catch (err) {
+    console.warn('[SteamGridDB] Error consultando Worker:', err.message);
+  }
+  return null;
+}
+
+async function fetchRawgFullData(title) {
+  if (!title) return null;
+  const cacheKey = `rawg_raw:${title}`;
+  const cached = getFromMetadataCache(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(`${WORKER_API_BASE}/api/rawg?title=${encodeURIComponent(title.trim())}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json.success) {
+      saveToMetadataCache(cacheKey, json);
+      return json;
+    }
+  } catch (err) {
+    console.warn('[RAWG] Error consultando Worker:', err.message);
+  }
+  return null;
+}
+
 function storeBackendLog(...args) {
   const line = `[${new Date().toISOString()}] ${args.map(a => (a instanceof Error ? a.stack : String(a))).join(' ')}\n`;
   try {
@@ -2257,9 +2531,15 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   initDB();
+  loadMetadataCache();
   startStoreBackend();
   startMediaSessionsBridge();
   setupDownloadWatchers();
+
+  // Iniciar descarga offline de arte en segundo plano para juegos existentes
+  setTimeout(() => {
+    migrateExistingGamesMedia();
+  }, 3000);
 
   // Servidor http local para el build de producción (ver comentario junto
   // a createLocalStaticServer más arriba). En dev no hace falta: se usa
@@ -2375,11 +2655,9 @@ app.whenReady().then(async () => {
       return { success: false, error: 'Título no proporcionado' };
     }
     try {
-      const res = await fetch(`${WORKER_API_BASE}/api/rawg?title=${encodeURIComponent(title.trim())}`);
-      if (!res.ok) return { success: false, error: `Worker respondió ${res.status}` };
-      const json = await res.json();
-      if (!json.success || !json.game) {
-        return { success: false, error: json.error || 'Juego no encontrado en RAWG' };
+      const json = await fetchRawgFullData(title);
+      if (!json || !json.game) {
+        return { success: false, error: json?.error || 'Juego no encontrado en RAWG' };
       }
       return { success: true, data: json.game };
     } catch (error) {
@@ -2388,17 +2666,14 @@ app.whenReady().then(async () => {
     }
   });
 
-
   // IPC: Capturas de pantalla desde RAWG (vía Worker)
   ipcMain.handle('fetch-rawg-screenshots', async (_event, title) => {
     if (!title || typeof title !== 'string') {
       return { success: false, error: 'Título no proporcionado' };
     }
     try {
-      const res = await fetch(`${WORKER_API_BASE}/api/rawg?title=${encodeURIComponent(title.trim())}`);
-      if (!res.ok) return { success: false, error: `Worker respondió ${res.status}` };
-      const json = await res.json();
-      return { success: true, data: json.screenshots || [] };
+      const json = await fetchRawgFullData(title);
+      return { success: true, data: json?.screenshots || [] };
     } catch (error) {
       console.error('[RAWG Screenshots] Error:', error);
       return { success: false, error: error?.message || 'Error al consultar capturas de RAWG' };
@@ -2411,53 +2686,21 @@ app.whenReady().then(async () => {
       return { success: false, error: 'Título no proporcionado' };
     }
     try {
-      const res = await fetch(`${WORKER_API_BASE}/api/rawg?title=${encodeURIComponent(title.trim())}`);
-      if (!res.ok) return { success: false, error: `Worker respondió ${res.status}` };
-      const json = await res.json();
-      return { success: true, data: json.movies || [] };
+      const json = await fetchRawgFullData(title);
+      return { success: true, data: json?.movies || [] };
     } catch (error) {
       console.error('[RAWG Videos] Error:', error);
       return { success: false, error: error?.message || 'Error al consultar videos de RAWG' };
     }
   });
 
-
-  // Elige el mejor candidato de IGDB para un título: coincidencia exacta
-  // (normalizada) primero, luego prefijo en cualquier dirección y por último
-  // el primer resultado. Evita que un homónimo (ej. un DLC "Puppet Master"
-  // para el "Puppeteer" de PS3) oculte al juego real.
-  const normalizeIgdbTitle = (value) => String(value || '')
-    .toLowerCase()
-    .replace(/[®™©]/g, '')
-    .replace(/&/g, 'and')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const pickBestIgdbMatch = (games, title) => {
-    if (!Array.isArray(games) || games.length === 0) return null;
-    const wanted = normalizeIgdbTitle(title);
-    const exact = games.find((g) => normalizeIgdbTitle(g?.name) === wanted);
-    if (exact) return exact;
-    const prefix = games.find((g) => {
-      const name = normalizeIgdbTitle(g?.name);
-      return name && wanted && (name.startsWith(wanted) || wanted.startsWith(name));
-    });
-    return prefix || games[0];
-  };
-
   // IPC: Buscar trailers/videos de un juego en IGDB
   ipcMain.handle('fetch-igdb-videos', async (event, title) => {
     if (!title) return { success: false, error: 'Título no proporcionado' };
 
     try {
-      const response = await fetch(`${WORKER_API_BASE}/api/game?title=${encodeURIComponent(title)}`);
-      if (!response.ok) {
-        return { success: false, error: `Worker API respondió ${response.status}` };
-      }
-
-      const data = await response.json();
-      if (!data.success || !data.games || data.games.length === 0) {
+      const data = await fetchIgdbFullData(title);
+      if (!data || !data.success || !data.games || data.games.length === 0) {
         return { success: false, error: 'No se encontró el juego en IGDB' };
       }
 
@@ -2505,13 +2748,8 @@ app.whenReady().then(async () => {
     };
 
     try {
-      const response = await fetch(`${WORKER_API_BASE}/api/game?title=${encodeURIComponent(title)}`);
-      if (!response.ok) {
-        return { success: false, error: `Worker API respondió ${response.status}` };
-      }
-
-      const data = await response.json();
-      if (!data.success || !data.games || data.games.length === 0) {
+      const data = await fetchIgdbFullData(title);
+      if (!data || !data.success || !data.games || data.games.length === 0) {
         return { success: false, error: 'No se encontró el juego en IGDB' };
       }
 
@@ -2621,6 +2859,27 @@ app.whenReady().then(async () => {
     }
 
     fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+
+    // Descargar arte en segundo plano para asegurar soporte offline
+    cacheAppArtwork(appData).then(({ app: cachedApp, modified }) => {
+      if (modified) {
+        try {
+          const freshData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+          const list = cachedApp.type === 'game' ? (freshData.games || []) : (freshData.media || []);
+          const idx = list.findIndex(it => it.id === cachedApp.id);
+          if (idx !== -1) {
+            list[idx] = cachedApp;
+            fs.writeFileSync(dbPath, JSON.stringify(freshData, null, 2));
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('app-updated', cachedApp);
+            }
+          }
+        } catch (e) {
+          console.warn('[MediaCache] Error actualizando arte cacheado tras save-app:', e.message);
+        }
+      }
+    }).catch(() => {});
+
     return data;
   });
 
@@ -2682,6 +2941,29 @@ app.whenReady().then(async () => {
     }
 
     fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+
+    // Descargar arte en segundo plano para soporte offline si contiene URLs remotas
+    cacheAppArtwork(updatedApp).then(({ app: cachedApp, modified }) => {
+      if (modified) {
+        try {
+          const freshData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+          const list = (freshData.games || []).some(it => it.id === cachedApp.id)
+            ? freshData.games
+            : (freshData.media || []);
+          const idx = list.findIndex(it => it.id === cachedApp.id);
+          if (idx !== -1) {
+            list[idx] = { ...list[idx], ...cachedApp };
+            fs.writeFileSync(dbPath, JSON.stringify(freshData, null, 2));
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('app-updated', list[idx]);
+            }
+          }
+        } catch (e) {
+          console.warn('[MediaCache] Error actualizando arte cacheado tras update-app:', e.message);
+        }
+      }
+    }).catch(() => {});
+
     return { success: true, data };
   });
 
@@ -3727,13 +4009,8 @@ app.whenReady().then(async () => {
     if (!title) return { success: false, error: 'Título no proporcionado' };
 
     try {
-      const response = await fetch(`${WORKER_API_BASE}/api/game?title=${encodeURIComponent(title)}`);
-      if (!response.ok) {
-        return { success: false, error: `Worker API respondió ${response.status}` };
-      }
-
-      const json = await response.json();
-      if (json.success && json.games && json.games.length > 0) {
+      const json = await fetchIgdbFullData(title);
+      if (json && json.success && json.games && json.games.length > 0) {
         return { success: true, data: pickBestIgdbMatch(json.games, title) };
       }
 
@@ -3748,17 +4025,10 @@ app.whenReady().then(async () => {
   ipcMain.handle('fetch-steamgrid-data', async (event, title) => {
     if (!title) return { success: false, error: 'Título no proporcionado' };
 
-    console.log('Buscando en SteamGridDB via Worker:', title);
-
     try {
-      const response = await fetch(`${WORKER_API_BASE}/api/steamgrid?title=${encodeURIComponent(title)}`);
-      if (!response.ok) {
-        return { success: false, error: `Worker respondió ${response.status}` };
-      }
-
-      const json = await response.json();
-      if (!json.success || !json.game) {
-        return { success: false, error: json.error || 'Juego no encontrado en SteamGridDB' };
+      const json = await fetchSteamGridFullData(title);
+      if (!json || !json.success || !json.game) {
+        return { success: false, error: json?.error || 'Juego no encontrado en SteamGridDB' };
       }
 
       // Portada: prioriza cuadradas 1:1 (quedan mejor en el launcher),
@@ -3792,17 +4062,10 @@ app.whenReady().then(async () => {
   ipcMain.handle('fetch-steamgrid-assets', async (event, title) => {
     if (!title) return { success: false, error: 'Título no proporcionado' };
 
-    console.log('Buscando todos los assets en SteamGridDB via Worker para:', title);
-
     try {
-      const response = await fetch(`${WORKER_API_BASE}/api/steamgrid?title=${encodeURIComponent(title)}`);
-      if (!response.ok) {
-        return { success: false, error: `Worker respondió ${response.status}` };
-      }
-
-      const json = await response.json();
-      if (!json.success || !json.game) {
-        return { success: false, error: json.error || 'Juego no encontrado en SteamGridDB' };
+      const json = await fetchSteamGridFullData(title);
+      if (!json || !json.success || !json.game) {
+        return { success: false, error: json?.error || 'Juego no encontrado en SteamGridDB' };
       }
 
       return {
@@ -3818,6 +4081,12 @@ app.whenReady().then(async () => {
       console.error('Error buscando todos los assets en SteamGridDB via Worker:', error);
       return { success: false, error: error.message };
     }
+  });
+
+  // IPC: Descargar y guardar en caché local una URL de imagen para soporte offline
+  ipcMain.handle('cache-media-url', async (_event, url) => {
+    if (!url || typeof url !== 'string') return url;
+    return downloadAndCacheMedia(url);
   });
 
   // IPC: Cerrar la aplicación
