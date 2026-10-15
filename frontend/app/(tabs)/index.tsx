@@ -70,6 +70,7 @@ import WidgetEditPanel, {
 import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
+import { usePresentationMode } from '@/hooks/usePresentationMode';
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta si difiere
 import { Language } from '@/i18n/translations';
@@ -581,92 +582,32 @@ export default function ConsoleHome() {
   }, [widgetVisibility, widgetOrder, focusArea, focusIndex, row1Visible, row2Visible]);
   const [isMediaGalleryVisible, setMediaGalleryVisible] = useState(false);
   const [isSlidesModalVisible, setIsSlidesModalVisible] = useState(false);
-  // Presentation mode
-  const [presentationEnabled, setPresentationEnabled] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('presentation_enabled') === 'true';
-    return false;
-  });
-  const [inactivityTime, setInactivityTime] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('presentation_inactivity_time') || '15s';
-    return '15s';
-  });
-  const [isPresentationMode, setIsPresentationMode] = useState(false);
-  const lastInteractionRef = useRef(Date.now());
-  const presentationAnim = useSharedValue(0);
 
-  const handlePresentationSettingsChange = useCallback((enabled: boolean, time: string) => {
-    setPresentationEnabled(enabled);
-    setInactivityTime(time);
-    localStorage.setItem('presentation_enabled', String(enabled));
-    localStorage.setItem('presentation_inactivity_time', time);
-    lastInteractionRef.current = Date.now();
-    setIsPresentationMode(false);
-  }, []);
-
-  // ─── Slideshow settings ──────────────────────────────
-  const [slideshowAlbumName, setSlideshowAlbumName] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('slideshow_album') || null;
-    return null;
-  });
-  const [slideshowDuration, setSlideshowDuration] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('slideshow_duration') || '10s';
-    return '10s';
-  });
-  const [slideshowTransition, setSlideshowTransition] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('slideshow_transition') || 'left';
-    return 'left';
-  });
-  const [slideshowImages, setSlideshowImages] = useState<string[]>([]);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const slideshowTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const handleSlidesSettingsChange = useCallback((settings: { albumName: string | null; duration: string; transition: string }) => {
-    setSlideshowAlbumName(settings.albumName);
-    setSlideshowDuration(settings.duration);
-    setSlideshowTransition(settings.transition);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('slideshow_album', settings.albumName || '');
-      localStorage.setItem('slideshow_duration', settings.duration);
-      localStorage.setItem('slideshow_transition', settings.transition);
-    }
-    // Load images for the selected album
-    if (settings.albumName) {
-      try {
-        const storedAlbums = JSON.parse(localStorage.getItem('mediaGallery_albums') || '[]');
-        const album = storedAlbums.find((a: any) => a.name === settings.albumName);
-        if (album) {
-          setSlideshowImages(album.items);
-          setCurrentSlideIndex(0);
-        } else {
-          setSlideshowImages([]);
-        }
-      } catch {
-        setSlideshowImages([]);
-      }
-    } else {
-      setSlideshowImages([]);
-    }
-  }, []);
-
-  // ─── Slideshow: cargar álbum guardado al iniciar ──────────
-  useEffect(() => {
-    if (!slideshowAlbumName || typeof window === 'undefined') return;
-    try {
-      const stored = JSON.parse(localStorage.getItem('mediaGallery_albums') || '[]');
-      const album = stored.find((a: any) => a.name === slideshowAlbumName);
-      setSlideshowImages(album?.items ?? []);
-      setCurrentSlideIndex(0);
-    } catch {
-      setSlideshowImages([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const [settingsInitialScreen, setSettingsInitialScreen] = useState<SettingsScreenType>('main');
   const [settingsTab, setSettingsTab] = useState<'profile' | 'home' | 'sync' | 'support'>('profile');
   const [homeBackground, setHomeBackground] = useState<any>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchingItem, setLaunchingItem] = useState<ConsoleItem | null>(null);
+
+  // ─── Modo presentación (estados, refs y effects extraídos) ────────────────
+  const {
+    presentationEnabled,
+    inactivityTime,
+    isPresentationMode,
+    presentationAnim,
+    slideshowAlbumName,
+    setSlideshowAlbumName,
+    slideshowDuration,
+    slideshowTransition,
+    slideshowImages,
+    setSlideshowImages,
+    currentSlideIndex,
+    setCurrentSlideIndex,
+    handlePresentationSettingsChange,
+    handleSlidesSettingsChange,
+    resetInteraction,
+  } = usePresentationMode({ isLaunching });
   const [isRandomSelectorVisible, setRandomSelectorVisible] = useState(false);
 
   // Mantiene una copia sincrónica de isLaunching accesible desde callbacks
@@ -1954,88 +1895,6 @@ export default function ConsoleHome() {
     return () => clearInterval(interval);
   }, []);
 
-  // ─── Presentation mode: inactivity timer ───────────────────
-  useEffect(() => {
-    if (!presentationEnabled || isPresentationMode || isLaunching) return;
-
-    const getMs = () => {
-      switch (inactivityTime) {
-        case '15s': return 15000;
-        case '30s': return 30000;
-        case '60s': return 60000;
-        case '300s': return 300000;
-        default: return 15000;
-      }
-    };
-
-    const interval = setInterval(() => {
-      if (Date.now() - lastInteractionRef.current >= getMs()) {
-        setIsPresentationMode(true);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [presentationEnabled, inactivityTime, isPresentationMode, isLaunching]);
-
-  // ─── Presentation mode: animate UI hide/show ───────────────
-  useEffect(() => {
-    presentationAnim.value = withTiming(isPresentationMode ? 1 : 0, {
-      duration: 800,
-      easing: Easing.inOut(Easing.cubic),
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPresentationMode]);
-
-  // ─── Slideshow: cycle through album images ─────────────
-  useEffect(() => {
-    if (slideshowTimerRef.current) {
-      clearInterval(slideshowTimerRef.current);
-      slideshowTimerRef.current = null;
-    }
-
-    if (slideshowImages.length < 2) return;
-
-    const getMs = () => {
-      switch (slideshowDuration) {
-        case '5s': return 5000;
-        case '10s': return 10000;
-        case '15s': return 15000;
-        case '30s': return 30000;
-        default: return 10000;
-      }
-    };
-
-    slideshowTimerRef.current = setInterval(() => {
-      setCurrentSlideIndex((prev) => (prev + 1) % slideshowImages.length);
-    }, getMs());
-
-    return () => {
-      if (slideshowTimerRef.current) {
-        clearInterval(slideshowTimerRef.current);
-        slideshowTimerRef.current = null;
-      }
-    };
-  }, [slideshowImages.length, slideshowDuration]);
-
-  // ─── Presentation mode: reset on mouse/touch ───────────────
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    const reset = () => {
-      lastInteractionRef.current = Date.now();
-      if (isPresentationMode) setIsPresentationMode(false);
-    };
-    window.addEventListener('mousemove', reset);
-    window.addEventListener('mousedown', reset);
-    window.addEventListener('touchstart', reset);
-    window.addEventListener('wheel', reset);
-    return () => {
-      window.removeEventListener('mousemove', reset);
-      window.removeEventListener('mousedown', reset);
-      window.removeEventListener('touchstart', reset);
-      window.removeEventListener('wheel', reset);
-    };
-  }, [isPresentationMode]);
-
   const loadApps = () => {
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       (window as any).electronAPI.getApps().then((data: any) => {
@@ -2633,8 +2492,8 @@ export default function ConsoleHome() {
     //   return;
     // }
 
-    lastInteractionRef.current = Date.now();
-    if (isPresentationMode) { setIsPresentationMode(false); return; }
+    resetInteraction();
+    if (isPresentationMode) return;
     if (Date.now() - mountTimeRef.current < 400) return;
     if (!e.fromGamepad) setInputMode('keyboard');
     if (isWelcomeSettingsVisible) return;

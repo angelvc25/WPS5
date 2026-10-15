@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-001",
+  "type": "refactor",
+  "description": "Crear hooks/usePresentationMode.ts extrayendo toda la lógica del modo presentación (inactividad, animación, slideshow) de app/(tabs)/index.tsx. Este hook no tiene dependencias en otros hooks nuevos, por eso va primero.",
+  "status": "completed",
+  "steps": [
+    "Leer context.json y este archivo FEAT-001.json PRIMERO antes de cualquier otra acción.",
+    "Leer hooks/useGamepadInput.ts completo para entender el estilo de hook (named export, useRef para callbacks estables, cleanup en return del useEffect).",
+    "Leer las líneas relevantes de app/(tabs)/index.tsx — buscar: presentationEnabled, inactivityTime, isPresentationMode, lastInteractionRef, presentationAnim, slideshowAlbumName, slideshowDuration, slideshowTransition, slideshowImages, currentSlideIndex, slideshowTimerRef, handlePresentationSettingsChange, handleSlidesSettingsChange, y los 4 useEffect relacionados (inactivity timer, animate hide/show, slideshow cycle, reset on mouse/touch), más el useEffect de carga del álbum guardado.",
+    "Crear hooks/usePresentationMode.ts con la siguiente firma de parámetros: { isLaunching: boolean }. Mover dentro del hook: todos los useState listados arriba, todos los useRef listados arriba, el useSharedValue de presentationAnim (importar useSharedValue de react-native-reanimated), los 5 useEffect relacionados con presentación y slideshow.",
+    "El hook retorna: { presentationEnabled, inactivityTime, isPresentationMode, setIsPresentationMode, presentationAnim, slideshowAlbumName, slideshowDuration, slideshowTransition, slideshowImages, currentSlideIndex, handlePresentationSettingsChange, handleSlidesSettingsChange, resetInteraction }. La función resetInteraction actualiza lastInteractionRef.current = Date.now() y si isPresentationMode es true llama setIsPresentationMode(false) — se expone para que handleKeyDown en index.tsx la llame al inicio de cada tecla.",
+    "En app/(tabs)/index.tsx: eliminar todos los estados/refs/effects extraídos, agregar la llamada al hook: const { presentationEnabled, inactivityTime, isPresentationMode, setIsPresentationMode, presentationAnim, slideshowAlbumName, ... , resetInteraction } = usePresentationMode({ isLaunching }); Actualizar la primera línea de handleKeyDown para llamar resetInteraction() en vez de asignar directamente lastInteractionRef.",
+    "Verificar que presentationHeaderStyle, presentationCarouselStyle, presentationWidgetsStyle, presentationToolbarStyle (los useAnimatedStyle que consumen presentationAnim) siguen funcionando en index.tsx porque presentationAnim viene del hook."
+  ],
+  "acceptance_criteria": [
+    "hooks/usePresentationMode.ts compila sin errores TypeScript (npx tsc --noEmit).",
+    "app/(tabs)/index.tsx sigue compilando sin errores tras eliminar los estados extraídos.",
+    "El modo presentación se activa tras el tiempo de inactividad configurado.",
+    "El slideshow cicla imágenes según slideshowDuration.",
+    "Mover el ratón o presionar una tecla desactiva el modo presentación."
+  ],
+  "verification": [
+    "Ejecutar desde el workspace root: npx tsc --noEmit — cero errores.",
+    "Ejecutar: npx expo lint — cero advertencias relevantes en los archivos modificados."
+  ],
+  "blocked_reason": null,
+  "findings": "Hook creado en hooks/usePresentationMode.ts con named export. Retorna setSlideshowAlbumName, setSlideshowImages y setCurrentSlideIndex además de los valores del spec original, porque handleApplyHomeBg en index.tsx los necesita directamente. setIsPresentationMode NO se expone en el destructuring de index.tsx (solo se usa internamente vía resetInteraction); si algún FEAT futuro necesita forzar el modo presentación externamente, habrá que añadirlo. presentationAnim sigue siendo un SharedValue accesible en index.tsx para los useAnimatedStyle (presentationHeaderStyle, etc.). isLaunching se pasa como parámetro al hook porque el state se declara después del bloque de presentación original — la llamada al hook se colocó justo tras la declaración de isLaunching. La verificación npx tsc --noEmit pasó con cero errores; npx expo lint no añadió nuevos errores respecto al estado previo (el único error existente es react/display-name en MediaGalleryView.tsx, preexistente)."
+}
