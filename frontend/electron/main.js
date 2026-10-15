@@ -832,64 +832,141 @@ const pickBestIgdbMatch = (games, title) => {
   return prefix || games[0];
 };
 
+const inFlightWorkerRequests = new Map();
+
 async function fetchIgdbFullData(title) {
   if (!title) return null;
-  const cacheKey = `igdb_raw:${title}`;
+  const cacheKey = `igdb_raw:${title}`.trim().toLowerCase();
   const cached = getFromMetadataCache(cacheKey);
-  if (cached) return cached;
-
-  try {
-    const response = await fetch(`${WORKER_API_BASE}/api/game?title=${encodeURIComponent(title.trim())}`);
-    if (!response.ok) return null;
-    const json = await response.json();
-    if (json.success && Array.isArray(json.games) && json.games.length > 0) {
-      saveToMetadataCache(cacheKey, json);
-      return json;
-    }
-  } catch (err) {
-    console.warn('[IGDB] Error consultando Worker:', err.message);
+  if (cached) {
+    if (cached.notFound) return null;
+    return cached;
   }
-  return null;
+
+  if (inFlightWorkerRequests.has(cacheKey)) {
+    return inFlightWorkerRequests.get(cacheKey);
+  }
+
+  const promise = (async () => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 9000);
+      const response = await fetch(`${WORKER_API_BASE}/api/game?title=${encodeURIComponent(title.trim())}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!response.ok) {
+        saveToMetadataCache(cacheKey, { notFound: true, status: response.status });
+        return null;
+      }
+      const json = await response.json();
+      if (json.success && Array.isArray(json.games) && json.games.length > 0) {
+        saveToMetadataCache(cacheKey, json);
+        return json;
+      } else {
+        saveToMetadataCache(cacheKey, { notFound: true });
+        return null;
+      }
+    } catch (err) {
+      console.warn('[IGDB] Error consultando Worker:', err.message);
+      return null;
+    } finally {
+      inFlightWorkerRequests.delete(cacheKey);
+    }
+  })();
+
+  inFlightWorkerRequests.set(cacheKey, promise);
+  return promise;
 }
 
 async function fetchSteamGridFullData(title) {
   if (!title) return null;
-  const cacheKey = `steamgrid_raw:${title}`;
+  const cacheKey = `steamgrid_raw:${title}`.trim().toLowerCase();
   const cached = getFromMetadataCache(cacheKey);
-  if (cached) return cached;
-
-  try {
-    const response = await fetch(`${WORKER_API_BASE}/api/steamgrid?title=${encodeURIComponent(title.trim())}`);
-    if (!response.ok) return null;
-    const json = await response.json();
-    if (json.success) {
-      saveToMetadataCache(cacheKey, json);
-      return json;
-    }
-  } catch (err) {
-    console.warn('[SteamGridDB] Error consultando Worker:', err.message);
+  if (cached) {
+    if (cached.notFound) return null;
+    return cached;
   }
-  return null;
+
+  if (inFlightWorkerRequests.has(cacheKey)) {
+    return inFlightWorkerRequests.get(cacheKey);
+  }
+
+  const promise = (async () => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 9000);
+      const response = await fetch(`${WORKER_API_BASE}/api/steamgrid?title=${encodeURIComponent(title.trim())}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!response.ok) {
+        saveToMetadataCache(cacheKey, { notFound: true, status: response.status });
+        return null;
+      }
+      const json = await response.json();
+      if (json.success) {
+        saveToMetadataCache(cacheKey, json);
+        return json;
+      } else {
+        saveToMetadataCache(cacheKey, { notFound: true });
+        return null;
+      }
+    } catch (err) {
+      console.warn('[SteamGridDB] Error consultando Worker:', err.message);
+      return null;
+    } finally {
+      inFlightWorkerRequests.delete(cacheKey);
+    }
+  })();
+
+  inFlightWorkerRequests.set(cacheKey, promise);
+  return promise;
 }
 
 async function fetchRawgFullData(title) {
   if (!title) return null;
-  const cacheKey = `rawg_raw:${title}`;
+  const cacheKey = `rawg_raw:${title}`.trim().toLowerCase();
   const cached = getFromMetadataCache(cacheKey);
-  if (cached) return cached;
-
-  try {
-    const res = await fetch(`${WORKER_API_BASE}/api/rawg?title=${encodeURIComponent(title.trim())}`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (json.success) {
-      saveToMetadataCache(cacheKey, json);
-      return json;
-    }
-  } catch (err) {
-    console.warn('[RAWG] Error consultando Worker:', err.message);
+  if (cached) {
+    if (cached.notFound) return null;
+    return cached;
   }
-  return null;
+
+  if (inFlightWorkerRequests.has(cacheKey)) {
+    return inFlightWorkerRequests.get(cacheKey);
+  }
+
+  const promise = (async () => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 9000);
+      const res = await fetch(`${WORKER_API_BASE}/api/rawg?title=${encodeURIComponent(title.trim())}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!res.ok) {
+        saveToMetadataCache(cacheKey, { notFound: true, status: res.status });
+        return null;
+      }
+      const json = await res.json();
+      if (json.success) {
+        saveToMetadataCache(cacheKey, json);
+        return json;
+      } else {
+        saveToMetadataCache(cacheKey, { notFound: true });
+        return null;
+      }
+    } catch (err) {
+      console.warn('[RAWG] Error consultando Worker:', err.message);
+      return null;
+    } finally {
+      inFlightWorkerRequests.delete(cacheKey);
+    }
+  })();
+
+  inFlightWorkerRequests.set(cacheKey, promise);
+  return promise;
 }
 
 function storeBackendLog(...args) {
@@ -3186,10 +3263,13 @@ app.whenReady().then(async () => {
   startMediaSessionsBridge();
   setupDownloadWatchers();
 
-  // Iniciar descarga offline de arte en segundo plano para juegos existentes
+  // Pre-calentar el Cloudflare Worker silenciosamente para eliminar la latencia de cold start
+  fetch(`${WORKER_API_BASE}/`).catch(() => {});
+
+  // Iniciar descarga offline de arte en segundo plano para juegos existentes (con retraso para no saturar al inicio)
   setTimeout(() => {
     migrateExistingGamesMedia();
-  }, 3000);
+  }, 15000);
 
   // Servidor http local para el build de producción (ver comentario junto
   // a createLocalStaticServer más arriba). En dev no hace falta: se usa

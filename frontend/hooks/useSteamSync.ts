@@ -297,37 +297,69 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getEpicInstalledGames) return;
     if (epicGames.length > 0 || loadingEpic) return;
 
+    // Cargar de inmediato desde la caché local para no demorar el inicio
+    try {
+      const cachedRaw = localStorage.getItem('epic_games_cache');
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw);
+        if (Array.isArray(cached) && cached.length > 0) {
+          setEpicGames(cached);
+          epicGamesRef.current = cached;
+        }
+      }
+    } catch { /* noop */ }
+
     setLoadingEpic(true);
     fetchEpicInstalledGames().then(async (gamesList) => {
-      const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => ({
-        id: g.id,
-        title: g.title,
-        time: 'Epic',
-        platform: 'Epic',
-        type: 'game',
-        path: buildEpicRunUrl(g.appName),
-      }));
+      let cachedMap = new Map<string, ConsoleItem>();
+      try {
+        const cachedRaw = localStorage.getItem('epic_games_cache');
+        if (cachedRaw) {
+          const list: ConsoleItem[] = JSON.parse(cachedRaw);
+          list.forEach(g => cachedMap.set(g.id, g));
+        }
+      } catch { /* noop */ }
 
-      const withMetadata = await Promise.all(
-        baseFormatted.map(async (game) => {
-          try {
-            const res = (window as any).electronAPI?.fetchSteamGridData
-              ? await (window as any).electronAPI.fetchSteamGridData(game.title)
-              : await fetchSteamGridData(game.title);
-            if (res?.success && res.data) {
-              return {
-                ...game,
-                image: res.data.grid || game.image,
-                backgroundImage: res.data.hero || game.backgroundImage,
-                logo: res.data.logo || game.logo,
-              };
-            }
-          } catch (e) {
-            console.error('[Epic] Error fetching metadata for:', game.title, e);
+      const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => {
+        const existing = cachedMap.get(g.id);
+        return {
+          id: g.id,
+          title: g.title,
+          time: 'Epic',
+          platform: 'Epic',
+          type: 'game',
+          path: buildEpicRunUrl(g.appName),
+          image: existing?.image || null,
+          backgroundImage: existing?.backgroundImage || null,
+          logo: existing?.logo || null,
+        };
+      });
+
+      // Solo consultar SteamGridDB para juegos que NO tengan arte guardado aún
+      const withMetadata: ConsoleItem[] = [];
+      for (const game of baseFormatted) {
+        if (game.image && game.backgroundImage && game.logo) {
+          withMetadata.push(game);
+          continue;
+        }
+        try {
+          const res = (window as any).electronAPI?.fetchSteamGridData
+            ? await (window as any).electronAPI.fetchSteamGridData(game.title)
+            : await fetchSteamGridData(game.title);
+          if (res?.success && res.data) {
+            withMetadata.push({
+              ...game,
+              image: res.data.grid || game.image,
+              backgroundImage: res.data.hero || game.backgroundImage,
+              logo: res.data.logo || game.logo,
+            });
+            continue;
           }
-          return game;
-        })
-      );
+        } catch (e) {
+          console.error('[Epic] Error fetching metadata for:', game.title, e);
+        }
+        withMetadata.push(game);
+      }
 
       // Notifica solo los juegos de Epic nuevos desde el último escaneo
       try {
@@ -344,6 +376,7 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
           });
         }
         localStorage.setItem('epic_known_games', JSON.stringify(withMetadata.map(g => g.id)));
+        localStorage.setItem('epic_games_cache', JSON.stringify(withMetadata));
       } catch (e) { /* noop */ }
 
       setEpicGames(withMetadata);
@@ -356,38 +389,69 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getXboxInstalledGames) return;
     if (xboxGames.length > 0 || loadingXbox) return;
 
+    // Cargar de inmediato desde la caché local para no demorar el inicio
+    try {
+      const cachedRaw = localStorage.getItem('xbox_games_cache');
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw);
+        if (Array.isArray(cached) && cached.length > 0) {
+          setXboxGames(cached);
+          xboxGamesRef.current = cached;
+        }
+      }
+    } catch { /* noop */ }
+
     setLoadingXbox(true);
     fetchXboxInstalledGames().then(async (gamesList) => {
-      const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => ({
-        id: g.id,
-        title: g.title,
-        time: 'Xbox',
-        platform: 'Xbox',
-        type: 'game',
-        path: g.launchPath || (g.aumid ? `shell:AppsFolder\\${g.aumid}` : ''),
-        image: g.icon || null,
-      }));
+      let cachedMap = new Map<string, ConsoleItem>();
+      try {
+        const cachedRaw = localStorage.getItem('xbox_games_cache');
+        if (cachedRaw) {
+          const list: ConsoleItem[] = JSON.parse(cachedRaw);
+          list.forEach(g => cachedMap.set(g.id, g));
+        }
+      } catch { /* noop */ }
 
-      const withMetadata = await Promise.all(
-        baseFormatted.map(async (game) => {
-          try {
-            const res = (window as any).electronAPI?.fetchSteamGridData
-              ? await (window as any).electronAPI.fetchSteamGridData(game.title)
-              : await fetchSteamGridData(game.title);
-            if (res?.success && res.data) {
-              return {
-                ...game,
-                image: res.data.grid || game.image,
-                backgroundImage: res.data.hero || game.backgroundImage,
-                logo: res.data.logo || game.logo,
-              };
-            }
-          } catch (e) {
-            console.error('[Xbox] Error fetching metadata for:', game.title, e);
+      const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => {
+        const existing = cachedMap.get(g.id);
+        return {
+          id: g.id,
+          title: g.title,
+          time: 'Xbox',
+          platform: 'Xbox',
+          type: 'game',
+          path: g.launchPath || (g.aumid ? `shell:AppsFolder\\${g.aumid}` : ''),
+          image: existing?.image || g.icon || null,
+          backgroundImage: existing?.backgroundImage || null,
+          logo: existing?.logo || null,
+        };
+      });
+
+      // Solo consultar SteamGridDB para juegos que NO tengan arte guardado aún
+      const withMetadata: ConsoleItem[] = [];
+      for (const game of baseFormatted) {
+        if (game.backgroundImage && game.logo && game.image) {
+          withMetadata.push(game);
+          continue;
+        }
+        try {
+          const res = (window as any).electronAPI?.fetchSteamGridData
+            ? await (window as any).electronAPI.fetchSteamGridData(game.title)
+            : await fetchSteamGridData(game.title);
+          if (res?.success && res.data) {
+            withMetadata.push({
+              ...game,
+              image: res.data.grid || game.image,
+              backgroundImage: res.data.hero || game.backgroundImage,
+              logo: res.data.logo || game.logo,
+            });
+            continue;
           }
-          return game;
-        })
-      );
+        } catch (e) {
+          console.error('[Xbox] Error fetching metadata for:', game.title, e);
+        }
+        withMetadata.push(game);
+      }
 
       // Notifica solo los juegos de Xbox nuevos desde el último escaneo
       try {
@@ -404,6 +468,7 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
           });
         }
         localStorage.setItem('xbox_known_games', JSON.stringify(withMetadata.map(g => g.id)));
+        localStorage.setItem('xbox_games_cache', JSON.stringify(withMetadata));
       } catch (e) { /* noop */ }
 
       setXboxGames(withMetadata);

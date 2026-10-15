@@ -154,14 +154,23 @@ export const resolveGameScreenshots = async (
 
   const promise = (async (): Promise<SteamMediaItem[]> => {
     try {
-      // Lanzar todas las fuentes EN PARALELO simultáneamente
-      const steamPromise = useSteam
-        ? fetchSteamMediaByName(title, lang).then(r => (r.items || []).filter(m => m.type === 'screenshot'))
-        : Promise.resolve<SteamMediaItem[]>([]);
+      // Priorizar Steam si aplica: si Steam devuelve capturas rápidamente (CDN Akamai),
+      // no necesitamos esperar por RAWG ni IGDB, evitando saturar el Worker.
+      if (useSteam) {
+        const steamShots = await fetchSteamMediaByName(title, lang)
+          .then(r => (r.items || []).filter(m => m.type === 'screenshot'))
+          .catch(() => [] as SteamMediaItem[]);
 
+        if (steamShots.length > 0) {
+          screenshotsCache.set(cacheKey, { items: steamShots, cachedAt: Date.now() });
+          return steamShots;
+        }
+      }
+
+      // Fallback a RAWG e IGDB en paralelo solo si Steam no tiene capturas o no aplica
       const rawgPromise = fetchRawgMediaByName(title).then(r =>
         r.success && r.data?.length ? mapRawgScreenshotsToMedia(r.data) : []
-      );
+      ).catch(() => [] as SteamMediaItem[]);
 
       const igdbPromise = (typeof window !== 'undefined' && (window as any).electronAPI?.fetchIgdbAssets)
         ? (window as any).electronAPI.fetchIgdbAssets(title).then((igdb: any) => {
@@ -178,12 +187,8 @@ export const resolveGameScreenshots = async (
         }).catch(() => [] as SteamMediaItem[])
         : Promise.resolve<SteamMediaItem[]>([]);
 
-      // Esperar todas en paralelo y priorizar: Steam > RAWG > IGDB
-      const [steamImages, rawgImages, igdbImages] = await Promise.all([steamPromise, rawgPromise, igdbPromise]);
-
-      const result = steamImages.length > 0 ? steamImages
-        : rawgImages.length > 0 ? rawgImages
-          : igdbImages;
+      const [rawgImages, igdbImages] = await Promise.all([rawgPromise, igdbPromise]);
+      const result = rawgImages.length > 0 ? rawgImages : igdbImages;
 
       screenshotsCache.set(cacheKey, { items: result, cachedAt: Date.now() });
       return result;
