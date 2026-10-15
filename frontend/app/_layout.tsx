@@ -1,31 +1,31 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
+import { Image } from 'expo-image';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Image } from 'expo-image';
-import { useFonts } from 'expo-font';
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, Linking, Platform } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Linking, Platform, StyleSheet, View } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  runOnJS,
-  FadeOut
+    FadeOut,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming
 } from 'react-native-reanimated';
 
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import BackgroundVideo from '@/components/BackgroundVideo';
+import ToastHost from '@/components/ToastHost';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
-import { UserContext } from '@/contexts/UserContext';
-import { ThemeProvider as WPSThemeProvider } from '@/contexts/ThemeContext';
 import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
+import { ThemeProvider as WPSThemeProvider } from '@/contexts/ThemeContext';
+import { UserContext } from '@/contexts/UserContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { isLanguage } from '@/i18n/translations';
 import { openWebLink } from '@/services/linkService';
 import { setCurrentOnlineProfileId } from '@/services/onlineAccountService';
-import ToastHost from '@/components/ToastHost';
-import { toastService } from '@/services/toastService';
-import BackgroundVideo from '@/components/BackgroundVideo';
 import { soundService } from '@/services/soundService';
+import { toastService } from '@/services/toastService';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import OverlayScreen from './overlay';
 
 export const unstable_settings = {
@@ -174,17 +174,22 @@ function RootLayoutInner() {
       if (finished) return;
       finished = true;
       clearTimeout(safety);
-      setHomeReady(true);
-      // El aviso de bienvenida sale cuando la capa de carga ya se está retirando.
+      // Pequeño delay de presentación: garantiza que la animación de rebote
+      // complete al menos medio ciclo más (900 ms) y que el browser haya
+      // terminado de pintar el primer frame del home antes de retirar el overlay.
       setTimeout(() => {
-        toastService.show(tRef.current('toast.loggedPS5'), {
-          source: 'system',
-          icon: require('@/assets/icons/Logonegro.png'),
-        });
-      }, 500);
+        setHomeReady(true);
+        // El aviso de bienvenida sale cuando la capa de carga ya se está retirando.
+        setTimeout(() => {
+          toastService.show(tRef.current('toast.loggedPS5'), {
+            source: 'system',
+            icon: require('@/assets/icons/Logonegro.png'),
+          });
+        }, 500);
+      }, 900);
     };
     window.addEventListener('wps5-home-ready', done, { once: true });
-    const safety = setTimeout(done, 8000); // red de seguridad
+    const safety = setTimeout(done, 8000); // red de seguridad (incluye el delay de 900 ms de presentación)
     return () => {
       window.removeEventListener('wps5-home-ready', done);
       clearTimeout(safety);

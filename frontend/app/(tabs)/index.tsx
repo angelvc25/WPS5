@@ -1,34 +1,33 @@
 import { ResizeMode, Video } from '@/components/AppVideo';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import FavoritesView from '@/components/FavoritesView';
+import PSIcon from '@/components/PSIcon';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import RandomSelectorView from '@/components/RandomSelectorView';
 import SpinningBorderTabs from '@/components/SpinningBorderTabs';
 import YoutubePlayer from '@/components/YoutubePlayer';
-import { useUser } from '@/contexts/UserContext';
+import { PSIcons } from '@/constants/psIcons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useUser } from '@/contexts/UserContext';
 import { fetchEpicInstalledGames } from '@/services/epicInstallService';
 import { buildEpicRunUrl } from '@/services/epicLaunchService';
-import { fetchXboxInstalledGames } from '@/services/xboxInstallService';
-import { isXboxGame } from '@/services/xboxLaunchService';
+import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchGamingNews } from '@/services/newsService';
+import { syncProfileMediaToOnline } from '@/services/onlineAccountService';
+import { extractSteamAppId as extractTrophySteamAppId, syncLocalTrophiesToOnline } from '@/services/onlineTrophiesService';
 import { soundService } from '@/services/soundService';
 import { fetchSteamInstalledAppIds, fetchSteamInstalledGamesDetailed } from '@/services/steamInstallService';
 import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
 import { resolveGameScreenshots, SteamMediaItem } from '@/services/steamMediaService';
-import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
-import { fetchSteamOwnedGames, fetchSteamGameAchievements } from '@/services/steamUserService';
-import { extractSteamAppId as extractTrophySteamAppId, syncLocalTrophiesToOnline } from '@/services/onlineTrophiesService';
-import { syncProfileMediaToOnline } from '@/services/onlineAccountService';
+import { fetchSteamGameAchievements, fetchSteamOwnedGames } from '@/services/steamUserService';
 import { fetchWishlistDeals, WishlistDeal } from '@/services/steamWishlistService';
 import { toastService } from '@/services/toastService';
+import { fetchXboxInstalledGames } from '@/services/xboxInstallService';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import PSIcon from '@/components/PSIcon';
-import { PSIcons } from '@/constants/psIcons';
 import { Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, FadeIn, FadeInDown, FadeOut, interpolate, measure, runOnJS, useAnimatedRef, useAnimatedStyle, useDerivedValue, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
@@ -45,51 +44,49 @@ import AddAppModal from '@/components/AddAppModal';
 import AvatarPickerModal from '@/components/AvatarPickerModal';
 import BackgroundPickerModal from '@/components/BackgroundPickerModal';
 import ConsoleCarousel from '@/components/ConsoleCarousel';
-import ThemeCharacterOverlay from '@/components/ThemeCharacterOverlay';
 import GameInfoPanel from '@/components/GameInfoPanel';
-import SearchView from '@/components/SearchView';
+import MediaGalleryView from '@/components/MediaGalleryView';
 import { OnlineUserFullProfile } from '@/components/OnlineUserFullProfile';
+import SearchView from '@/components/SearchView';
 import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
-import { UserProfile } from '@/components/UserSelectScreen';
+import ThemeCharacterOverlay from '@/components/ThemeCharacterOverlay';
+import WelcomeSettingsView from '@/components/WelcomeSettingsView';
 import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
 import WidgetEditPanel, {
-  loadWidgetVisibility,
-  saveWidgetVisibility,
-  loadWidgetOrder,
-  saveWidgetOrder,
-  PANEL_WIDGETS,
-  DEFAULT_WIDGET_IDS,
-  computeWidgetColumns,
-  WIDGET_COLUMN_CAPACITY,
-  WidgetVisibility,
-  WidgetSizes,
-  loadWidgetSizes,
-  saveWidgetSizes,
-  clampWidgetSize,
+    clampWidgetSize,
+    computeWidgetColumns,
+    loadWidgetOrder,
+    loadWidgetSizes,
+    loadWidgetVisibility,
+    PANEL_WIDGETS,
+    saveWidgetOrder,
+    saveWidgetSizes,
+    saveWidgetVisibility,
+    WIDGET_COLUMN_CAPACITY,
+    WidgetSizes,
+    WidgetVisibility
 } from '@/components/WidgetEditPanel';
-import WelcomeSettingsView from '@/components/WelcomeSettingsView';
-import MediaGalleryView from '@/components/MediaGalleryView';
 import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta si difiere
 import { Language } from '@/i18n/translations';
-import { fetchSteamGridData } from '@/services/steamGridService';
-import { getSteamAppId } from '@/services/steamLaunchService';
-import { fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer, enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId } from '@/services/storeService';
-import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
-import { psnLocaleForLanguage } from '@/services/psnMetadataService';
 import {
-  fingerprintOnlineLibrary,
-  initOnlineLibraryAutoSync,
-  markOnlineLibraryLoaded,
-  notifyOnlineLibraryChanged,
+    fingerprintOnlineLibrary,
+    initOnlineLibraryAutoSync,
+    markOnlineLibraryLoaded,
+    notifyOnlineLibraryChanged,
 } from '@/services/onlineAutoSync';
 import { initOnlineFriendWatcher } from '@/services/onlineFriendWatcher';
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { psnLocaleForLanguage } from '@/services/psnMetadataService';
 import { enrichAppWithSteamInfo } from '@/services/steamDescriptionService';
+import { fetchSteamGridData } from '@/services/steamGridService';
+import { getSteamAppId } from '@/services/steamLaunchService';
+import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
+import { enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId, fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -915,9 +912,50 @@ export default function ConsoleHome() {
   useEffect(() => {
     if (!uiReady || !appsLoaded || readySentRef.current) return;
     readySentRef.current = true;
-    requestAnimationFrame(() => requestAnimationFrame(() =>
-      window.dispatchEvent(new Event('wps5-home-ready'))
-    ));
+
+    // Disparar 'wps5-home-ready' solo cuando el fondo del carrusel activo
+    // esté decodificado por el navegador, evitando el flash negro al entrar.
+    // Si el fondo es un require() local (objeto con 'uri' o number) lo
+    // resolvemos a string; si tarda más de 2s, disparamos igual (seguridad).
+    const dispatchReady = () => window.dispatchEvent(new Event('wps5-home-ready'));
+
+    // Resolver URI de la imagen de fondo actual
+    // Intentar con el homeBackground del usuario (la imagen más probable de
+    // no estar cacheada) y luego con el backgroundImage del item activo.
+    const bgValue = (() => {
+      try {
+        // homeBackground es la imagen personalizada del usuario para el home.
+        // Si es una URL remota o local-file://, precargarla es lo más útil.
+        const hb = (activeUser?.settings as any)?.homeBackground;
+        if (typeof hb === 'string' && hb) return hb;
+        if (hb && typeof hb === 'object' && typeof (hb as any).uri === 'string') return (hb as any).uri;
+        // Fallback: backgroundImage del item activo
+        const item = games[activeIndex] ?? games[1];
+        const bg = item?.backgroundImage;
+        if (typeof bg === 'string') return bg;
+        if (bg && typeof bg === 'object' && typeof (bg as any).uri === 'string') return (bg as any).uri;
+      } catch {/* noop */}
+      return null;
+    })();
+
+    if (!bgValue || Platform.OS !== 'web') {
+      // Sin URI concreta o fuera de web: esperar un frame extra para que
+      // React pinte el primer frame del home antes de retirar el overlay.
+      requestAnimationFrame(() => requestAnimationFrame(() =>
+        setTimeout(dispatchReady, 150)
+      ));
+      return;
+    }
+
+    // Precargar la imagen de fondo; cuando cargue (o falle/timeout) avisar.
+    let fired = false;
+    const fire = () => { if (!fired) { fired = true; dispatchReady(); } };
+    const safety = setTimeout(fire, 2000);
+    const img = new window.Image();
+    img.onload = () => { clearTimeout(safety); requestAnimationFrame(() => requestAnimationFrame(fire)); };
+    img.onerror = () => { clearTimeout(safety); fire(); };
+    img.src = bgValue;
+    return () => { clearTimeout(safety); fired = true; };
   }, [uiReady, appsLoaded]);
 
   // Evita que el efecto de cambio de pestaña corra en el primer render
