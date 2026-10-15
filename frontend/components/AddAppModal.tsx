@@ -33,6 +33,7 @@ export interface InstalledProgram {
   isCustom?: boolean;
   folderName?: string;
   exeName?: string;
+  source?: string;
 }
 
 interface AddAppModalProps {
@@ -43,6 +44,7 @@ interface AddAppModalProps {
 
 const PLATFORMS = [
   { id: 'PC', icon: 'microsoft-windows' },
+  { id: 'Xbox', icon: 'microsoft-xbox' },
   { id: 'PS1', icon: 'sony-playstation' },
   { id: 'PS2', icon: 'sony-playstation' },
   { id: 'PS3', icon: 'sony-playstation' },
@@ -185,6 +187,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
               icon: p.icon || null,
               location: p.path,
               checked: false,
+              source: p.source,
             }));
             setPrograms(formatted);
           } else {
@@ -218,9 +221,13 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
   // Selección individual
   const toggleProgram = (targetPath: string) => {
     soundService.playNavigation();
-    setPrograms((prev) =>
-      prev.map((p) => (p.path === targetPath ? { ...p, checked: !p.checked } : p))
-    );
+    setPrograms((prev) => {
+      const target = prev.find((p) => p.path === targetPath);
+      if (target && !target.checked && target.source === 'xbox') {
+        setSelectedPlatform('Xbox');
+      }
+      return prev.map((p) => (p.path === targetPath ? { ...p, checked: !p.checked } : p));
+    });
   };
 
   // Seleccionar / deseleccionar todos
@@ -441,7 +448,7 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
           path: prog.path,
           type: selectedType,
           platform: selectedType === 'game'
-            ? (selectedPlatform === 'Retro' ? 'Retro' : selectedPlatform)
+            ? (selectedPlatform === 'Xbox' || prog.source === 'xbox' ? 'Xbox' : (selectedPlatform === 'Retro' ? 'Retro' : selectedPlatform))
             : '',
           ...(selectedType === 'game' && selectedPlatform === 'Retro'
             ? { retroSystem: retroSystem.trim() || 'PSP' }
@@ -1147,6 +1154,24 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
                           </View>
                         ) : (
                           <View style={styles.nameWithEditWrap}>
+                            {program.source === 'xbox' && (
+                              <View
+                                style={{
+                                  backgroundColor: 'rgba(16, 124, 65, 0.25)',
+                                  borderColor: 'rgba(16, 124, 65, 0.7)',
+                                  borderWidth: 1,
+                                  borderRadius: 4,
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 1,
+                                  marginRight: 6,
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <MaterialCommunityIcons name="microsoft-xbox" size={12} color="#589745" style={{ marginRight: 3 }} />
+                                <Text style={{ color: '#589745', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>XBOX</Text>
+                              </View>
+                            )}
                             <Text style={styles.programName} numberOfLines={1}>
                               {program.name}
                             </Text>

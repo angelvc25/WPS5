@@ -2,6 +2,7 @@ import { PLATFORM_ICONS, PLATFORM_IDS, RETRO_SYSTEMS, isRetroPlatform } from '@/
 import { useTranslation } from '@/contexts/LanguageContext';
 import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
 import { isEpicGame } from '@/services/epicLaunchService';
+import { isXboxGame } from '@/services/xboxLaunchService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
@@ -306,7 +307,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   const [isSourceSectionOpen, setIsSourceSectionOpen] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(new Set());
   const [selectedRetroPlatforms, setSelectedRetroPlatforms] = useState<Set<string>>(new Set());
-  const [selectedSources, setSelectedSources] = useState<Set<'steam' | 'local' | 'epic'>>(new Set());
+  const [selectedSources, setSelectedSources] = useState<Set<'steam' | 'local' | 'epic' | 'xbox'>>(new Set());
   const [filterFavorites, setFilterFavorites] = useState(false);
   // Evita notificar al padre repetidamente cuando el filtrado produce la
   // misma lista. Sin este guard, un padre que reconstruye `games` durante
@@ -329,7 +330,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     | { type: 'retroHeader' }
     | { type: 'retroOption'; id: string; label: string }
     | { type: 'sourceHeader' }
-    | { type: 'sourceOption'; id: 'steam' | 'local' | 'epic' }
+    | { type: 'sourceOption'; id: 'steam' | 'local' | 'epic' | 'xbox' }
     | { type: 'favoriteToggle' }
     | { type: 'reset' };
 
@@ -398,7 +399,12 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     }
     rows.push({ type: 'sourceHeader' });
     if (isSourceSectionOpen) {
-      rows.push({ type: 'sourceOption', id: 'steam' }, { type: 'sourceOption', id: 'local' }, { type: 'sourceOption', id: 'epic' });
+      rows.push(
+        { type: 'sourceOption', id: 'steam' },
+        { type: 'sourceOption', id: 'local' },
+        { type: 'sourceOption', id: 'epic' },
+        { type: 'sourceOption', id: 'xbox' }
+      );
     }
     rows.push({ type: 'favoriteToggle' });
     rows.push({ type: 'reset' });
@@ -504,7 +510,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     });
   };
 
-  const toggleSourceFilter = (source: 'steam' | 'local' | 'epic') => {
+  const toggleSourceFilter = (source: 'steam' | 'local' | 'epic' | 'xbox') => {
     setSelectedSources((prev) => {
       const next = new Set(prev);
       if (next.has(source)) next.delete(source);
@@ -617,9 +623,15 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
         if (!matchesRetro) return false;
       }
 
-      // 3. Filtro por fuente (steam / local / epic)
+      // 3. Filtro por fuente (steam / local / epic / xbox)
       if (selectedSources.size > 0) {
-        const source: 'steam' | 'local' | 'epic' = isSteamGame(game) ? 'steam' : isEpicGame(game) ? 'epic' : 'local';
+        const source: 'steam' | 'local' | 'epic' | 'xbox' = isSteamGame(game)
+          ? 'steam'
+          : isEpicGame(game)
+          ? 'epic'
+          : isXboxGame(game)
+          ? 'xbox'
+          : 'local';
         if (!selectedSources.has(source)) return false;
       }
 
@@ -925,6 +937,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                         { id: 'steam', label: 'Steam' },
                         { id: 'local', label: 'Local' },
                         { id: 'epic', label: 'Epic' },
+                        { id: 'xbox', label: 'Xbox' },
                       ] as const
                     ).map((opt) => {
                       const checked = selectedSources.has(opt.id);

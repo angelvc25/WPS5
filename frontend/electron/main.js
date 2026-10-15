@@ -1466,6 +1466,23 @@ function isProcessRunningUnderDir(dirPath) {
   });
 }
 
+// Verifica si hay algún proceso activo cuya ruta contenga el PackageFamilyName
+// del juego UWP/MSIX. Esto es necesario porque los juegos de Xbox Game Pass
+// y Microsoft Store corren desde C:\Program Files\WindowsApps\<pkg> y no desde
+// C:\XboxGames\..., por lo que isProcessRunningUnderDir no los detecta.
+function isUwpProcessRunning(packageFamilyName) {
+  return new Promise((resolve) => {
+    if (!packageFamilyName || process.platform !== 'win32') return resolve(false);
+    const escaped = packageFamilyName.replace(/'/g, "''");
+    // Buscamos cualquier proceso cuya ruta de ejecutable contenga el PFN
+    const psCommand = `(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '*${escaped}*' } | Select-Object -First 1 -ExpandProperty ProcessId)`;
+    exec(`powershell -NoProfile -Command "${psCommand}"`, { timeout: 8000 }, (error, stdout) => {
+      if (error) return resolve(false);
+      resolve(Boolean(stdout && stdout.trim().length > 0));
+    });
+  });
+}
+
 // Aplica el comportamiento configurado por el usuario cuando arranca un juego.
 // Centraliza lo que antes eran dos bloques duplicados (uno en launch-app,
 // otro en startSteamGameWatch) para que 'hide' | 'minimize' | 'background'
@@ -1544,8 +1561,12 @@ function stopSteamGameWatch(id) {
   }
 }
 
-function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameMeta = {}) {
+function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameMeta = {}, extraOpts = {}) {
   stopSteamGameWatch(id); // por si ya había un watcher previo para este id
+
+  // Para juegos UWP/Xbox también vigilamos el PackageFamilyName del proceso
+  // (los juegos de Game Pass corren desde WindowsApps, no desde XboxGames)
+  const packageFamilyName = extraOpts.packageFamilyName || null;
 
   const POLL_MS = 4000;
   const MAX_WAIT_FOR_START_MS = 90 * 1000; // margen para que Steam/Epic abra el juego
@@ -1614,7 +1635,11 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
 
   const timer = setInterval(async () => {
     try {
-      const running = await isProcessRunningUnderDir(installDir);
+      // Para Xbox/UWP comprobamos tanto la carpeta de instalación como el PFN del proceso
+      let running = await isProcessRunningUnderDir(installDir);
+      if (!running && packageFamilyName) {
+        running = await isUwpProcessRunning(packageFamilyName);
+      }
       if (running) {
         consecutiveMisses = 0;
         if (!seenRunning) {
@@ -2072,6 +2097,280 @@ function getEpicInstalledGames() {
 
   console.log('[Epic] Juegos instalados encontrados:', games.length);
   return games;
+}
+
+// ── Detección de juegos de Xbox Game Pass y Microsoft Store ──
+let xboxGamesCache = [];
+
+function getXboxInstalledGames() {
+  if (process.platform !== 'win32') return [];
+
+  const games = [];
+  const seenIds = new Set();
+  const seenPaths = new Set();
+
+  // 1. Escanear carpetas de instalación de Xbox (<Unidad>:\XboxGames en todas las unidades del sistema)
+  const drives = 'CDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  for (const d of drives) {
+    const xboxDir = `${d}:\\XboxGames`;
+    if (!fs.existsSync(xboxDir)) continue;
+    try {
+      const folders = fs.readdirSync(xboxDir, { withFileTypes: true });
+      for (const f of folders) {
+        if (!f.isDirectory()) continue;
+        const gameFolder = path.join(xboxDir, f.name);
+        let configPath = path.join(gameFolder, 'Content', 'MicrosoftGame.Config');
+        let contentDir = path.join(gameFolder, 'Content');
+        if (!fs.existsSync(configPath)) {
+          configPath = path.join(gameFolder, 'MicrosoftGame.Config');
+          contentDir = gameFolder;
+        }
+
+        if (fs.existsSync(configPath)) {
+          try {
+            const xml = fs.readFileSync(configPath, 'utf8');
+            const titleMatch = xml.match(/DefaultDisplayName="([^"]+)"/i);
+            const exeMatch = xml.match(/<Executable[^>]+Name="([^"]+)"/i);
+            const logoMatch = xml.match(/(?:Square150x150Logo|StoreLogo|Square44x44Logo)="([^"]+)"/i);
+            const identityMatch = xml.match(/<Identity[^>]+Name="([^"]+)"/i);
+
+            const title = titleMatch ? titleMatch[1] : f.name;
+            const exeName = exeMatch ? exeMatch[1] : '';
+            const helperPath = path.join(contentDir, 'gamelaunchhelper.exe');
+            const exePath = exeName ? path.join(contentDir, exeName) : '';
+            const launchPath = fs.existsSync(helperPath) ? helperPath : (fs.existsSync(exePath) ? exePath : gameFolder);
+
+            let logoPath = null;
+            if (logoMatch && logoMatch[1]) {
+              const candidate = path.join(contentDir, logoMatch[1]);
+              if (fs.existsSync(candidate)) logoPath = candidate;
+            }
+            if (!logoPath) {
+              for (const name of ['Logo.png', 'StoreLogo.png', 'Square150x150Logo.png', 'LargeLogo.png', 'SmallLogo.png']) {
+                const candidate = path.join(contentDir, name);
+                if (fs.existsSync(candidate)) {
+                  logoPath = candidate;
+                  break;
+                }
+              }
+            }
+
+            let icon = null;
+            if (logoPath && fs.existsSync(logoPath)) {
+              try {
+                const ext = path.extname(logoPath).toLowerCase();
+                const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+                const b64 = fs.readFileSync(logoPath).toString('base64');
+                icon = `data:${mime};base64,${b64}`;
+              } catch (_) {}
+            }
+
+            const pkgName = identityMatch ? identityMatch[1] : f.name;
+            const id = 'xbox_' + pkgName.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+            if (!seenIds.has(id)) {
+              seenIds.add(id);
+              if (launchPath) seenPaths.add(launchPath.toLowerCase());
+              games.push({
+                id,
+                title,
+                installLocation: gameFolder,
+                contentDir,
+                launchPath,
+                logoPath,
+                icon,
+                packageName: pkgName,
+                source: 'xbox',
+              });
+            }
+          } catch (e) {
+            console.error('[Xbox] Error leyendo config de', f.name, e.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Xbox] Error escaneando', xboxDir, e.message);
+    }
+  }
+
+  // 2. Escanear paquetes AppX registrados (juegos de Microsoft Store / Xbox Game Pass)
+  try {
+    const psScript = `
+$games = @()
+$startApps = @{}
+try {
+    Get-StartApps | Where-Object { $_.AppID -like '*!*' } | ForEach-Object {
+        $startApps[$_.AppID] = $_.Name
+    }
+} catch {}
+
+Get-AppxPackage | Where-Object { -not $_.IsFramework -and -not $_.IsResourcePackage -and $_.InstallLocation -and (Test-Path $_.InstallLocation) } | ForEach-Object {
+    $pkg = $_
+    $loc = $pkg.InstallLocation
+    $manifestPath = Join-Path $loc 'AppxManifest.xml'
+    $cfgPath = Join-Path $loc 'MicrosoftGame.Config'
+    if (-not (Test-Path $cfgPath)) {
+        $cfgPath = Join-Path $loc 'Content\\MicrosoftGame.Config'
+    }
+    
+    $isGame = $false
+    $title = ''
+    $appId = ''
+    $logoFile = ''
+    
+    if (Test-Path $cfgPath) {
+        $isGame = $true
+        try {
+            [xml]$cfgXml = Get-Content $cfgPath -Raw -ErrorAction SilentlyContinue
+            $title = $cfgXml.Game.ShellVisuals.DefaultDisplayName
+            $logoFile = $cfgXml.Game.ShellVisuals.Square150x150Logo
+            if (-not $logoFile) { $logoFile = $cfgXml.Game.ShellVisuals.StoreLogo }
+        } catch {}
+    }
+    
+    if (Test-Path $manifestPath) {
+        $raw = Get-Content $manifestPath -Raw -ErrorAction SilentlyContinue
+        if ($raw -match 'windows\\.game' -or $raw -match 'ms-xbl-' -or $raw -match 'Microsoft\\.DirectXRuntime' -or $raw -match 'Category="windows\\.game"') {
+            $isGame = $true
+        }
+        if ($raw -match '<Application\\s+[^>]*Id="([^"]+)"') {
+            $appId = $matches[1]
+        }
+        if (-not $title -and $raw -match '<DisplayName>([^<]+)</DisplayName>') {
+            $disp = $matches[1]
+            if (-not ($disp -like 'ms-resource:*')) {
+                $title = $disp
+            }
+        }
+    }
+    
+    if ($pkg.Name -like 'Microsoft.XboxGamingOverlay' -or $pkg.Name -like 'Microsoft.GamingServices' -or $pkg.Name -like 'Microsoft.XboxSpeechToTextOverlay') {
+        $isGame = $false
+    }
+    
+    if ($isGame) {
+        $aumid = ''
+        if ($appId) {
+            $aumid = $pkg.PackageFamilyName + '!' + $appId
+        }
+        if (-not $title -and $aumid -and $startApps[$aumid]) {
+            $title = $startApps[$aumid]
+        }
+        if (-not $title) {
+            foreach ($k in $startApps.Keys) {
+                if ($k.StartsWith($pkg.PackageFamilyName)) {
+                    $title = $startApps[$k]
+                    if (-not $aumid) { $aumid = $k }
+                    break
+                }
+            }
+        }
+        if (-not $title) {
+            $title = $pkg.Name
+        }
+
+        $games += [PSCustomObject]@{
+            PackageName = $pkg.Name
+            PackageFamilyName = $pkg.PackageFamilyName
+            InstallLocation = $loc
+            Title = $title
+            AppId = $appId
+            AUMID = $aumid
+            Logo = $logoFile
+        }
+    }
+}
+$games | ConvertTo-Json -Compress
+`;
+
+    const b64 = Buffer.from(psScript, 'utf16le').toString('base64');
+    const raw = execSync(`powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ${b64}`, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+      timeout: 15000,
+    });
+
+    if (raw && raw.trim()) {
+      const parsed = JSON.parse(raw.trim());
+      const appxList = Array.isArray(parsed) ? parsed : [parsed];
+      for (const item of appxList) {
+        const pkgName = item.PackageName || item.PackageFamilyName;
+        const id = 'xbox_' + pkgName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const aumid = item.AUMID || (item.AppId ? `${item.PackageFamilyName}!${item.AppId}` : '');
+        const launchPath = aumid ? `shell:AppsFolder\\${aumid}` : '';
+
+        // Si ya fue detectado por la carpeta XboxGames, enriquecerlo con el AUMID oficial
+        const existingIdx = games.findIndex(g =>
+          g.id === id ||
+          (g.packageName && item.PackageName && g.packageName.toLowerCase() === item.PackageName.toLowerCase()) ||
+          (g.title && item.Title && g.title.toLowerCase() === item.Title.toLowerCase())
+        );
+
+        if (existingIdx !== -1) {
+          if (aumid) games[existingIdx].aumid = aumid;
+          if (!games[existingIdx].installLocation && item.InstallLocation) {
+            games[existingIdx].installLocation = item.InstallLocation;
+          }
+        } else if (!seenIds.has(id)) {
+          seenIds.add(id);
+          let logoPath = null;
+          let icon = null;
+          if (item.Logo && item.InstallLocation) {
+            const cand = path.join(item.InstallLocation, item.Logo);
+            if (fs.existsSync(cand)) {
+              logoPath = cand;
+              try {
+                const ext = path.extname(cand).toLowerCase();
+                const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+                const b64 = fs.readFileSync(cand).toString('base64');
+                icon = `data:${mime};base64,${b64}`;
+              } catch (_) {}
+            }
+          }
+          games.push({
+            id,
+            title: item.Title || pkgName,
+            installLocation: item.InstallLocation,
+            contentDir: item.InstallLocation,
+            launchPath,
+            aumid,
+            logoPath,
+            icon,
+            packageName: pkgName,
+            source: 'xbox',
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[Xbox] Error escaneando AppX games:', e.message);
+  }
+
+  xboxGamesCache = games;
+  console.log('[Xbox] Juegos instalados encontrados:', games.length);
+  return games;
+}
+
+function findXboxGameInstallDir(appIdOrAumidOrPath) {
+  if (!appIdOrAumidOrPath) return null;
+  const lower = appIdOrAumidOrPath.toLowerCase();
+
+  for (const g of xboxGamesCache) {
+    if (g.aumid && g.aumid.toLowerCase() === lower) return g.installLocation || g.contentDir;
+    if (g.id && g.id.toLowerCase() === lower) return g.installLocation || g.contentDir;
+    if (g.packageName && g.packageName.toLowerCase() === lower) return g.installLocation || g.contentDir;
+    if (g.launchPath && g.launchPath.toLowerCase() === lower) return g.installLocation || g.contentDir;
+  }
+
+  if (lower.includes('xboxgames')) {
+    const parts = path.normalize(appIdOrAumidOrPath).split(path.sep);
+    const xboxIdx = parts.findIndex(p => p.toLowerCase() === 'xboxgames');
+    if (xboxIdx !== -1 && xboxIdx + 1 < parts.length) {
+      return parts.slice(0, xboxIdx + 2).join(path.sep);
+    }
+  }
+
+  return null;
 }
 
 // ── Vigilancia de juegos de Epic lanzados por protocolo ──
@@ -2924,7 +3223,11 @@ app.whenReady().then(async () => {
           platform: 'Spotify',
           ...filteredUpdate
         });
-      } else if (updatedApp.id.toString().startsWith('steam_') || updatedApp.id.toString().startsWith('epic_')) {
+      } else if (
+        updatedApp.id.toString().startsWith('steam_') ||
+        updatedApp.id.toString().startsWith('epic_') ||
+        updatedApp.id.toString().startsWith('xbox_')
+      ) {
         // Solo agregar a la DB si tiene título real, evitando crear registros fantasma vacíos
         if (updatedApp.title && updatedApp.title.trim() && updatedApp.title !== 'Juego') {
           data.games = data.games || [];
@@ -3312,6 +3615,64 @@ app.whenReady().then(async () => {
         image: resolveAppRecordThumbnail(appRecord),
       });
       return { success: true, suspended: true };
+    }
+
+    // Caso especial: shell:AppsFolder\<aumid> (Xbox Game Pass / Microsoft Store / UWP)
+    const shellAppsMatch = executablePath.match(/^shell:AppsFolder[\\/](.+)$/i);
+    if (shellAppsMatch) {
+      const aumid = shellAppsMatch[1].trim();
+      // PackageFamilyName = parte antes del '!' en el AUMID (ej: "Microsoft.MinecraftUWP_8wekyb3d8bbwe")
+      const packageFamilyName = aumid.includes('!') ? aumid.split('!')[0] : null;
+      const installDir = findXboxGameInstallDir(aumid) || findXboxGameInstallDir(id);
+
+      console.log('[Xbox] Lanzando juego Store/Game Pass vía shell:AppsFolder:', aumid, 'installDir:', installDir, 'pfn:', packageFamilyName);
+      const psLaunch = `Start-Process "shell:AppsFolder\\${aumid}"`;
+      const b64 = Buffer.from(psLaunch, 'utf16le').toString('base64');
+      exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`, (err) => {
+        if (err) {
+          console.error('[Xbox] Error con Start-Process, intentando con explorer.exe:', err);
+          spawn('explorer.exe', [`shell:AppsFolder\\${aumid}`], { detached: true, stdio: 'ignore' });
+        }
+      });
+
+      // Usar tanto el installDir como el PFN para detectar el proceso del juego
+      const watchDir = installDir || '';
+      startSteamGameWatch(id, aumid, watchDir, 'Xbox', {
+        title: appRecord?.title,
+        image: resolveAppRecordThumbnail(appRecord),
+      }, { packageFamilyName });
+      return { success: true, suspended: true };
+    }
+
+    // Caso especial: gamelaunchhelper.exe o ejecutable dentro de XboxGames
+    const isXboxFolderLaunch = lowerPath.includes('xboxgames') || lowerPath.endsWith('gamelaunchhelper.exe');
+    if (isXboxFolderLaunch) {
+      const installDir = findXboxGameInstallDir(executablePath) || path.dirname(executablePath);
+      console.log('[Xbox] Lanzando ejecutable Xbox Game Pass:', executablePath, 'dir:', installDir);
+
+      // Intentar obtener el PFN desde el caché de Xbox para mejorar la detección del proceso
+      const xboxEntry = xboxGamesCache.find(g =>
+        g.installLocation && installDir && g.installLocation.toLowerCase() === installDir.toLowerCase()
+      );
+      const packageFamilyName = xboxEntry?.aumid?.includes('!')
+        ? xboxEntry.aumid.split('!')[0]
+        : null;
+
+      const gameCwd = path.dirname(executablePath);
+      spawn(executablePath, [], {
+        cwd: gameCwd,
+        env: envForExternalApp(),
+        detached: true,
+        stdio: 'ignore',
+      });
+
+      if (installDir) {
+        startSteamGameWatch(id, path.basename(installDir), installDir, 'Xbox', {
+          title: appRecord?.title,
+          image: resolveAppRecordThumbnail(appRecord),
+        }, { packageFamilyName });
+        return { success: true, suspended: true };
+      }
     }
 
     // URLs y protocolos (http://, etc.)
@@ -4266,6 +4627,17 @@ app.whenReady().then(async () => {
     }
   });
 
+  // IPC: Obtener juegos instalados localmente de Xbox Game Pass / Microsoft Store
+  ipcMain.handle('get-xbox-installed-games', async () => {
+    try {
+      const games = getXboxInstalledGames();
+      return { success: true, games };
+    } catch (error) {
+      console.error('[Xbox] Error getting installed games:', error);
+      return { success: false, games: [], error: error.message };
+    }
+  });
+
   // IPC: Obtener lista de programas instalados en Windows (estilo Steam)
   ipcMain.handle('get-installed-programs', async () => {
     if (process.platform !== 'win32') {
@@ -4376,11 +4748,31 @@ app.whenReady().then(async () => {
       }
     } catch (_) { }
 
+    // Incluir juegos de Xbox Game Pass / Microsoft Store si existen
+    try {
+      const xboxGames = getXboxInstalledGames();
+      for (const xg of xboxGames) {
+        const normPath = (xg.launchPath || xg.installLocation).toLowerCase();
+        const normName = xg.title.toLowerCase();
+        if (!seenPaths.has(normPath) && !seenNames.has(normName)) {
+          seenPaths.add(normPath);
+          seenNames.add(normName);
+          programs.push({
+            name: xg.title,
+            path: xg.launchPath || xg.installLocation,
+            icon: xg.icon || null,
+            source: 'xbox',
+          });
+        }
+      }
+    } catch (_) { }
+
     programs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
     // Extraer icono base64 para cada programa mediante app.getFileIcon
     const programsWithIcons = await Promise.all(
       programs.map(async (p) => {
+        if (p.icon) return p;
         let iconBase64 = null;
         try {
           const iconNative = await app.getFileIcon(p.path, { size: 'normal' });

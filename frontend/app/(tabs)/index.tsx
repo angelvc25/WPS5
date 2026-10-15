@@ -9,6 +9,8 @@ import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { fetchEpicInstalledGames } from '@/services/epicInstallService';
 import { buildEpicRunUrl } from '@/services/epicLaunchService';
+import { fetchXboxInstalledGames } from '@/services/xboxInstallService';
+import { isXboxGame } from '@/services/xboxLaunchService';
 import { fetchGamingNews } from '@/services/newsService';
 import { soundService } from '@/services/soundService';
 import { fetchSteamInstalledAppIds, fetchSteamInstalledGamesDetailed } from '@/services/steamInstallService';
@@ -714,6 +716,10 @@ export default function ConsoleHome() {
   const [loadingEpic, setLoadingEpic] = useState(false);
   const epicGamesRef = useRef<ConsoleItem[]>([]);
   epicGamesRef.current = epicGames;
+  const [xboxGames, setXboxGames] = useState<ConsoleItem[]>([]);
+  const [loadingXbox, setLoadingXbox] = useState(false);
+  const xboxGamesRef = useRef<ConsoleItem[]>([]);
+  xboxGamesRef.current = xboxGames;
   const [uiReady, setUiReady] = useState(false);
   // Home avisa al _layout (evento 'wps5-home-ready') cuando la UI y los datos
   // base están listos, para quitar el overlay de carga sin saltos.
@@ -767,11 +773,11 @@ export default function ConsoleHome() {
     }
     const now = Date.now();
     const id = item.id;
-    const isSteamOrEpic = id.startsWith('steam_') || id.startsWith('epic_');
+    const isSteamOrEpicOrXbox = id.startsWith('steam_') || id.startsWith('epic_') || id.startsWith('xbox_');
 
     setGames(prev => prev.map(g => g.id === id ? { ...g, lastPlayed: now } : g));
 
-    if (isSteamOrEpic) {
+    if (isSteamOrEpicOrXbox) {
       setSteamGames(prev => {
         if (!prev.some(g => g.id === id)) return prev;
         const updated = prev.map(g => g.id === id ? { ...g, lastPlayed: now } : g);
@@ -787,6 +793,11 @@ export default function ConsoleHome() {
         epicGamesRef.current = updated;
         return updated;
       });
+      setXboxGames(prev => {
+        const updated = prev.map(g => g.id === id ? { ...g, lastPlayed: now } : g);
+        xboxGamesRef.current = updated;
+        return updated;
+      });
     }
 
     // Un juego fijado ya tiene su propio lugar permanente en Inicio (ver
@@ -799,9 +810,9 @@ export default function ConsoleHome() {
     }
 
     // Los juegos manuales ya guardan lastPlayed vía main.js al lanzarlos;
-    // para Steam/Epic evitamos crear un registro "fantasma" sin título/portada
+    // para Steam/Epic/Xbox evitamos crear un registro "fantasma" sin título/portada
     // en games.json y confiamos en el estado en memoria + caché local.
-    if (!isSteamOrEpic && Platform.OS === 'web' && (window as any).electronAPI?.updateApp) {
+    if (!isSteamOrEpicOrXbox && Platform.OS === 'web' && (window as any).electronAPI?.updateApp) {
       (window as any).electronAPI.updateApp({ id, lastPlayed: now });
     }
   };
@@ -1167,7 +1178,7 @@ export default function ConsoleHome() {
 
   const GAMES_LIMIT = 10;
   const nonSteamGames = useMemo(
-    () => games.filter(item => !item.id.toString().startsWith('steam_') && !item.id.toString().startsWith('epic_')),
+    () => games.filter(item => !item.id.toString().startsWith('steam_') && !item.id.toString().startsWith('epic_') && !item.id.toString().startsWith('xbox_')),
     [games]
   );
 
@@ -1266,10 +1277,10 @@ export default function ConsoleHome() {
 
   const displayedLibraryGames = useMemo(() => {
     // Registros manuales de la DB (ediciones del usuario) que pisan los datos
-    // detectados de Steam/Epic. Misma lógica que ya existía inline para Steam.
+    // detectados de Steam/Epic/Xbox. Misma lógica que ya existía inline para Steam.
     const dbOverrides = new Map<string, ConsoleItem>();
     games.forEach(g => {
-      if ((g.id.startsWith('steam_') || g.id.startsWith('epic_')) && g.title && g.title !== 'Juego') {
+      if ((g.id.startsWith('steam_') || g.id.startsWith('epic_') || g.id.startsWith('xbox_')) && g.title && g.title !== 'Juego') {
         dbOverrides.set(g.id, g);
       }
     });
@@ -1284,7 +1295,7 @@ export default function ConsoleHome() {
         backgroundImage: (override.backgroundImage && override.backgroundImage !== require('@/assets/images/FondoDefault2.jpg')) ? override.backgroundImage : base.backgroundImage,
         logo: (override as any).logo || (base as any).logo,
         // `...override` copia `isFavorite: undefined` (o un valor viejo) encima
-        // del favorito real del juego; priorizamos el de steamGames/epicGames.
+        // del favorito real del juego; priorizamos el de steamGames/epicGames/xboxGames.
         isFavorite: base.isFavorite ?? override.isFavorite,
       };
       return { ...merged, path: resolveLaunchPath(merged) };
@@ -1292,6 +1303,9 @@ export default function ConsoleHome() {
     if (libraryTab === 'installed') {
       const byId = new Map<string, ConsoleItem>();
       epicGames.forEach(game => {
+        byId.set(game.id, applyDbOverride(game));
+      });
+      xboxGames.forEach(game => {
         byId.set(game.id, applyDbOverride(game));
       });
       // Incluimos también los juegos de Steam (colección completa). No
@@ -1310,7 +1324,7 @@ export default function ConsoleHome() {
       return result;
     }
     return steamGames.map(sg => applyDbOverride(sg));
-  }, [libraryTab, savedGames, epicGames, steamGames, games]);
+  }, [libraryTab, savedGames, epicGames, xboxGames, steamGames, games]);
 
   const searchableLibraryGames = useMemo(() => {
     const byId = new Map<string, ConsoleItem>();
@@ -1329,8 +1343,18 @@ export default function ConsoleHome() {
       const base = override ? { ...g, ...override } : g;
       byId.set(g.id, existing ? { ...base, ...existing } : base);
     });
+    const xboxOverrides = new Map<string, ConsoleItem>();
+    games.forEach(g => {
+      if (g.id.startsWith('xbox_') && g.title && g.title !== 'Juego') xboxOverrides.set(g.id, g);
+    });
+    xboxGames.forEach(g => {
+      const existing = byId.get(g.id);
+      const override = xboxOverrides.get(g.id);
+      const base = override ? { ...g, ...override } : g;
+      byId.set(g.id, existing ? { ...base, ...existing } : base);
+    });
     return Array.from(byId.values());
-  }, [savedGames, steamGames, epicGames, games]);
+  }, [savedGames, steamGames, epicGames, xboxGames, games]);
 
   const searchableMedia = useMemo(() => media, [media]);
 
@@ -1708,6 +1732,65 @@ export default function ConsoleHome() {
   }, []);
 
   useEffect(() => {
+    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getXboxInstalledGames) return;
+    if (xboxGames.length > 0 || loadingXbox) return;
+
+    setLoadingXbox(true);
+    fetchXboxInstalledGames().then(async (gamesList) => {
+      const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => ({
+        id: g.id,
+        title: g.title,
+        time: 'Xbox',
+        platform: 'Xbox',
+        type: 'game',
+        path: g.launchPath || (g.aumid ? `shell:AppsFolder\\${g.aumid}` : ''),
+        image: g.icon || null,
+      }));
+
+      const withMetadata = await Promise.all(
+        baseFormatted.map(async (game) => {
+          try {
+            const res = (window as any).electronAPI?.fetchSteamGridData
+              ? await (window as any).electronAPI.fetchSteamGridData(game.title)
+              : await fetchSteamGridData(game.title);
+            if (res?.success && res.data) {
+              return {
+                ...game,
+                image: res.data.grid || game.image,
+                backgroundImage: res.data.hero || game.backgroundImage,
+                logo: res.data.logo || game.logo,
+              };
+            }
+          } catch (e) {
+            console.error('[Xbox] Error fetching metadata for:', game.title, e);
+          }
+          return game;
+        })
+      );
+
+      // Notifica solo los juegos de Xbox nuevos desde el último escaneo
+      try {
+        const knownRaw = localStorage.getItem('xbox_known_games');
+        const known: string[] = knownRaw ? JSON.parse(knownRaw) : null;
+        if (known) {
+          const newOnes = withMetadata.filter(g => !known.includes(g.id));
+          newOnes.forEach(g => {
+            toastService.show(t('notifications.xboxGames', { gameTitle: g.title }), {
+              icon: require('@/assets/images/Xboxico.png'),
+              source: 'xbox',
+              coverImage: g.image,
+            });
+          });
+        }
+        localStorage.setItem('xbox_known_games', JSON.stringify(withMetadata.map(g => g.id)));
+      } catch (e) { /* noop */ }
+
+      setXboxGames(withMetadata);
+      setLoadingXbox(false);
+    }).catch(() => setLoadingXbox(false));
+  }, []);
+
+  useEffect(() => {
     if (libraryTab !== 'collection') return;
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledAppsDetailed) return;
     if (steamGames.length === 0) return;
@@ -1983,14 +2066,16 @@ export default function ConsoleHome() {
 
         const baseItems = [ps5store, home, lastPlayed, favGames, favMedia].filter(Boolean) as ConsoleItem[];
 
-        // Find the most recently played game/media across all sources (manual, steam, epic, media)
+        // Find the most recently played game/media across all sources (manual, steam, epic, xbox, media)
         const currentSteamGames = getEffectiveSteamGames();
         const currentEpicGames = epicGamesRef.current;
+        const currentXboxGames = xboxGamesRef.current;
         const allFormatted = [
           ...gamesList,
           ...mediaList,
           ...currentSteamGames,
           ...currentEpicGames,
+          ...currentXboxGames,
         ];
         const sortedByLastPlayed = allFormatted
           // Un juego fijado no debe convertirse en "Último Jugado": ya tiene
@@ -2001,8 +2086,10 @@ export default function ConsoleHome() {
           .sort((a: any, b: any) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
         let latestGame = sortedByLastPlayed[0] || null;
 
-        if (latestGame && (latestGame.id?.toString().startsWith('steam_') || latestGame.id?.toString().startsWith('epic_'))) {
-          const richVersion = currentSteamGames.find(g => g.id === latestGame!.id) || currentEpicGames.find(g => g.id === latestGame!.id);
+        if (latestGame && (latestGame.id?.toString().startsWith('steam_') || latestGame.id?.toString().startsWith('epic_') || latestGame.id?.toString().startsWith('xbox_'))) {
+          const richVersion = currentSteamGames.find(g => g.id === latestGame!.id) ||
+            currentEpicGames.find(g => g.id === latestGame!.id) ||
+            currentXboxGames.find(g => g.id === latestGame!.id);
           if (richVersion) {
             latestGame = {
               ...richVersion,
@@ -2118,6 +2205,15 @@ export default function ConsoleHome() {
 
     if (id.startsWith('epic_')) {
       setEpicGames(prev => {
+        if (prev.some(g => g.id === id)) {
+          return prev.map(g => g.id === id ? formatUpdated(g) : g);
+        }
+        return [...prev, formatUpdated({ id } as ConsoleItem)];
+      });
+    }
+
+    if (id.startsWith('xbox_')) {
+      setXboxGames(prev => {
         if (prev.some(g => g.id === id)) {
           return prev.map(g => g.id === id ? formatUpdated(g) : g);
         }
@@ -3884,12 +3980,13 @@ export default function ConsoleHome() {
     if (!item) return;
     const newPinned = !item.isPinned;
 
-    // El ítem enfocado puede venir de `games` (manuales) o de `steamGames`
-    // (importados de Steam, ver `playedSteamGames`/`downloadingSteamGames`
-    // en `currentData`). Hay que actualizar el estado del que realmente
-    // proviene, o el toggle no tendrá efecto visible para juegos de Steam.
+    // El ítem enfocado puede venir de `games` (manuales) o de `steamGames`/`epicGames`/`xboxGames`
     if (isSteamTrackedGame(item)) {
       setSteamGames(prev => prev.map(g => g.id === item.id ? { ...g, isPinned: newPinned } : g));
+    } else if (item.id?.toString().startsWith('epic_')) {
+      setEpicGames(prev => prev.map(g => g.id === item.id ? { ...g, isPinned: newPinned } : g));
+    } else if (item.id?.toString().startsWith('xbox_')) {
+      setXboxGames(prev => prev.map(g => g.id === item.id ? { ...g, isPinned: newPinned } : g));
     } else {
       setGames(prev => prev.map(g => g.id === item.id ? { ...g, isPinned: newPinned } : g));
     }
@@ -3905,7 +4002,7 @@ export default function ConsoleHome() {
     if (!item) return;
     const newFav = !item.isFavorite;
 
-    const isSteamOrEpicId = item.id?.toString().startsWith('steam_') || item.id?.toString().startsWith('epic_');
+    const isSteamOrEpicId = item.id?.toString().startsWith('steam_') || item.id?.toString().startsWith('epic_') || item.id?.toString().startsWith('xbox_');
 
     if (isSteamTrackedGame(item)) {
       // Steam: la fuente de verdad es `steamGames` + su caché en localStorage.
@@ -3921,6 +4018,20 @@ export default function ConsoleHome() {
       });
       // Si el usuario editó este juego, existe un registro en `games` que pisa
       // a `steamGames` en `displayedLibraryGames`: mantenerlo sincronizado.
+      setGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
+    } else if (item.id?.toString().startsWith('epic_')) {
+      setEpicGames(prev => {
+        const updated = prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g);
+        epicGamesRef.current = updated;
+        return updated;
+      });
+      setGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
+    } else if (item.id?.toString().startsWith('xbox_')) {
+      setXboxGames(prev => {
+        const updated = prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g);
+        xboxGamesRef.current = updated;
+        return updated;
+      });
       setGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
     } else {
       setGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));

@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSteamInstalledApps: () => ipcRenderer.invoke('get-steam-installed-apps'),
   getSteamInstalledAppsDetailed: () => ipcRenderer.invoke('get-steam-installed-apps-detailed'),
   getEpicInstalledGames: () => ipcRenderer.invoke('get-epic-installed-games'),
+  getXboxInstalledGames: () => ipcRenderer.invoke('get-xbox-installed-games'),
   getInstalledPrograms: () => ipcRenderer.invoke('get-installed-programs'),
   detectEmulatorExe: (exeNames) => ipcRenderer.invoke('detect-emulator-exe', exeNames),
   scanRoms: (dir, extensions, specialFiles) => ipcRenderer.invoke('scan-roms', dir, extensions, specialFiles),
