@@ -9,14 +9,14 @@ import YoutubePlayer from '@/components/YoutubePlayer';
 import { PSIcons } from '@/constants/psIcons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
-import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
+import { GameVideoResult } from '@/services/gameVideoService';
 import { fetchGamingNews } from '@/services/newsService';
 import { syncProfileMediaToOnline } from '@/services/onlineAccountService';
 import { extractSteamAppId as extractTrophySteamAppId, syncLocalTrophiesToOnline } from '@/services/onlineTrophiesService';
 import { soundService } from '@/services/soundService';
 import { getGameActionLabel, resolveSteamLaunchPath } from '@/services/steamLaunchService';
-import { resolveGameScreenshots, SteamMediaItem } from '@/services/steamMediaService';
-import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
+import { SteamMediaItem } from '@/services/steamMediaService';
+import { SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamGameAchievements } from '@/services/steamUserService';
 import { toastService } from '@/services/toastService';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,12 +58,12 @@ import WidgetEditPanel, {
     saveWidgetOrder,
     saveWidgetSizes,
     saveWidgetVisibility,
-    WIDGET_COLUMN_CAPACITY,
     WidgetSizes,
     WidgetVisibility
 } from '@/components/WidgetEditPanel';
 import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { useFocusNavigation, type UseFocusNavigationOptions } from '@/hooks/useFocusNavigation';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
 import { useLibrary } from '@/hooks/useLibrary';
 import { usePresentationMode } from '@/hooks/usePresentationMode';
@@ -314,17 +314,9 @@ export default function ConsoleHome() {
 
   const [activeTab, setActiveTab] = useState('Games');
   const [currentRenderedTab, setCurrentRenderedTab] = useState('Games');
-  const [activeIndex, setActiveIndex] = useState(1);
   // carouselKey: incrementing this forces AnimatedCardWrapper instances to remount,
   // re-triggering the staggered entrance animation on tab change.
   const [carouselKey, setCarouselKey] = useState(0);
-
-  // Focus management
-  type FocusArea = 'header_user' | 'header_tabs' | 'main_carousel' | 'game_panel' | 'footer' | 'welcome_widgets' | 'welcome_toolbar' | 'library_grid' | 'header_avatar';
-  const [focusArea, setFocusArea] = useState<FocusArea>('main_carousel');
-  const [focusIndex, setFocusIndex] = useState(0);
-  // game_panel focus: 0=Play, 1=More, 2=Trophies, 3=Friends
-  const [gamePanelFocusIndex, setGamePanelFocusIndex] = useState(0);
 
   // Steam news
   const [steamNews, setSteamNews] = useState<SteamNewsItem[]>([]);
@@ -352,7 +344,6 @@ export default function ConsoleHome() {
   const focusAudioRequestRef = useRef(0);
   const isLaunchingRef = useRef(false);
   const widgetScrollRef = useRef<ScrollView>(null);
-  const lastNavTime = useRef<number>(0);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   // Dimensiones en píxeles reales del lightbox de medios (16:9), calculadas a
@@ -390,7 +381,6 @@ export default function ConsoleHome() {
   const [isAvatarModalVisible, setAvatarModalVisible] = useState(false);
   const [isSearchVisible, setSearchVisible] = useState(false);
   const [onlineProfileUsername, setOnlineProfileUsername] = useState<string | null>(null);
-  const [toolbarFocusIndex, setToolbarFocusIndex] = useState(2);
   const [addModalFocusIndex, setAddModalFocusIndex] = useState(0);
   const [settingsFocusArea, setSettingsFocusArea] = useState<'sidebar' | 'content'>('sidebar');
   const [settingsFocusIndex, setSettingsFocusIndex] = useState(0);
@@ -405,17 +395,9 @@ export default function ConsoleHome() {
   const [isFavoritesVisible, setFavoritesVisible] = useState(false);
   const [isSettingsVisible, setSettingsVisible] = useState(false);
   const [isWelcomeSettingsVisible, setWelcomeSettingsVisible] = useState(false);
-  const [isWidgetEditOpen, setIsWidgetEditOpen] = useState(false);
-  const [widgetEditFocusIndex, setWidgetEditFocusIndex] = useState(0);
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(() => loadWidgetVisibility());
   const [widgetOrder, setWidgetOrder] = useState<string[]>(() => loadWidgetOrder());
   const [widgetSizes, setWidgetSizes] = useState<WidgetSizes>(() => loadWidgetSizes());
-  const [isWidgetMoveMode, setIsWidgetMoveMode] = useState(false);
-  const [movingWidgetId, setMovingWidgetId] = useState<string | null>(null);
-  const [preMoveOrderBackup, setPreMoveOrderBackup] = useState<string[]>([]);
-
-  // Widget con foco en WidgetEditPanel (null si el panel está cerrado). WelcomeWidgets atenúa el resto.
-  const editingWidgetId = isWidgetEditOpen ? (PANEL_WIDGETS[widgetEditFocusIndex]?.id ?? null) : null;
 
   // R1 (+1) amplía, L1 (-1) reduce. Tamaños: 0 → 1 → 2 (máximo por widget en WIDGET_MAX_SIZE).
   const resizeWidget = useCallback((id: string, delta: 1 | -1) => {
@@ -427,17 +409,6 @@ export default function ConsoleHome() {
     saveWidgetSizes(updated);
     soundService.playNavigation();
   }, [widgetSizes]);
-
-  const startWidgetMove = useCallback((id: string) => {
-    setPreMoveOrderBackup([...widgetOrder]);
-    setMovingWidgetId(id);
-    setIsWidgetMoveMode(true);
-    setIsWidgetEditOpen(false);
-    setFocusArea('welcome_widgets');
-    const slot = widgetOrder.indexOf(id);
-    setFocusIndex(slot !== -1 ? slot : 0);
-    soundService.playActivation?.();
-  }, [widgetOrder]);
 
   const row1Visible = useMemo(
     () => [0, 1, 2, 3, 4].filter(slot => widgetVisibility[widgetOrder[slot]] !== false),
@@ -457,53 +428,6 @@ export default function ConsoleHome() {
     ),
     [widgetOrder, widgetVisibility, widgetSizes]
   );
-
-  /** Vecino de un slot según el layout visual. 'toolbar' = salir hacia arriba a la barra superior. */
-  const getWidgetNeighbor = (slot: number, dir: 'left' | 'right' | 'up' | 'down'): number | 'toolbar' | null => {
-    const cap = WIDGET_COLUMN_CAPACITY;
-    let c = -1, r = -1;
-    widgetColumns.forEach((col, ci) => col.forEach((it, ri) => { if (it.slot === slot) { c = ci; r = ri; } }));
-    if (c < 0) return null;
-    // Las columnas están alineadas abajo: centro vertical en "espacios"
-    const centerOf = (ci: number, ri: number) => {
-      const col = widgetColumns[ci];
-      const total = col.reduce((sum, it) => sum + it.rows, 0);
-      const before = col.slice(0, ri).reduce((sum, it) => sum + it.rows, 0);
-      return (cap - total) + before + col[ri].rows / 2;
-    };
-    if (dir === 'down') return r < widgetColumns[c].length - 1 ? widgetColumns[c][r + 1].slot : null;
-    if (dir === 'up') return r > 0 ? widgetColumns[c][r - 1].slot : 'toolbar';
-    const tc = dir === 'right' ? c + 1 : c - 1;
-    if (tc < 0 || tc >= widgetColumns.length) return null;
-    const cy = centerOf(c, r);
-    let best = 0, bestDiff = Infinity;
-    widgetColumns[tc].forEach((_, ri) => {
-      const d = Math.abs(centerOf(tc, ri) - cy);
-      if (d < bestDiff) { bestDiff = d; best = ri; }
-    });
-    return widgetColumns[tc][best].slot;
-  };
-
-  useEffect(() => {
-    if (focusArea === 'welcome_widgets') {
-      const currentWidgetId = widgetOrder[focusIndex];
-      if (currentWidgetId && widgetVisibility[currentWidgetId] === false) {
-        const allVis = [...row1Visible, ...row2Visible];
-        if (allVis.length > 0) {
-          let closest = allVis[0];
-          let minDiff = Math.abs(closest - focusIndex);
-          for (const idx of allVis) {
-            const d = Math.abs(idx - focusIndex);
-            if (d < minDiff) {
-              minDiff = d;
-              closest = idx;
-            }
-          }
-          setFocusIndex(closest);
-        }
-      }
-    }
-  }, [widgetVisibility, widgetOrder, focusArea, focusIndex, row1Visible, row2Visible]);
   const [isMediaGalleryVisible, setMediaGalleryVisible] = useState(false);
   const [isSlidesModalVisible, setIsSlidesModalVisible] = useState(false);
 
@@ -541,28 +465,6 @@ export default function ConsoleHome() {
   }, [isLaunching]);
 
   // States for new UI features (WPS5 UI Expansion)
-  const [isLibraryFocused, setIsLibraryFocused] = useState(false);
-  const [libraryGridFocusIndex, setLibraryGridFocusIndex] = useState(0);
-  // Lista realmente visible dentro de LibraryGrid: ya ordenada y filtrada
-  // por pestaña/plataforma/fuente. Debe usarse (en vez de
-  // displayedLibraryGames) para resolver qué juego corresponde al índice
-  // de foco actual, porque LibraryGrid puede mostrar un subconjunto/orden
-  // distinto al de displayedLibraryGames cuando hay un filtro activo.
-  const [visibleLibraryGames, setVisibleLibraryGames] = useState<ConsoleItem[]>([]);
-  const [libraryTab, setLibraryTab] = useState<'installed' | 'collection'>('installed');
-  // true cuando el foco (teclado/mando) está sobre la fila de pestañas
-  // Instalados | Tu Colección, en vez de sobre una tarjeta del grid.
-  const [libraryTabsFocused, setLibraryTabsFocused] = useState(false);
-  // true cuando el foco (teclado/mando) está sobre el botón de filtro,
-  // a la izquierda del grid (tercera zona de foco dentro de library_grid).
-  const [libraryFilterFocused, setLibraryFilterFocused] = useState(false);
-  // Recuerda si se entró al botón de filtro desde la fila de pestañas
-  // (en vez de desde el grid), para devolver el foco al lugar correcto.
-  const [libraryFilterFromTabs, setLibraryFilterFromTabs] = useState(false);
-  // true mientras el panel de filtros (Sort by / Platform / Source) está
-  // abierto; mientras tanto, la navegación del panel la maneja LibraryGrid
-  // internamente y este componente pausa su propio manejo de flechas.
-  const [isLibraryFilterPanelOpen, setIsLibraryFilterPanelOpen] = useState(false);
   const libraryGridRef = useRef<LibraryGridHandle>(null);
   const welcomeWidgetsRef = useRef<WelcomeWidgetsHandle>(null);
 
@@ -577,6 +479,9 @@ export default function ConsoleHome() {
   const [isDetailVisible, setDetailVisible] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<ConsoleItem | null>(null);
   const [uiReady, setUiReady] = useState(false);
+
+  // libraryTab: se declara aquí para pasarlo a useSteamSync, useLibrary y useFocusNavigation
+  const [libraryTab, setLibraryTab] = useState<'installed' | 'collection'>('installed');
 
   // ── useSteamSync ──────────────────────────────────────────────────────────
   // Nota: games no está disponible aún (lo provee useLibrary más abajo), así
@@ -691,12 +596,151 @@ export default function ConsoleHome() {
   const [isMusicCardOpen, setIsMusicCardOpen] = useState(false);
   const [isDownloadsCardOpen, setIsDownloadsCardOpen] = useState(false);
 
+  // Declaraciones anticipadas necesarias por useFocusNavigation antes de su llamada
+  const [inputMode, setInputMode] = useState<'keyboard' | 'gamepad'>('keyboard');
+  const mountTimeRef = useRef(Date.now());
+
+  // ─── Datos derivados de storeOffers que necesita useFocusNavigation ───────
+  const storeDeals = useMemo(() => storeOffers.filter(o => o.type === 'offer'), [storeOffers]);
+  const storeUpcoming = useMemo(() => storeOffers.filter(o => o.type === 'release'), [storeOffers]);
+
+  // ─── Refs para romper dependencia circular con useFocusNavigation ─────────
+  // handleLaunchApp y otros callbacks se definen más abajo pero usan valores
+  // del hook (setActiveIndex, setFocusArea). Como el hook los lee siempre desde
+  // optionsRef.current (actualizada en cada render), basta con wrappers estables.
+  const _handleLaunchAppRef = useRef<UseFocusNavigationOptions['handleLaunchApp']>(() => {});
+  const _openContextMenuRef = useRef<UseFocusNavigationOptions['openContextMenu']>(() => {});
+  const _handleContextMenuActionRef = useRef<UseFocusNavigationOptions['handleContextMenuAction']>(() => {});
+  const _handleProfileMenuActionRef = useRef<UseFocusNavigationOptions['handleProfileMenuAction']>(() => {});
+  const _handleSystemNavActionRef = useRef<UseFocusNavigationOptions['handleSystemNavAction']>(() => {});
+  const _handleToggleFavoriteRef = useRef<UseFocusNavigationOptions['handleToggleFavorite']>(() => {});
+  const _handleTogglePinRef = useRef<UseFocusNavigationOptions['handleTogglePin']>(() => {});
+
+  // ─── useFocusNavigation ───────────────────────────────────────────────────
+  const {
+    focusArea, setFocusArea,
+    focusIndex, setFocusIndex,
+    activeIndex, setActiveIndex,
+    gamePanelFocusIndex, setGamePanelFocusIndex,
+    toolbarFocusIndex, setToolbarFocusIndex,
+    isLibraryFocused, setIsLibraryFocused,
+    libraryGridFocusIndex, setLibraryGridFocusIndex,
+    visibleLibraryGames, setVisibleLibraryGames,
+    libraryTabsFocused, setLibraryTabsFocused,
+    libraryFilterFocused, setLibraryFilterFocused,
+    libraryFilterFromTabs, setLibraryFilterFromTabs,
+    isLibraryFilterPanelOpen, setIsLibraryFilterPanelOpen,
+    isWidgetEditOpen, setIsWidgetEditOpen,
+    widgetEditFocusIndex, setWidgetEditFocusIndex,
+    isWidgetMoveMode, setIsWidgetMoveMode,
+    movingWidgetId, setMovingWidgetId,
+    preMoveOrderBackup, setPreMoveOrderBackup,
+    startWidgetMove,
+    getWidgetNeighbor,
+  } = useFocusNavigation({
+    activeTab,
+    storeOffers,
+    steamMedia,
+    steamNews,
+    achievementCount,
+    lastPlayedGame,
+    isLaunching,
+    isSettingsVisible,
+    isWelcomeSettingsVisible,
+    isAddModalVisible,
+    isHomeBgModalVisible,
+    isSlidesModalVisible,
+    isSearchVisible,
+    isMediaGalleryVisible,
+    isDetailVisible,
+    isLibraryDetailVisible,
+    isContextMenuOpen,
+    isProfileMenuOpen,
+    isFavoritesVisible,
+    isRandomSelectorVisible,
+    deleteConfirmItem,
+    selectedMediaIndex,
+    isSystemNavCardExpanded,
+    isFriendsCardOpen,
+    isNotificationsCardOpen,
+    isUserModalVisible,
+    activeUser,
+    widgetVisibility,
+    widgetOrder,
+    widgetSizes,
+    isPresentationMode,
+    row1Visible,
+    row2Visible,
+    widgetColumns,
+    PANEL_WIDGETS,
+    storeDeals,
+    storeUpcoming,
+    currentData,
+    libraryTab,
+    mountTimeRef,
+    scrollRef,
+    mainScrollRef,
+    mediaScrollRef,
+    newsScrollRef,
+    widgetScrollRef,
+    libraryGridRef,
+    systemNavLevel,
+    systemNavMaxCardIndex,
+    profileMenuFocusIndex,
+    contextMenuFocusIndex,
+    modalSelectedIndex,
+    setActiveTab,
+    handleLaunchApp: (item: ConsoleItem) => _handleLaunchAppRef.current(item),
+    openContextMenu: () => _openContextMenuRef.current(),
+    handleContextMenuAction: (idx: number) => _handleContextMenuActionRef.current(idx),
+    handleToggleFavorite: () => _handleToggleFavoriteRef.current(),
+    handleTogglePin: () => _handleTogglePinRef.current(),
+    handleProfileMenuAction: (idx: number) => _handleProfileMenuActionRef.current(idx),
+    handleSystemNavAction: (idx: number) => _handleSystemNavActionRef.current(idx),
+    setAddModalVisible,
+    setFavoritesVisible,
+    setRandomSelectorVisible,
+    setHomeBgModalVisible,
+    setWelcomeSettingsVisible,
+    setDetailVisible,
+    setSelectedItem,
+    setSearchVisible,
+    setUserModalVisible,
+    setSettingsVisible,
+    setIsProfileMenuOpen,
+    setProfileMenuFocusIndex,
+    setIsContextMenuOpen,
+    setContextMenuFocusIndex,
+    setModalSelectedIndex,
+    setSystemNavLevel,
+    setSystemNavCardIndex,
+    setSystemNavCardExpanded,
+    setInputMode,
+    setSelectedMediaIndex,
+    saveWidgetOrder,
+    saveWidgetVisibility,
+    setWidgetVisibility,
+    setWidgetOrder,
+    setIsWidgetEditOpen: () => {}, // el hook gestiona este estado internamente
+    setWidgetEditFocusIndex: () => {}, // el hook gestiona este estado internamente
+    resizeWidget,
+    resetInteraction,
+    setLibraryTab,
+    setIsFriendsCardOpen,
+    setIsNotificationsCardOpen,
+    windowWidth,
+    windowHeight,
+    ITEM_WIDTH,
+  });
+
+  // Widget con foco en WidgetEditPanel (null si el panel está cerrado). WelcomeWidgets atenúa el resto.
+  const editingWidgetId = isWidgetEditOpen ? (PANEL_WIDGETS[widgetEditFocusIndex]?.id ?? null) : null;
+
   // Background transition states
   const [bgA, setBgA] = useState<any>(null);
   const [bgB, setBgB] = useState<any>(null);
   const [activeLayer, setActiveLayer] = useState<'A' | 'B'>('A');
   const [showTrailer, setShowTrailer] = useState(false);
-  const [inputMode, setInputMode] = useState<'keyboard' | 'gamepad'>('keyboard');
   const fade = useSharedValue(0);
   const tabFade = useSharedValue(1);
   const gamePanelFocusAnim = useSharedValue(0);
@@ -980,16 +1024,6 @@ export default function ConsoleHome() {
   const focusedCarouselAudio = focusedCarouselItem?.isLastPlayed
     ? lastPlayedGame?.focusAudio
     : focusedCarouselItem?.focusAudio;
-
-  // Si el filtro/orden interno de LibraryGrid reduce la cantidad de
-  // juegos visibles, el índice de foco debe recortarse para no apuntar
-  // fuera de rango (y quedar "atascado" en un juego que ya no se ve).
-  useEffect(() => {
-    setLibraryGridFocusIndex((prev) => {
-      const maxIndex = Math.max(visibleLibraryGames.length - 1, 0);
-      return Math.min(prev, maxIndex);
-    });
-  }, [visibleLibraryGames.length]);
 
   function compareVersions(a: string, b: string): number {
     const aParts = a.split('.').map(Number);
@@ -1288,8 +1322,6 @@ export default function ConsoleHome() {
     }
   };
 
-  const mountTimeRef = useRef(Date.now());
-
   useEffect(() => {
     mountTimeRef.current = Date.now();
   }, []);
@@ -1356,1034 +1388,7 @@ export default function ConsoleHome() {
     }
   }, [addModalFocusIndex, isAddModalVisible, newApp.type]);
 
-  // Keyboard navigation always reads the current render state. The listener
-  // itself is attached once below, avoiding add/remove work on each change.
-  const handleKeyDown = (e: any) => {
-    // Prevent main scroll from moving when welcome settings is open
-    // if (isWelcomeSettingsVisible) {
-    //   e.preventDefault();
-    //   e.stopPropagation();
-    //   return;
-    // }
 
-    resetInteraction();
-    if (isPresentationMode) return;
-    if (Date.now() - mountTimeRef.current < 400) return;
-    if (!e.fromGamepad) setInputMode('keyboard');
-    if (isWelcomeSettingsVisible) return;
-    if (isSettingsVisible) return;
-    if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
-    if (isLaunching) return;
-    if (isMediaGalleryVisible) return;
-    if (isDetailVisible || isLibraryDetailVisible) return;
-    if (deleteConfirmItem) return;
-    if (isLibraryFilterPanelOpen) {
-      // El panel de filtros está abierto: delegamos la navegación al ref
-      // de LibraryGrid usando los métodos imperativos, igual que el mando.
-      // Así tanto teclado como mando siguen el mismo camino estable.
-      if (e.key === 'ArrowDown') {
-        libraryGridRef.current?.movePanelSelection('down');
-        soundService.playNavigation();
-      } else if (e.key === 'ArrowUp') {
-        libraryGridRef.current?.movePanelSelection('up');
-        soundService.playNavigation();
-      } else if (e.key === 'Enter' || e.key === ' ') {
-        libraryGridRef.current?.activatePanelSelection();
-        soundService.playActivation();
-      } else if (e.key === 'Escape') {
-        libraryGridRef.current?.closeFilterPanel();
-        soundService.playBack();
-      }
-      return;
-    }
-    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
-    if (isSearchVisible) return;
-
-    // Throttle rapid arrow key inputs (key repeats/fast tapping)
-    if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-      const now = Date.now();
-      if (now - lastNavTime.current < 130) {
-        return;
-      }
-      lastNavTime.current = now;
-    }
-
-    // Profile Dropdown Menu Keyboard Navigation
-    if (isProfileMenuOpen) {
-      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-        setIsProfileMenuOpen(false);
-        soundService.playBack();
-      } else if (e.key === 'ArrowDown') {
-        setProfileMenuFocusIndex(prev => Math.min(prev + 1, 4));
-        soundService.playNavigation();
-      } else if (e.key === 'ArrowUp') {
-        setProfileMenuFocusIndex(prev => Math.max(prev - 1, 0));
-        soundService.playNavigation();
-      } else if (e.key === 'Enter') {
-        handleProfileMenuAction(profileMenuFocusIndex);
-        soundService.playActivation();
-      }
-      return;
-    }
-
-    // Toggle Control Center via Home key
-    if (e.key === 'Home') {
-      soundService.playContextMenu();
-      if (focusArea === 'header_user') {
-        setFocusArea('main_carousel');
-        setSystemNavCardExpanded(false);
-      } else {
-        setFocusArea('header_user');
-        setModalSelectedIndex(0);
-        setSystemNavCardIndex(0);
-        setSystemNavLevel(1);
-        setSystemNavCardExpanded(false);
-      }
-      soundService.playNavigation();
-      return;
-    }
-
-    // Triángulo -> Buscar, desde cualquier parte del home
-    if (e.key === 't' || e.key === 'T') {
-      if (
-        !isContextMenuOpen &&
-        !isProfileMenuOpen &&
-        !isAddModalVisible &&
-        !isSettingsVisible &&
-        !isUserModalVisible &&
-        !isFavoritesVisible &&
-        !isRandomSelectorVisible &&
-        focusArea !== 'header_user'
-      ) {
-        soundService.playContextMenu();
-        setFocusArea('header_avatar');
-        setFocusIndex(0);
-        setSearchVisible(true);
-      }
-      return;
-    }
-
-    if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-      soundService.playExitMenu();
-      if (!isContextMenuOpen && !(focusArea === 'header_user') && !isWidgetMoveMode && !isWidgetEditOpen) {
-        setFocusArea('main_carousel');
-      }
-    }
-
-    if (e.key === 'o' || e.key === 'O') {
-      if (!isLaunching) {
-        const willBeVisible = !isAddModalVisible;
-        setAddModalVisible(willBeVisible);
-        if (willBeVisible) { setUserModalVisible(false); setSettingsVisible(false); setFavoritesVisible(false); setHomeBgModalVisible(false); }
-      }
-      return;
-    }
-
-    // 1. Context Menu Keyboard Navigation
-    if (isContextMenuOpen) {
-      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-        setIsContextMenuOpen(false);
-        soundService.playBack();
-      } else if (e.key === 'ArrowDown') {
-        setContextMenuFocusIndex(prev => Math.min(prev + 1, 4)); // 0-2 opciones, 3 favorito, 4 pin
-        soundService.playNavigation();
-      } else if (e.key === 'ArrowUp') {
-        setContextMenuFocusIndex(prev => Math.max(prev - 1, 0));
-        soundService.playNavigation();
-      } else if (e.key === 'Enter') {
-        if (contextMenuFocusIndex === 3) {
-          handleToggleFavorite(); // no cierra el menú, solo alterna
-        } else if (contextMenuFocusIndex === 4) {
-          handleTogglePin(); // no cierra el menú, solo alterna
-        } else {
-          handleContextMenuAction(contextMenuFocusIndex);
-        }
-        soundService.playActivation();
-      }
-      return;
-    }
-
-    // 2. Floating System Navigation Keyboard Navigation
-    if (focusArea === 'header_user') {
-      if (isFriendsCardOpen) {
-        if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-          setIsFriendsCardOpen(false);
-          soundService.playBack?.();
-        }
-        return;
-      }
-      if (isNotificationsCardOpen) {
-        if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-          setIsNotificationsCardOpen(false);
-          soundService.playBack?.();
-        }
-        return;
-      }
-      if (isSystemNavCardExpanded) {
-        if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-          setSystemNavCardExpanded(false);
-          soundService.playBack();
-        }
-        return;
-      }
-
-      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-        setFocusArea('main_carousel');
-      } else if (e.key === 'ArrowUp') {
-        if (systemNavLevel === 0) {
-          setSystemNavLevel(1);
-          soundService.playNavigation();
-        }
-      } else if (e.key === 'ArrowDown') {
-        if (systemNavLevel === 1) {
-          setSystemNavLevel(0);
-          soundService.playNavigation();
-        }
-      } else if (e.key === 'ArrowRight') {
-        if (systemNavLevel === 0) {
-          setModalSelectedIndex(prev => Math.min(prev + 1, 10));
-        } else {
-          setSystemNavCardIndex(prev => Math.min(prev + 1, systemNavMaxCardIndex));
-        }
-        soundService.playNavigation();
-      } else if (e.key === 'ArrowLeft') {
-        if (systemNavLevel === 0) {
-          setModalSelectedIndex(prev => Math.max(prev - 1, 0));
-        } else {
-          setSystemNavCardIndex(prev => Math.max(prev - 1, 0));
-        }
-        soundService.playNavigation();
-      } else if (e.key === 'Enter') {
-        if (systemNavLevel === 0) {
-          handleSystemNavAction(modalSelectedIndex);
-        } else {
-          setSystemNavCardExpanded(true);
-          soundService.playActivation?.();
-        }
-      }
-      return;
-    }
-
-    // 3. Option Action Keys (Open Context Menu)
-    // (No interceptar mientras el panel de widgets o el modo mover están activos:
-    //  ahí □ / x significa "Mover", y lo gestionan los bloques de más abajo.)
-    if (!isWidgetEditOpen && !isWidgetMoveMode && (e.key === 'x' || e.key === 'X' || e.key === 'm' || e.key === 'M' || e.key === 's' || e.key === 'S')) {
-      soundService.playContextMenu();
-      if (focusArea === 'main_carousel') {
-        const item = currentData[activeIndex];
-        if (item && item.id !== 'more_library') {
-          openContextMenu();
-        }
-      }
-      return;
-    }
-
-    if (isSettingsVisible) {
-      return;
-    }
-    if (selectedMediaIndex !== null) {
-      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-        setSelectedMediaIndex(null);
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        setSelectedMediaIndex(prev => prev !== null && prev < steamMedia.length - 1 ? prev + 1 : prev);
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        setSelectedMediaIndex(prev => prev !== null && prev > 0 ? prev - 1 : prev);
-      }
-      return;
-    }
-    if (isAddModalVisible) {
-      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setAddModalVisible(false);
-      return;
-    }
-    if (isHomeBgModalVisible) return;
-    if (isSlidesModalVisible) return;
-    if (isSearchVisible) return;
-    if (isRandomSelectorVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setRandomSelectorVisible(false); return; }
-    if (isFavoritesVisible) { if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') setFavoritesVisible(false); return; }
-
-    // Widget Move Mode Navigation (PS5 Style)
-    if (isWidgetMoveMode && movingWidgetId) {
-      const currentSlot = widgetOrder.indexOf(movingWidgetId);
-
-      if (e.key === 'ArrowLeft') {
-        if ((currentSlot >= 1 && currentSlot <= 4) || (currentSlot >= 6 && currentSlot <= 9)) {
-          const targetSlot = currentSlot - 1;
-          const nextOrder = [...widgetOrder];
-          const temp = nextOrder[currentSlot];
-          nextOrder[currentSlot] = nextOrder[targetSlot];
-          nextOrder[targetSlot] = temp;
-          setWidgetOrder(nextOrder);
-          setFocusIndex(targetSlot);
-          soundService.playNavigation();
-        }
-        return;
-      }
-
-      if (e.key === 'ArrowRight') {
-        if ((currentSlot >= 0 && currentSlot <= 3) || (currentSlot >= 5 && currentSlot <= 8)) {
-          const targetSlot = currentSlot + 1;
-          const nextOrder = [...widgetOrder];
-          const temp = nextOrder[currentSlot];
-          nextOrder[currentSlot] = nextOrder[targetSlot];
-          nextOrder[targetSlot] = temp;
-          setWidgetOrder(nextOrder);
-          setFocusIndex(targetSlot);
-          soundService.playNavigation();
-        }
-        return;
-      }
-
-      if (e.key === 'ArrowDown') {
-        if (currentSlot >= 0 && currentSlot <= 4) {
-          const targetSlot = currentSlot + 5;
-          const nextOrder = [...widgetOrder];
-          const temp = nextOrder[currentSlot];
-          nextOrder[currentSlot] = nextOrder[targetSlot];
-          nextOrder[targetSlot] = temp;
-          setWidgetOrder(nextOrder);
-          setFocusIndex(targetSlot);
-          soundService.playNavigation();
-        }
-        return;
-      }
-
-      if (e.key === 'ArrowUp') {
-        if (currentSlot >= 5 && currentSlot <= 9) {
-          const targetSlot = currentSlot - 5;
-          const nextOrder = [...widgetOrder];
-          const temp = nextOrder[currentSlot];
-          nextOrder[currentSlot] = nextOrder[targetSlot];
-          nextOrder[targetSlot] = temp;
-          setWidgetOrder(nextOrder);
-          setFocusIndex(targetSlot);
-          soundService.playNavigation();
-        }
-        return;
-      }
-
-      if (e.key === 'Enter' || e.key === ' ') {
-        saveWidgetOrder(widgetOrder);
-        setIsWidgetMoveMode(false);
-        setMovingWidgetId(null);
-        setIsWidgetEditOpen(true);
-        const panelIdx = PANEL_WIDGETS.findIndex(w => w.id === movingWidgetId);
-        if (panelIdx !== -1) setWidgetEditFocusIndex(panelIdx);
-        soundService.playActivation?.();
-        return;
-      }
-
-      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-        if (preMoveOrderBackup.length > 0) {
-          setWidgetOrder(preMoveOrderBackup);
-        }
-        setIsWidgetMoveMode(false);
-        setMovingWidgetId(null);
-        setIsWidgetEditOpen(true);
-        const panelIdx = PANEL_WIDGETS.findIndex(w => w.id === movingWidgetId);
-        if (panelIdx !== -1) setWidgetEditFocusIndex(panelIdx);
-        soundService.playNavigation();
-        return;
-      }
-
-      return;
-    }
-
-    // Widget Edit Panel Navigation
-    if (isWidgetEditOpen) {
-      if (e.key === 'ArrowDown') {
-        soundService.playNavigation();
-        setWidgetEditFocusIndex(prev => Math.min(prev + 1, PANEL_WIDGETS.length - 1));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        soundService.playNavigation();
-        setWidgetEditFocusIndex(prev => Math.max(prev - 1, 0));
-        return;
-      }
-      if (e.key === 'Enter' || e.key === ' ') {
-        soundService.playActivation?.();
-        const currentWidget = PANEL_WIDGETS[widgetEditFocusIndex];
-        if (currentWidget) {
-          setWidgetVisibility(prev => {
-            const next = { ...prev, [currentWidget.id]: prev[currentWidget.id] === false ? true : false };
-            saveWidgetVisibility(next);
-            return next;
-          });
-        }
-        return;
-      }
-      // Square button (x/X) enters Move Mode
-      if (e.key === 'x' || e.key === 'X') {
-        const currentWidget = PANEL_WIDGETS[widgetEditFocusIndex];
-        if (currentWidget) {
-          startWidgetMove(currentWidget.id);
-        }
-        return;
-      }
-      // L1 (q) = Reducir · R1 (e) = Ampliar
-      if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
-        const currentWidget = PANEL_WIDGETS[widgetEditFocusIndex];
-        if (currentWidget) {
-          resizeWidget(currentWidget.id, (e.key === 'q' || e.key === 'Q') ? -1 : 1);
-        }
-        return;
-      }
-      if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
-        setIsWidgetEditOpen(false);
-        return;
-      }
-      return;
-    }
-
-    // --- SPATIAL NAVIGATION ---
-    if (e.key === 'ArrowRight') {
-      soundService.playNavigation();
-      if (focusArea === 'library_grid') {
-        if (libraryFilterFocused) {
-          // Del botón de filtro hacia la derecha: vuelve al grid, o a las
-          // pestañas si fue ahí donde se dejó el foco antes de entrar al filtro.
-          setLibraryFilterFocused(false);
-          if (libraryFilterFromTabs) setLibraryTabsFocused(true);
-        } else if (libraryTabsFocused) {
-          if (libraryTab !== 'collection') { setLibraryTab('collection'); setLibraryGridFocusIndex(0); }
-        } else {
-          setLibraryGridFocusIndex(prev => Math.min(prev + 1, visibleLibraryGames.length - 1));
-        }
-      }
-      else if (focusArea === 'header_avatar') {
-        if (focusIndex < 2) setFocusIndex(prev => prev + 1);
-      }
-      else if (focusArea === 'main_carousel') { const nextIdx = Math.min(activeIndex + 1, currentData.length - 1); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
-      else if (focusArea === 'header_tabs') {
-        if (focusIndex < TABS.length - 1) {
-          const nextIdx = focusIndex + 1;
-          setFocusIndex(nextIdx);
-        } else {
-          // Último tab → pasar a los iconos de la derecha (buscar)
-          setFocusArea('header_avatar');
-          setFocusIndex(0);
-        }
-      }
-      else if (focusArea === 'game_panel') {
-        if (activeItem?.id === '5') {
-          const storeDeals = storeOffers.filter(o => o.type === 'offer');
-          const storeUpcoming = storeOffers.filter(o => o.type === 'release');
-          if (gamePanelFocusIndex < 10) {
-            // Deals row
-            const nextIdx = Math.min(gamePanelFocusIndex + 1, storeDeals.length - 1);
-            setGamePanelFocusIndex(nextIdx);
-          } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
-            // Upcoming row
-            const nextIdx = Math.min(gamePanelFocusIndex + 1, 10 + storeUpcoming.length - 1);
-            setGamePanelFocusIndex(nextIdx);
-          }
-        } else {
-          if (gamePanelFocusIndex === 0) {
-            setGamePanelFocusIndex(1);
-          } else if (gamePanelFocusIndex === 2) {
-            setGamePanelFocusIndex(3);
-          } else if (gamePanelFocusIndex === 300) {
-            // Ficha de metadatos: tarjeta única, no hay avance horizontal.
-          } else if (gamePanelFocusIndex >= 200) {
-            setGamePanelFocusIndex(prev => Math.min(prev + 1, 200 + achievementCount - 1));
-          } else if (gamePanelFocusIndex >= 100) {
-            setGamePanelFocusIndex(prev => Math.min(prev + 1, 100 + steamMedia.length - 1));
-          } else if (gamePanelFocusIndex >= 4) {
-            const panelItem = currentData[activeIndex];
-            const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
-            if (!(isMediaPanelItem && gamePanelFocusIndex === 4)) {
-              setGamePanelFocusIndex(prev => Math.min(prev + 1, 4 + Math.min(steamNews.length, 8) - 1));
-            }
-          }
-        }
-      }
-      else if (focusArea === 'welcome_widgets') {
-        const nxt = getWidgetNeighbor(focusIndex, 'right');
-        if (typeof nxt === 'number') setFocusIndex(nxt);
-      }
-      else if (focusArea === 'welcome_toolbar') {
-        if (toolbarFocusIndex < 3) setToolbarFocusIndex(prev => prev + 1);
-      }
-      return;
-    }
-    if (e.key === 'ArrowLeft') {
-      soundService.playNavigation();
-      if (focusArea === 'library_grid') {
-        if (libraryFilterFocused) {
-          // Ya está en el extremo izquierdo, no hay nada más allá.
-        } else if (libraryTabsFocused) {
-          if (libraryTab !== 'installed') {
-            setLibraryTab('installed');
-            setLibraryGridFocusIndex(0);
-          } else {
-            // Ya en "Installed" (la pestaña más a la izquierda): pasar al botón de filtro.
-            setLibraryTabsFocused(false);
-            setLibraryFilterFromTabs(true);
-            setLibraryFilterFocused(true);
-          }
-        } else if (libraryGridFocusIndex % 5 === 0) {
-          setLibraryFilterFromTabs(false);
-          setLibraryFilterFocused(true);
-        } else {
-          setLibraryGridFocusIndex(prev => Math.max(prev - 1, 0));
-        }
-      }
-      else if (focusArea === 'main_carousel') { const nextIdx = Math.max(activeIndex - 1, 0); setActiveIndex(nextIdx); setFocusIndex(nextIdx); }
-      else if (focusArea === 'header_tabs') {
-        const nextIdx = Math.max(focusIndex - 1, 0);
-        setFocusIndex(nextIdx);
-      }
-      else if (focusArea === 'header_avatar') {
-        if (focusIndex > 0) {
-          setFocusIndex(prev => prev - 1);
-        } else {
-          setFocusArea('header_tabs');
-          setFocusIndex(Math.max(TABS.findIndex(tab => tab.id === activeTab), 0));
-        }
-      }
-      else if (focusArea === 'game_panel') {
-        if (activeItem?.id === '5') {
-          if (gamePanelFocusIndex < 10) {
-            // Deals row
-            const nextIdx = Math.max(gamePanelFocusIndex - 1, 0);
-            setGamePanelFocusIndex(nextIdx);
-          } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
-            // Upcoming row
-            const nextIdx = Math.max(gamePanelFocusIndex - 1, 10);
-            setGamePanelFocusIndex(nextIdx);
-          }
-        } else {
-          if (gamePanelFocusIndex === 1) {
-            setGamePanelFocusIndex(0);
-          } else if (gamePanelFocusIndex === 3) {
-            setGamePanelFocusIndex(2);
-          } else if (gamePanelFocusIndex === 300) {
-            // Ficha de metadatos: tarjeta única, no hay retroceso horizontal.
-          } else if (gamePanelFocusIndex >= 200) {
-            setGamePanelFocusIndex(prev => Math.max(prev - 1, 200));
-          } else if (gamePanelFocusIndex >= 100) {
-            setGamePanelFocusIndex(prev => Math.max(prev - 1, 100));
-          } else if (gamePanelFocusIndex >= 4) {
-            const panelItem = currentData[activeIndex];
-            const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
-            if (!(isMediaPanelItem && gamePanelFocusIndex === 4)) {
-              setGamePanelFocusIndex(prev => Math.max(prev - 1, 4));
-            }
-          }
-        }
-      }
-      else if (focusArea === 'welcome_widgets') {
-        const nxt = getWidgetNeighbor(focusIndex, 'left');
-        if (typeof nxt === 'number') setFocusIndex(nxt);
-      }
-      else if (focusArea === 'welcome_toolbar') {
-        if (toolbarFocusIndex > 0) setToolbarFocusIndex(prev => prev - 1);
-      }
-      return;
-    }
-    if (e.key === 'ArrowDown') {
-      soundService.playNavigation();
-      if (focusArea === 'library_grid') {
-        if (libraryFilterFocused) {
-          setLibraryFilterFocused(false);
-          setLibraryGridFocusIndex(0);
-        } else if (libraryTabsFocused) {
-          setLibraryTabsFocused(false);
-          setLibraryGridFocusIndex(0);
-        } else {
-          setLibraryGridFocusIndex(prev => Math.min(prev + 5, visibleLibraryGames.length - 1));
-        }
-      }
-      else if (focusArea === 'header_avatar') {
-        // Bajar desde los iconos globales siempre regresa a Games (inicio)
-        setActiveTab('Games');
-        setActiveIndex(0);
-        setFocusArea('main_carousel');
-        setFocusIndex(0);
-      }
-      else if (focusArea === 'header_tabs') { setFocusArea('main_carousel'); setFocusIndex(activeIndex); }
-      else if (focusArea === 'main_carousel') {
-        if (activeItem?.id === 'more_library') {
-          setFocusArea('library_grid');
-          setLibraryTabsFocused(true);
-          setLibraryFilterFocused(false);
-          setLibraryGridFocusIndex(0);
-        } else if (activeItem?.id === '1') {
-          setFocusArea('welcome_widgets');
-          const firstVisible = row1Visible[0] ?? row2Visible[0] ?? 0;
-          setFocusIndex(firstVisible);
-        } else if (canPlay) {
-          setFocusArea('game_panel');
-          setGamePanelFocusIndex(0);
-        }
-      }
-      else if (focusArea === 'game_panel') {
-        if (activeItem?.id === '5') {
-          const storeDeals = storeOffers.filter(o => o.type === 'offer');
-          const storeUpcoming = storeOffers.filter(o => o.type === 'release');
-          if (gamePanelFocusIndex < 10) {
-            // Moving down from Deals row
-            if (storeUpcoming.length > 0) {
-              const targetCol = Math.min(gamePanelFocusIndex, storeUpcoming.length - 1);
-              setGamePanelFocusIndex(10 + targetCol);
-            } else {
-              setGamePanelFocusIndex(20);
-            }
-          } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
-            // Moving down from Upcoming row to footer
-            setGamePanelFocusIndex(20);
-          }
-        } else {
-          if (gamePanelFocusIndex === 0) {
-            setGamePanelFocusIndex(2);
-          } else if (gamePanelFocusIndex === 1) {
-            setGamePanelFocusIndex(3);
-          } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
-            const panelItem = currentData[activeIndex];
-            const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
-            if (isMediaPanelItem) {
-              setGamePanelFocusIndex(4);
-            } else if (steamMedia.length > 0) {
-              setGamePanelFocusIndex(100);
-            } else if (achievementCount > 0) {
-              setGamePanelFocusIndex(200);
-            } else if (steamNews.length > 0) {
-              setGamePanelFocusIndex(4);
-            } else if (activeUser?.settings?.showGameMetadata !== false) {
-              setGamePanelFocusIndex(300);
-            }
-          } else if (gamePanelFocusIndex >= 100 && gamePanelFocusIndex < 200) {
-            if (achievementCount > 0) {
-              setGamePanelFocusIndex(200);
-            } else if (steamNews.length > 0) {
-              setGamePanelFocusIndex(4);
-            } else if (activeUser?.settings?.showGameMetadata !== false) {
-              setGamePanelFocusIndex(300);
-            }
-          } else if (gamePanelFocusIndex === 300) {
-            // Ficha de metadatos: última sección, no hay más abajo.
-          } else if (gamePanelFocusIndex >= 200) {
-            if (steamNews.length > 0) {
-              setGamePanelFocusIndex(4);
-            } else if (activeUser?.settings?.showGameMetadata !== false) {
-              setGamePanelFocusIndex(300);
-            }
-          } else if (gamePanelFocusIndex >= 4 && gamePanelFocusIndex < 100) {
-            // De noticias se baja a la ficha de metadatos (si está activada).
-            if (activeUser?.settings?.showGameMetadata !== false) {
-              setGamePanelFocusIndex(300);
-            }
-          }
-        }
-      }
-      else if (focusArea === 'welcome_widgets') {
-        const nxt = getWidgetNeighbor(focusIndex, 'down');
-        if (typeof nxt === 'number') setFocusIndex(nxt);
-      }
-      else if (focusArea === 'welcome_toolbar') {
-        setFocusArea('welcome_widgets');
-        const firstVisible = row1Visible[0] ?? row2Visible[0] ?? 0;
-        setFocusIndex(firstVisible);
-      }
-      return;
-    }
-    if (e.key === 'ArrowUp') {
-      soundService.playNavigation();
-      if (focusArea === 'library_grid') {
-        if (libraryFilterFocused) {
-          setFocusArea('main_carousel');
-          setLibraryFilterFocused(false);
-        } else if (libraryTabsFocused) {
-          setFocusArea('main_carousel');
-          setLibraryTabsFocused(false);
-        } else if (libraryGridFocusIndex < 5) {
-          setLibraryTabsFocused(true);
-        } else {
-          setLibraryGridFocusIndex(prev => Math.max(prev - 5, 0));
-        }
-      }
-      else if (focusArea === 'game_panel') {
-        if (activeItem?.id === '5') {
-          const storeDeals = storeOffers.filter(o => o.type === 'offer');
-          const storeUpcoming = storeOffers.filter(o => o.type === 'release');
-          if (gamePanelFocusIndex === 20) {
-            if (storeUpcoming.length > 0) {
-              setGamePanelFocusIndex(10);
-            } else {
-              setGamePanelFocusIndex(0);
-            }
-          } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
-            const col = gamePanelFocusIndex - 10;
-            const targetCol = Math.min(col, storeDeals.length - 1);
-            setGamePanelFocusIndex(targetCol);
-          } else if (gamePanelFocusIndex < 10) {
-            setFocusArea('main_carousel');
-            setFocusIndex(activeIndex);
-          }
-        } else {
-          if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
-            setFocusArea('main_carousel');
-            setFocusIndex(activeIndex);
-          } else if (gamePanelFocusIndex === 2) {
-            setGamePanelFocusIndex(0);
-          } else if (gamePanelFocusIndex === 3) {
-            setGamePanelFocusIndex(1);
-          } else if (gamePanelFocusIndex === 300) {
-            // De la ficha se vuelve a la fila de noticias.
-            if (steamNews.length > 0) {
-              setGamePanelFocusIndex(4);
-            } else if (achievementCount > 0) {
-              setGamePanelFocusIndex(200);
-            } else if (steamMedia.length > 0) {
-              setGamePanelFocusIndex(100);
-            } else {
-              setGamePanelFocusIndex(2);
-            }
-          } else if (gamePanelFocusIndex >= 200) {
-            setGamePanelFocusIndex(steamMedia.length > 0 ? 100 : 2);
-          } else if (gamePanelFocusIndex >= 100) {
-            setGamePanelFocusIndex(2);
-          } else if (gamePanelFocusIndex >= 4) {
-            const panelItem = currentData[activeIndex];
-            const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
-            if (isMediaPanelItem && gamePanelFocusIndex === 4) {
-              setGamePanelFocusIndex(2);
-            } else if (achievementCount > 0) {
-              setGamePanelFocusIndex(200);
-            } else if (steamMedia.length > 0) {
-              setGamePanelFocusIndex(100);
-            } else {
-              const newsIndex = gamePanelFocusIndex - 4;
-              setGamePanelFocusIndex(newsIndex % 2 === 0 ? 2 : 3);
-            }
-          }
-        }
-      }
-      else if (focusArea === 'main_carousel') { setFocusArea('header_tabs'); setFocusIndex(TABS.findIndex(tab => tab.id === activeTab)); }
-      else if (focusArea === 'header_tabs') { setFocusArea('header_avatar'); setFocusIndex(0); }
-      else if (focusArea === 'welcome_widgets') {
-        const nxt = getWidgetNeighbor(focusIndex, 'up');
-        if (typeof nxt === 'number') {
-          setFocusIndex(nxt);
-        } else if (nxt === 'toolbar') {
-          setFocusArea('welcome_toolbar');
-          setToolbarFocusIndex(2);
-        }
-      }
-      else if (focusArea === 'welcome_toolbar') {
-        setIsWidgetEditOpen(false);
-        setFocusArea('main_carousel');
-        setFocusIndex(activeIndex);
-      }
-      return;
-    }
-    if (e.key === 'Enter') {
-      soundService.playActivation();
-      if (focusArea === 'header_tabs') {
-        setActiveTab(TABS[focusIndex].id);
-        setActiveIndex(0);
-        setFocusArea('main_carousel');
-        return;
-      }
-      if (focusArea === 'header_avatar') {
-        if (focusIndex === 0) {
-          setSearchVisible(true);
-        } else if (focusIndex === 1) {
-          setUserModalVisible(false);
-          setSettingsVisible(true);
-        } else if (focusIndex === 2) {
-          setIsProfileMenuOpen(true);
-          setProfileMenuFocusIndex(0);
-        }
-        return;
-      }
-      if (focusArea === 'library_grid') {
-        if (libraryFilterFocused) {
-          libraryGridRef.current?.activateFilterButton();
-          return;
-        }
-        if (libraryTabsFocused) { return; } // usa ←/→ para cambiar de pestaña
-        const game = visibleLibraryGames[libraryGridFocusIndex];
-        if (game) { setSelectedItem(game); setDetailVisible(true); }
-        return;
-      }
-      if (focusArea === 'game_panel') {
-        if (activeItem?.id === '5') {
-          const storeDeals = storeOffers.filter(o => o.type === 'offer');
-          const storeUpcoming = storeOffers.filter(o => o.type === 'release');
-          if (gamePanelFocusIndex < 10) {
-            const deal = storeDeals[gamePanelFocusIndex];
-            if (deal && deal.url) {
-              Linking.openURL(deal.url);
-            }
-          } else if (gamePanelFocusIndex >= 10 && gamePanelFocusIndex < 20) {
-            const item = storeUpcoming[gamePanelFocusIndex - 10];
-            if (item && item.url) {
-              Linking.openURL(item.url);
-            }
-          } else if (gamePanelFocusIndex === 20) {
-            Linking.openURL('https://store.playstation.com');
-          }
-        } else {
-          if (gamePanelFocusIndex === 0) {
-            if (activeItem) { handleLaunchApp(activeItem); }
-          } else if (gamePanelFocusIndex === 1) {
-            if (activeItem) {
-              const target = activeItem.isLastPlayed ? lastPlayedGame : activeItem;
-              if (target) {
-                setSelectedItem(target);
-                setDetailVisible(true);
-              } else {
-                toastService.show('toast.noGameLaunched');
-              }
-            }
-          } else if (gamePanelFocusIndex >= 200) {
-            // Los logros son una fila de navegación; Enter no abre una vista adicional.
-          } else if (gamePanelFocusIndex >= 100) {
-            const mediaItem = steamMedia[gamePanelFocusIndex - 100];
-            if (mediaItem) {
-              setSelectedMediaIndex(gamePanelFocusIndex - 100);
-            }
-          } else if (gamePanelFocusIndex === 4) {
-            const panelItem = currentData[activeIndex];
-            const isMediaPanelItem = panelItem?.type === 'media' || panelItem?.type === 'web' || panelItem?.title?.toLowerCase().includes('spotify');
-            if (!isMediaPanelItem) {
-              const newsItem = steamNews[gamePanelFocusIndex - 4];
-              if (newsItem && newsItem.url) {
-                Linking.openURL(newsItem.url);
-              }
-            }
-          } else if (gamePanelFocusIndex > 4) {
-            const newsItem = steamNews[gamePanelFocusIndex - 4];
-            if (newsItem && newsItem.url) {
-              Linking.openURL(newsItem.url);
-            }
-          }
-        }
-        return;
-      }
-      if (focusArea === 'welcome_toolbar') {
-        if (toolbarFocusIndex === 0) {
-          setIsWidgetEditOpen(prev => !prev);
-          setWidgetEditFocusIndex(0);
-        } else if (toolbarFocusIndex === 2) setHomeBgModalVisible(true);
-        else if (toolbarFocusIndex === 3) setWelcomeSettingsVisible(true);
-        return;
-      }
-      if (focusArea === 'welcome_widgets') {
-        const currentWidgetId = widgetOrder[focusIndex];
-        if (currentWidgetId === 'store') {
-          Linking.openURL('https://store.playstation.com');
-        } else if (currentWidgetId === 'add_game') {
-          setAddModalVisible(true);
-        } else if (currentWidgetId === 'recently_played' && lastPlayedGame) {
-          handleLaunchApp(lastPlayedGame);
-        } else if (currentWidgetId === 'friends') {
-          welcomeWidgetsRef.current?.triggerFriendAction();
-        } else if (currentWidgetId === 'random_pick') {
-          setRandomSelectorVisible(true);
-        } else if (currentWidgetId === 'change_bg') {
-          setHomeBgModalVisible(true);
-        }
-        return;
-      }
-      if (focusArea === 'main_carousel') {
-        const item = currentData[activeIndex];
-        if (item) {
-          if (item.id === 'more_library' || item.id === '1' || item.id === '5') return;
-          if (item.isFolder || item.isGrid) { setFavoritesVisible(true); return; }
-          if (item.isLastPlayed) {
-            if (lastPlayedGame && lastPlayedGame.id !== '1' && lastPlayedGame.id !== '5') {
-              handleLaunchApp(lastPlayedGame);
-            } else {
-              toastService.show('toast.noGameLaunched');
-            }
-          } else { handleLaunchApp(item); }
-        }
-      }
-      return;
-    }
-    if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
-      if (focusArea === 'library_grid') {
-        // Dentro de la biblioteca, L1/R1 alterna Installed ⇄ Your Collection
-        // en vez de cambiar la pestaña global Games/Media.
-        soundService.playTab();
-        setLibraryTab(prev => (prev === 'installed' ? 'collection' : 'installed'));
-        setLibraryGridFocusIndex(0);
-        setLibraryTabsFocused(false);
-        setLibraryFilterFocused(false);
-        return;
-      }
-      soundService.playTab();
-      const direction = (e.key === 'q' || e.key === 'Q') ? -1 : 1;
-      setActiveTab(prev => {
-        const idx = TABS.findIndex(t => t.id === prev);
-        const nextIdx = idx + direction;
-        if (nextIdx >= 0 && nextIdx < TABS.length) {
-          setActiveIndex(0);
-          if (focusArea === 'header_tabs') setFocusIndex(nextIdx);
-          return TABS[nextIdx].id;
-        }
-        return prev;
-      });
-    }
-    if (e.key === 'b' || e.key === 'B' || e.key === 'Escape') {
-      soundService.playBack();
-    }
-  };
-  const keyboardHandlerRef = useRef(handleKeyDown);
-  keyboardHandlerRef.current = handleKeyDown;
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-
-    const onKeyDown = (event: KeyboardEvent) => keyboardHandlerRef.current(event);
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  // Fetch Steam news when the active item changes (debounced)
-  useEffect(() => {
-    const item = currentData[activeIndex];
-    const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
-    if (!playable) { setSteamNews([]); return; }
-    if (activeUser?.settings?.showNews === false) { setSteamNews([]); setNewsLoading(false); return; }
-    const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
-    if (!title || title === 'Último Jugado') { setSteamNews([]); return; }
-    setNewsLoading(true);
-    setSteamNews([]);
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      fetchSteamNewsByName(title, language).then(news => {
-        if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
-      });
-    }, 400); // 400ms debounce
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language, activeUser?.settings?.showNews]);
-
-  // Fetch Steam screenshots & trailers when the active item changes (debounced)
-  useEffect(() => {
-    const item = currentData[activeIndex];
-    const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
-    if (!playable) { setSteamMedia([]); return; }
-    const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
-    if (!title || title === 'Último Jugado') { setSteamMedia([]); return; }
-    setMediaLoading(true);
-    setSteamMedia([]);
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      try {
-        // Vídeos de fondo: siempre IGDB. Capturas con filtro de plataforma
-        // (Steam solo en PC; en el resto, RAWG e IGDB).
-        const srcItem = item.isLastPlayed ? lastPlayedGame : item;
-        const [images, igdbVideos] = await Promise.all([
-          resolveGameScreenshots(title, { platform: srcItem?.platform, language }),
-          fetchGameVideosByName(title),
-        ]);
-
-        if (cancelled) return;
-
-        const videos: SteamMediaItem[] = (igdbVideos as unknown as SteamMediaItem[]) || [];
-
-        if (!cancelled) {
-          setSteamMedia([...videos, ...images]);
-          // Actualizar trailers directamente desde la misma petición (evita un segundo fetch)
-          setGameVideos(igdbVideos as any);
-        }
-      } catch (error) {
-        console.error('[Media] Error obteniendo capturas:', error);
-
-        if (!cancelled) {
-          setSteamMedia([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setMediaLoading(false);
-        }
-      }
-    }, 400);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language]);
-
-  // Auto-scroll main vertical scrollview when focus moves to lower sections
-  useEffect(() => {
-    if (!mainScrollRef.current) return;
-    if (focusArea === 'library_grid') {
-      mainScrollRef.current.scrollTo({ y: 0, animated: true });
-    } else if (focusArea === 'welcome_widgets') {
-      mainScrollRef.current.scrollTo({ y: windowHeight * 0.35, animated: true });
-    } else if (focusArea !== 'game_panel') {
-      mainScrollRef.current.scrollTo({ y: 0, animated: true });
-    } else {
-      if (gamePanelFocusIndex === 0 || gamePanelFocusIndex === 1) {
-        mainScrollRef.current.scrollTo({ y: 0, animated: true });
-      } else if (gamePanelFocusIndex === 2 || gamePanelFocusIndex === 3) {
-        mainScrollRef.current.scrollTo({ y: 220, animated: true });
-      } else if (gamePanelFocusIndex >= 100 && gamePanelFocusIndex < 200) {
-        mainScrollRef.current.scrollTo({ y: 220, animated: true });
-      } else if (gamePanelFocusIndex === 300) {
-        // Ficha de metadatos: está debajo de noticias, se lleva al viewport.
-        mainScrollRef.current.scrollTo({ y: 1000, animated: true });
-      } else if (gamePanelFocusIndex >= 200) {
-        mainScrollRef.current.scrollTo({ y: 220, animated: true });
-      } else if (gamePanelFocusIndex >= 100) {
-        mainScrollRef.current.scrollTo({ y: 480, animated: true });
-      } else if (gamePanelFocusIndex >= 4) {
-        // Noticias es la última fila: la llevamos completa al viewport al
-        // entrar con la navegación vertical.
-        mainScrollRef.current.scrollTo({ y: 700, animated: true });
-      }
-    }
-  }, [focusArea, gamePanelFocusIndex, libraryGridFocusIndex]);
-
-  // Auto-scroll media horizontal scrollview when navigating through media cards
-  useEffect(() => {
-    if (focusArea === 'game_panel' && gamePanelFocusIndex >= 100 && gamePanelFocusIndex < 200 && mediaScrollRef.current) {
-      const mediaIndex = gamePanelFocusIndex - 100;
-      const cardWidth = 500 + 16;
-      mediaScrollRef.current.scrollTo({ x: mediaIndex * cardWidth, animated: true });
-    }
-  }, [gamePanelFocusIndex, focusArea]);
-
-  // Auto-scroll news horizontal scrollview when navigating through news cards
-  useEffect(() => {
-    if (focusArea === 'game_panel' && gamePanelFocusIndex >= 4 && gamePanelFocusIndex < 100 && newsScrollRef.current) {
-      const newsIndex = gamePanelFocusIndex - 4;
-      const cardWidth = 320;
-      const gap = 16;
-      const scrollX = newsIndex * (cardWidth + gap);
-      newsScrollRef.current.scrollTo({ x: scrollX, animated: true });
-    }
-    // Reset news scroll when focus leaves the news row
-    if (focusArea === 'game_panel' && gamePanelFocusIndex >= 100 && newsScrollRef.current) {
-      newsScrollRef.current.scrollTo({ x: 0, animated: true });
-    }
-  }, [gamePanelFocusIndex, focusArea]);
-
-  // Auto-scroll welcome widgets horizontal scrollview when focus moves
-  useEffect(() => {
-    if (focusArea === 'welcome_widgets' && widgetScrollRef.current) {
-      const colIndex = focusIndex % 5;
-      const cardWidth = (windowWidth - 40) / 5;
-      const gap = 10;
-      const scrollX = colIndex * (cardWidth + gap);
-      widgetScrollRef.current.scrollTo({ x: scrollX, animated: true });
-    }
-  }, [focusIndex, focusArea, windowWidth]);
-
-  // Auto-scroll carousel
-  useEffect(() => {
-    if (scrollRef.current) {
-      const scrollX = activeIndex * ITEM_WIDTH;
-      scrollRef.current.scrollTo({ x: scrollX, animated: true });
-    }
-  }, [activeIndex, currentRenderedTab, ITEM_WIDTH]);
   const handleLaunchApp = (item: ConsoleItem) => {
     if (!item || item.id === '1' || item.id === '5' || item.id === 'more_library' || item.isFolder || item.isGrid) return;
     if (item.isLastPlayed && (!lastPlayedGame || lastPlayedGame.id === '1' || lastPlayedGame.id === '5')) {
@@ -2869,11 +1874,18 @@ export default function ConsoleHome() {
     soundService.playNavigation();
   };
 
+  // Actualizar refs de callbacks para useFocusNavigation (rompe la dependencia circular)
+  _handleLaunchAppRef.current = handleLaunchApp;
+  _openContextMenuRef.current = openContextMenu;
+  _handleContextMenuActionRef.current = handleContextMenuAction;
+  _handleProfileMenuActionRef.current = handleProfileMenuAction;
+  _handleSystemNavActionRef.current = handleSystemNavAction;
+  _handleToggleFavoriteRef.current = handleToggleFavorite;
+  _handleTogglePinRef.current = handleTogglePin;
+
   // Background del StoreFrontPanel: se computa sincrónicamente para evitar parpadeos
   const storeFocusedBackground = useMemo(() => {
     if (currentData[activeIndex]?.id !== '5') return null;
-    const storeDeals = storeOffers.filter((o) => o.type === 'offer');
-    const storeUpcoming = storeOffers.filter((o) => o.type === 'release');
     let focused: StoreOffer | undefined;
     if (gamePanelFocusIndex < 10) {
       focused = storeDeals[gamePanelFocusIndex];
