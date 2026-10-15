@@ -9,21 +9,16 @@ import YoutubePlayer from '@/components/YoutubePlayer';
 import { PSIcons } from '@/constants/psIcons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
-import { fetchEpicInstalledGames } from '@/services/epicInstallService';
-import { buildEpicRunUrl } from '@/services/epicLaunchService';
 import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchGamingNews } from '@/services/newsService';
 import { syncProfileMediaToOnline } from '@/services/onlineAccountService';
 import { extractSteamAppId as extractTrophySteamAppId, syncLocalTrophiesToOnline } from '@/services/onlineTrophiesService';
 import { soundService } from '@/services/soundService';
-import { fetchSteamInstalledAppIds, fetchSteamInstalledGamesDetailed } from '@/services/steamInstallService';
-import { buildSteamRunUrl, getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
+import { getGameActionLabel, resolveLaunchPath, resolveSteamLaunchPath } from '@/services/steamLaunchService';
 import { resolveGameScreenshots, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
-import { fetchSteamGameAchievements, fetchSteamOwnedGames } from '@/services/steamUserService';
-import { fetchWishlistDeals, WishlistDeal } from '@/services/steamWishlistService';
+import { fetchSteamGameAchievements } from '@/services/steamUserService';
 import { toastService } from '@/services/toastService';
-import { fetchXboxInstalledGames } from '@/services/xboxInstallService';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
@@ -71,8 +66,7 @@ import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
 import { usePresentationMode } from '@/hooks/usePresentationMode';
-import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
-import { useSteamDownloads } from '@/hooks/useSteamDownloads'; // ajusta la ruta si difiere
+import { useSteamSync } from '@/hooks/useSteamSync';
 import { Language } from '@/i18n/translations';
 import {
     fingerprintOnlineLibrary,
@@ -203,22 +197,6 @@ export interface ConsoleItem {
 }
 
 export type StoreSource = 'ps5' | 'steam';
-
-// Las portadas fallback de Steam pasaron de `library_600x900_2x.jpg` (1200x1800)
-// a `library_600x900.jpg` (600x900): sobra resolución para una tarjeta de
-// ~120-180px y el decode + subida a GPU es ~4x más barato, lo que suaviza el
-// scale al enfocar. Esta migración normaliza las URLs viejas que puedan seguir
-// guardadas en la caché local de cada usuario.
-const migrateSteamArtUrl = (url: any): any =>
-  typeof url === 'string'
-    ? url.replace('library_600x900_2x.jpg', 'library_600x900.jpg')
-    : url;
-
-const migrateCachedSteamGames = (parsed: any): ConsoleItem[] =>
-  (Array.isArray(parsed) ? parsed : []).map((g: any) => ({
-    ...g,
-    image: migrateSteamArtUrl(g?.image),
-  }));
 
 // Única fuente de verdad para el tile de la tienda (id='5') según la fuente elegida.
 const getStoreTile = (source: StoreSource, t: any): ConsoleItem =>
@@ -641,23 +619,30 @@ export default function ConsoleHome() {
   const [isLibraryFilterPanelOpen, setIsLibraryFilterPanelOpen] = useState(false);
   const libraryGridRef = useRef<LibraryGridHandle>(null);
   const welcomeWidgetsRef = useRef<WelcomeWidgetsHandle>(null);
-  const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
-  const steamGamesRef = useRef<ConsoleItem[]>([]);
-  steamGamesRef.current = steamGames;
   // Espejo para el auto-sync online (evita clausuras obsoletas en listeners).
   const gamesRef = useRef<ConsoleItem[]>([]);
   gamesRef.current = games;
-  const [installedSteamAppIds, setInstalledSteamAppIds] = useState<Set<string> | null>(null);
-  const { downloads: steamDownloads } = useSteamDownloads();
-  const [loadingSteam, setLoadingSteam] = useState(false);
-  const [epicGames, setEpicGames] = useState<ConsoleItem[]>([]);
-  const [loadingEpic, setLoadingEpic] = useState(false);
-  const epicGamesRef = useRef<ConsoleItem[]>([]);
-  epicGamesRef.current = epicGames;
-  const [xboxGames, setXboxGames] = useState<ConsoleItem[]>([]);
-  const [loadingXbox, setLoadingXbox] = useState(false);
-  const xboxGamesRef = useRef<ConsoleItem[]>([]);
-  xboxGamesRef.current = xboxGames;
+  const {
+    steamGames,
+    setSteamGames,
+    steamGamesRef,
+    epicGames,
+    setEpicGames,
+    epicGamesRef,
+    xboxGames,
+    setXboxGames,
+    xboxGamesRef,
+    installedSteamAppIds,
+    loadingSteam,
+    loadingEpic,
+    loadingXbox,
+    wishlistDeals,
+    steamDownloads,
+    downloadsByAppId,
+    downloadingSteamGames,
+    isSteamTrackedGame,
+    getEffectiveSteamGames,
+  } = useSteamSync({ activeUser, games, t, language, libraryTab });
   const [uiReady, setUiReady] = useState(false);
   // Home avisa al _layout (evento 'wps5-home-ready') cuando la UI y los datos
   // base están listos, para quitar el overlay de carga sin saltos.
@@ -669,21 +654,6 @@ export default function ConsoleHome() {
   // Trofeos ya notificados en tiempo real durante la sesión actual del juego.
   // Al cerrar el juego usamos este contador para evitar duplicar el toast de conteo.
   const realtimeTrophiesNotifiedRef = useRef<Record<string, number>>({});
-
-  const getEffectiveSteamGames = (): ConsoleItem[] => {
-    if (steamGamesRef.current.length > 0) return steamGamesRef.current;
-    const steamId = activeUser?.settings?.steamId;
-    if (steamId) {
-      try {
-        const raw = localStorage.getItem(`steam_games_${steamId}`);
-        if (raw) {
-          const parsed = migrateCachedSteamGames(JSON.parse(raw));
-          if (parsed.length > 0) return parsed;
-        }
-      } catch (e) { /* noop */ }
-    }
-    return [];
-  };
 
   const syncGamePlaytime = (gameId: string, totalMinutes: number) => {
     setGames(prev => prev.map(item => item.id !== gameId ? item : { ...item, playtimeMinutes: totalMinutes, playtime_forever: totalMinutes }));
@@ -758,34 +728,6 @@ export default function ConsoleHome() {
     }
   };
 
-  // Mapa rápido appId -> info de descarga
-  const downloadsByAppId = useMemo(() => {
-    const map = new Map<string, SteamDownloadItem>();
-    steamDownloads.forEach(d => map.set(d.appId, d));
-    return map;
-  }, [steamDownloads]);
-
-  // Juegos de la colección Steam que están descargando AHORA MISMO
-  const downloadingSteamGames = useMemo(() => {
-    if (downloadsByAppId.size === 0) return [] as ConsoleItem[];
-    return steamGames
-      .filter(sg => {
-        const appId = getSteamAppId(sg as any);
-        return !!appId && downloadsByAppId.has(appId);
-      })
-      .map(sg => ({ ...sg, path: resolveLaunchPath(sg) }));
-  }, [steamGames, downloadsByAppId]);
-
-  const isSteamTrackedGame = (item: ConsoleItem | null | undefined) => {
-    if (!item) return false;
-    const path = typeof item.path === 'string' ? item.path : '';
-    return Boolean(
-      item.id?.toString().startsWith('steam_') ||
-      item.platform === 'Steam' ||
-      (typeof (item as any).steamAppId !== 'undefined') ||
-      path.startsWith('steam://rungameid/')
-    );
-  };
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
   const activeCardRef = useAnimatedRef<View>();
@@ -806,9 +748,6 @@ export default function ConsoleHome() {
   const [isNotificationsCardOpen, setIsNotificationsCardOpen] = useState(false);
   const [isMusicCardOpen, setIsMusicCardOpen] = useState(false);
   const [isDownloadsCardOpen, setIsDownloadsCardOpen] = useState(false);
-
-  const [wishlistDeals, setWishlistDeals] = useState<WishlistDeal[]>([]);
-  const knownWishlistDealIdsRef = useRef<Set<number> | null>(null);
 
   // Background transition states
   const [bgA, setBgA] = useState<any>(null);
@@ -1340,209 +1279,6 @@ export default function ConsoleHome() {
 
   const searchableMedia = useMemo(() => media, [media]);
 
-  // Cargar juegos de Steam cacheados para el usuario actual al iniciar o cambiar usuario
-  useEffect(() => {
-    const steamId = activeUser?.settings?.steamId;
-    if (steamId) {
-      const cachedRaw = localStorage.getItem(`steam_games_${steamId}`);
-      if (cachedRaw) {
-        try {
-          const parsed = migrateCachedSteamGames(JSON.parse(cachedRaw));
-          if (parsed.length > 0) {
-            setSteamGames(parsed);
-          }
-        } catch (e) {
-          console.error('Error loading cached steam games:', e);
-        }
-      }
-    } else {
-      setSteamGames([]);
-    }
-  }, [activeUser?.settings?.steamId]);
-
-  // Si steamGames se carga/actualiza y tiene un juego con lastPlayed más reciente que lastPlayedGame,
-  // aseguramos que la card de último jugado apunte a ese juego de Steam
-  useEffect(() => {
-    if (steamGames.length === 0) return;
-    // Los juegos fijados no deben tomar la tarjeta "Último Jugado" (ya tienen
-    // su propio lugar fijo en Inicio, ver `pinnedSteamGames`).
-    const played = steamGames.filter(g => g.lastPlayed && !g.isPinned);
-    if (played.length === 0) return;
-    played.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
-    const mostRecentSteam = played[0];
-    if (mostRecentSteam && (!lastPlayedGame || !lastPlayedGame.lastPlayed || (mostRecentSteam.lastPlayed || 0) > (lastPlayedGame.lastPlayed || 0))) {
-      setLastPlayedGame(mostRecentSteam);
-    }
-  }, [steamGames]);
-
-  // Refresco silencioso de tiempos de juego de Steam en segundo plano
-  // Se ejecuta cuando hay juegos en caché para mantener los tiempos actualizados
-  // sin re-descargar imágenes ni metadata
-  useEffect(() => {
-    const steamId = activeUser?.settings?.steamId;
-    if (!steamId || steamGames.length === 0) return;
-
-    const GLOBAL_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
-
-    // Refresco en segundo plano sin bloquear la UI
-    const refreshTimeout = setTimeout(() => {
-      fetchSteamOwnedGames(GLOBAL_STEAM_API_KEY, steamId)
-        .then((freshList) => {
-          if (!freshList || freshList.length === 0) return;
-
-          // Construir mapa de appid → playtime
-          const playtimeMap = new Map<string, number>();
-          freshList.forEach((g: any) => {
-            playtimeMap.set(`steam_${g.appid}`, Number(g.playtime_forever || 0));
-          });
-
-          setSteamGames(prev => {
-            const updated = prev.map(game => {
-              const freshMinutes = playtimeMap.get(game.id);
-              // Solo actualizar si el tiempo cambió (evita re-renders innecesarios)
-              if (freshMinutes === undefined || freshMinutes === (game.playtime_forever ?? game.playtimeMinutes ?? 0)) {
-                return game;
-              }
-              return {
-                ...game,
-                playtime_forever: freshMinutes,
-                playtimeMinutes: freshMinutes,
-              };
-            });
-
-            // Actualizar caché con los tiempos frescos
-            try {
-              localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updated));
-            } catch (_) { }
-
-            return updated;
-          });
-        })
-        .catch((e) => {
-          console.warn('[Steam] No se pudo refrescar playtime:', e?.message);
-        });
-    }, 2500); // Esperar 2.5s para no competir con la carga inicial de la UI
-
-    return () => clearTimeout(refreshTimeout);
-  }, [activeUser?.settings?.steamId, steamGames.length]);
-
-  useEffect(() => {
-    if (libraryTab === 'collection' && steamGames.length === 0 && !loadingSteam) {
-      const GLOBAL_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
-      const steamId = activeUser?.settings?.steamId;
-
-      if (steamId) {
-        // Si ya existen juegos en la caché de este usuario, no volvemos a consultar la API ni a re-sincronizar portadas
-        const cachedRaw = localStorage.getItem(`steam_games_${steamId}`);
-        if (cachedRaw) {
-          try {
-            const cached = migrateCachedSteamGames(JSON.parse(cachedRaw));
-            if (cached.length > 0) {
-              setSteamGames(cached);
-              return;
-            }
-          } catch (e) { }
-        }
-
-        setLoadingSteam(true);
-        fetchSteamOwnedGames(GLOBAL_STEAM_API_KEY, steamId).then(async (gamesList) => {
-          const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => ({
-            id: `steam_${g.appid}`,
-            title: g.name,
-            time: 'Steam',
-            image: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900.jpg`,
-            description: '',
-            playtime_forever: Number(g.playtime_forever || 0),
-            playtimeMinutes: Number(g.playtime_forever || 0),
-            platform: 'Steam',
-            path: buildSteamRunUrl(g.appid),
-          }));
-
-          const withMetadata = await Promise.all(
-            baseFormatted.map(async (game) => {
-              // Respetar portadas o metadatos personalizados previamente guardados por el usuario
-              const existingOverride = games.find(g => g.id === game.id);
-              if (existingOverride?.image) {
-                return {
-                  ...game,
-                  ...existingOverride,
-                };
-              }
-
-              try {
-                const res = (window as any).electronAPI?.fetchSteamGridData
-                  ? await (window as any).electronAPI.fetchSteamGridData(game.title)
-                  : await fetchSteamGridData(game.title);
-                if (res?.success && res.data) {
-                  return {
-                    ...game,
-                    image: res.data.grid || game.image,
-                    backgroundImage: res.data.hero || game.backgroundImage,
-                    logo: res.data.logo || game.logo,
-                  };
-                }
-              } catch (e) {
-                console.error('[Steam] Error fetching metadata for:', game.title, e);
-              }
-              return game;
-            })
-          );
-
-          setSteamGames(withMetadata);
-          try {
-            localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(withMetadata));
-          } catch (e) { }
-          setLoadingSteam(false);
-        }).catch(() => setLoadingSteam(false));
-      }
-    }
-  }, [libraryTab, activeUser, steamGames.length, loadingSteam, games]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
-
-    fetchSteamInstalledAppIds().then(setInstalledSteamAppIds);
-  }, []);
-
-  useEffect(() => {
-    if (libraryTab !== 'collection') return;
-    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
-
-    fetchSteamInstalledAppIds().then(setInstalledSteamAppIds);
-  }, [libraryTab, steamGames.length]);
-
-  // Detecta cuándo termina de instalarse un juego de Steam y avisa con un toast
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
-
-    const interval = setInterval(async () => {
-      const freshIds = await fetchSteamInstalledAppIds();
-
-      setInstalledSteamAppIds(prevIds => {
-        if (prevIds) {
-          freshIds.forEach(id => {
-            if (!prevIds.has(id)) {
-              const game =
-                steamGames.find(g => g.id === `steam_${id}`) ||
-                games.find(g => g.id === `steam_${id}`);
-              if (game) {
-                toastService.show(t('notifications.steam', { gameTitle: game.title }), {
-                  icon: require('@/assets/images/install.png'),
-                  source: 'steam',
-                  coverImage: game.image,
-                });
-              }
-            }
-          });
-        }
-        return freshIds;
-      });
-    }, 5000); // cada 5s
-
-    return () => clearInterval(interval);
-  }, [steamGames, games]);
-
-
   function compareVersions(a: string, b: string): number {
     const aParts = a.split('.').map(Number);
     const bParts = b.split('.').map(Number);
@@ -1600,276 +1336,20 @@ export default function ConsoleHome() {
     }, 8000);
   }, []);
 
+  // Si steamGames se carga/actualiza y tiene un juego con lastPlayed más reciente que lastPlayedGame,
+  // aseguramos que la card de último jugado apunte a ese juego de Steam
   useEffect(() => {
-    const steamId = activeUser?.settings?.steamId;
-    if (!steamId) return;
-
-    const checkWishlist = () => {
-      fetchWishlistDeals(steamId).then(deals => {
-        setWishlistDeals(deals);
-
-        const known = knownWishlistDealIdsRef.current;
-
-        if (known) {
-          // Cargas posteriores: notificar inmediatamente los nuevos descuentos
-          deals.forEach(deal => {
-            if (!known.has(deal.appid)) {
-              toastService.show(
-                t('notifiactions.wishlist', {
-                  gameTitle: deal.title,
-                  discountPercent: deal.discountPercent,
-                }),
-                {
-                  icon: require('@/assets/images/Steamico.png'),
-                  source: 'steam',
-                }
-              );
-            }
-          });
-
-          knownWishlistDealIdsRef.current = new Set(deals.map(d => d.appid));
-        } else {
-          // Primera carga: esperar 5 segundos antes de mostrar las notificaciones
-          setTimeout(() => {
-            deals.slice(0, 5).forEach(deal => {
-              toastService.show(
-                t('notifiactions.wishlist', {
-                  gameTitle: deal.title,
-                  discountPercent: deal.discountPercent,
-                }),
-                {
-                  icon: require('@/assets/images/Steamico.png'),
-                  source: 'steam',
-                }
-              );
-            });
-          }, 15000);
-
-          knownWishlistDealIdsRef.current = new Set(deals.map(d => d.appid));
-        }
-      });
-    };
-
-    checkWishlist();
-    const interval = setInterval(checkWishlist, 30 * 60 * 1000); // cada 30 min
-    return () => clearInterval(interval);
-  }, [activeUser?.settings?.steamId]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getEpicInstalledGames) return;
-    if (epicGames.length > 0 || loadingEpic) return;
-
-    setLoadingEpic(true);
-    fetchEpicInstalledGames().then(async (gamesList) => {
-      const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => ({
-        id: g.id,
-        title: g.title,
-        time: 'Epic',
-        platform: 'Epic',
-        type: 'game',
-        path: buildEpicRunUrl(g.appName),
-      }));
-
-      const withMetadata = await Promise.all(
-        baseFormatted.map(async (game) => {
-          try {
-            const res = (window as any).electronAPI?.fetchSteamGridData
-              ? await (window as any).electronAPI.fetchSteamGridData(game.title)
-              : await fetchSteamGridData(game.title);
-            if (res?.success && res.data) {
-              return {
-                ...game,
-                image: res.data.grid || game.image,
-                backgroundImage: res.data.hero || game.backgroundImage,
-                logo: res.data.logo || game.logo,
-              };
-            }
-          } catch (e) {
-            console.error('[Epic] Error fetching metadata for:', game.title, e);
-          }
-          return game;
-        })
-      );
-
-      // Notifica solo los juegos de Epic nuevos desde el último escaneo
-      try {
-        const knownRaw = localStorage.getItem('epic_known_games');
-        const known: string[] = knownRaw ? JSON.parse(knownRaw) : null;
-        if (known) {
-          const newOnes = withMetadata.filter(g => !known.includes(g.id));
-          newOnes.forEach(g => {
-            toastService.show(t('notifications.epicGames', { gameTitle: g.title }), {
-              icon: require('@/assets/images/Epicico.png'),
-              source: 'epic',
-              coverImage: g.image,
-            });
-          });
-        }
-        localStorage.setItem('epic_known_games', JSON.stringify(withMetadata.map(g => g.id)));
-      } catch (e) { /* noop */ }
-
-      setEpicGames(withMetadata);
-      setLoadingEpic(false);
-    }).catch(() => setLoadingEpic(false));
-  }, []);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getXboxInstalledGames) return;
-    if (xboxGames.length > 0 || loadingXbox) return;
-
-    setLoadingXbox(true);
-    fetchXboxInstalledGames().then(async (gamesList) => {
-      const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => ({
-        id: g.id,
-        title: g.title,
-        time: 'Xbox',
-        platform: 'Xbox',
-        type: 'game',
-        path: g.launchPath || (g.aumid ? `shell:AppsFolder\\${g.aumid}` : ''),
-        image: g.icon || null,
-      }));
-
-      const withMetadata = await Promise.all(
-        baseFormatted.map(async (game) => {
-          try {
-            const res = (window as any).electronAPI?.fetchSteamGridData
-              ? await (window as any).electronAPI.fetchSteamGridData(game.title)
-              : await fetchSteamGridData(game.title);
-            if (res?.success && res.data) {
-              return {
-                ...game,
-                image: res.data.grid || game.image,
-                backgroundImage: res.data.hero || game.backgroundImage,
-                logo: res.data.logo || game.logo,
-              };
-            }
-          } catch (e) {
-            console.error('[Xbox] Error fetching metadata for:', game.title, e);
-          }
-          return game;
-        })
-      );
-
-      // Notifica solo los juegos de Xbox nuevos desde el último escaneo
-      try {
-        const knownRaw = localStorage.getItem('xbox_known_games');
-        const known: string[] = knownRaw ? JSON.parse(knownRaw) : null;
-        if (known) {
-          const newOnes = withMetadata.filter(g => !known.includes(g.id));
-          newOnes.forEach(g => {
-            toastService.show(t('notifications.xboxGames', { gameTitle: g.title }), {
-              icon: require('@/assets/images/Xboxico.png'),
-              source: 'xbox',
-              coverImage: g.image,
-            });
-          });
-        }
-        localStorage.setItem('xbox_known_games', JSON.stringify(withMetadata.map(g => g.id)));
-      } catch (e) { /* noop */ }
-
-      setXboxGames(withMetadata);
-      setLoadingXbox(false);
-    }).catch(() => setLoadingXbox(false));
-  }, []);
-
-  useEffect(() => {
-    if (libraryTab !== 'collection') return;
-    if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledAppsDetailed) return;
     if (steamGames.length === 0) return;
-
-    fetchSteamInstalledGamesDetailed().then(async (detailed) => {
-      if (detailed.length === 0) return;
-
-      const knownIds = new Set(
-        steamGames.map(g => getSteamAppId(g as any)).filter(Boolean)
-      );
-      const orphans = detailed.filter(d => !knownIds.has(d.appId));
-      if (orphans.length === 0) return;
-
-      console.log('[Steam] Juegos detectados localmente fuera de GetOwnedGames:', orphans.map(o => o.name));
-
-      // Evita repetir el toast para los mismos juegos en cada carga —
-      // mismo patrón que 'epic_known_games' para Epic.
-      const steamIdForNotify = activeUser?.settings?.steamId;
-      const notifiedKey = steamIdForNotify ? `steam_orphans_notified_${steamIdForNotify}` : null;
-      let alreadyNotified: string[] = [];
-      if (notifiedKey) {
-        try {
-          const raw = localStorage.getItem(notifiedKey);
-          alreadyNotified = raw ? JSON.parse(raw) : [];
-        } catch (e) { /* noop */ }
-      }
-      const newlyFound = orphans.filter(o => !alreadyNotified.includes(o.appId));
-
-      const withMetadata = await Promise.all(
-        orphans.map(async (o) => {
-          const base: ConsoleItem = {
-            id: `steam_${o.appId}`,
-            title: o.name,
-            time: 'Steam',
-            image: `https://steamcdn-a.akamaihd.net/steam/apps/${o.appId}/library_600x900.jpg`,
-            description: t('game.playedTime', { hours: 0 }),
-            playtime_forever: 0,
-            playtimeMinutes: 0,
-            platform: 'Steam',
-            path: buildSteamRunUrl(o.appId),
-          };
-
-          try {
-            const res = (window as any).electronAPI?.fetchSteamGridData
-              ? await (window as any).electronAPI.fetchSteamGridData(o.name)
-              : await fetchSteamGridData(o.name);
-            if (res?.success && res.data) {
-              return {
-                ...base,
-                image: res.data.grid || base.image,
-                backgroundImage: res.data.hero,
-                logo: res.data.logo,
-              };
-            }
-          } catch (e) {
-            console.error('[Steam] Error fetching metadata for orphan game:', o.name, e);
-          }
-          return base;
-        })
-      );
-
-      setSteamGames(prev => {
-        const existingIds = new Set(prev.map(g => g.id));
-        const toAdd = withMetadata.filter(g => !existingIds.has(g.id));
-        if (toAdd.length === 0) return prev;
-
-        const updated = [...prev, ...toAdd];
-        const steamId = activeUser?.settings?.steamId;
-        if (steamId) {
-          try { localStorage.setItem(`steam_games_${steamId}`, JSON.stringify(updated)); } catch (e) { /* noop */ }
-        }
-        return updated;
-      });
-
-      // Notificar solo los que no se habían avisado antes
-      if (newlyFound.length > 0) {
-        newlyFound.forEach(o => {
-          const gameWithMeta = withMetadata.find(g => g.id === `steam_${o.appId}`);
-          toastService.show(
-            t('notifications.steamOrphanDetected', { gameTitle: o.name }),
-            {
-              icon: require('@/assets/images/Steamico.png'),
-              source: 'steam',
-              coverImage: gameWithMeta?.image,
-            }
-          );
-        });
-
-        if (notifiedKey) {
-          try {
-            const updatedNotified = [...alreadyNotified, ...newlyFound.map(o => o.appId)];
-            localStorage.setItem(notifiedKey, JSON.stringify(updatedNotified));
-          } catch (e) { /* noop */ }
-        }
-      }
-    });
-  }, [libraryTab, steamGames.length, activeUser?.settings?.steamId]);
+    // Los juegos fijados no deben tomar la tarjeta "Último Jugado" (ya tienen
+    // su propio lugar fijo en Inicio, ver `pinnedSteamGames`).
+    const played = steamGames.filter(g => g.lastPlayed && !g.isPinned);
+    if (played.length === 0) return;
+    played.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+    const mostRecentSteam = played[0];
+    if (mostRecentSteam && (!lastPlayedGame || !lastPlayedGame.lastPlayed || (mostRecentSteam.lastPlayed || 0) > (lastPlayedGame.lastPlayed || 0))) {
+      setLastPlayedGame(mostRecentSteam);
+    }
+  }, [steamGames]);
 
   useEffect(() => {
     const currentItem = currentData[activeIndex];
