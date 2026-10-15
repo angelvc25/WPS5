@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-002",
+  "type": "refactor",
+  "description": "Crear hooks/useSteamSync.ts extrayendo toda la lógica de sincronización con Steam, Epic y Xbox. Este hook es independiente de FEAT-001; sus retornos (steamGames, epicGames, xboxGames, downloadsByAppId) son necesarios para FEAT-003.",
+  "status": "completed",
+  "steps": [
+    "Leer context.json y este archivo FEAT-002.json PRIMERO.",
+    "Leer hooks/useSteamDownloads.ts para entender su API (ya existe; este hook lo consumirá internamente).",
+    "Leer services/steamInstallService.ts, services/epicInstallService.ts, services/xboxInstallService.ts para conocer las firmas de fetchSteamInstalledAppIds, fetchSteamInstalledGamesDetailed, fetchEpicInstalledGames, fetchXboxInstalledGames.",
+    "Leer services/steamWishlistService.ts para entender fetchWishlistDeals.",
+    "Leer las líneas de app/(tabs)/index.tsx que corresponden a: steamGames/steamGamesRef, epicGames/epicGamesRef, xboxGames/xboxGamesRef, installedSteamAppIds, loadingSteam/Epic/Xbox, wishlistDeals, knownWishlistDealIdsRef, y todos los useEffect de carga/refresco (Steam owned games, refresco silencioso de playtimes, installedAppIds, detección Epic, detección Xbox, orphan installs, wishlist watcher, detección de fin de instalación).",
+    "Crear hooks/useSteamSync.ts. Parámetros de entrada: { activeUser: User | null, games: ConsoleItem[], t: TFunction, language: string }. Consumir useSteamDownloads internamente. Mover dentro del hook todos los estados, refs y useEffects identificados.",
+    "Exportar isSteamTrackedGame como función de utilidad desde el mismo archivo (o como parte del retorno del hook). Exportar getEffectiveSteamGames como función pura que acepta { steamGamesRef, steamId } para que loadApps en useLibrary pueda llamarla.",
+    "El hook retorna: { steamGames, setSteamGames, steamGamesRef, epicGames, setEpicGames, epicGamesRef, xboxGames, setXboxGames, xboxGamesRef, installedSteamAppIds, loadingSteam, loadingEpic, loadingXbox, wishlistDeals, steamDownloads, downloadsByAppId, downloadingSteamGames, isSteamTrackedGame, getEffectiveSteamGames }.",
+    "Nota sobre downloadingSteamGames: este memo necesita getSteamAppId de services/steamLaunchService.ts y resolveLaunchPath del mismo servicio — importarlos directamente dentro del hook.",
+    "En app/(tabs)/index.tsx: eliminar los estados/refs/effects extraídos. Agregar: const { steamGames, setSteamGames, steamGamesRef, epicGames, setEpicGames, epicGamesRef, xboxGames, setXboxGames, xboxGamesRef, installedSteamAppIds, loadingSteam, loadingEpic, loadingXbox, wishlistDeals, steamDownloads, downloadsByAppId, downloadingSteamGames, isSteamTrackedGame, getEffectiveSteamGames } = useSteamSync({ activeUser, games, t, language })."
+  ],
+  "acceptance_criteria": [
+    "hooks/useSteamSync.ts compila sin errores TypeScript.",
+    "app/(tabs)/index.tsx sigue compilando tras eliminar los estados extraídos.",
+    "Los juegos Steam del usuario cargan correctamente al entrar a la pestaña 'Tu Colección'.",
+    "Los juegos Epic y Xbox aparecen en la pestaña 'Instalados'.",
+    "Los deals de la wishlist de Steam generan toasts de notificación."
+  ],
+  "verification": [
+    "npx tsc --noEmit — cero errores.",
+    "npx expo lint — cero advertencias relevantes en los archivos modificados."
+  ],
+  "blocked_reason": null,
+  "findings": "Hook creado en hooks/useSteamSync.ts con named export. Se añadió libraryTab como parámetro adicional (no estaba en el spec original) porque tres effects dependen de él (refresco de installedSteamAppIds, carga bajo demanda de la colección Steam, orphan installs); sin este parámetro los effects habrían perdido su guard y se ejecutarían siempre. isSteamTrackedGame se exporta también como función de utilidad pura (export function). getEffectiveSteamGames acepta ahora un steamId opcional y vuelve a useCallback para ser estable. migrateSteamArtUrl y migrateCachedSteamGames se han eliminado de index.tsx (ya no se usan allí; el hook las define internamente). useSteamDownloads y su tipo SteamDownloadItem ya no se importan en index.tsx. Las funciones downloadsByAppId, downloadingSteamGames e isSteamTrackedGame se eliminaron de index.tsx y se consumen desde el hook. El effect 'Si steamGames se carga/actualiza' (que sincroniza lastPlayedGame) se ha mantenido en index.tsx porque actualiza setLastPlayedGame, que sigue siendo estado local del componente. npx tsc --noEmit pasó con cero errores; npx expo lint devolvió Exit Code 0 (solo warnings preexistentes de exhaustive-deps y unused 'e' en catch blocks)."
+}
