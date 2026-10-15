@@ -725,6 +725,9 @@ export default function ConsoleHome() {
   const launchStartTimeRef = useRef<Record<string, number>>({});
   const sessionPlaytimeRef = useRef<Record<string, number>>({});
   const initialUnlockedRef = useRef<Record<string, number>>({});
+  // Trofeos ya notificados en tiempo real durante la sesión actual del juego.
+  // Al cerrar el juego usamos este contador para evitar duplicar el toast de conteo.
+  const realtimeTrophiesNotifiedRef = useRef<Record<string, number>>({});
 
   const getEffectiveSteamGames = (): ConsoleItem[] => {
     if (steamGamesRef.current.length > 0) return steamGamesRef.current;
@@ -3661,7 +3664,8 @@ export default function ConsoleHome() {
       launchStartTimeRef.current[targetItem.id] = Date.now();
       sessionPlaytimeRef.current[targetItem.id] = Number(targetItem.playtimeMinutes ?? targetItem.playtime_forever ?? 0);
 
-      // Guardar cantidad de logros desbloqueados antes de jugar
+      // Guardar cantidad de logros desbloqueados antes de jugar + enviar
+      // credenciales Steam al main process para el poller en tiempo real.
       const appId = extractTrophySteamAppId(targetItem);
       const steamId = activeUser?.settings?.steamId;
       if (appId && steamId) {
@@ -3671,6 +3675,10 @@ export default function ConsoleHome() {
             initialUnlockedRef.current[targetItem.id] = summary.unlocked;
           }
         }).catch(() => { });
+        // Enviar credenciales al main para que el poller de trofeos funcione
+        if (Platform.OS === 'web' && (window as any).electronAPI?.setActiveSteamCredentials) {
+          (window as any).electronAPI.setActiveSteamCredentials({ steamId, apiKey });
+        }
       }
     }
 
@@ -3733,6 +3741,26 @@ export default function ConsoleHome() {
       });
     }
   };
+
+  // Escuchar trofeos desbloqueados en tiempo real durante la sesión de juego.
+  // El main process envía este evento cuando el poller detecta un logro nuevo.
+  // Aquí solo reproducimos el sonido de notificación; la ventana flotante
+  // con el diseño PS5 la crea el propio main process.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !(window as any).electronAPI?.onTrophyUnlocked) return;
+    const removeListener = (window as any).electronAPI.onTrophyUnlocked((data: any) => {
+      soundService.playNotification?.();
+      // Contabilizar para no duplicar el toast al cerrar el juego
+      const gameId = data?.gameInfo?.id;
+      if (gameId) {
+        realtimeTrophiesNotifiedRef.current[gameId] =
+          (realtimeTrophiesNotifiedRef.current[gameId] ?? 0) + 1;
+      }
+    });
+    return () => {
+      if (removeListener) removeListener();
+    };
+  }, []);
 
   // Escuchar suspensión del launcher para pausar videos en el DOM y sonido mientras se juega
   useEffect(() => {
@@ -3806,16 +3834,41 @@ export default function ConsoleHome() {
               const prevUnlocked = initialUnlockedRef.current[id];
               delete initialUnlockedRef.current[id];
 
-              fetchSteamGameAchievements(apiKey, steamId, appId).then(async summary => {
+              fetchSteamGameAchievements(apiKey, steamId, appId, true /* forceRefresh */).then(async summary => {
                 if (summary && typeof summary.unlocked === 'number') {
                   const newUnlocked = summary.unlocked;
                   if (typeof prevUnlocked === 'number' && newUnlocked > prevUnlocked) {
                     const diff = newUnlocked - prevUnlocked;
-                    const gameTitle = trackedItem.title || 'el juego';
-                    const msg = diff === 1
-                      ? `🏆 ¡1 logro desbloqueado en ${gameTitle}!`
-                      : `🏆 ¡${diff} logros desbloqueados en ${gameTitle}!`;
-                    toastService.show(msg, { duration: 6000, saveToHistory: true });
+                    // Descuentar los trofeos ya notificados en tiempo real
+                    // para no duplicar el popup al volver al launcher.
+                    const alreadyNotified = realtimeTrophiesNotifiedRef.current[id] ?? 0;
+                    delete realtimeTrophiesNotifiedRef.current[id];
+                    const pendingDiff = diff - alreadyNotified;
+
+                    if (pendingDiff > 0) {
+                      // Mostrar popup PS5 por cada logro nuevo no notificado aún.
+                      // Usamos los datos completos del summary (con icon, rarity, etc.).
+                      const newlyUnlocked = summary.achievements
+                        .filter(a => a.achieved)
+                        .sort((a, b) => (b.unlockTime ?? 0) - (a.unlockTime ?? 0))
+                        .slice(0, pendingDiff);
+
+                      const gameInfo = { id, title: trackedItem.title, image: trackedItem.image };
+
+                      if (Platform.OS === 'web' && (window as any).electronAPI?.showTrophyNotification) {
+                        for (const ach of newlyUnlocked) {
+                          await (window as any).electronAPI.showTrophyNotification(ach, gameInfo);
+                          soundService.playNotification?.();
+                        }
+                      } else {
+                        // Fallback fuera de Electron: toast genérico
+                        const gameTitle = trackedItem.title || 'el juego';
+                        const msg = pendingDiff === 1
+                          ? `🏆 ¡1 logro desbloqueado en ${gameTitle}!`
+                          : `🏆 ¡${pendingDiff} logros desbloqueados en ${gameTitle}!`;
+                        toastService.show(msg, { duration: 6000, saveToHistory: true });
+                      }
+                    }
                   }
                   // Sincronizar trofeos locales a la cuenta online para refrescar widgets y perfil
                   const allGames = [...(games || []), ...(steamGames || [])];

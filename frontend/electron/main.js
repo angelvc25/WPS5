@@ -245,6 +245,14 @@ let mainWindow = null;
 let webMediaWindow = null;
 let toastOverlayWindow = null;
 let toastOverlayTimer = null;
+
+// ── Trophy notification windows (una cola: se muestran secuencialmente) ──────
+let trophyNotifQueue = [];   // [{ achievement, gameInfo }]
+let trophyNotifWindow = null;
+let trophyNotifBusy = false;
+
+// ── Pollers de logros en juego: id -> { intervalId, lastUnlocked, ... } ───────
+const trophyPollerMap = new Map();
 let backendProcess = null;
 let mediaSessionsUnsubscribe = null;
 let mediaSessionsPollTimer = null;
@@ -1561,6 +1569,333 @@ function stopSteamGameWatch(id) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ── Trophy notification system ───────────────────────────────────────────────
+// Muestra una ventana flotante estilo PS5 con el logro desbloqueado, sonido
+// incluido. Las notificaciones se encolan para no superponerse.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Convierte la rareza del logro en colores y texto PS5-style. */
+function trophyRarityStyle(rarity) {
+  switch (rarity) {
+    case 'platinum': return { color: '#B0C4DE', label: 'Platinum', glow: 'rgba(176,196,222,0.55)', icon: '🏆' };
+    case 'gold':     return { color: '#FFD700', label: 'Gold',     glow: 'rgba(255,215,0,0.55)',   icon: '🥇' };
+    case 'silver':   return { color: '#C0C0C0', label: 'Silver',   glow: 'rgba(192,192,192,0.45)', icon: '🥈' };
+    default:         return { color: '#CD7F32', label: 'Bronze',   glow: 'rgba(205,127,50,0.45)',  icon: '🥉' };
+  }
+}
+
+/**
+ * Muestra la siguiente notificación de la cola.
+ * Se llama recursivamente cuando la ventana se cierra.
+ */
+function processTrophyQueue() {
+  if (trophyNotifBusy || trophyNotifQueue.length === 0) return;
+  trophyNotifBusy = true;
+
+  const { achievement, gameInfo } = trophyNotifQueue.shift();
+
+  // Cerrar ventana previa si quedó colgada
+  if (trophyNotifWindow && !trophyNotifWindow.isDestroyed()) {
+    trophyNotifWindow.close();
+  }
+
+  const display = screen.getPrimaryDisplay();
+  const { width: sw, height: sh } = display.workAreaSize;
+  const W = 440, H = 100;
+  const margin = 24;
+
+  trophyNotifWindow = new BrowserWindow({
+    width: W,
+    height: H,
+    x: Math.round(display.workArea.x + sw - W - margin),
+    y: Math.round(display.workArea.y + sh - H - margin),
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    focusable: false,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    hasShadow: false,
+    show: false,
+    ...(process.platform === 'win32' ? { type: 'toolbar' } : {}),
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+
+  trophyNotifWindow.setAlwaysOnTop(true, 'screen-saver');
+  trophyNotifWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+  const rs = trophyRarityStyle(achievement.rarity || 'bronze');
+
+  // Iconos de rareza SVG inline para evitar dependencias externas
+  const trophyIconHtml = {
+    platinum: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#B0C4DE" stroke="#7fa8c9" stroke-width="0.5"/></svg>`,
+    gold:     `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#FFD700" stroke="#c8a400" stroke-width="0.5"/></svg>`,
+    silver:   `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#C0C0C0" stroke="#909090" stroke-width="0.5"/></svg>`,
+    bronze:   `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#CD7F32" stroke="#9a5c1e" stroke-width="0.5"/></svg>`,
+  }[achievement.rarity || 'bronze'] || trophyIconHtml.bronze;
+
+  // Imagen del juego: si es una ruta local la convertimos a base64 para el HTML inline.
+  let gameImgHtml = '';
+  if (gameInfo.image) {
+    try {
+      let imgSrc = gameInfo.image;
+      // Rutas locales de archivo
+      if (!imgSrc.startsWith('http') && !imgSrc.startsWith('data:') && fs.existsSync(imgSrc)) {
+        const ext = path.extname(imgSrc).substring(1).toLowerCase() || 'png';
+        const mime = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+        imgSrc = `data:${mime};base64,${fs.readFileSync(imgSrc).toString('base64')}`;
+      }
+      gameImgHtml = `<img src="${imgSrc}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;" onerror="this.style.display='none'"/>`;
+    } catch (_) { /* noop */ }
+  }
+
+  // Icono del logro (URL https de Steam)
+  let achImgHtml = '';
+  if (achievement.icon) {
+    achImgHtml = `<img src="${achievement.icon}" style="width:40px;height:40px;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'"/>`;
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;background:transparent;overflow:hidden;
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;}
+  .card{
+    display:flex;align-items:center;gap:10px;
+    width:100%;height:100%;
+    padding:10px 14px;
+    background:linear-gradient(135deg,rgba(14,14,18,0.97) 0%,rgba(22,22,30,0.97) 100%);
+    border:1px solid rgba(255,255,255,0.10);
+    border-left:3px solid ${rs.color};
+    border-radius:12px;
+    box-shadow:0 0 24px ${rs.glow}, 0 8px 32px rgba(0,0,0,0.7);
+    animation:slideIn 0.38s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  .card.exit{animation:slideOut 0.32s ease-in both;}
+  @keyframes slideIn{from{opacity:0;transform:translateX(60px);}to{opacity:1;transform:translateX(0);}}
+  @keyframes slideOut{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(60px);}}
+  .game-img{width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;}
+  .divider{width:1px;height:52px;background:rgba(255,255,255,0.12);flex-shrink:0;}
+  .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+  .unlocked-label{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;
+    color:rgba(255,255,255,0.45);}
+  .ach-row{display:flex;align-items:center;gap:7px;}
+  .ach-name{font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ach-desc{font-size:11px;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rarity-badge{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+  .rarity-label{font-size:10px;font-weight:700;letter-spacing:0.8px;color:${rs.color};}
+</style></head>
+<body>
+<div class="card" id="card">
+  ${gameImgHtml}
+  <div class="divider"></div>
+  <div class="info">
+    <span class="unlocked-label">Trofeo desbloqueado</span>
+    <div class="ach-row">
+      ${achImgHtml}
+      <span class="ach-name">${(achievement.name || 'Logro').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+    </div>
+    <span class="ach-desc">${(achievement.description || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+  </div>
+  <div class="rarity-badge">
+    ${trophyIconHtml}
+    <span class="rarity-label">${rs.label}</span>
+  </div>
+</div>
+<script>
+  const DISPLAY_MS = 5500;
+  const EXIT_MS = 320;
+  setTimeout(() => {
+    const card = document.getElementById('card');
+    if (card) card.classList.add('exit');
+  }, DISPLAY_MS - EXIT_MS);
+</script>
+</body></html>`;
+
+  trophyNotifWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+  trophyNotifWindow.once('ready-to-show', () => {
+    if (trophyNotifWindow && !trophyNotifWindow.isDestroyed()) {
+      trophyNotifWindow.showInactive();
+    }
+  });
+
+  // Notificar al renderer principal para que reproduzca el sonido (está en el contexto web)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('trophy-unlocked', {
+      achievement,
+      gameInfo,
+    });
+  }
+
+  const closeAfterMs = 5600;
+  const closeTimer = setTimeout(() => {
+    if (trophyNotifWindow && !trophyNotifWindow.isDestroyed()) {
+      trophyNotifWindow.close();
+    }
+    trophyNotifWindow = null;
+    trophyNotifBusy = false;
+    // Procesar la siguiente notificación de la cola
+    processTrophyQueue();
+  }, closeAfterMs);
+
+  trophyNotifWindow.on('closed', () => {
+    trophyNotifWindow = null;
+    clearTimeout(closeTimer);
+    trophyNotifBusy = false;
+    processTrophyQueue();
+  });
+}
+
+/**
+ * Encola una notificación de trofeo. Thread-safe: no se superponen ventanas.
+ */
+function enqueueTrophyNotification(achievement, gameInfo) {
+  trophyNotifQueue.push({ achievement, gameInfo });
+  processTrophyQueue();
+}
+
+// ── Poller de logros en tiempo real ──────────────────────────────────────────
+
+/**
+ * Inicia un poll periódico de logros Steam para el juego activo.
+ * Cuando detecta nuevos logros muestra una notificación por cada uno.
+ */
+function startTrophyPoller(id, appId, apiKey, steamId, gameInfo) {
+  stopTrophyPoller(id); // limpiar si ya había uno
+
+  // Primer fetch para obtener el baseline de logros ya desbloqueados
+  let knownUnlockedSet = null; // Set<string> de apiName ya desbloqueados al arrancar
+
+  const POLL_MS = 60 * 1000; // 60s — respetuoso con el rate limit de Steam
+
+  const fetchUnlocked = () => new Promise((resolve) => {
+    const url = `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${appId}&key=${apiKey}&steamid=${steamId}`;
+    const https = require('https');
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          const list = json?.playerstats?.achievements;
+          if (!Array.isArray(list)) return resolve(null);
+          resolve(list);
+        } catch { resolve(null); }
+      });
+    }).on('error', () => resolve(null));
+  });
+
+  // Fetch inicial: establece el baseline sin mostrar notificaciones
+  fetchUnlocked().then((list) => {
+    if (!list) return;
+    knownUnlockedSet = new Set(list.filter(a => a.achieved === 1).map(a => a.apiname));
+  });
+
+  const schemaCache = { data: null };
+  const fetchSchema = () => new Promise((resolve) => {
+    if (schemaCache.data) return resolve(schemaCache.data);
+    const https = require('https');
+    const url = `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?appid=${appId}&key=${apiKey}&l=spanish`;
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          const achs = json?.game?.availableGameStats?.achievements ?? [];
+          schemaCache.data = achs;
+          resolve(achs);
+        } catch { resolve([]); }
+      });
+    }).on('error', () => resolve([]));
+  });
+
+  const percentCache = { data: null };
+  const fetchPercents = () => new Promise((resolve) => {
+    if (percentCache.data) return resolve(percentCache.data);
+    const https = require('https');
+    const url = `https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid=${appId}`;
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          const list = json?.achievementpercentages?.achievements ?? [];
+          const map = {};
+          for (const a of list) map[a.name] = Number(a.percent);
+          percentCache.data = map;
+          resolve(map);
+        } catch { resolve({}); }
+      });
+    }).on('error', () => resolve({}));
+  });
+
+  const rarityForPct = (pct) => {
+    if (pct === null || pct === undefined) return 'bronze';
+    if (pct <= 1)  return 'platinum';
+    if (pct <= 5)  return 'gold';
+    if (pct <= 15) return 'silver';
+    return 'bronze';
+  };
+
+  const pollInterval = setInterval(async () => {
+    if (knownUnlockedSet === null) return; // baseline aún no establecido
+    const list = await fetchUnlocked();
+    if (!list) return;
+
+    const nowUnlocked = new Set(list.filter(a => a.achieved === 1).map(a => a.apiname));
+    const newOnes = [...nowUnlocked].filter(apiname => !knownUnlockedSet.has(apiname));
+
+    if (newOnes.length === 0) {
+      knownUnlockedSet = nowUnlocked;
+      return;
+    }
+
+    // Hay logros nuevos: obtener schema y porcentajes para enriquecer la notificación
+    const [schema, percents] = await Promise.all([fetchSchema(), fetchPercents()]);
+    const schemaMap = {};
+    for (const s of schema) schemaMap[s.name] = s;
+
+    for (const apiname of newOnes) {
+      const s = schemaMap[apiname] || {};
+      const pct = percents[apiname] ?? null;
+      const achievement = {
+        apiName: apiname,
+        name: s.displayName || apiname,
+        description: s.description || '',
+        icon: s.icon || '',
+        rarity: rarityForPct(pct),
+        globalPercentage: pct,
+        achieved: true,
+      };
+      enqueueTrophyNotification(achievement, gameInfo);
+    }
+
+    knownUnlockedSet = nowUnlocked;
+  }, POLL_MS);
+
+  trophyPollerMap.set(id, pollInterval);
+}
+
+function stopTrophyPoller(id) {
+  const t = trophyPollerMap.get(id);
+  if (t) {
+    clearInterval(t);
+    trophyPollerMap.delete(id);
+  }
+}
+
+function stopAllTrophyPollers() {
+  for (const [id] of trophyPollerMap) stopTrophyPoller(id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameMeta = {}, extraOpts = {}) {
   stopSteamGameWatch(id); // por si ya había un watcher previo para este id
 
@@ -1607,6 +1942,21 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
   enableOverlayHotkey();
   startGamepadOverlayListener();
 
+  // ── Poller de logros en tiempo real ──
+  // Solo para juegos Steam con appId numérico válido. Las credenciales
+  // (steamId / apiKey) se pasan desde el renderer al lanzar el juego
+  // y se guardan en activeGameInfo para uso del poller.
+  (() => {
+    const numericAppId = typeof appId === 'string' ? parseInt(appId, 10) : appId;
+    if (!Number.isFinite(numericAppId) || numericAppId <= 0) return;
+    const creds = extraOpts.steamCreds;
+    if (!creds || !creds.steamId || !creds.apiKey) return;
+    startTrophyPoller(id, numericAppId, creds.apiKey, creds.steamId, {
+      title: gameMeta.title || sourceLabel,
+      image: gameMeta.image || null,
+    });
+  })();
+
   // Ya no tapamos la pantalla con el launcher mientras Steam/Epic arranca:
   // aplicamos directamente el comportamiento configurado por el usuario
   // (ocultar/minimizar/segundo plano) apenas se pide lanzar el juego.
@@ -1616,6 +1966,7 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
     if (gameExited) return;
     gameExited = true;
     stopSteamGameWatch(id);
+    stopTrophyPoller(id); // detener polling de logros
     hideTrayIcon();
 
     // ── Limpieza de overlay tras salir del juego ──
@@ -3733,8 +4084,9 @@ app.whenReady().then(async () => {
       gameExited = true;
       if (hideTimer) clearTimeout(hideTimer);
       hideTrayIcon();
-      // ── Limpieza de overlay tras salir del juego ──
+      // ── Limpieza de overlay y pollers tras salir del juego ──
       hideOverlayWindow();
+      stopTrophyPoller(id); // detener polling de logros
       activeGameInfo = null;
       if (!overlayEnabled) {
         disableOverlayHotkey();
@@ -5047,6 +5399,34 @@ app.whenReady().then(async () => {
     return { success: true };
   });
 
+  // ── IPC: Notificación de trofeo manual (desde el renderer al cerrar el juego) ──
+  ipcMain.handle('show-trophy-notification', async (_event, achievement, gameInfo) => {
+    try {
+      enqueueTrophyNotification(achievement, gameInfo || {});
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ── IPC: Credenciales Steam del perfil activo (respuesta al main tras lanzar juego) ──
+  ipcMain.handle('set-active-steam-credentials', async (_event, creds) => {
+    // Guardamos las credenciales temporalmente para que startTrophyPoller las use
+    // si el juego ya fue lanzado (race condition de timing al arrancar).
+    if (creds && creds.steamId && creds.apiKey && activeGameInfo) {
+      const numericAppId = typeof activeGameInfo.appId === 'string'
+        ? parseInt(activeGameInfo.appId, 10)
+        : activeGameInfo.appId;
+      if (Number.isFinite(numericAppId) && numericAppId > 0 && !trophyPollerMap.has(activeGameInfo.id)) {
+        startTrophyPoller(activeGameInfo.id, numericAppId, creds.apiKey, creds.steamId, {
+          title: activeGameInfo.title,
+          image: activeGameInfo.image,
+        });
+      }
+    }
+    return { success: true };
+  });
+
   ipcMain.handle('show-main-window-to-switch-game', async () => {
     hideOverlayWindow();
     if (activeGameInfo) {
@@ -5208,6 +5588,7 @@ app.on('before-quit', () => {
   globalShortcut.unregisterAll();
   showWindowsTaskbar(); // red de seguridad: nunca dejar la taskbar oculta al salir
   if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.destroy();
+  stopAllTrophyPollers(); // detener todos los pollers de logros activos
   for (const id of Array.from(activeGameWatchers.keys())) {
     stopSteamGameWatch(id);
   }

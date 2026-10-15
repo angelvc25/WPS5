@@ -115,6 +115,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('overlay-shown', listener);
     return () => ipcRenderer.removeListener('overlay-shown', listener);
   },
+  // ── Trofeos en tiempo real ────────────────────────────────────────────────
+  // El main process notifica al renderer cuando detecta un logro desbloqueado
+  // durante la sesión de juego. El renderer reproduce el sonido.
+  onTrophyUnlocked: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('trophy-unlocked', listener);
+    return () => ipcRenderer.removeListener('trophy-unlocked', listener);
+  },
+  // Envía las credenciales Steam del perfil activo al main process para que
+  // pueda iniciar el poller de logros sin acceder al localStorage del renderer.
+  setActiveSteamCredentials: (creds) => ipcRenderer.invoke('set-active-steam-credentials', creds),
+  // Muestra una notificación de trofeo desde el renderer (p.ej. al cerrar el juego).
+  showTrophyNotification: (achievement, gameInfo) => ipcRenderer.invoke('show-trophy-notification', achievement, gameInfo),
   // ── Splash Videos (SteamDeckRepo) ─────────────────────────────────────────
   // Descarga un video de boot/suspend desde SteamDeckRepo y lo guarda en
   // userData/WConsole/splash/{boot|suspend}.webm. Devuelve
