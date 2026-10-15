@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-003",
+  "type": "refactor",
+  "description": "Crear hooks/useLibrary.ts extrayendo la gestión de la lista de juegos manuales, media, lastPlayedGame, y todos los memos derivados (currentData, displayedLibraryGames, etc.). Depende de FEAT-002 (necesita steamGames, epicGames, xboxGames, downloadsByAppId como parámetros).",
+  "status": "done",
+  "steps": [
+    "Leer context.json y este archivo FEAT-003.json PRIMERO.",
+    "Leer las líneas de app/(tabs)/index.tsx correspondientes a: games/gamesRef, media, lastPlayedGame, los useState/useEffect de estas variables, loadApps, mergeGameIntoState, mergeGameIntoStateRef, syncGamePlaytime, markGameAsLastPlayed, handleConfirmDeleteGame, appsLoaded, readySentRef, nonSteamGames, savedGames, playedSteamGames, pinnedSteamGames, GAMES_LIMIT, currentData, displayedLibraryGames, searchableLibraryGames, searchableMedia, MEDIA_GALLERY_ITEM, el useEffect que ajusta lastPlayedGame cuando steamGames cambia, el useEffect de auto-sync online (onlineLibraryFingerprint, notifyOnlineLibraryChanged), y el useEffect de 'uiReady + appsLoaded -> wps5-home-ready'.",
+    "Crear hooks/useLibrary.ts. Parámetros de entrada: { activeUser: User | null, steamGames: ConsoleItem[], steamGamesRef: React.MutableRefObject<ConsoleItem[]>, epicGames: ConsoleItem[], epicGamesRef: React.MutableRefObject<ConsoleItem[]>, xboxGames: ConsoleItem[], xboxGamesRef: React.MutableRefObject<ConsoleItem[]>, downloadsByAppId: Map<string, SteamDownloadItem>, downloadingSteamGames: ConsoleItem[], t: TFunction, language: string, uiReady: boolean }.",
+    "Mover dentro del hook: games (con useState(() => getInitialGames(t, getPersistedStoreSource()))), gamesRef, media (con useState(() => getInitialMedia(t))), lastPlayedGame, appsLoaded, readySentRef, todos los memos (nonSteamGames, savedGames, playedSteamGames, pinnedSteamGames, currentData, displayedLibraryGames, searchableLibraryGames, searchableMedia), todas las funciones (loadApps, mergeGameIntoState, syncGamePlaytime, markGameAsLastPlayed, handleConfirmDeleteGame), useEffect de lastPlayedGame con Steam, useEffect de Store tile, useEffect de auto-sync online, useEffect de wps5-home-ready (el que necesita uiReady + appsLoaded).",
+    "getPersistedStoreSource, getStoreTile, getInitialGames, getInitialMedia y migrateCachedSteamGames son funciones de utilidad puras definidas actualmente en index.tsx (antes del componente). Moverlas al archivo hooks/useLibrary.ts o a un archivo separado utils/libraryUtils.ts si la longitud del hook lo requiere. Decisión: moverlas al mismo archivo del hook como funciones no exportadas.",
+    "libraryTab y setLibraryTab se retornan desde este hook porque currentData y displayedLibraryGames dependen de libraryTab para filtrar por pestaña. En index.tsx el valor de libraryTab también lo consume useFocusNavigation — se pasará como parámetro a useFocusNavigation.",
+    "El hook retorna: { games, setGames, gamesRef, media, setMedia, lastPlayedGame, setLastPlayedGame, libraryTab, setLibraryTab, currentData, displayedLibraryGames, searchableLibraryGames, searchableMedia, nonSteamGames, savedGames, loadApps, mergeGameIntoState, syncGamePlaytime, markGameAsLastPlayed, handleConfirmDeleteGame, appsLoaded }.",
+    "En app/(tabs)/index.tsx: eliminar los estados/memos/effects/funciones extraídos. Agregar la llamada al hook. Asegurarse de que uiReady sigue declarado en index.tsx (su setState viene del doble-rAF effect que también permanece en index.tsx)."
+  ],
+  "acceptance_criteria": [
+    "hooks/useLibrary.ts compila sin errores TypeScript.",
+    "app/(tabs)/index.tsx sigue compilando tras eliminar los elementos extraídos.",
+    "El carrusel de inicio muestra los juegos correctamente (Home, Último Jugado, Store, manuales, Steam).",
+    "loadApps() recarga la lista correctamente (añadir un juego manual y verificar que aparece).",
+    "mergeGameIntoState actualiza el juego en el carrusel sin recargar toda la lista."
+  ],
+  "verification": [
+    "npx tsc --noEmit — cero errores.",
+    "npx expo lint — cero advertencias relevantes."
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

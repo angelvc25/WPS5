@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-004",
+  "type": "refactor",
+  "description": "Crear hooks/useFocusNavigation.ts extrayendo toda la lógica de navegación por foco/teclado/gamepad (incluido el handleKeyDown gigante). Depende de FEAT-002 y FEAT-003 (necesita currentData, libraryTab, storeOffers, steamMedia, etc. como parámetros). Es el hook más complejo y el último en implementarse antes de la integración.",
+  "status": "pending",
+  "steps": [
+    "Leer context.json y este archivo FEAT-004.json PRIMERO.",
+    "Leer hooks/useGamepadInput.ts completo. El patrón clave a replicar: (1) const callbacksRef = useRef(options); callbacksRef.current = options; (2) el useEffect de registro del listener usa deps [] — se registra UNA SOLA VEZ; (3) el listener llama callbacksRef.current.xxx() en vez de usar el closure directo.",
+    "Leer en app/(tabs)/index.tsx el bloque completo de handleKeyDown (desde la declaración hasta el cierre de la función), más: todos los useState de foco (focusArea, focusIndex, activeIndex, gamePanelFocusIndex, toolbarFocusIndex, isLibraryFocused, libraryGridFocusIndex, visibleLibraryGames, libraryTabsFocused, libraryFilterFocused, libraryFilterFromTabs, isLibraryFilterPanelOpen, isWidgetEditOpen, widgetEditFocusIndex, isWidgetMoveMode, movingWidgetId, preMoveOrderBackup), lastNavTime ref, startWidgetMove callback, getWidgetNeighbor función, useEffect de registro de listener keydown, todos los auto-scroll useEffects (carousel, media, news, widgets, main scroll), el useEffect que ajusta libraryGridFocusIndex cuando visibleLibraryGames.length cambia, y el useEffect que ajusta focusIndex cuando widgetVisibility cambia.",
+    "Diseñar la interfaz de opciones del hook. Todo el estado externo que handleKeyDown necesita leer (pero NO modificar) se pasa en un objeto de opciones leído via ref interna — esto garantiza que el listener es estable y no se re-registra cuando el estado cambia. El objeto de opciones debe incluir: currentData, storeOffers, steamMedia, steamNews, achievementCount, lastPlayedGame, isLaunching, isSettingsVisible, isWelcomeSettingsVisible, isAddModalVisible, isHomeBgModalVisible, isSlidesModalVisible, isSearchVisible, isMediaGalleryVisible, isDetailVisible, isLibraryDetailVisible, isContextMenuOpen, isProfileMenuOpen, isFavoritesVisible, isRandomSelectorVisible, deleteConfirmItem, selectedMediaIndex, isSystemNavCardExpanded, isFriendsCardOpen, isNotificationsCardOpen, activeUser, widgetVisibility, widgetOrder, widgetSizes, row1Visible, row2Visible, widgetColumns, PANEL_WIDGETS, storeDeals (derivado de storeOffers), storeUpcoming, activeItem, canPlay, mountTimeRef, isPresentationMode.",
+    "Los callbacks que handleKeyDown LLAMA (en vez de solo leer) también van en el objeto de opciones como funciones: setActiveTab, setActiveIndex, setFocusArea (propio del hook — se llama internamente), handleLaunchApp, openContextMenu, handleContextMenuAction, handleProfileMenuAction, handleSystemNavAction, setAddModalVisible, setFavoritesVisible, setRandomSelectorVisible, setHomeBgModalVisible, setWelcomeSettingsVisible, setDetailVisible, setSelectedItem, setSearchVisible, setUserModalVisible, setSettingsVisible, setIsProfileMenuOpen, setProfileMenuFocusIndex, setIsContextMenuOpen, setContextMenuFocusIndex, setModalSelectedIndex, setSystemNavLevel, setSystemNavCardIndex, setSystemNavCardExpanded, setInputMode, setSelectedMediaIndex, saveWidgetOrder, saveWidgetVisibility, setWidgetVisibility, setWidgetOrder, setWidgetEditFocusIndex, setIsWidgetEditOpen, resizeWidget, resetInteraction (de usePresentationMode), libraryGridRef (la ref al componente LibraryGrid).",
+    "Crear hooks/useFocusNavigation.ts. Dentro del hook: (a) declarar todos los useState de foco, (b) declarar lastNavTime ref, (c) declarar optionsRef = useRef(options); optionsRef.current = options al inicio de cada render, (d) implementar handleKeyDown leyendo optionsRef.current para todo el estado externo, (e) registrar el listener en useEffect(() => { ... }, []) — sin deps, igual que useGamepadInput, (f) implementar auto-scroll effects (estos sí tienen deps y se pueden declarar normalmente dentro del hook recibiendo los refs de scroll como parámetros), (g) implementar startWidgetMove, getWidgetNeighbor.",
+    "Los refs de scroll (scrollRef, mainScrollRef, mediaScrollRef, newsScrollRef, widgetScrollRef) se pasan como parte del objeto de opciones. Los auto-scroll effects leen optionsRef.current.scrollRef etc.",
+    "El hook retorna el objeto completo de foco documentado en plan.md.",
+    "En app/(tabs)/index.tsx: eliminar todos los estados/refs/effects extraídos. Construir el objeto de opciones y llamar al hook. El archivo debe quedar notablemente más corto en la sección de lógica."
+  ],
+  "acceptance_criteria": [
+    "hooks/useFocusNavigation.ts compila sin errores TypeScript.",
+    "app/(tabs)/index.tsx sigue compilando tras eliminar los elementos extraídos.",
+    "La navegación por flechas en el carrusel funciona.",
+    "La tecla Enter lanza el juego enfocado.",
+    "La tecla Home abre el Control Center (FloatingSystemNav).",
+    "L1/R1 (q/e) cambia de pestaña Games/Media.",
+    "La navegación dentro del Widget Edit Panel (panel de widgets) funciona.",
+    "El modo mover widgets (Widget Move Mode) funciona: el widget sigue al foco, Enter confirma, Escape cancela.",
+    "La navegación dentro de la biblioteca (library_grid) con flechas, filtros y pestañas funciona."
+  ],
+  "verification": [
+    "npx tsc --noEmit — cero errores.",
+    "npx expo lint — cero advertencias relevantes."
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

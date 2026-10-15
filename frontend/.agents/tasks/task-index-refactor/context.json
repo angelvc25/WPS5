@@ -1,0 +1,30 @@
+{
+  "project_type": "Expo Router app (React Native + web via Electron). El target principal es web (Electron desktop launcher). La app es un launcher de juegos al estilo PS5.",
+  "language": "TypeScript + TSX",
+  "build_system": "Expo (expo start --web). No hay bundler separado; Expo usa Metro. Para producción: expo export -p web + electron-builder.",
+  "test_framework": "No existe framework de tests configurado en package.json. Verificación manual: npx tsc --noEmit para tipos, npx expo lint para lint.",
+  "build_command": "npx tsc --noEmit",
+  "test_command": "npx expo lint && npx tsc --noEmit",
+  "verification_instructions": "1) Ejecutar 'npx tsc --noEmit' desde c:\\Users\\GAMER-VIANA PRIME\\Documents\\GitLab\\energy\\WPS5\\frontend — cero errores. 2) Ejecutar 'npx expo lint' — cero errores relevantes. 3) Arrancar la app con 'npx expo start --web' y verificar manualmente que el carrusel se navega con flechas/gamepad, que el modo presentación se activa, y que los juegos Steam cargan.",
+  "snapshot_or_generated_files": null,
+  "environment_constraints": "Windows (PowerShell). El workspace root es c:\\Users\\GAMER-VIANA PRIME\\Documents\\GitLab\\energy\\WPS5\\frontend. Usar siempre rutas absolutas o relativas al workspace root. No reiniciar ningún servidor.",
+  "contribution_requirements": "No existe AGENTS.md ni CONTRIBUTING.md. Seguir las convenciones de código existentes: hooks en hooks/, TypeScript estricto, exportaciones nombradas (no default) para los hooks, comentarios en español (el código original los usa).",
+  "key_patterns": "Patrón de hook estable: useGamepadInput.ts usa callbacksRef interno para que el listener sea registrado UNA SOLA VEZ (useEffect con deps []). useFocusNavigation debe replicar exactamente este patrón para handleKeyDown. Los hooks existentes usan named exports: 'export function useXxx(...)'. Estados con localStorage se inicializan con lazy initializer: useState(() => localStorage.getItem(...) || defaultVal).",
+  "relevant_files": [
+    "app/(tabs)/index.tsx",
+    "hooks/useGamepadInput.ts",
+    "hooks/useSteamDownloads.ts",
+    "hooks/useAchievementWatcher.ts",
+    "components/LibraryGrid.tsx",
+    "components/WelcomeWidgets.tsx",
+    "components/WidgetEditPanel.tsx",
+    "services/steamInstallService.ts",
+    "services/steamLaunchService.ts",
+    "services/epicInstallService.ts",
+    "services/xboxInstallService.ts",
+    "services/steamWishlistService.ts",
+    "contexts/UserContext.tsx",
+    "i18n/translations.ts"
+  ],
+  "directory_structure": "hooks/ — custom hooks (useGamepadInput.ts como referencia de estilo). app/(tabs)/ — pantallas principales (index.tsx es el home). components/ — componentes reutilizables. services/ — lógica de acceso a APIs y Electron IPC. contexts/ — React contexts (UserContext, ThemeContext, LanguageContext). constants/ — constantes (PLATFORMS, psIcons). assets/ — imágenes, sonidos, splash."
+}

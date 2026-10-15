@@ -1,0 +1,7 @@
+{
+  "task_id": "task-index-refactor",
+  "task_description": "Refactorizar app/(tabs)/index.tsx (3000+ líneas) extrayendo lógica en 4 hooks reutilizables: usePresentationMode, useSteamSync, useLibrary y useFocusNavigation. El archivo principal debe reducirse ~40-50% y cada hook debe ser autocontenido y verificable de forma independiente.",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004", "FEAT-005"],
+  "blocked_reason": null
+}

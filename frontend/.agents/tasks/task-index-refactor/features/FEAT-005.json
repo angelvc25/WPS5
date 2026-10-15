@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-005",
+  "type": "refactor",
+  "description": "Integración final: verificar que app/(tabs)/index.tsx está limpio tras los 4 FEATs anteriores, resolver cualquier referencia rota, confirmar que el archivo compila y que el flujo completo funciona end-to-end. Este FEAT depende de FEAT-001, FEAT-002, FEAT-003 y FEAT-004.",
+  "status": "pending",
+  "steps": [
+    "Leer context.json y este archivo FEAT-005.json PRIMERO.",
+    "Leer app/(tabs)/index.tsx tal como quedó tras los 4 FEATs anteriores.",
+    "Ejecutar npx tsc --noEmit y registrar cualquier error.",
+    "Para cada error: localizar la referencia rota, identificar de qué hook viene el valor, agregar la desestructuración correcta de ese hook.",
+    "Verificar que las 4 llamadas a hooks están en el orden correcto (usePresentationMode, luego useSteamSync, luego useLibrary pasando steamGames/epicGames/xboxGames/downloadsByAppId, luego useFocusNavigation pasando currentData/libraryTab/etc.).",
+    "Verificar que handleToggleFavorite y handleTogglePin (que permanecen en index.tsx) reciben los setters correctos desde useSteamSync y desde useLibrary.",
+    "Verificar que el efecto de game-closed listener (onGameClosed de Electron IPC) que permanece en index.tsx llama syncGamePlaytime y fetchSteamGameAchievements correctamente usando los valores retornados por los hooks.",
+    "Verificar que los useAnimatedStyle que consumen presentationAnim (presentationHeaderStyle, presentationCarouselStyle, presentationWidgetsStyle, presentationToolbarStyle) compilan correctamente con el valor retornado por usePresentationMode.",
+    "Medir la longitud del archivo resultante con wc -l o equivalente PowerShell. Documentar la reducción lograda en findings.",
+    "Ejecutar npx expo lint y corregir cualquier regla de hooks violada (por ejemplo, hooks llamados condicionalmente)."
+  ],
+  "acceptance_criteria": [
+    "npx tsc --noEmit — cero errores.",
+    "npx expo lint — cero errores en app/(tabs)/index.tsx y los 4 hooks nuevos.",
+    "app/(tabs)/index.tsx tiene menos de 1800 líneas (reducción de al menos 40% respecto a las 3000+ originales).",
+    "Cada uno de los 4 hooks nuevos existe en hooks/ y tiene menos de 500 líneas.",
+    "El flujo completo funciona: carrusel navega, juego se lanza, modo presentación se activa, Steam sync carga juegos, widgets se pueden reordenar."
+  ],
+  "verification": [
+    "npx tsc --noEmit — cero errores.",
+    "npx expo lint — cero errores.",
+    "Ejecutar Get-Content 'app/(tabs)/index.tsx' | Measure-Object -Line y confirmar menos de 1800 líneas."
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
