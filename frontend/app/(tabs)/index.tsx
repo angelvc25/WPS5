@@ -9,14 +9,14 @@ import YoutubePlayer from '@/components/YoutubePlayer';
 import { PSIcons } from '@/constants/psIcons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
-import { GameVideoResult } from '@/services/gameVideoService';
+import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchGamingNews } from '@/services/newsService';
 import { syncProfileMediaToOnline } from '@/services/onlineAccountService';
 import { extractSteamAppId as extractTrophySteamAppId, syncLocalTrophiesToOnline } from '@/services/onlineTrophiesService';
 import { soundService } from '@/services/soundService';
 import { getGameActionLabel, resolveSteamLaunchPath } from '@/services/steamLaunchService';
-import { SteamMediaItem } from '@/services/steamMediaService';
-import { SteamNewsItem } from '@/services/steamNewsService';
+import { resolveGameScreenshots, SteamMediaItem } from '@/services/steamMediaService';
+import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamGameAchievements } from '@/services/steamUserService';
 import { toastService } from '@/services/toastService';
 import { Ionicons } from '@expo/vector-icons';
@@ -74,8 +74,6 @@ import {
 } from '@/services/onlineAutoSync';
 import { initOnlineFriendWatcher } from '@/services/onlineFriendWatcher';
 import { psnLocaleForLanguage } from '@/services/psnMetadataService';
-import { enrichAppWithSteamInfo } from '@/services/steamDescriptionService';
-import { fetchSteamGridData } from '@/services/steamGridService';
 import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId, fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
@@ -386,11 +384,8 @@ export default function ConsoleHome() {
   const [settingsFocusIndex, setSettingsFocusIndex] = useState(0);
 
   const addModalTitleRef = useRef<TextInput>(null);
-  const addModalPathRef = useRef<TextInput>(null);
-  const addModalPlatformRef = useRef<TextInput>(null);
   const addModalPlatformScrollRef = useRef<ScrollView>(null);
   const addModalPlatformOffsets = useRef<number[]>([]);
-  const settingsNameRef = useRef<TextInput>(null);
 
   const [isFavoritesVisible, setFavoritesVisible] = useState(false);
   const [isSettingsVisible, setSettingsVisible] = useState(false);
@@ -501,10 +496,10 @@ export default function ConsoleHome() {
     xboxGamesRef,
     installedSteamAppIds,
     loadingSteam,
-    loadingEpic,
-    loadingXbox,
-    wishlistDeals,
-    steamDownloads,
+    loadingEpic: _loadingEpic,
+    loadingXbox: _loadingXbox,
+    wishlistDeals: _wishlistDeals,
+    steamDownloads: _steamDownloads,
     downloadsByAppId,
     downloadingSteamGames,
     isSteamTrackedGame,
@@ -516,24 +511,24 @@ export default function ConsoleHome() {
   const {
     games,
     setGames,
-    gamesRef,
+    gamesRef: _gamesRef,
     media,
-    setMedia,
+    setMedia: _setMedia,
     lastPlayedGame,
-    setLastPlayedGame,
+    setLastPlayedGame: _setLastPlayedGame,
     currentData,
     displayedLibraryGames,
     searchableLibraryGames,
     searchableMedia,
-    nonSteamGames,
-    savedGames,
+    nonSteamGames: _nonSteamGames,
+    savedGames: _savedGames,
     loadApps,
     mergeGameIntoState,
     mergeGameIntoStateRef,
     syncGamePlaytime,
     markGameAsLastPlayed,
     handleConfirmDeleteGame: _handleConfirmDeleteGame,
-    appsLoaded,
+    appsLoaded: _appsLoaded,
   } = useLibrary({
     activeUser,
     steamGames,
@@ -625,18 +620,18 @@ export default function ConsoleHome() {
     toolbarFocusIndex, setToolbarFocusIndex,
     isLibraryFocused, setIsLibraryFocused,
     libraryGridFocusIndex, setLibraryGridFocusIndex,
-    visibleLibraryGames, setVisibleLibraryGames,
+    visibleLibraryGames: _visibleLibraryGames, setVisibleLibraryGames,
     libraryTabsFocused, setLibraryTabsFocused,
     libraryFilterFocused, setLibraryFilterFocused,
-    libraryFilterFromTabs, setLibraryFilterFromTabs,
-    isLibraryFilterPanelOpen, setIsLibraryFilterPanelOpen,
+    libraryFilterFromTabs: _libraryFilterFromTabs, setLibraryFilterFromTabs: _setLibraryFilterFromTabs,
+    isLibraryFilterPanelOpen: _isLibraryFilterPanelOpen, setIsLibraryFilterPanelOpen,
     isWidgetEditOpen, setIsWidgetEditOpen,
     widgetEditFocusIndex, setWidgetEditFocusIndex,
-    isWidgetMoveMode, setIsWidgetMoveMode,
-    movingWidgetId, setMovingWidgetId,
-    preMoveOrderBackup, setPreMoveOrderBackup,
+    isWidgetMoveMode, setIsWidgetMoveMode: _setIsWidgetMoveMode,
+    movingWidgetId, setMovingWidgetId: _setMovingWidgetId,
+    preMoveOrderBackup: _preMoveOrderBackup, setPreMoveOrderBackup: _setPreMoveOrderBackup,
     startWidgetMove,
-    getWidgetNeighbor,
+    getWidgetNeighbor: _getWidgetNeighbor,
   } = useFocusNavigation({
     activeTab,
     storeOffers,
@@ -1389,6 +1384,66 @@ export default function ConsoleHome() {
   }, [addModalFocusIndex, isAddModalVisible, newApp.type]);
 
 
+  // Obtener noticias de Steam cuando cambia el juego activo (con debounce)
+  useEffect(() => {
+    const item = currentData[activeIndex];
+    const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
+    if (!playable) { setSteamNews([]); return; }
+    if (activeUser?.settings?.showNews === false) { setSteamNews([]); setNewsLoading(false); return; }
+    const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
+    if (!title || title === 'Último Jugado') { setSteamNews([]); return; }
+    setNewsLoading(true);
+    setSteamNews([]);
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetchSteamNewsByName(title, language).then(news => {
+        if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
+      });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language, activeUser?.settings?.showNews]);
+
+  // Obtener capturas y tráilers cuando cambia el juego activo (con debounce)
+  useEffect(() => {
+    const item = currentData[activeIndex];
+    const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
+    if (!playable) { setSteamMedia([]); return; }
+    const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
+    if (!title || title === 'Último Jugado') { setSteamMedia([]); return; }
+    setMediaLoading(true);
+    setSteamMedia([]);
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const srcItem = item.isLastPlayed ? lastPlayedGame : item;
+        const [images, igdbVideos] = await Promise.all([
+          resolveGameScreenshots(title, { platform: srcItem?.platform, language }),
+          fetchGameVideosByName(title),
+        ]);
+        if (cancelled) return;
+        const videos: SteamMediaItem[] = (igdbVideos as unknown as SteamMediaItem[]) || [];
+        if (!cancelled) {
+          setSteamMedia([...videos, ...images]);
+          setGameVideos(igdbVideos as any);
+        }
+      } catch (error) {
+        console.error('[Media] Error obteniendo capturas:', error);
+        if (!cancelled) { setSteamMedia([]); }
+      } finally {
+        if (!cancelled) { setMediaLoading(false); }
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language]);
+
   const handleLaunchApp = (item: ConsoleItem) => {
     if (!item || item.id === '1' || item.id === '5' || item.id === 'more_library' || item.isFolder || item.isGrid) return;
     if (item.isLastPlayed && (!lastPlayedGame || lastPlayedGame.id === '1' || lastPlayedGame.id === '5')) {
@@ -1655,53 +1710,6 @@ export default function ConsoleHome() {
     }
   };
 
-  const handleSelectExecutable = async () => {
-    if ((window as any).electronAPI) {
-      const path = await (window as any).electronAPI.selectFile();
-      if (path) {
-        const filename = path.split(/[\\\/]/).pop() || '';
-        const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
-        setNewApp({ ...newApp, path, title: newApp.title || nameWithoutExt });
-      }
-    }
-  };
-
-  const handleSelectImage = async () => {
-    if ((window as any).electronAPI) {
-      const img = await (window as any).electronAPI.selectImage();
-      if (img) setNewApp({ ...newApp, image: img });
-    }
-  };
-
-  const handleSaveApp = async () => {
-    if ((window as any).electronAPI && newApp.title && newApp.path) {
-      setIsSaving(true);
-      let appToSave = {
-        ...newApp,
-        playtimeMinutes: 0,
-        playtime_forever: 0,
-      };
-      if (!appToSave.image && appToSave.type === 'game') {
-        try {
-          const res = (window as any).electronAPI?.fetchSteamGridData
-            ? await (window as any).electronAPI.fetchSteamGridData(appToSave.title)
-            : await fetchSteamGridData(appToSave.title);
-          if (res.success && res.data) {
-            if (res.data.grid) appToSave.image = res.data.grid;
-            if (res.data.hero) (appToSave as any).backgroundImage = res.data.hero;
-            if (res.data.logo) (appToSave as any).logo = res.data.logo;
-          }
-        } catch (error) { console.error('Error fetching SteamGrid data:', error); }
-      }
-      appToSave = await enrichAppWithSteamInfo(appToSave, activeUser?.settings?.syncPreferences, language);
-      await (window as any).electronAPI.saveApp(appToSave);
-      setIsSaving(false);
-      setAddModalVisible(false);
-      setNewApp({ title: '', path: '', image: '', type: 'game', platform: '' });
-      loadApps();
-    } else { alert(t('add.completeFields')); }
-  };
-
   const handleApplyHomeBg = (uri: string) => {
     setVisualTheme('none');
     setHomeBackground({ uri });
@@ -1714,10 +1722,6 @@ export default function ConsoleHome() {
       localStorage.setItem('slideshow_duration', slideshowDuration);
       localStorage.setItem('slideshow_transition', slideshowTransition);
     }
-  };
-
-  const handleSelectHomeBg = async () => {
-    setHomeBgModalVisible(true);
   };
 
   const handleSelectWallpaperFolder = async () => {
@@ -1762,13 +1766,6 @@ export default function ConsoleHome() {
       avatarBase64: uri,
       settings: { ...activeUser?.settings, useSteamAvatar: false } as any,
     });
-  };
-
-  const handleSelectAvatar = async () => {
-    if ((window as any).electronAPI) {
-      const img = await (window as any).electronAPI.selectImage();
-      if (img) { const avatarUri = `local-file:///${img.replace(/\\/g, '/')}`; updateUser({ avatar: avatarUri }); }
-    }
   };
 
   const fetchSteamAvatar = async (apiKey: string, steamId: string) => {
