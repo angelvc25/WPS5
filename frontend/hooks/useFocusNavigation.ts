@@ -762,6 +762,16 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
           }
         } else if (fa === 'game_panel') {
           if (activeItem?.id === '5') {
+            if (gpfi < 10) {
+              // Deals row
+              const nextIdx = Math.min(gpfi + 1, o.storeDeals.length - 1);
+              setGamePanelFocusIndex(nextIdx);
+            } else if (gpfi >= 10 && gpfi < 20) {
+              // Upcoming row
+              const nextIdx = Math.min(gpfi + 1, 10 + o.storeUpcoming.length - 1);
+              setGamePanelFocusIndex(nextIdx);
+            }
+          } else {
             if (gpfi === 0) {
               setGamePanelFocusIndex(1);
             } else if (gpfi === 2) {
