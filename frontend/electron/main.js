@@ -196,20 +196,21 @@ app.commandLine.appendSwitch('enable-gpu-rasterization');
 // 3) Zero-copy: los tiles rasterizados llegan al compositor sin copias CPU→GPU.
 app.commandLine.appendSwitch('enable-zero-copy');
 
-// 4) Sin throttling cuando la ventana pierde foco u otra la tapa (p. ej. al
-//    lanzar un juego): evita el "salto" de animaciones al volver al launcher.
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
-app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
-
-// 5) Backend gráfico en Windows: ANGLE sobre Direct3D 11, explícito. Chromium no
-//    usa Vulkan ni VA-API en Windows para componer, así que no se activan.
-//    Tampoco se usa disable-frame-rate-limit: es un switch de benchmarks; el
-//    compositor ya sigue la frecuencia del monitor y quitar el límite solo
-//    sube el consumo de GPU mientras se juega.
+// 4) Backend gráfico en Windows: ANGLE sobre Direct3D 11, explícito.
 if (process.platform === 'win32') {
   app.commandLine.appendSwitch('use-angle', 'd3d11');
 }
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=1024 --expose-gc');
+
+// 5) Optimizaciones de memoria y V8 Heap:
+// Reducir max-old-space-size a 256MB y activar optimización de tamaño para evitar retención innecesaria de RAM
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --optimize-for-size --expose-gc');
+
+// 6) Limitar tamaño de caché en disco y multimedia de Chromium para evitar fugas de memoria
+app.commandLine.appendSwitch('disk-cache-size', '67108864'); // 64 MB
+app.commandLine.appendSwitch('media-cache-size', '33554432'); // 32 MB
+
+// 7) Activar purga de scripts y suspensión de memoria en segundo plano
+app.commandLine.appendSwitch('enable-features', 'CleanScriptCaches,PurgeAndSuspendMemory');
 
 // Si el proceso GPU se cae, Chromium puede pasar a render por software sin
 // avisar; este log permite detectarlo.
@@ -999,6 +1000,7 @@ function startStoreBackend() {
 
   backendProcess = fork(backendEntry, [], {
     cwd: backendCwd,
+    execArgv: ['--max-old-space-size=48', '--optimize-for-size'],
     env: {
       ...process.env,
       PORT: process.env.STORE_API_PORT || '3000',
@@ -1088,17 +1090,30 @@ function createWindow() {
     mainWindow.show();
   });
 
-  // Liberar memoria V8 y caché cuando la ventana se oculta (ej. al lanzar un juego) o minimiza
-  mainWindow.on('hide', () => {
+  // Función auxiliar para purgar memoria del renderer y del proceso principal
+  const purgeLauncherMemory = () => {
     try {
       if (typeof global.gc === 'function') global.gc();
     } catch (_) { }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.webContents.session.clearCache().catch(() => {});
+        mainWindow.webContents.executeJavaScript(`
+          if (typeof window.gc === 'function') {
+            try { window.gc(); } catch (_) {}
+          }
+        `).catch(() => {});
+      } catch (_) { }
+    }
+  };
+
+  // Liberar memoria V8 y caché cuando la ventana se oculta (ej. al lanzar un juego) o minimiza
+  mainWindow.on('hide', () => {
+    purgeLauncherMemory();
   });
 
   mainWindow.on('minimize', () => {
-    try {
-      if (typeof global.gc === 'function') global.gc();
-    } catch (_) { }
+    purgeLauncherMemory();
   });
 
   mainWindow.webContents.on('did-finish-load', () => {
@@ -1588,9 +1603,17 @@ function suspendLauncherForGame(sourceLabel = 'Steam') {
   // 3. Pausar timers y polling de fondo (MediaSessions, progreso de descargas)
   pauseBackgroundTasksForGame();
 
-  // 4. Liberar memoria heap de Node / V8 si el recolector de basura está expuesto
+  // 4. Liberar memoria heap de Node / V8 y purgar cachés del renderer
   try {
     if (typeof global.gc === 'function') global.gc();
+  } catch (_) { }
+  try {
+    mainWindow.webContents.session.clearCache().catch(() => {});
+    mainWindow.webContents.executeJavaScript(`
+      if (typeof window.gc === 'function') {
+        try { window.gc(); } catch (_) {}
+      }
+    `).catch(() => {});
   } catch (_) { }
 
   if (launcherPlayBehavior === 'minimize') {
@@ -2048,6 +2071,10 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
 
     // ── Limpieza de overlay tras salir del juego ──
     hideOverlayWindow();
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      try { overlayWindow.destroy(); } catch (_) {}
+      overlayWindow = null;
+    }
     activeGameInfo = null;
     if (!overlayEnabled) {
       disableOverlayHotkey();
@@ -4166,6 +4193,10 @@ app.whenReady().then(async () => {
       hideTrayIcon();
       // ── Limpieza de overlay y pollers tras salir del juego ──
       hideOverlayWindow();
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        try { overlayWindow.destroy(); } catch (_) {}
+        overlayWindow = null;
+      }
       stopTrophyPoller(id); // detener polling de logros
       activeGameInfo = null;
       if (!overlayEnabled) {
@@ -5534,12 +5565,17 @@ app.whenReady().then(async () => {
         overlayEnabled = settings.enabled;
         if (!overlayEnabled) {
           hideOverlayWindow();
+          if (overlayWindow && !overlayWindow.isDestroyed()) {
+            try { overlayWindow.destroy(); } catch (_) {}
+            overlayWindow = null;
+          }
           disableOverlayHotkey();
           stopGamepadOverlayListener();
         } else {
           enableOverlayHotkey();
           startGamepadOverlayListener();
-          createOverlayWindow();
+          // No pre-cargar createOverlayWindow() aquí para evitar consumir ~700MB de RAM en segundo plano;
+          // el overlay se inicializa bajo demanda la primera vez que se activa vía showOverlay()
         }
       }
       if (settings.combo) {

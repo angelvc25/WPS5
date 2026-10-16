@@ -751,10 +751,16 @@ export function useLibrary({
 
         if (id.startsWith('xbox_')) {
             setXboxGames(prev => {
-                if (prev.some(g => g.id === id)) {
-                    return prev.map(g => g.id === id ? formatUpdated(g) : g);
-                }
-                return [...prev, formatUpdated({ id } as ConsoleItem)];
+                const updatedList = prev.some(g => g.id === id)
+                    ? prev.map(g => g.id === id ? formatUpdated(g) : g)
+                    : [...prev, formatUpdated({ id } as ConsoleItem)];
+                // Persist to localStorage so useSteamSync restores the user's
+                // custom artwork (cover / background / logo) on next launcher start,
+                // instead of re-fetching from SteamGridDB and overwriting them.
+                try {
+                    localStorage.setItem('xbox_games_cache', JSON.stringify(updatedList));
+                } catch (e) { /* noop -- quota errors should not break the update */ }
+                return updatedList;
             });
         }
 

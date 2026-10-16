@@ -1567,6 +1567,9 @@ export default function ConsoleHome() {
           }
           try { soundService.pauseBackground(); } catch (_) { }
           void stopFocusAudio(false);
+          if (typeof (window as any).gc === 'function') {
+            try { (window as any).gc(); } catch (_) { }
+          }
         } else {
           if (typeof document !== 'undefined') {
             document.querySelectorAll('video').forEach((v) => {
