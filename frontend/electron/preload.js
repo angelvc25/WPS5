@@ -58,6 +58,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('app-updated', listener);
   },
   cacheMediaUrl: (url) => ipcRenderer.invoke('cache-media-url', url),
+  khinsiderSearch: (query) => ipcRenderer.invoke('khinsider-search', query),
+  khinsiderGetAlbum: (albumUrl) => ipcRenderer.invoke('khinsider-get-album', albumUrl),
+  khinsiderGetTrackAudio: (trackPageUrl) => ipcRenderer.invoke('khinsider-get-track-audio', trackPageUrl),
+  khinsiderDownloadTrack: (audioUrl) => ipcRenderer.invoke('khinsider-download-track', audioUrl),
   removeGameClosedListener: () => ipcRenderer.removeAllListeners('game-closed'),
   getMediaSessions: () => ipcRenderer.invoke('get-media-sessions'),
   mediaControl: (action, target) => ipcRenderer.invoke('media-control', action, target),

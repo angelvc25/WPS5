@@ -679,7 +679,7 @@ function getMediaExtension(url) {
   try {
     const parsed = new URL(url);
     const ext = path.extname(parsed.pathname).toLowerCase();
-    if (ext && ['.jpg', '.jpeg', '.png', '.webp', '.svg', '.gif', '.ico'].includes(ext)) {
+    if (ext && ['.jpg', '.jpeg', '.png', '.webp', '.svg', '.gif', '.ico', '.mp3', '.ogg', '.flac', '.wav', '.m4a'].includes(ext)) {
       return ext;
     }
   } catch (_) { }
@@ -4948,6 +4948,211 @@ app.whenReady().then(async () => {
   ipcMain.handle('cache-media-url', async (_event, url) => {
     if (!url || typeof url !== 'string') return url;
     return downloadAndCacheMedia(url);
+  });
+
+  // ── KHINSIDER SCRAPER & MUSIC DOWNLOADER ─────────────────────────────────
+  let khinsiderScraperWindow = null;
+
+  function getKhinsiderScraperWindow() {
+    if (khinsiderScraperWindow && !khinsiderScraperWindow.isDestroyed()) {
+      return khinsiderScraperWindow;
+    }
+    khinsiderScraperWindow = new BrowserWindow({
+      show: false,
+      width: 1280,
+      height: 800,
+      webPreferences: {
+        offscreen: true,
+        images: false,
+        webSecurity: false,
+      },
+    });
+    return khinsiderScraperWindow;
+  }
+
+  ipcMain.handle('khinsider-search', async (_event, query) => {
+    if (!query || typeof query !== 'string') return { success: false, albums: [] };
+    const cleanQuery = query.trim();
+    if (!cleanQuery) return { success: false, albums: [] };
+
+    try {
+      const url = `https://downloads.khinsider.com/search?search=${encodeURIComponent(cleanQuery)}`;
+      let html = '';
+
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+        });
+        clearTimeout(timeout);
+        if (res.ok) {
+          html = await res.text();
+        }
+      } catch (_) {}
+
+      if (!html || html.includes('challenges.cloudflare.com') || html.includes('Just a moment')) {
+        const win = getKhinsiderScraperWindow();
+        await win.loadURL(url);
+        await new Promise((r) => setTimeout(r, 1800));
+        html = await win.webContents.executeJavaScript('document.documentElement.outerHTML');
+      }
+
+      const albums = [];
+      const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+      let rowMatch;
+      while ((rowMatch = rowRegex.exec(html)) !== null) {
+        const rowHtml = rowMatch[1];
+        if (rowHtml.includes('<th')) continue;
+
+        const cells = [];
+        const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+        let cellMatch;
+        while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
+          cells.push(cellMatch[1]);
+        }
+        if (cells.length < 2) continue;
+
+        const imgMatch = cells[0].match(/<img[^>]+src="([^"]+)"/i);
+        const cover = imgMatch ? imgMatch[1] : '';
+
+        const titleLinkMatch = cells[1].match(/<a\s+href="(\/game-soundtracks\/album\/[^"]+)">([\s\S]*?)<\/a>/i);
+        if (!titleLinkMatch) continue;
+
+        const albumPath = titleLinkMatch[1];
+        const albumUrl = albumPath.startsWith('http') ? albumPath : `https://downloads.khinsider.com${albumPath}`;
+        const title = titleLinkMatch[2].replace(/<[^>]+>/g, '').trim();
+        const platform = (cells[2] || '').replace(/<[^>]+>/g, '').trim();
+        const type = (cells[3] || '').replace(/<[^>]+>/g, '').trim();
+        const year = (cells[4] || '').replace(/<[^>]+>/g, '').trim();
+
+        albums.push({
+          id: albumPath.replace('/game-soundtracks/album/', ''),
+          title,
+          albumUrl,
+          cover,
+          platform,
+          type,
+          year,
+        });
+      }
+
+      return { success: true, albums };
+    } catch (err) {
+      console.error('[KHInsider] Error searching:', err);
+      return { success: false, error: err.message, albums: [] };
+    }
+  });
+
+  ipcMain.handle('khinsider-get-album', async (_event, albumUrl) => {
+    if (!albumUrl) return { success: false, error: 'URL requerida' };
+    try {
+      const win = getKhinsiderScraperWindow();
+      await win.loadURL(albumUrl);
+
+      const start = Date.now();
+      let hasSonglist = false;
+      while (Date.now() - start < 9000) {
+        try {
+          hasSonglist = await win.webContents.executeJavaScript('!!document.getElementById("songlist")');
+          if (hasSonglist) break;
+        } catch (_) {}
+        await new Promise((r) => setTimeout(r, 400));
+      }
+
+      if (!hasSonglist) {
+        return { success: false, error: 'No se pudo cargar la lista de canciones del álbum' };
+      }
+
+      const albumData = await win.webContents.executeJavaScript(`(() => {
+        const titleEl = document.querySelector('h2') || document.querySelector('h1');
+        const title = titleEl ? titleEl.innerText.trim() : document.title.split('MP3')[0].trim();
+        const cover = document.querySelector('.albumImage img')?.src ||
+                      document.querySelector('img[src*="soundtracks"]')?.src || '';
+
+        const rows = Array.from(document.querySelectorAll('#songlist tr:not(#songlist_header)'));
+        const tracks = [];
+
+        for (const row of rows) {
+          const link = row.querySelector('.playlistRow a') ||
+                       row.querySelector('a[href*="/game-soundtracks/album/"]');
+          if (!link) continue;
+
+          const cells = Array.from(row.querySelectorAll('td')).map((td) => td.innerText.trim());
+          const durationCell = cells.find((c) => /^\\d{1,2}:\\d{2}$/.test(c)) || '';
+          const numberCell = cells.find((c) => /^\\d{1,3}\\.?$/.test(c)) || '';
+          const sizeCell = cells.find((c) => /\\d+\\.?\\d*\\s*(MB|KB)/i.test(c)) || '';
+
+          tracks.push({
+            number: numberCell.replace(/\\.$/, ''),
+            title: link.innerText.trim(),
+            duration: durationCell,
+            size: sizeCell,
+            trackUrl: link.href,
+          });
+        }
+
+        return { title, cover, tracks };
+      })()`);
+
+      return { success: true, album: albumData };
+    } catch (err) {
+      console.error('[KHInsider] Error getting album:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('khinsider-get-track-audio', async (_event, trackPageUrl) => {
+    if (!trackPageUrl) return { success: false, error: 'URL requerida' };
+    try {
+      const win = getKhinsiderScraperWindow();
+      await win.loadURL(trackPageUrl);
+
+      const start = Date.now();
+      let audioUrl = null;
+      while (Date.now() - start < 8000) {
+        try {
+          audioUrl = await win.webContents.executeJavaScript(`(() => {
+            const audioEl = document.querySelector('audio source') || document.querySelector('audio');
+            if (audioEl && audioEl.src && audioEl.src.startsWith('http')) return audioEl.src;
+            const mp3Link = document.querySelector('a[href$=".mp3"]');
+            if (mp3Link && mp3Link.href.startsWith('http')) return mp3Link.href;
+            const anyAudio = Array.from(document.querySelectorAll('a')).find((a) =>
+              (a.href.includes('.mp3') || a.href.includes('.flac') || a.href.includes('.ogg')) &&
+              !a.href.includes('/album/')
+            );
+            return anyAudio ? anyAudio.href : null;
+          })()`);
+          if (audioUrl) break;
+        } catch (_) {}
+        await new Promise((r) => setTimeout(r, 350));
+      }
+
+      if (!audioUrl) {
+        return { success: false, error: 'No se encontró archivo de audio reproducible' };
+      }
+
+      return { success: true, audioUrl };
+    } catch (err) {
+      console.error('[KHInsider] Error getting track audio:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('khinsider-download-track', async (_event, audioUrl) => {
+    if (!audioUrl || typeof audioUrl !== 'string') return { success: false, error: 'URL requerida' };
+    try {
+      const localUri = await downloadAndCacheMedia(audioUrl);
+      return { success: true, localUri };
+    } catch (err) {
+      console.error('[KHInsider] Error downloading track:', err);
+      return { success: false, error: err.message, localUri: audioUrl };
+    }
   });
 
   // IPC: Cerrar la aplicación

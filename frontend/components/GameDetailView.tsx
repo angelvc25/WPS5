@@ -35,6 +35,7 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import BackgroundVideo from './BackgroundVideo';
 import { toastService } from '@/services/toastService';
 import VirtualKeyboard from './VirtualKeyboard';
+import KHInsiderMusicModal from './KHInsiderMusicModal';
 
 
 interface GameDetailViewProps {
@@ -129,6 +130,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const [editVKField, setEditVKFieldState] = useState<'title' | 'description' | 'path' | 'launchArgs' | null>(null);
   const { activeUser } = useUser();
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
+  const [isKhinsiderModalVisible, setKhinsiderModalVisible] = useState(false);
 
   // States for SteamGridDB Asset Selector Screen
   const [isAssetSelectorVisible, setAssetSelectorVisible] = useState(false);
@@ -1164,7 +1166,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           e.preventDefault();
         }
 
-        if (isDeleteConfirmVisible) {
+        if (isDeleteConfirmVisible || isKhinsiderModalVisible) {
           return;
         }
 
@@ -1242,9 +1244,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 0) setEditModalFocusIndex(15);
             else if (editModalFocusIndex === 15) setEditModalFocusIndex(17);
             else if (editModalFocusIndex === 16) setEditModalFocusIndex(18);
-            else if (editModalFocusIndex === 17) setEditModalFocusIndex(20); // to Cancel
-            else if (editModalFocusIndex === 18) setEditModalFocusIndex(26);
-            else if (editModalFocusIndex === 26) setEditModalFocusIndex(21); // to Save
+            else if (editModalFocusIndex === 17) setEditModalFocusIndex(26);
+            else if (editModalFocusIndex === 18) setEditModalFocusIndex(28);
+            else if (editModalFocusIndex === 26) setEditModalFocusIndex(20); // to Cancel
+            else if (editModalFocusIndex === 28) setEditModalFocusIndex(21); // to Save
 
             // Actions
             else if (editModalFocusIndex >= 19 && editModalFocusIndex <= 21) { }
@@ -1282,7 +1285,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 16) setEditModalFocusIndex(0);
             else if (editModalFocusIndex === 17) setEditModalFocusIndex(15);
             else if (editModalFocusIndex === 18) setEditModalFocusIndex(16);
-            else if (editModalFocusIndex === 26) setEditModalFocusIndex(18);
+            else if (editModalFocusIndex === 26) setEditModalFocusIndex(17);
+            else if (editModalFocusIndex === 28) setEditModalFocusIndex(18);
 
             // Actions
             else if (editModalFocusIndex >= 19 && editModalFocusIndex <= 21) {
@@ -1304,7 +1308,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex >= 50 && editModalFocusIndex < 50 + retroCount - 1) setEditModalFocusIndex(prev => prev + 1);
             else if (editModalFocusIndex === 15) setEditModalFocusIndex(16);
             else if (editModalFocusIndex === 17) setEditModalFocusIndex(18);
-            else if (editModalFocusIndex === 18) setEditModalFocusIndex(26);
+            else if (editModalFocusIndex === 26) setEditModalFocusIndex(28);
 
             // Actions
             else if (editModalFocusIndex >= 19 && editModalFocusIndex < 21) setEditModalFocusIndex(prev => prev + 1);
@@ -1331,6 +1335,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 16) setEditModalFocusIndex(15);
             else if (editModalFocusIndex === 18) setEditModalFocusIndex(17);
             else if (editModalFocusIndex === 26) setEditModalFocusIndex(25);
+            else if (editModalFocusIndex === 28) setEditModalFocusIndex(26);
 
             // Actions
             else if (editModalFocusIndex > 19 && editModalFocusIndex <= 21) setEditModalFocusIndex(prev => prev - 1);
@@ -1360,6 +1365,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             else if (editModalFocusIndex === 17) openAssetSelector('hero');
             else if (editModalFocusIndex === 18) handleSelectVideo();
             else if (editModalFocusIndex === 26) handleSelectFocusAudio();
+            else if (editModalFocusIndex === 28) setKhinsiderModalVisible(true);
             else if (editModalFocusIndex === 19) handleDeleteApp();
             else if (editModalFocusIndex === 20) setEditModalVisible(false);
             else if (editModalFocusIndex === 21) handleSaveEdit();
@@ -1485,6 +1491,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     isEditModalVisible,
     isDeleteConfirmVisible,
     isAssetSelectorVisible,
+    isKhinsiderModalVisible,
     selectedMediaIndex,
     focusIndex,
     achievementCount,
@@ -2425,6 +2432,17 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                 {editData.focusAudio ? t('edit.fileSelected') : t('edit.musicDesc')}
                               </Text>
                             </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 28 && styles.editArtFileBtnFocused]}
+                              onPress={() => { setEditModalFocusIndex(28); setKhinsiderModalVisible(true); }}
+                            >
+                              <Ionicons name="disc-outline" size={s(24)} color="#38EF7D" style={{ marginBottom: 6 }} />
+                              <Text style={styles.artFileBtnTitle}>{t('edit.khinsiderMusic')}</Text>
+                              <Text style={styles.artFileBtnSub} numberOfLines={1}>
+                                {editData.focusAudio ? t('edit.fileSelected') : t('edit.khinsiderMusicSub')}
+                              </Text>
+                            </TouchableOpacity>
                           </View>
                         </ScrollView>
                       </>
@@ -2908,6 +2926,29 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 }
               }}
               onClose={() => setEditVKField(null)}
+            />
+
+            {/* KHINSIDER MUSIC SELECTOR OVERLAY */}
+            <KHInsiderMusicModal
+              isVisible={isKhinsiderModalVisible}
+              onClose={() => setKhinsiderModalVisible(false)}
+              currentGameTitle={editData.title || item?.title || ''}
+              currentFocusAudio={editData.focusAudio}
+              onSelectTrack={async (localAudioUri) => {
+                setEditData((prev) => ({ ...prev, focusAudio: localAudioUri }));
+                if ((window as any).electronAPI && editData.id) {
+                  await (window as any).electronAPI.updateApp({ id: editData.id, focusAudio: localAudioUri });
+                  if (onRefresh) onRefresh({ focusAudio: localAudioUri });
+                }
+              }}
+              onRemoveAudio={async () => {
+                setEditData((prev) => ({ ...prev, focusAudio: undefined }));
+                if ((window as any).electronAPI && editData.id) {
+                  await (window as any).electronAPI.updateApp({ id: editData.id, focusAudio: '' });
+                  if (onRefresh) onRefresh({ focusAudio: '' });
+                }
+              }}
+              gamepadConnected={gamepadConnected}
             />
           </View>
         </Modal>
