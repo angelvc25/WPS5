@@ -251,6 +251,7 @@ let toastOverlayTimer = null;
 let trophyNotifQueue = [];   // [{ achievement, gameInfo }]
 let trophyNotifWindow = null;
 let trophyNotifBusy = false;
+let activeSteamCreds = null; // { steamId, apiKey }
 
 // ── Pollers de logros en juego: id -> { intervalId, lastUnlocked, ... } ───────
 const trophyPollerMap = new Map();
@@ -1695,70 +1696,73 @@ function processTrophyQueue() {
 
   const { achievement, gameInfo } = trophyNotifQueue.shift();
 
-  // Cerrar ventana previa si quedó colgada
-  if (trophyNotifWindow && !trophyNotifWindow.isDestroyed()) {
-    trophyNotifWindow.close();
-  }
+  try {
+    // Cerrar ventana previa si quedó colgada
+    if (trophyNotifWindow && !trophyNotifWindow.isDestroyed()) {
+      trophyNotifWindow.close();
+    }
+  } catch (_) { }
 
   const display = screen.getPrimaryDisplay();
-  const { width: sw, height: sh } = display.workAreaSize;
+  const { width: sw } = display.workAreaSize;
   const W = 440, H = 100;
   const margin = 24;
 
-  trophyNotifWindow = new BrowserWindow({
-    width: W,
-    height: H,
-    x: Math.round(display.workArea.x + sw - W - margin),
-    y: Math.round(display.workArea.y + sh - H - margin),
-    frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
-    alwaysOnTop: true,
-    focusable: false,
-    skipTaskbar: true,
-    resizable: false,
-    movable: false,
-    hasShadow: false,
-    show: false,
-    ...(process.platform === 'win32' ? { type: 'toolbar' } : {}),
-    webPreferences: { nodeIntegration: false, contextIsolation: true },
-  });
+  try {
+    trophyNotifWindow = new BrowserWindow({
+      width: W,
+      height: H,
+      x: Math.round(display.workArea.x + sw - W - margin),
+      y: Math.round(display.workArea.y + margin),
+      frame: false,
+      transparent: true,
+      backgroundColor: '#00000000',
+      alwaysOnTop: true,
+      focusable: false,
+      skipTaskbar: true,
+      resizable: false,
+      movable: false,
+      hasShadow: false,
+      show: false,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
 
-  trophyNotifWindow.setAlwaysOnTop(true, 'screen-saver');
-  trophyNotifWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    trophyNotifWindow.setAlwaysOnTop(true, 'screen-saver');
+    trophyNotifWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-  const rs = trophyRarityStyle(achievement.rarity || 'bronze');
+    const rs = trophyRarityStyle(achievement.rarity || 'bronze');
 
-  // Iconos de rareza SVG inline para evitar dependencias externas
-  const trophyIconHtml = {
-    platinum: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#B0C4DE" stroke="#7fa8c9" stroke-width="0.5"/></svg>`,
-    gold:     `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#FFD700" stroke="#c8a400" stroke-width="0.5"/></svg>`,
-    silver:   `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#C0C0C0" stroke="#909090" stroke-width="0.5"/></svg>`,
-    bronze:   `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#CD7F32" stroke="#9a5c1e" stroke-width="0.5"/></svg>`,
-  }[achievement.rarity || 'bronze'] || trophyIconHtml.bronze;
+    // Iconos de rareza SVG inline para evitar dependencias externas
+    const trophyIconHtml = {
+      platinum: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#B0C4DE" stroke="#7fa8c9" stroke-width="0.5"/></svg>`,
+      gold:     `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#FFD700" stroke="#c8a400" stroke-width="0.5"/></svg>`,
+      silver:   `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#C0C0C0" stroke="#909090" stroke-width="0.5"/></svg>`,
+      bronze:   `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#CD7F32" stroke="#9a5c1e" stroke-width="0.5"/></svg>`,
+    }[achievement.rarity || 'bronze'] || trophyIconHtml.bronze;
 
-  // Imagen del juego: si es una ruta local la convertimos a base64 para el HTML inline.
-  let gameImgHtml = '';
-  if (gameInfo.image) {
-    try {
-      let imgSrc = gameInfo.image;
-      // Rutas locales de archivo
-      if (!imgSrc.startsWith('http') && !imgSrc.startsWith('data:') && fs.existsSync(imgSrc)) {
-        const ext = path.extname(imgSrc).substring(1).toLowerCase() || 'png';
-        const mime = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
-        imgSrc = `data:${mime};base64,${fs.readFileSync(imgSrc).toString('base64')}`;
-      }
-      gameImgHtml = `<img src="${imgSrc}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;" onerror="this.style.display='none'"/>`;
-    } catch (_) { /* noop */ }
-  }
+    // Imagen del juego: si es una ruta local la convertimos a base64 para el HTML inline.
+    let gameImgHtml = '';
+    const gameImg = gameInfo?.image;
+    if (gameImg) {
+      try {
+        let imgSrc = gameImg;
+        // Rutas locales de archivo
+        if (!imgSrc.startsWith('http') && !imgSrc.startsWith('data:') && fs.existsSync(imgSrc)) {
+          const ext = path.extname(imgSrc).substring(1).toLowerCase() || 'png';
+          const mime = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+          imgSrc = `data:${mime};base64,${fs.readFileSync(imgSrc).toString('base64')}`;
+        }
+        gameImgHtml = `<img src="${imgSrc}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;" onerror="this.style.display='none'"/>`;
+      } catch (_) { /* noop */ }
+    }
 
-  // Icono del logro (URL https de Steam)
-  let achImgHtml = '';
-  if (achievement.icon) {
-    achImgHtml = `<img src="${achievement.icon}" style="width:40px;height:40px;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'"/>`;
-  }
+    // Icono del logro (URL https de Steam o base64)
+    let achImgHtml = '';
+    if (achievement.icon) {
+      achImgHtml = `<img src="${achievement.icon}" style="width:40px;height:40px;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'"/>`;
+    }
 
-  const html = `<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -1816,39 +1820,56 @@ function processTrophyQueue() {
 </script>
 </body></html>`;
 
-  trophyNotifWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    let shown = false;
+    const showWindow = () => {
+      if (shown) return;
+      shown = true;
+      if (trophyNotifWindow && !trophyNotifWindow.isDestroyed()) {
+        trophyNotifWindow.showInactive();
+      }
+    };
 
-  trophyNotifWindow.once('ready-to-show', () => {
-    if (trophyNotifWindow && !trophyNotifWindow.isDestroyed()) {
-      trophyNotifWindow.showInactive();
+    trophyNotifWindow.once('ready-to-show', showWindow);
+    trophyNotifWindow.webContents.once('did-finish-load', showWindow);
+
+    trophyNotifWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+    // Safety fallback: si por alguna razón data: URL ya terminó antes de registrar los eventos
+    setTimeout(showWindow, 120);
+
+    // Notificar al renderer principal para que reproduzca el sonido y guarde en historial
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('trophy-unlocked', {
+        achievement,
+        gameInfo,
+      });
     }
-  });
 
-  // Notificar al renderer principal para que reproduzca el sonido (está en el contexto web)
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('trophy-unlocked', {
-      achievement,
-      gameInfo,
+    const closeAfterMs = 5600;
+    const closeTimer = setTimeout(() => {
+      try {
+        if (trophyNotifWindow && !trophyNotifWindow.isDestroyed()) {
+          trophyNotifWindow.close();
+        }
+      } catch (_) { }
+      trophyNotifWindow = null;
+      trophyNotifBusy = false;
+      // Procesar la siguiente notificación de la cola
+      processTrophyQueue();
+    }, closeAfterMs);
+
+    trophyNotifWindow.on('closed', () => {
+      trophyNotifWindow = null;
+      clearTimeout(closeTimer);
+      trophyNotifBusy = false;
+      processTrophyQueue();
     });
+  } catch (err) {
+    console.error('[Trophy] Error mostrando notificación de logro:', err);
+    trophyNotifWindow = null;
+    trophyNotifBusy = false;
+    processTrophyQueue();
   }
-
-  const closeAfterMs = 5600;
-  const closeTimer = setTimeout(() => {
-    if (trophyNotifWindow && !trophyNotifWindow.isDestroyed()) {
-      trophyNotifWindow.close();
-    }
-    trophyNotifWindow = null;
-    trophyNotifBusy = false;
-    // Procesar la siguiente notificación de la cola
-    processTrophyQueue();
-  }, closeAfterMs);
-
-  trophyNotifWindow.on('closed', () => {
-    trophyNotifWindow = null;
-    clearTimeout(closeTimer);
-    trophyNotifBusy = false;
-    processTrophyQueue();
-  });
 }
 
 /**
@@ -2004,7 +2025,10 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
   const packageFamilyName = extraOpts.packageFamilyName || null;
 
   const POLL_MS = 4000;
-  const MAX_WAIT_FOR_START_MS = 90 * 1000; // margen para que Steam/Epic abra el juego
+  // Los juegos UWP/Xbox (Game Pass, Microsoft Store) pueden tardar varios minutos
+  // en arrancar su proceso. Usamos un margen mayor para no restaurar el launcher
+  // prematuramente mientras Minecraft (u otro juego UWP) todavia esta cargando.
+  const MAX_WAIT_FOR_START_MS = (sourceLabel === 'Xbox' || packageFamilyName) ? 5 * 60 * 1000 : 90 * 1000;
   // ── Debounce de "juego cerrado" ──
   // isProcessRunningUnderDir() detecta CUALQUIER proceso cuyo ejecutable
   // viva dentro de la carpeta del juego, no solo el .exe principal. Muchos
@@ -2049,9 +2073,10 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
   (() => {
     const numericAppId = typeof appId === 'string' ? parseInt(appId, 10) : appId;
     if (!Number.isFinite(numericAppId) || numericAppId <= 0) return;
-    const creds = extraOpts.steamCreds;
+    const creds = extraOpts.steamCreds || activeSteamCreds;
     if (!creds || !creds.steamId || !creds.apiKey) return;
     startTrophyPoller(id, numericAppId, creds.apiKey, creds.steamId, {
+      id,
       title: gameMeta.title || sourceLabel,
       image: gameMeta.image || null,
     });
@@ -2095,6 +2120,13 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
       if (!running && packageFamilyName) {
         running = await isUwpProcessRunning(packageFamilyName);
       }
+      // Tercer metodo de deteccion: buscar por el PackageFamilyName extraido del appId
+      // Cubre el caso en que installDir esta vacio y packageFamilyName tambien es null
+      // (juego añadido desde Servicios de Juegos de Microsoft sin AUMID completo).
+      if (!running && !packageFamilyName && appId && typeof appId === 'string' && appId.includes('!')) {
+        const derivedPfn = appId.split('!')[0];
+        if (derivedPfn) running = await isUwpProcessRunning(derivedPfn);
+      }
       if (running) {
         consecutiveMisses = 0;
         if (!seenRunning) {
@@ -2115,7 +2147,12 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
         consecutiveMisses++;
         const runningForMs = firstSeenRunningAt ? Date.now() - firstSeenRunningAt : 0;
         const withinStartupGrace = runningForMs < MIN_RUNNING_MS_BEFORE_EXIT;
-        const missesNeeded = withinStartupGrace ? MISSES_TO_CONFIRM_EXIT : 1;
+        // Para juegos UWP/Xbox el proceso puede desaparecer momentaneamente
+        // (actualizaciones internas, cambio de proceso de Minecraft, etc.), por
+        // lo que requerimos 3 polls consecutivos sin proceso antes de confirmar
+        // el cierre, incluso fuera de la ventana de arranque.
+        const isUwpWatch = !!(packageFamilyName || (sourceLabel === 'Xbox'));
+        const missesNeeded = withinStartupGrace ? MISSES_TO_CONFIRM_EXIT : (isUwpWatch ? 3 : 1);
         if (consecutiveMisses >= missesNeeded) {
           console.log(`[${sourceLabel}] Proceso del juego finalizado, restaurando launcher (` + appId + ')');
           finish();
@@ -5524,15 +5561,19 @@ app.whenReady().then(async () => {
   ipcMain.handle('set-active-steam-credentials', async (_event, creds) => {
     // Guardamos las credenciales temporalmente para que startTrophyPoller las use
     // si el juego ya fue lanzado (race condition de timing al arrancar).
-    if (creds && creds.steamId && creds.apiKey && activeGameInfo) {
-      const numericAppId = typeof activeGameInfo.appId === 'string'
-        ? parseInt(activeGameInfo.appId, 10)
-        : activeGameInfo.appId;
-      if (Number.isFinite(numericAppId) && numericAppId > 0 && !trophyPollerMap.has(activeGameInfo.id)) {
-        startTrophyPoller(activeGameInfo.id, numericAppId, creds.apiKey, creds.steamId, {
-          title: activeGameInfo.title,
-          image: activeGameInfo.image,
-        });
+    if (creds && creds.steamId && creds.apiKey) {
+      activeSteamCreds = creds;
+      if (activeGameInfo) {
+        const numericAppId = typeof activeGameInfo.appId === 'string'
+          ? parseInt(activeGameInfo.appId, 10)
+          : activeGameInfo.appId;
+        if (Number.isFinite(numericAppId) && numericAppId > 0 && !trophyPollerMap.has(activeGameInfo.id)) {
+          startTrophyPoller(activeGameInfo.id, numericAppId, creds.apiKey, creds.steamId, {
+            id: activeGameInfo.id,
+            title: activeGameInfo.title,
+            image: activeGameInfo.image,
+          });
+        }
       }
     }
     return { success: true };

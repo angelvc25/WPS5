@@ -86,6 +86,7 @@ const SOURCE_LABELS: Record<string, string> = {
     epic: 'Epic Games',
     system: 'WPS5',
     friends: 'Amigos',
+    trophies: 'Trofeos',
 };
 
 function formatRelativeTime(timestamp: number): string {
