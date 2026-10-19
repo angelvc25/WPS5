@@ -134,7 +134,9 @@ export default function RootLayout() {
 
   return (
     <LanguageProvider>
-      <RootLayoutInner />
+      <ErrorBoundary fallbackTitle="Ha ocurrido un error en la interfaz">
+        <RootLayoutInner />
+      </ErrorBoundary>
     </LanguageProvider>
   );
 }
@@ -153,6 +155,20 @@ function RootLayoutInner() {
   const [defaultBootFailed, setDefaultBootFailed] = useState(false);
   const pathname = usePathname();
   const isOverlayMode = checkIsOverlay() || pathname === '/overlay' || pathname?.includes('overlay');
+
+  // Diagnóstico de errores no controlados y rechazos de promesas en la ventana
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const onErr = (e: ErrorEvent) => console.error('[window.error]', e.error || e.message);
+      const onRej = (e: PromiseRejectionEvent) => console.error('[unhandledrejection]', e.reason);
+      window.addEventListener('error', onErr);
+      window.addEventListener('unhandledrejection', onRej);
+      return () => {
+        window.removeEventListener('error', onErr);
+        window.removeEventListener('unhandledrejection', onRej);
+      };
+    }
+  }, []);
 
   // Splash de arranque: video personalizado del último usuario; si no tiene
   // (o falla), el video por defecto; si este también falla, solo el logo.

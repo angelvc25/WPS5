@@ -593,38 +593,35 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetSelectorTab]);
 
-  const applySelectedAsset = async (url: string) => {
+  const saveQueueRef = useRef<Promise<any>>(Promise.resolve());
+
+  const persistPartial = (partial: Record<string, any>) => {
+    const gameId = editData.id || item?.id;
+    if (!gameId || !(window as any).electronAPI) return;
+    const payload = { id: gameId, title: editData.title || item?.title, ...partial };
+    saveQueueRef.current = saveQueueRef.current
+      .then(() => (window as any).electronAPI.updateApp(payload))
+      .then((r: any) => {
+        if (r?.success) onRefresh?.(payload);
+      })
+      .catch((e: any) => console.error('[Detail] error guardando', e));
+  };
+
+  const applySelectedAsset = (url: string) => {
     const tab = assetSelectorTab;
-    let updatedData = { ...editData };
+    const field =
+      tab === 'hero' ? 'backgroundImage' :
+      tab === 'logo' ? 'logo' :
+      tab === 'icon' ? 'icon' : 'image';
 
-    if (tab === 'capsule' || tab === 'capsule_wide') {
-      updatedData.image = url;
-    } else if (tab === 'hero') {
-      updatedData.backgroundImage = url;
-    } else if (tab === 'logo') {
-      updatedData.logo = url;
-    } else if (tab === 'icon') {
-      (updatedData as any).icon = url;
-    }
-
-    setEditData(updatedData);
+    setEditData((prev) => ({ ...prev, [field]: url }));
     soundService.playActivation?.();
     // No cerramos el selector: el usuario puede cambiar de pestaña (cápsula,
     // imagen principal, logo, ícono) y seleccionar una imagen para cada una
     // antes de volver atrás, en vez de tener que reabrir el selector por cada tipo.
 
-    // Auto-save to database
-    const gameId = updatedData.id || item?.id;
-    if (Platform.OS === 'web' && (window as any).electronAPI && gameId) {
-      const cleanData = Object.fromEntries(
-        Object.entries({ ...updatedData, id: gameId, title: updatedData.title || item?.title })
-          .filter(([_, v]) => v !== '' && v !== null && v !== undefined)
-      );
-      const result = await (window as any).electronAPI.updateApp(cleanData);
-      if (result.success) {
-        if (onRefresh) onRefresh(cleanData);
-      }
-    }
+    // Auto-save parcial serializado para evitar saturación de memoria e IPC
+    persistPartial({ [field]: url });
   };
 
   // Determina si un asset del grid es el que está actualmente asignado al
@@ -658,40 +655,29 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
   const handleManageAction = async (idx: number) => {
     if (!(window as any).electronAPI) return;
-    let updatedData = { ...editData };
 
     if (idx === 0) {
       const img = await (window as any).electronAPI.selectImage();
-      if (img) updatedData.image = img;
-      else return;
+      if (img) {
+        setEditData((prev) => ({ ...prev, image: img }));
+        persistPartial({ image: img });
+      }
     } else if (idx === 1) {
       const img = await (window as any).electronAPI.selectImage();
-      if (img) updatedData.logo = img;
-      else return;
+      if (img) {
+        setEditData((prev) => ({ ...prev, logo: img }));
+        persistPartial({ logo: img });
+      }
     } else if (idx === 2) {
       const img = await (window as any).electronAPI.selectImage();
-      if (img) updatedData.backgroundImage = img;
-      else return;
-    } else if (idx === 3) {
-      updatedData.image = undefined;
-      updatedData.logo = undefined;
-      updatedData.backgroundImage = undefined;
-    }
-
-    setEditData(updatedData);
-
-    // Auto-save to database
-    const gameId = updatedData.id || item?.id;
-    if (gameId) {
-      const cleanData = Object.fromEntries(
-        Object.entries({ ...updatedData, id: gameId, title: updatedData.title || item?.title })
-          .filter(([_, v]) => v !== '' && v !== null && v !== undefined)
-      );
-      const result = await (window as any).electronAPI.updateApp(cleanData);
-      if (result.success) {
-        if (onRefresh) onRefresh(cleanData);
-        if (idx === 3) toastService.show(t('edit.assetsReset'));
+      if (img) {
+        setEditData((prev) => ({ ...prev, backgroundImage: img }));
+        persistPartial({ backgroundImage: img });
       }
+    } else if (idx === 3) {
+      setEditData((prev) => ({ ...prev, image: undefined, logo: undefined, backgroundImage: undefined }));
+      persistPartial({ image: '', logo: '', backgroundImage: '' });
+      toastService.show(t('edit.assetsReset'));
     }
   };
 
@@ -3048,30 +3034,12 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               currentGameTitle={editData.title || item?.title || ''}
               currentFocusAudio={editData.focusAudio}
               onSelectTrack={async (localAudioUri) => {
-                const gameId = editData.id || item?.id;
-                const gameTitle = editData.title || item?.title;
                 setEditData((prev) => ({ ...prev, focusAudio: localAudioUri }));
-                if ((window as any).electronAPI && gameId) {
-                  await (window as any).electronAPI.updateApp({
-                    id: gameId,
-                    title: gameTitle,
-                    focusAudio: localAudioUri,
-                  });
-                  if (onRefresh) onRefresh({ id: gameId, title: gameTitle, focusAudio: localAudioUri });
-                }
+                persistPartial({ focusAudio: localAudioUri });
               }}
               onRemoveAudio={async () => {
-                const gameId = editData.id || item?.id;
-                const gameTitle = editData.title || item?.title;
                 setEditData((prev) => ({ ...prev, focusAudio: undefined }));
-                if ((window as any).electronAPI && gameId) {
-                  await (window as any).electronAPI.updateApp({
-                    id: gameId,
-                    title: gameTitle,
-                    focusAudio: '',
-                  });
-                  if (onRefresh) onRefresh({ id: gameId, title: gameTitle, focusAudio: '' });
-                }
+                persistPartial({ focusAudio: '' });
               }}
               gamepadConnected={gamepadConnected}
             />

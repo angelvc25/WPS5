@@ -202,8 +202,8 @@ if (process.platform === 'win32') {
 }
 
 // 5) Optimizaciones de memoria y V8 Heap:
-// Reducir max-old-space-size a 256MB y activar optimización de tamaño para evitar retención innecesaria de RAM
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --optimize-for-size --expose-gc');
+// Aumentar max-old-space-size a 1024MB para soportar interfaces con muchas imágenes y evitar caídas por OOM
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=1024 --expose-gc');
 
 // 6) Limitar tamaño de caché en disco y multimedia de Chromium para evitar fugas de memoria
 app.commandLine.appendSwitch('disk-cache-size', '67108864'); // 64 MB
@@ -1085,6 +1085,27 @@ function createWindow() {
   });
 
   attachExternalLinkHandlers(mainWindow);
+
+  // Registro diagnóstico y autorecuperación si el proceso renderer se cae o deja de responder
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[Renderer] proceso caído:', details.reason, details.exitCode);
+    try {
+      fs.appendFileSync(
+        path.join(app.getPath('userData'), 'renderer-crash.log'),
+        `[${new Date().toISOString()}] ${details.reason} (${details.exitCode})\n`
+      );
+    } catch (_) {}
+    if (details.reason !== 'clean-exit' && mainWindow && !mainWindow.isDestroyed()) {
+      setTimeout(() => mainWindow.webContents.reload(), 500);
+    }
+  });
+
+  mainWindow.on('unresponsive', () => {
+    console.warn('[Renderer] sin respuesta');
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.reload();
+    }, 5000);
+  });
 
   // 👈 AÑADIR: mostrar la ventana solo cuando el renderer ya pintó su primer frame
   mainWindow.once('ready-to-show', () => {
@@ -3639,8 +3660,7 @@ app.whenReady().then(async () => {
       }
     }
 
-    data.games = (data.games || []).map(injectMediaToBase64);
-    data.media = (data.media || []).map(injectMediaToBase64);
+    // Ya NO inyectamos base64 de juegos/media: el renderer carga las imágenes vía local-file://
     return data;
   });
 
@@ -4322,9 +4342,16 @@ app.whenReady().then(async () => {
     return { success: true, suspended: true };
   });
 
+  const showOpenDialogWithParent = (options) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      return dialog.showOpenDialog(mainWindow, options);
+    }
+    return dialog.showOpenDialog(options);
+  };
+
   // IPC: Abrir diálogo para seleccionar ejecutable
   ipcMain.handle('select-file', async () => {
-    const result = await dialog.showOpenDialog({
+    const result = await showOpenDialogWithParent({
       properties: ['openFile', 'noResolveAliases'],
       filters: [
         { name: 'Ejecutables', extensions: ['exe', 'bat', 'lnk', 'url'] },
@@ -4339,7 +4366,7 @@ app.whenReady().then(async () => {
 
   // IPC: Abrir diálogo para seleccionar imagen (portada)
   ipcMain.handle('select-image', async () => {
-    const result = await dialog.showOpenDialog({
+    const result = await showOpenDialogWithParent({
       properties: ['openFile'],
       filters: [{ name: 'Imágenes', extensions: ['jpg', 'png', 'jpeg', 'webp'] }]
     });
@@ -4351,7 +4378,7 @@ app.whenReady().then(async () => {
 
   // IPC: Abrir diálogo para seleccionar video
   ipcMain.handle('select-video', async () => {
-    const result = await dialog.showOpenDialog({
+    const result = await showOpenDialogWithParent({
       properties: ['openFile'],
       filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'mkv', 'avi'] }]
     });
@@ -4363,7 +4390,7 @@ app.whenReady().then(async () => {
 
   // IPC: Abrir diálogo para seleccionar audio de foco del juego.
   ipcMain.handle('select-audio', async () => {
-    const result = await dialog.showOpenDialog({
+    const result = await showOpenDialogWithParent({
       properties: ['openFile'],
       filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] }]
     });
@@ -4375,7 +4402,7 @@ app.whenReady().then(async () => {
 
   // IPC: Abrir diálogo para seleccionar carpeta de capturas
   ipcMain.handle('select-capture-folder', async () => {
-    const result = await dialog.showOpenDialog({
+    const result = await showOpenDialogWithParent({
       properties: ['openDirectory']
     });
     if (!result.canceled && result.filePaths.length > 0) {

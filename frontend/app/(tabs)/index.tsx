@@ -2665,7 +2665,7 @@ export default function ConsoleHome() {
             onVisibleGamesChange={setVisibleLibraryGames}
             onRefresh={(updatedGame) => {
               if (updatedGame) mergeGameIntoState(updatedGame);
-              loadApps();
+              else loadApps();
             }}
             onLaunch={(id, path) => {
               const game = displayedLibraryGames.find(g => g.id === id) || (selectedItem?.id === id ? selectedItem : null);
@@ -2780,7 +2780,7 @@ export default function ConsoleHome() {
           }}
           onRefresh={(updatedGame) => {
             if (updatedGame) mergeGameIntoState(updatedGame);
-            loadApps();
+            else loadApps();
           }}
           inputMode={inputMode}
           isLaunching={isLaunching}
