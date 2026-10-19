@@ -16,6 +16,7 @@ import Animated, {
 import BackgroundVideo from '@/components/BackgroundVideo';
 import ToastHost from '@/components/ToastHost';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
 import { ThemeProvider as WPSThemeProvider } from '@/contexts/ThemeContext';
 import { UserContext } from '@/contexts/UserContext';
@@ -353,16 +354,18 @@ function RootLayoutInner() {
         <View style={{ flex: 1, backgroundColor: activeUser ? 'transparent' : '#000' }}>
           {activeUser && (
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: 'transparent' },
-                }}
-              >
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="overlay" options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
-                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-              </Stack>
+              <ErrorBoundary fallbackTitle="Ha ocurrido un error en la interfaz">
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: 'transparent' },
+                  }}
+                >
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="overlay" options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
+                  <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                </Stack>
+              </ErrorBoundary>
               <ToastHost />
               <StatusBar style="auto" />
             </ThemeProvider>

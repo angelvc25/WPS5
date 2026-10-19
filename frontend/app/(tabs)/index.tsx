@@ -40,6 +40,7 @@ import AddAppModal from '@/components/AddAppModal';
 import AvatarPickerModal from '@/components/AvatarPickerModal';
 import BackgroundPickerModal from '@/components/BackgroundPickerModal';
 import ConsoleCarousel from '@/components/ConsoleCarousel';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import GameInfoPanel from '@/components/GameInfoPanel';
 import MediaGalleryView from '@/components/MediaGalleryView';
 import { OnlineUserFullProfile } from '@/components/OnlineUserFullProfile';
@@ -473,6 +474,7 @@ export default function ConsoleHome() {
   // ── selectedItem y visibilidad del detalle (permanecen en index.tsx) ──────
   const [selectedItem, setSelectedItem] = useState<ConsoleItem | null>(null);
   const [isDetailVisible, setDetailVisible] = useState(false);
+  const [detailInitialEditMode, setDetailInitialEditMode] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<ConsoleItem | null>(null);
   const [uiReady, setUiReady] = useState(false);
 
@@ -699,6 +701,7 @@ export default function ConsoleHome() {
     setHomeBgModalVisible,
     setWelcomeSettingsVisible,
     setDetailVisible,
+    setDetailInitialEditMode,
     setSelectedItem,
     setSearchVisible,
     setUserModalVisible,
@@ -1168,7 +1171,8 @@ export default function ConsoleHome() {
       activeTab === 'Games' &&
       focusArea === 'main_carousel' &&
       !!focusedCarouselAudio &&
-      !isLaunching;
+      !isLaunching &&
+      !isDetailVisible; // No iniciar audio del carrusel mientras el detalle está abierto
 
     void stopFocusAudio(!shouldPlayFocusAudio || !!focusAudioSoundRef.current);
     if (!shouldPlayFocusAudio) return;
@@ -1198,7 +1202,7 @@ export default function ConsoleHome() {
     }, 500);
 
     return () => { void stopFocusAudio(true); };
-  }, [activeIndex, activeTab, focusArea, focusedCarouselAudio, isLaunching, stopFocusAudio]);
+  }, [activeIndex, activeTab, focusArea, focusedCarouselAudio, isLaunching, isDetailVisible, stopFocusAudio]);
 
   const openContextMenu = () => {
     const item = currentData[activeIndex];
@@ -1233,6 +1237,7 @@ export default function ConsoleHome() {
     if (idx === 0) {
       // Editar Datos
       setSelectedItem(item);
+      setDetailInitialEditMode(true);
       setDetailVisible(true);
     } else if (idx === 1) {
       // Ubicación
@@ -2725,6 +2730,11 @@ export default function ConsoleHome() {
               handleLaunchApp={handleLaunchApp}
               setSelectedItem={setSelectedItem}
               setDetailVisible={setDetailVisible}
+              onOpenConfig={(target) => {
+                setSelectedItem(target);
+                setDetailInitialEditMode(true);
+                setDetailVisible(true);
+              }}
               steamMedia={steamMedia}
               mediaLoading={mediaLoading}
               setSelectedMediaIndex={setSelectedMediaIndex}
@@ -2752,23 +2762,39 @@ export default function ConsoleHome() {
       />
 
       {/* WPS5 UI EXPANSION COMPONENTS */}
-      <GameDetailView
-        isVisible={isDetailVisible}
-        item={selectedItem}
-        gamepadConnected={gamepadInfo.connected}
-        onClose={() => setDetailVisible(false)}
-        onRefresh={(updatedGame) => {
-          if (updatedGame) mergeGameIntoState(updatedGame);
-          loadApps();
+      <ErrorBoundary
+        fallbackTitle="Error en la vista de detalles del juego"
+        onReset={() => {
+          setDetailVisible(false);
+          setDetailInitialEditMode(false);
         }}
-        inputMode={inputMode}
-        isLaunching={isLaunching}
-        installedSteamAppIds={installedSteamAppIds}
-        onOpenMediaGallery={() => { setDetailVisible(false); setMediaGalleryVisible(true); }}
-        onLaunch={(_id, _path) => {
-          if (selectedItem) handleLaunchApp(selectedItem);
-        }}
-      />
+      >
+        <GameDetailView
+          isVisible={isDetailVisible}
+          item={selectedItem}
+          initialEditMode={detailInitialEditMode}
+          gamepadConnected={gamepadInfo.connected}
+          onClose={() => {
+            setDetailVisible(false);
+            setDetailInitialEditMode(false);
+          }}
+          onRefresh={(updatedGame) => {
+            if (updatedGame) mergeGameIntoState(updatedGame);
+            loadApps();
+          }}
+          inputMode={inputMode}
+          isLaunching={isLaunching}
+          installedSteamAppIds={installedSteamAppIds}
+          onOpenMediaGallery={() => {
+            setDetailVisible(false);
+            setDetailInitialEditMode(false);
+            setMediaGalleryVisible(true);
+          }}
+          onLaunch={(_id, _path) => {
+            if (selectedItem) handleLaunchApp(selectedItem);
+          }}
+        />
+      </ErrorBoundary>
 
       <DeleteConfirmView
         visible={!!deleteConfirmItem}

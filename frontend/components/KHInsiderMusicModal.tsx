@@ -326,12 +326,15 @@ export const KHInsiderMusicModal: React.FC<KHInsiderMusicModalProps> = ({
     }
   };
 
-  // Convertir "02:45" en segundos
-  const parseDurationToSeconds = (durStr: string): number => {
-    if (!durStr) return 0;
+  // Convertir "02:45" o "1:02:45" en segundos
+  const parseDurationToSeconds = (durStr: any): number => {
+    if (!durStr || typeof durStr !== 'string') return 0;
     const parts = durStr.split(':').map((p) => parseInt(p, 10));
     if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
       return parts[0] * 60 + parts[1];
+    }
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
     }
     return 0;
   };

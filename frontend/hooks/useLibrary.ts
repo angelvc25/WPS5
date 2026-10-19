@@ -379,7 +379,8 @@ export function useLibrary({
         // detectados de Steam/Epic/Xbox. Misma lógica que ya existía inline para Steam.
         const dbOverrides = new Map<string, ConsoleItem>();
         games.forEach(g => {
-            if ((g.id.startsWith('steam_') || g.id.startsWith('epic_') || g.id.startsWith('xbox_')) && g.title && g.title !== 'Juego') {
+            const gId = String(g?.id || '');
+            if ((gId.startsWith('steam_') || gId.startsWith('epic_') || gId.startsWith('xbox_')) && g?.title && g.title !== 'Juego') {
                 dbOverrides.set(g.id, g);
             }
         });
@@ -434,7 +435,8 @@ export function useLibrary({
         });
         const epicOverrides = new Map<string, ConsoleItem>();
         games.forEach(g => {
-            if (g.id.startsWith('epic_') && g.title && g.title !== 'Juego') epicOverrides.set(g.id, g);
+            const gId = String(g?.id || '');
+            if (gId.startsWith('epic_') && g?.title && g.title !== 'Juego') epicOverrides.set(g.id, g);
         });
         epicGames.forEach(g => {
             const existing = byId.get(g.id);
@@ -444,7 +446,8 @@ export function useLibrary({
         });
         const xboxOverrides = new Map<string, ConsoleItem>();
         games.forEach(g => {
-            if (g.id.startsWith('xbox_') && g.title && g.title !== 'Juego') xboxOverrides.set(g.id, g);
+            const gId = String(g?.id || '');
+            if (gId.startsWith('xbox_') && g?.title && g.title !== 'Juego') xboxOverrides.set(g.id, g);
         });
         xboxGames.forEach(g => {
             const existing = byId.get(g.id);
@@ -615,7 +618,8 @@ export function useLibrary({
         });
         setLastPlayedGame(prev => prev && prev.id === gameId ? { ...prev, playtimeMinutes: totalMinutes, playtime_forever: totalMinutes } : prev);
 
-        const isSteamOrEpic = gameId.startsWith('steam_') || gameId.startsWith('epic_');
+        const strId = String(gameId || '');
+        const isSteamOrEpic = strId.startsWith('steam_') || strId.startsWith('epic_');
         if (!isSteamOrEpic && (window as any).electronAPI?.updateApp) {
             (window as any).electronAPI.updateApp({
                 id: gameId,
@@ -632,7 +636,8 @@ export function useLibrary({
         }
         const now = Date.now();
         const id = item.id;
-        const isSteamOrEpicOrXbox = id.startsWith('steam_') || id.startsWith('epic_') || id.startsWith('xbox_');
+        const strId = String(id || '');
+        const isSteamOrEpicOrXbox = strId.startsWith('steam_') || strId.startsWith('epic_') || strId.startsWith('xbox_');
 
         setGames(prev => prev.map(g => g.id === id ? { ...g, lastPlayed: now } : g));
 
@@ -679,13 +684,13 @@ export function useLibrary({
     // ── Función: merge optimista de un juego en todos los estados ─────────────
     // Con `_deleted: true` elimina el juego de todos los estados al instante.
     const mergeGameIntoState = useCallback((updated: Partial<ConsoleItem> & { _deleted?: boolean }) => {
-        if (!updated.id) return;
-        const id = updated.id;
+        if (!updated || !updated.id) return;
+        const id = String(updated.id);
 
         if ((updated as any)._deleted) {
-            setGames(prev => prev.filter(g => g.id !== id));
+            setGames(prev => prev.filter(g => String(g.id) !== id));
             setSteamGames(prev => {
-                const updatedList = prev.filter(g => g.id !== id);
+                const updatedList = prev.filter(g => String(g.id) !== id);
                 const steamId = activeUser?.settings?.steamId;
                 if (steamId) {
                     try {
@@ -694,11 +699,11 @@ export function useLibrary({
                 }
                 return updatedList;
             });
-            if (selectedItem && selectedItem.id === id) {
+            if (selectedItem && String(selectedItem.id) === id) {
                 setDetailVisible(false);
                 setSelectedItem(null);
             }
-            if (lastPlayedGame && lastPlayedGame.id === id) {
+            if (lastPlayedGame && String(lastPlayedGame.id) === id) {
                 setLastPlayedGame(null);
             }
             return;
@@ -708,15 +713,18 @@ export function useLibrary({
             const merged = { ...existing };
             Object.entries(updated).forEach(([key, value]) => {
                 if (key === '_deleted') return;
-                if (value !== '' && value !== null && value !== undefined) {
+                // Permitir limpiar campos explícitamente cuando se pasa cadena vacía
+                if (value === '' && (key === 'focusAudio' || key === 'video' || key === 'image' || key === 'logo' || key === 'backgroundImage')) {
+                    (merged as any)[key] = undefined;
+                } else if (value !== null && value !== undefined) {
                     (merged as any)[key] = value;
                 }
             });
             // Re-wrap image/logo/backgroundImage URLs into { uri } format like loadApps does
             (['image', 'logo', 'backgroundImage'] as const).forEach(field => {
                 const val = (merged as any)[field];
-                if (typeof val === 'string') {
-                    if (val.startsWith('http')) {
+                if (typeof val === 'string' && val.trim()) {
+                    if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:') || val.startsWith('blob:')) {
                         (merged as any)[field] = { uri: val };
                     } else {
                         const clean = val.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
@@ -729,7 +737,7 @@ export function useLibrary({
 
         if (id.startsWith('steam_')) {
             setSteamGames(prev => {
-                const updatedList = prev.map(g => g.id === id ? formatUpdated(g) : g);
+                const updatedList = prev.map(g => String(g.id) === id ? formatUpdated(g) : g);
                 const steamId = activeUser?.settings?.steamId;
                 if (steamId) {
                     try {
@@ -742,8 +750,8 @@ export function useLibrary({
 
         if (id.startsWith('epic_')) {
             setEpicGames(prev => {
-                if (prev.some(g => g.id === id)) {
-                    return prev.map(g => g.id === id ? formatUpdated(g) : g);
+                if (prev.some(g => String(g.id) === id)) {
+                    return prev.map(g => String(g.id) === id ? formatUpdated(g) : g);
                 }
                 return [...prev, formatUpdated({ id } as ConsoleItem)];
             });
@@ -751,8 +759,8 @@ export function useLibrary({
 
         if (id.startsWith('xbox_')) {
             setXboxGames(prev => {
-                const updatedList = prev.some(g => g.id === id)
-                    ? prev.map(g => g.id === id ? formatUpdated(g) : g)
+                const updatedList = prev.some(g => String(g.id) === id)
+                    ? prev.map(g => String(g.id) === id ? formatUpdated(g) : g)
                     : [...prev, formatUpdated({ id } as ConsoleItem)];
                 // Persist to localStorage so useSteamSync restores the user's
                 // custom artwork (cover / background / logo) on next launcher start,
@@ -764,7 +772,7 @@ export function useLibrary({
             });
         }
 
-        if (selectedItem && selectedItem.id === id) {
+        if (selectedItem && String(selectedItem.id) === id) {
             setSelectedItem(prev => prev ? formatUpdated(prev) : null);
         }
 
@@ -772,21 +780,26 @@ export function useLibrary({
         // (ver nota de arquitectura sobre lastPlayedGame). Si no se actualiza aquí también,
         // lanzar desde el carrusel de Inicio sigue usando el objeto viejo (sin launchArgs, etc.)
         // aunque ya se haya guardado el cambio en la DB.
-        if (lastPlayedGame && lastPlayedGame.id === id) {
+        if (lastPlayedGame && String(lastPlayedGame.id) === id) {
             setLastPlayedGame(prev => prev ? formatUpdated(prev) : null);
         }
 
         setGames(prev => {
-            const exists = prev.some(g => g.id === id);
+            const exists = prev.some(g => String(g.id) === id);
             if (exists) {
-                return prev.map(g => g.id === id ? formatUpdated(g) : g);
+                return prev.map(g => String(g.id) === id ? formatUpdated(g) : g);
+            }
+            // Solo agregar como juego independiente si no es de Steam/Epic/Xbox o si tiene título válido
+            const isPlatformStore = id.startsWith('steam_') || id.startsWith('epic_') || id.startsWith('xbox_');
+            if (isPlatformStore) {
+                return prev;
             }
             // New entry (e.g. first Steam artwork save) — add it to the list
             const newGame: any = { ...updated };
             (['image', 'logo', 'backgroundImage'] as const).forEach(field => {
                 const val = newGame[field];
-                if (typeof val === 'string') {
-                    if (val.startsWith('http')) {
+                if (typeof val === 'string' && val.trim()) {
+                    if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:') || val.startsWith('blob:')) {
                         newGame[field] = { uri: val };
                     } else {
                         const clean = val.replace(/^local-file:\/+/, '').replace(/\\/g, '/');

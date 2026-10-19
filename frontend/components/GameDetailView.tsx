@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, TextInput, ScrollView, useWindowDimensions, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -50,17 +51,33 @@ interface GameDetailViewProps {
   onOpenMediaGallery?: () => void;
   /** Hay un mando conectado. El teclado virtual solo se muestra si es true. */
   gamepadConnected?: boolean;
+  initialEditMode?: boolean;
 }
 
-// Normaliza un string de path/url de editData a un source { uri } válido.
-// Maneja: http(s) URLs, paths locales con o sin prefijo local-file://.
-const resolveEditSource = (val: string | undefined): { uri: string } | null => {
+// Normaliza cualquier tipo de source (string, { uri }, require number) de editData a un source válido para expo-image.
+const resolveEditSource = (val: any): { uri: string } | number | null => {
   if (!val) return null;
-  if (val.startsWith('http')) return { uri: val };
-  // Quitar cualquier variante de local-file:// que ya venga en el string
-  const clean = val.replace(/^local-file:\/+/, '');
-  // Reconstruir siempre con local-file:///
+  if (typeof val === 'number') return val;
+  if (typeof val === 'object' && val.uri) return val;
+  if (typeof val !== 'string') return null;
+  const str = val.trim();
+  if (!str) return null;
+  if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('data:') || str.startsWith('blob:')) {
+    return { uri: str };
+  }
+  const clean = str.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
   return { uri: `local-file:///${clean}` };
+};
+
+const extractPathFromSource = (src: any): string | undefined => {
+  if (!src) return undefined;
+  if (typeof src === 'string') {
+    return src.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
+  }
+  if (typeof src === 'object' && typeof src.uri === 'string') {
+    return src.uri.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
+  }
+  return undefined;
 };
 
 const DetailLightboxImage = React.memo(({
@@ -116,7 +133,7 @@ const DetailLightboxImage = React.memo(({
 });
 DetailLightboxImage.displayName = 'DetailLightboxImage';
 
-const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery, gamepadConnected = false }) => {
+const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery, gamepadConnected = false, initialEditMode = false }) => {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
@@ -131,6 +148,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   const { activeUser } = useUser();
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
   const [isKhinsiderModalVisible, setKhinsiderModalVisible] = useState(false);
+
+  // ─── Audio de foco local (se reproduce dentro del GameDetailView) ───────────
+  const detailAudioRef = useRef<AudioPlayer | null>(null);
+  const detailAudioPathRef = useRef<string | null>(null);
 
   // States for SteamGridDB Asset Selector Screen
   const [isAssetSelectorVisible, setAssetSelectorVisible] = useState(false);
@@ -593,9 +614,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     // antes de volver atrás, en vez de tener que reabrir el selector por cada tipo.
 
     // Auto-save to database
-    if (Platform.OS === 'web' && (window as any).electronAPI && updatedData.id) {
+    const gameId = updatedData.id || item?.id;
+    if (Platform.OS === 'web' && (window as any).electronAPI && gameId) {
       const cleanData = Object.fromEntries(
-        Object.entries(updatedData).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+        Object.entries({ ...updatedData, id: gameId, title: updatedData.title || item?.title })
+          .filter(([_, v]) => v !== '' && v !== null && v !== undefined)
       );
       const result = await (window as any).electronAPI.updateApp(cleanData);
       if (result.success) {
@@ -658,9 +681,11 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     setEditData(updatedData);
 
     // Auto-save to database
-    if (updatedData.id) {
+    const gameId = updatedData.id || item?.id;
+    if (gameId) {
       const cleanData = Object.fromEntries(
-        Object.entries(updatedData).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+        Object.entries({ ...updatedData, id: gameId, title: updatedData.title || item?.title })
+          .filter(([_, v]) => v !== '' && v !== null && v !== undefined)
       );
       const result = await (window as any).electronAPI.updateApp(cleanData);
       if (result.success) {
@@ -1091,31 +1116,116 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
 
   useEffect(() => {
-    if (item) {
+    if (item && isVisible) {
       prevFocusIndexRef.current = 0;
       setFocusIndex(0); // Reset focus when opening
       setAchievementCount(0);
-      const initialData: any = {
-        id: item.id,
-        title: item.title,
-        description: isSteamGame(item) && isPlaytimePlaceholder(item.description) ? '' : item.description,
-        rating: item.rating,
-        image: item.image?.uri?.startsWith('local-file://') ? item.image.uri.replace(/^local-file:\/+/, '') : (item.image?.uri?.startsWith('http') ? item.image.uri : undefined),
-        logo: item.logo?.uri?.startsWith('local-file://') ? item.logo.uri.replace(/^local-file:\/+/, '') : (item.logo?.uri?.startsWith('http') ? item.logo.uri : undefined),
-        backgroundImage: item.backgroundImage?.uri?.startsWith('local-file://') ? item.backgroundImage.uri.replace(/^local-file:\/+/, '') : (item.backgroundImage?.uri?.startsWith('http') ? item.backgroundImage.uri : undefined),
-        video: item.video?.uri?.startsWith('local-file://') ? item.video.uri.replace(/^local-file:\/+/, '') : (item.video?.uri?.startsWith('http') ? item.video.uri : undefined),
-        focusAudio: item.focusAudio,
-        youtubeId: item.youtubeId,
-        platform: item.platform,
-        retroSystem: (item as any).retroSystem,
-        path: getSteamLaunchPath(item) || item.path || undefined,
-        type: item.type,
-        launchArgs: item.launchArgs,
-      };
-
-      setEditData(initialData);
+      setEditData((prev) => {
+        const isSameGame = prev?.id === item.id;
+        const initialData: any = {
+          id: item.id,
+          title: (isSameGame && prev.title !== undefined) ? prev.title : item.title,
+          description: (isSameGame && prev.description !== undefined) ? prev.description : (isSteamGame(item) && isPlaytimePlaceholder(item.description) ? '' : item.description),
+          rating: (isSameGame && prev.rating !== undefined) ? prev.rating : item.rating,
+          image: (isSameGame && prev.image !== undefined) ? prev.image : extractPathFromSource(item.image),
+          logo: (isSameGame && prev.logo !== undefined) ? prev.logo : extractPathFromSource(item.logo),
+          backgroundImage: (isSameGame && prev.backgroundImage !== undefined) ? prev.backgroundImage : extractPathFromSource(item.backgroundImage),
+          video: (isSameGame && prev.video !== undefined) ? prev.video : extractPathFromSource(item.video),
+          focusAudio: (isSameGame && prev.focusAudio !== undefined) ? prev.focusAudio : item.focusAudio,
+          youtubeId: (isSameGame && prev.youtubeId !== undefined) ? prev.youtubeId : item.youtubeId,
+          platform: (isSameGame && prev.platform !== undefined) ? prev.platform : item.platform,
+          retroSystem: (isSameGame && (prev as any).retroSystem !== undefined) ? (prev as any).retroSystem : (item as any).retroSystem,
+          path: (isSameGame && prev.path !== undefined) ? prev.path : (getSteamLaunchPath(item) || item.path || undefined),
+          type: (isSameGame && prev.type !== undefined) ? prev.type : item.type,
+          launchArgs: (isSameGame && prev.launchArgs !== undefined) ? prev.launchArgs : item.launchArgs,
+        };
+        return initialData;
+      });
     }
-  }, [item, isVisible]);
+  }, [item?.id, isVisible]);
+
+  useEffect(() => {
+    if (isVisible && initialEditMode) {
+      setEditModalVisible(true);
+    } else if (!isVisible) {
+      setEditModalVisible(false);
+    }
+  }, [isVisible, initialEditMode]);
+
+  // ─── Reproducir focusAudio dentro del GameDetailView ────────────────────────
+  // Cuando el panel se abre y el juego tiene audio asignado, lo reproduce en loop.
+  // Se detiene al cerrar el panel o al abrir un video (trailer/gameplay).
+  useEffect(() => {
+    if (!isVisible || Platform.OS !== 'web') return;
+
+    const audioPath: string | undefined = (editData.focusAudio as string | undefined) ?? (item?.focusAudio as string | undefined);
+
+    if (!audioPath) {
+      // No hay audio: limpiar si había algo reproduciéndose
+      if (detailAudioRef.current) {
+        try { detailAudioRef.current.remove(); } catch (_) {}
+        detailAudioRef.current = null;
+        detailAudioPathRef.current = null;
+      }
+      return;
+    }
+
+    // Si es el mismo audio ya en reproducción, no hacer nada
+    if (detailAudioPathRef.current === audioPath && detailAudioRef.current) return;
+
+    // Detener el audio anterior si cambió
+    if (detailAudioRef.current) {
+      try { detailAudioRef.current.remove(); } catch (_) {}
+      detailAudioRef.current = null;
+    }
+
+    detailAudioPathRef.current = audioPath;
+
+    const uri = audioPath.startsWith('http') || audioPath.startsWith('local-file://')
+      ? audioPath
+      : `local-file:///${audioPath.replace(/\\/g, '/')}`;
+
+    let mounted = true;
+    const startAudio = async () => {
+      try {
+        await soundService.pauseBackground();
+        if (!mounted) return;
+        const player = createAudioPlayer(uri);
+        player.loop = true;
+        player.volume = 0.8;
+        player.play();
+        if (!mounted) { try { player.remove(); } catch (_) {} return; }
+        detailAudioRef.current = player;
+      } catch (err) {
+        console.warn('[GameDetailView] No se pudo reproducir focusAudio:', err);
+        if (mounted && !isLaunching) soundService.playBackground();
+      }
+    };
+
+    void startAudio();
+
+    return () => {
+      mounted = false;
+      if (detailAudioRef.current) {
+        try { detailAudioRef.current.remove(); } catch (_) {}
+        detailAudioRef.current = null;
+        detailAudioPathRef.current = null;
+      }
+      if (!isLaunching) soundService.playBackground();
+    };
+  }, [isVisible, editData.focusAudio, item?.focusAudio, isLaunching]);
+
+  // ─── Pausar/reanudar audio de foco al abrir/cerrar trailers ─────────────────
+  useEffect(() => {
+    if (!detailAudioRef.current) return;
+    const media = selectedMediaIndex !== null ? steamMedia[selectedMediaIndex] : null;
+    const isVideo = media?.type === 'movie';
+    if (isVideo) {
+      try { detailAudioRef.current.pause(); } catch (_) {}
+    } else {
+      try { detailAudioRef.current.play(); } catch (_) {}
+    }
+  }, [selectedMediaIndex, steamMedia]);
 
   // Steam: si la descripción es el placeholder de tiempo jugado (o está vacía),
   // traer la descripción real en el idioma del usuario
@@ -1586,10 +1696,12 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
   };
 
   const handleSaveEdit = async () => {
-    if ((window as any).electronAPI && editData.id) {
+    const gameId = editData.id || item?.id;
+    if ((window as any).electronAPI && gameId) {
       // Limpiamos los campos vacíos o undefined para no sobrescribir con valores nulos en la DB
       const cleanData = Object.fromEntries(
-        Object.entries(editData).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+        Object.entries({ ...editData, id: gameId, title: editData.title || item?.title })
+          .filter(([_, v]) => v !== '' && v !== null && v !== undefined)
       );
 
       const result = await (window as any).electronAPI.updateApp(cleanData);
@@ -1880,6 +1992,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 }}
                 setSelectedItem={() => { }}
                 setDetailVisible={setEditModalVisible}
+                onOpenConfig={() => setEditModalVisible(true)}
                 steamMedia={steamMedia}
                 mediaLoading={mediaLoading}
                 setSelectedMediaIndex={setSelectedMediaIndex}
@@ -2935,17 +3048,29 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               currentGameTitle={editData.title || item?.title || ''}
               currentFocusAudio={editData.focusAudio}
               onSelectTrack={async (localAudioUri) => {
+                const gameId = editData.id || item?.id;
+                const gameTitle = editData.title || item?.title;
                 setEditData((prev) => ({ ...prev, focusAudio: localAudioUri }));
-                if ((window as any).electronAPI && editData.id) {
-                  await (window as any).electronAPI.updateApp({ id: editData.id, focusAudio: localAudioUri });
-                  if (onRefresh) onRefresh({ focusAudio: localAudioUri });
+                if ((window as any).electronAPI && gameId) {
+                  await (window as any).electronAPI.updateApp({
+                    id: gameId,
+                    title: gameTitle,
+                    focusAudio: localAudioUri,
+                  });
+                  if (onRefresh) onRefresh({ id: gameId, title: gameTitle, focusAudio: localAudioUri });
                 }
               }}
               onRemoveAudio={async () => {
+                const gameId = editData.id || item?.id;
+                const gameTitle = editData.title || item?.title;
                 setEditData((prev) => ({ ...prev, focusAudio: undefined }));
-                if ((window as any).electronAPI && editData.id) {
-                  await (window as any).electronAPI.updateApp({ id: editData.id, focusAudio: '' });
-                  if (onRefresh) onRefresh({ focusAudio: '' });
+                if ((window as any).electronAPI && gameId) {
+                  await (window as any).electronAPI.updateApp({
+                    id: gameId,
+                    title: gameTitle,
+                    focusAudio: '',
+                  });
+                  if (onRefresh) onRefresh({ id: gameId, title: gameTitle, focusAudio: '' });
                 }
               }}
               gamepadConnected={gamepadConnected}

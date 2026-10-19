@@ -1121,6 +1121,16 @@ function createWindow() {
     broadcastMediaSessions();
   });
 
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (
+      (input.key === 'F12' && input.type === 'keyDown') ||
+      (input.control && input.shift && input.key.toLowerCase() === 'i' && input.type === 'keyDown')
+    ) {
+      mainWindow.webContents.toggleDevTools();
+      event.preventDefault();
+    }
+  });
+
   // Determinar si estamos en modo desarrollo o producción
   const isDev = !app.isPackaged;
 

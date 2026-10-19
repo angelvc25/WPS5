@@ -126,6 +126,7 @@ export interface UseFocusNavigationOptions {
   setHomeBgModalVisible: (v: boolean) => void;
   setWelcomeSettingsVisible: (v: boolean) => void;
   setDetailVisible: (v: boolean) => void;
+  setDetailInitialEditMode?: (v: boolean) => void;
   setSelectedItem: (item: ConsoleItem | null) => void;
   setSearchVisible: (v: boolean) => void;
   setUserModalVisible: (v: boolean) => void;
@@ -1108,6 +1109,7 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
                 const target = activeItem.isLastPlayed ? o.lastPlayedGame : activeItem;
                 if (target) {
                   o.setSelectedItem(target);
+                  o.setDetailInitialEditMode?.(true);
                   o.setDetailVisible(true);
                 } else {
                   // Usar el toast para el caso de no juego lanzado

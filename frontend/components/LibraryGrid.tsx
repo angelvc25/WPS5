@@ -10,6 +10,7 @@ import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, use
 import { Modal, Platform, Image as RNImage, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
+import ErrorBoundary from './ErrorBoundary';
 import GameDetailView from './GameDetailView';
 import RadarFocusWrapper from './RadarFocusWrapper';
 
@@ -1269,17 +1270,22 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
         </View>
       </View>
 
-      <GameDetailView
-        isVisible={selectedGame !== null}
-        item={selectedGame}
-        onClose={() => { setSelectedGame(null); onDetailVisibilityChange?.(false); }}
-        onLaunch={onLaunch}
-        onRefresh={onRefresh}
-        isLaunching={isLaunching}
-        inputMode={inputMode}
-        gamepadConnected={inputMode === 'gamepad'}
-        installedSteamAppIds={installedSteamAppIds}
-      />
+      <ErrorBoundary
+        fallbackTitle="Error en la vista de detalles del juego"
+        onReset={() => { setSelectedGame(null); onDetailVisibilityChange?.(false); }}
+      >
+        <GameDetailView
+          isVisible={selectedGame !== null}
+          item={selectedGame}
+          onClose={() => { setSelectedGame(null); onDetailVisibilityChange?.(false); }}
+          onLaunch={onLaunch}
+          onRefresh={onRefresh}
+          isLaunching={isLaunching}
+          inputMode={inputMode}
+          gamepadConnected={inputMode === 'gamepad'}
+          installedSteamAppIds={installedSteamAppIds}
+        />
+      </ErrorBoundary>
     </Animated.View>
   );
 });

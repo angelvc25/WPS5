@@ -124,6 +124,7 @@ interface GameInfoPanelProps {
   activeDownload?: SteamDownloadItem | null;
   onAchievementCountChange?: (count: number) => void;
   onOpenMediaGallery?: () => void;
+  onOpenConfig?: (item: ConsoleItem) => void;
 }
 
 export const GameInfoPanel = ({
@@ -153,6 +154,7 @@ export const GameInfoPanel = ({
   activeDownload = null,
   onAchievementCountChange,
   onOpenMediaGallery,
+  onOpenConfig,
 }: GameInfoPanelProps) => {
   const { t, language } = useTranslation();
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : t('lastPlayed.title')) : activeItem?.title;
@@ -940,8 +942,12 @@ export const GameInfoPanel = ({
                     if (activeItem) {
                       const target = activeItem.isLastPlayed ? lastPlayedGame : activeItem;
                       if (target) {
-                        setSelectedItem(target);
-                        setDetailVisible(true);
+                        if (onOpenConfig) {
+                          onOpenConfig(target);
+                        } else {
+                          setSelectedItem(target);
+                          setDetailVisible(true);
+                        }
                       } else {
                         toastService.show(t('game.noPlayedGame'));
                       }
