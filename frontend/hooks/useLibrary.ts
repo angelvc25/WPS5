@@ -1,6 +1,7 @@
 import type { ConsoleItem, StoreSource } from '@/app/(tabs)/index';
 import { UserProfile } from '@/components/UserSelectScreen';
 import { TranslationKey } from '@/i18n/translations';
+import { nativeStorage } from '@/services/nativeStorage';
 import {
     fingerprintOnlineLibrary,
     markOnlineLibraryLoaded,
@@ -245,9 +246,11 @@ export function useLibrary({
 
         // Disparar 'wps5-home-ready' solo cuando el fondo del carrusel activo
         // esté decodificado por el navegador, evitando el flash negro al entrar.
-        // Si el fondo es un require() local (objeto con 'uri' o number) lo
-        // resolvemos a string; si tarda más de 2s, disparamos igual (seguridad).
-        const dispatchReady = () => window.dispatchEvent(new Event('wps5-home-ready'));
+        const dispatchReady = () => {
+            if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+                window.dispatchEvent(new Event('wps5-home-ready'));
+            }
+        };
 
         // Resolver URI de la imagen de fondo actual
         // Intentar con el homeBackground del usuario (la imagen más probable de
@@ -460,148 +463,137 @@ export function useLibrary({
 
     const searchableMedia = useMemo(() => media, [media]);
 
-    // ── Función: cargar apps desde Electron IPC ───────────────────────────────
+    // ── Función: cargar apps desde Electron IPC o almacenamiento nativo ───────────
     const loadApps = useCallback(() => {
-        if (Platform.OS === 'web' && (window as any).electronAPI) {
-            (window as any).electronAPI.getApps().then((data: any) => {
-                // Convierte una ruta o URL guardada al formato { uri } de expo-image.
-                // Los valores no-string se ignoran para que un registro corrupto
-                // nunca rompa el refresco de toda la lista.
-                const toUri = (v: unknown) => {
-                    if (typeof v !== 'string' || !v) return null;
-                    if (v.startsWith('http')) return { uri: v };
-                    const clean = v.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
-                    return { uri: `local-file:///${clean}` };
-                };
-                const formatApp = (app: any) => ({
-                    id: app.id,
-                    title: app.title,
-                    time: app.type === 'game' ? (app.platform || t('cc.typeGame')) : (app.type === 'web' ? 'Web App' : 'Media'),
-                    image: app.imageBase64
-                        ? { uri: app.imageBase64 }
-                        : (toUri(app.image)
-                            ?? (app.id === 'spotify_default' ? require('@/assets/images/spotify_portada.png') : (app.type === 'web' ? require('@/assets/images/web_default.jpg') : require('@/assets/images/Home.gif')))
-                        ),
-                    logo: app.logoBase64 ? { uri: app.logoBase64 } : (toUri(app.logo)
-                        ?? (app.id === 'spotify_default' ? require('@/assets/images/spotify_logo.png') : null)),
-                    backgroundImage: app.backgroundImageBase64
-                        ? { uri: app.backgroundImageBase64 }
-                        : (toUri(app.backgroundImage)
-                            ?? (app.id === 'spotify_default' ? require('@/assets/images/spotify_fondo.png') : require('@/assets/images/FondoDefault2.jpg'))
-                        ),
-                    video: toUri(app.video),
-                    focusAudio: app.focusAudio,
-                    path: app.path,
-                    launchArgs: app.launchArgs,
-                    description: app.description || (app.id === 'spotify_default' ? t('home.musicDesc') : ''),
-                    rating: app.rating,
-                    publisher: app.publisher,
-                    genres: app.genres,
-                    releaseDate: app.releaseDate,
-                    gameId: app.gameId,
-                    isFavorite: app.isFavorite,
-                    lastPlayed: app.lastPlayed,
-                    playtimeMinutes: Number(app.playtimeMinutes ?? app.playtime_forever ?? 0),
-                    playtime_forever: Number(app.playtime_forever ?? app.playtimeMinutes ?? 0),
-                    youtubeId: app.youtubeId,
-                    type: app.type,
-                    platform: app.platform,
-                    retroSystem: app.retroSystem,
-                    isPinned: app.isPinned,
-                });
-                const validRawGames = (data.games || []).filter((app: any) => {
-                    if (!app || !app.id) return false;
-                    if (app.id === '1' || app.id === '5' || app.id === 'last_played' || app.id === 'more_library') return false;
-                    const isSteamOrEpic = app.id.toString().startsWith('steam_') || app.id.toString().startsWith('epic_');
-                    if (isSteamOrEpic && (!app.title || app.title.trim() === '' || app.title === 'Juego')) {
-                        return false;
-                    }
-                    return true;
-                });
-                const gamesList = validRawGames.map(formatApp);
-                const mediaList = (data.media || []).map(formatApp);
+        const fetchAppsPromise = (Platform.OS === 'web' && (window as any).electronAPI?.getApps)
+            ? (window as any).electronAPI.getApps()
+            : nativeStorage.getApps();
 
-                // Respeta la fuente elegida (Steam o PS5) para no revertir el icono al recargar la lista.
-                const storeSource: StoreSource = activeUser?.settings?.storeSource || getPersistedStoreSource();
-                const initialGames = getInitialGames(t, storeSource);
-                const home = initialGames.find(g => g.id === '1');
-                const lastPlayed = initialGames.find(g => g.id === 'last_played');
-                const favGames = initialGames.find(g => g.id === '3');
-                const favMedia = initialGames.find(g => g.id === '4');
-                const ps5store = initialGames.find(g => g.id === '5');
-
-                const baseItems = [ps5store, home, lastPlayed, favGames, favMedia].filter(Boolean) as ConsoleItem[];
-
-                // Find the most recently played game/media across all sources (manual, steam, epic, xbox, media)
-                const currentSteamGames = getEffectiveSteamGames();
-                const currentEpicGames = epicGamesRef.current;
-                const currentXboxGames = xboxGamesRef.current;
-                const allFormatted = [
-                    ...gamesList,
-                    ...mediaList,
-                    ...currentSteamGames,
-                    ...currentEpicGames,
-                    ...currentXboxGames,
-                ];
-                const sortedByLastPlayed = allFormatted
-                    // Un juego fijado no debe convertirse en "Último Jugado": ya tiene
-                    // su propio lugar fijo en Inicio, y si se le excluyera de
-                    // `gamesList` más abajo (para "no duplicar" con esa tarjeta)
-                    // desaparecería por completo de su lugar fijado.
-                    .filter((i: any) => i.lastPlayed && !i.isPinned && i.id !== '1' && i.id !== '5' && i.id !== 'last_played' && i.id !== 'more_library')
-                    .sort((a: any, b: any) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
-                let latestGame = sortedByLastPlayed[0] || null;
-
-                if (latestGame && (latestGame.id?.toString().startsWith('steam_') || latestGame.id?.toString().startsWith('epic_') || latestGame.id?.toString().startsWith('xbox_'))) {
-                    const richVersion = currentSteamGames.find(g => g.id === latestGame!.id) ||
-                        currentEpicGames.find(g => g.id === latestGame!.id) ||
-                        currentXboxGames.find(g => g.id === latestGame!.id);
-                    if (richVersion) {
-                        latestGame = {
-                            ...richVersion,
-                            lastPlayed: latestGame.lastPlayed,
-                            playtimeMinutes: latestGame.playtimeMinutes ?? richVersion.playtimeMinutes,
-                            playtime_forever: latestGame.playtime_forever ?? richVersion.playtime_forever,
-                        };
-                    }
-                }
-
-                // Exclude last played game from the row to avoid duplication.
-                // Sort remaining games: most recently played first, then unplayed in original order.
-                const gamesWithoutLastPlayed = (latestGame && latestGame.id !== '1' && latestGame.id !== '5')
-                    ? gamesList.filter((g: any) => g.id !== latestGame.id)
-                    : gamesList;
-                const pinnedGames = gamesWithoutLastPlayed.filter((g: any) => g.isPinned);
-                const gamesWithHistory = gamesWithoutLastPlayed
-                    .filter((g: any) => g.lastPlayed && !g.isPinned)
-                    .sort((a: any, b: any) => b.lastPlayed - a.lastPlayed);
-                const gamesWithoutHistory = gamesWithoutLastPlayed.filter((g: any) => !g.lastPlayed && !g.isPinned);
-                const sortedGames = [...pinnedGames, ...gamesWithHistory, ...gamesWithoutHistory];
-
-                setGames([...baseItems, ...sortedGames]);
-                // La librería local ya está cargada: el auto-sync online puede empezar
-                // a programar subidas (antes no, para no podar el catálogo remoto).
-                markOnlineLibraryLoaded();
-
-                const initialMedia = getInitialMedia(t);
-                const filteredDataMedia = initialMedia.filter((defaultItem: any) =>
-                    !mediaList.some((userItem: any) => userItem.id === defaultItem.id)
-                );
-                setMedia([...filteredDataMedia, ...mediaList.reverse()]);
-
-                if (latestGame && latestGame.id !== '1' && latestGame.id !== '5') {
-                    setLastPlayedGame(latestGame);
-                } else {
-                    setLastPlayedGame(null);
-                }
-                setAppsLoaded(true);
-            }).catch((e: any) => {
-                console.error('[loadApps] Error refrescando la lista:', e);
-                setAppsLoaded(true); // no dejar el overlay esperando si falla
+        fetchAppsPromise.then((data: any) => {
+            // Convierte una ruta o URL guardada al formato { uri } de expo-image.
+            const toUri = (v: unknown) => {
+                if (typeof v !== 'string' || !v) return null;
+                if (v.startsWith('http')) return { uri: v };
+                const clean = v.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
+                return { uri: `local-file:///${clean}` };
+            };
+            const formatApp = (app: any) => ({
+                id: app.id,
+                title: app.title,
+                time: app.type === 'game' ? (app.platform || t('cc.typeGame')) : (app.type === 'web' ? 'Web App' : 'Media'),
+                image: app.imageBase64
+                    ? { uri: app.imageBase64 }
+                    : (toUri(app.image)
+                        ?? (app.id === 'spotify_default' ? require('@/assets/images/spotify_portada.png') : (app.type === 'web' ? require('@/assets/images/web_default.jpg') : require('@/assets/images/Home.gif')))
+                    ),
+                logo: app.logoBase64 ? { uri: app.logoBase64 } : (toUri(app.logo)
+                    ?? (app.id === 'spotify_default' ? require('@/assets/images/spotify_logo.png') : null)),
+                backgroundImage: app.backgroundImageBase64
+                    ? { uri: app.backgroundImageBase64 }
+                    : (toUri(app.backgroundImage)
+                        ?? (app.id === 'spotify_default' ? require('@/assets/images/spotify_fondo.png') : require('@/assets/images/FondoDefault2.jpg'))
+                    ),
+                video: toUri(app.video),
+                focusAudio: app.focusAudio,
+                path: app.path,
+                launchArgs: app.launchArgs,
+                description: app.description || (app.id === 'spotify_default' ? t('home.musicDesc') : ''),
+                rating: app.rating,
+                publisher: app.publisher,
+                genres: app.genres,
+                releaseDate: app.releaseDate,
+                gameId: app.gameId,
+                isFavorite: app.isFavorite,
+                lastPlayed: app.lastPlayed,
+                playtimeMinutes: Number(app.playtimeMinutes ?? app.playtime_forever ?? 0),
+                playtime_forever: Number(app.playtime_forever ?? app.playtimeMinutes ?? 0),
+                youtubeId: app.youtubeId,
+                type: app.type,
+                platform: app.platform,
+                retroSystem: app.retroSystem,
+                isPinned: app.isPinned,
             });
-        } else {
-            setAppsLoaded(true); // sin Electron no hay nada que cargar
-        }
+            const validRawGames = (data.games || []).filter((app: any) => {
+                if (!app || !app.id) return false;
+                if (app.id === '1' || app.id === '5' || app.id === 'last_played' || app.id === 'more_library') return false;
+                const isSteamOrEpic = app.id.toString().startsWith('steam_') || app.id.toString().startsWith('epic_');
+                if (isSteamOrEpic && (!app.title || app.title.trim() === '' || app.title === 'Juego')) {
+                    return false;
+                }
+                return true;
+            });
+            const gamesList = validRawGames.map(formatApp);
+            const mediaList = (data.media || []).map(formatApp);
+
+            // Respeta la fuente elegida (Steam o PS5) para no revertir el icono al recargar la lista.
+            const storeSource: StoreSource = activeUser?.settings?.storeSource || getPersistedStoreSource();
+            const initialGames = getInitialGames(t, storeSource);
+            const home = initialGames.find(g => g.id === '1');
+            const lastPlayed = initialGames.find(g => g.id === 'last_played');
+            const favGames = initialGames.find(g => g.id === '3');
+            const favMedia = initialGames.find(g => g.id === '4');
+            const ps5store = initialGames.find(g => g.id === '5');
+
+            const baseItems = [ps5store, home, lastPlayed, favGames, favMedia].filter(Boolean) as ConsoleItem[];
+
+            // Find the most recently played game/media across all sources
+            const currentSteamGames = getEffectiveSteamGames();
+            const currentEpicGames = epicGamesRef.current;
+            const currentXboxGames = xboxGamesRef.current;
+            const allFormatted = [
+                ...gamesList,
+                ...mediaList,
+                ...currentSteamGames,
+                ...currentEpicGames,
+                ...currentXboxGames,
+            ];
+            const sortedByLastPlayed = allFormatted
+                .filter((i: any) => i.lastPlayed && !i.isPinned && i.id !== '1' && i.id !== '5' && i.id !== 'last_played' && i.id !== 'more_library')
+                .sort((a: any, b: any) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+            let latestGame = sortedByLastPlayed[0] || null;
+
+            if (latestGame && (latestGame.id?.toString().startsWith('steam_') || latestGame.id?.toString().startsWith('epic_') || latestGame.id?.toString().startsWith('xbox_'))) {
+                const richVersion = currentSteamGames.find(g => g.id === latestGame!.id) ||
+                    currentEpicGames.find(g => g.id === latestGame!.id) ||
+                    currentXboxGames.find(g => g.id === latestGame!.id);
+                if (richVersion) {
+                    latestGame = {
+                        ...richVersion,
+                        lastPlayed: latestGame.lastPlayed,
+                        playtimeMinutes: latestGame.playtimeMinutes ?? richVersion.playtimeMinutes,
+                        playtime_forever: latestGame.playtime_forever ?? richVersion.playtime_forever,
+                    };
+                }
+            }
+
+            const gamesWithoutLastPlayed = (latestGame && latestGame.id !== '1' && latestGame.id !== '5')
+                ? gamesList.filter((g: any) => g.id !== latestGame.id)
+                : gamesList;
+            const pinnedGames = gamesWithoutLastPlayed.filter((g: any) => g.isPinned);
+            const gamesWithHistory = gamesWithoutLastPlayed
+                .filter((g: any) => g.lastPlayed && !g.isPinned)
+                .sort((a: any, b: any) => b.lastPlayed - a.lastPlayed);
+            const gamesWithoutHistory = gamesWithoutLastPlayed.filter((g: any) => !g.lastPlayed && !g.isPinned);
+            const sortedGames = [...pinnedGames, ...gamesWithHistory, ...gamesWithoutHistory];
+
+            setGames([...baseItems, ...sortedGames]);
+
+            const initialMedia = getInitialMedia(t);
+            const filteredDataMedia = initialMedia.filter((defaultItem: any) =>
+                !mediaList.some((userItem: any) => userItem.id === defaultItem.id)
+            );
+            setMedia([...filteredDataMedia, ...mediaList.reverse()]);
+
+            if (latestGame && latestGame.id !== '1' && latestGame.id !== '5') {
+                setLastPlayedGame(latestGame);
+            } else {
+                setLastPlayedGame(null);
+            }
+            setAppsLoaded(true);
+        }).catch((e: any) => {
+            console.error('[loadApps] Error refrescando la lista:', e);
+            setAppsLoaded(true);
+        });
     }, [activeUser, t, getEffectiveSteamGames, epicGamesRef, xboxGamesRef]);
 
     // ── Función: actualizar playtime tras cerrar un juego ─────────────────────
@@ -839,6 +831,14 @@ export function useLibrary({
             } else {
                 toastService.show('toast.error');
             }
+        } else {
+            await nativeStorage.deleteApp(target.id);
+            setGames(prev => prev.filter(g => g.id !== target.id));
+            if (selectedItem?.id === target.id) {
+                setDetailVisible(false);
+                setSelectedItem(null);
+            }
+            loadApps();
         }
     }, [setSteamGames, selectedItem, setDetailVisible, setSelectedItem, loadApps]);
 

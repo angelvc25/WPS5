@@ -80,6 +80,7 @@ import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId, fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { androidAppService } from '@/services/androidAppService';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -1550,6 +1551,42 @@ export default function ConsoleHome() {
         setIsLaunching(false);
         setLaunchingItem(null);
         toastService.show(t('toast.error'));
+      });
+    } else {
+      // Lanzamiento en Android / dispositivos móviles
+      setLaunchingItem(targetItem);
+      setIsLaunching(true);
+      setDetailVisible(false);
+      libraryGridRef.current?.closeDetail();
+      setIsLibraryDetailVisible(false);
+      setFavoritesVisible(false);
+      setRandomSelectorVisible(false);
+
+      androidAppService.launchApp({
+        id: targetItem.id,
+        title: targetItem.title,
+        path: launchPath,
+        launchArgs: targetItem.launchArgs,
+      }).then((success) => {
+        if (success) {
+          markGameAsLastPlayed(targetItem);
+          loadApps();
+          soundService.stopBackground();
+          if (activeTab === 'Games') {
+            const lpIdx = currentData.findIndex(x => x.id === 'last_played');
+            if (lpIdx !== -1) {
+              setActiveIndex(lpIdx);
+            }
+          }
+        }
+        setTimeout(() => {
+          setIsLaunching(false);
+          setLaunchingItem(null);
+        }, 2000);
+      }).catch((e: any) => {
+        console.error('[Launch Android] Error:', e);
+        setIsLaunching(false);
+        setLaunchingItem(null);
       });
     }
   };

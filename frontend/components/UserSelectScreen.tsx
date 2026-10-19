@@ -19,6 +19,7 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import BackgroundVideo from './BackgroundVideo';
 import ProfileContextMenu, { ProfileMenuMode } from './ProfileContextMenu';
 import { toastService } from '@/services/toastService';
+import { nativeStorage } from '../services/nativeStorage';
 
 import type { FieldSyncPreferences } from '../services/metadataPreferences';
 import type { EmulatorConfig } from '../services/emulationService';
@@ -127,8 +128,9 @@ const DEFAULT_USERS: UserProfile[] = [
 
 // ─── Radar canvas drawing ────────────────────────────────────────────────────
 function startRadarAnimation(canvasId: string): () => void {
+  if (typeof document === 'undefined' || !document.getElementById) return () => { };
   const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
-  if (!canvas) return () => { };
+  if (!canvas || !canvas.getContext) return () => { };
   const ctx = canvas.getContext('2d')!;
   const SIZE = 164, cx = 82, cy = 82, R = 77, LINE = 2.5;
   const CYCLE = 12; // seconds
@@ -259,33 +261,20 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   // ── Load users ──────────────────────────────────────────────────────────
   useEffect(() => {
     const loadUsers = async () => {
-      if (Platform.OS === 'web' && (window as any).electronAPI) {
-        try {
-          const dbUsers = await (window as any).electronAPI.getUsers();
-          if (dbUsers && dbUsers.length > 0) {
-            setUsers(dbUsers);
-            localStorage.setItem('console_users', JSON.stringify(dbUsers));
-            setHoveredId(dbUsers[0].id);
-            return;
-          }
-        } catch (err) {
-          console.error('Error loading users from DB:', err);
+      try {
+        const storedUsers = await nativeStorage.getUsers();
+        if (storedUsers && storedUsers.length > 0) {
+          setUsers(storedUsers);
+          setHoveredId(storedUsers[0].id);
+          return;
         }
+      } catch (err) {
+        console.warn('[UserSelectScreen] Error loading users:', err);
       }
 
-      const saved = localStorage.getItem('console_users');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setUsers(parsed);
-        if (parsed.length > 0) setHoveredId(parsed[0].id);
-      } else {
-        localStorage.setItem('console_users', JSON.stringify(DEFAULT_USERS));
-        setUsers(DEFAULT_USERS);
-        setHoveredId(DEFAULT_USERS[0].id);
-        if (Platform.OS === 'web' && (window as any).electronAPI) {
-          (window as any).electronAPI.saveUsers(DEFAULT_USERS);
-        }
-      }
+      setUsers(DEFAULT_USERS);
+      setHoveredId(DEFAULT_USERS[0].id);
+      await nativeStorage.saveUsers(DEFAULT_USERS);
     };
 
     loadUsers();
@@ -304,7 +293,8 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     } else if (node && typeof node.measureInWindow === 'function') {
       node.measureInWindow((x: number, y: number, w: number) => place(x + w + 10, y + 30));
     } else {
-      place(window.innerWidth / 2 + 120, window.innerHeight / 2 - 80);
+      const win = Dimensions.get('window');
+      place(win.width / 2 + 120, win.height / 2 - 80);
     }
   };
 
@@ -316,6 +306,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
     setUsers(newList);
     localStorage.setItem('console_users', JSON.stringify(newList));
+    nativeStorage.saveUsers(newList).catch?.(console.error);
     if (Platform.OS === 'web' && (window as any).electronAPI) {
       (window as any).electronAPI.saveUsers(newList).catch?.(console.error);
     }
@@ -444,6 +435,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
           const newList = [...users, newUser];
           setUsers(newList);
           localStorage.setItem('console_users', JSON.stringify(newList));
+          nativeStorage.saveUsers(newList).catch(() => {});
           if (Platform.OS === 'web' && (window as any).electronAPI) {
             (window as any).electronAPI.saveUsers(newList);
           }
@@ -541,6 +533,10 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     soundService.playActivation?.();
     setSelectedId(user.id);
     setHoveredId(user.id);
+
+    // Persistir el último usuario seleccionado para el splash de arranque
+    localStorage.setItem('console_last_user_id', user.id);
+    nativeStorage.setItem('console_last_user_id', user.id).catch(() => {});
 
     // Primero termina la animación (el hilo de JS aún está libre) y solo
     // después se notifica al layout, que monta Home y bloquea el hilo.

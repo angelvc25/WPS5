@@ -11,6 +11,8 @@ import { fetchSteamInfo } from '@/services/steamDescriptionService';
 import { fetchPsnMetadata, psnLocaleForLanguage, isPsnEligiblePlatform } from '@/services/psnMetadataService';
 import { resolveFieldSyncPreferences } from '@/services/metadataPreferences';
 import { fetchRawgFieldData } from '@/services/metadataFields';
+import { nativeStorage } from '@/services/nativeStorage';
+import { POPULAR_ANDROID_CATALOG } from '@/services/androidAppService';
 import {
   ActivityIndicator,
   Modal,
@@ -202,7 +204,19 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
           setLoading(false);
         });
     } else {
-      setPrograms([]);
+      // En Android: mostrar el catálogo popular predefinido
+      setLoading(true);
+      const catalog: InstalledProgram[] = POPULAR_ANDROID_CATALOG.map((app) => ({
+        name: app.name,
+        path: app.packageName,
+        icon: app.image || null,
+        location: app.packageName,
+        checked: false,
+        source: 'android',
+        folderName: app.platform,
+        exeName: app.packageName,
+      }));
+      setPrograms(catalog);
       setLoading(false);
     }
   }, [visible]);
@@ -249,20 +263,18 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
 
   // Botón "Buscar..." para explorar un ejecutable / shortcut manualmente
   const handleBrowseFile = async () => {
+    soundService.playNavigation();
+
     if (Platform.OS === 'web' && (window as any).electronAPI?.selectFile) {
-      soundService.playNavigation();
       const filePath = await (window as any).electronAPI.selectFile();
       if (filePath) {
         const { suggestedName, folderName, exeName } = extractSmartGameName(filePath);
-
-        // Verificar si ya existe
         const existingIdx = programs.findIndex((p) => p.path === filePath);
         if (existingIdx !== -1) {
           setPrograms((prev) =>
             prev.map((p, idx) => (idx === existingIdx ? { ...p, checked: true, name: suggestedName || p.name, folderName, exeName } : p))
           );
         } else {
-          // Agregar al principio como chequeado con el nombre inteligente de la carpeta
           const newProg: InstalledProgram = {
             name: suggestedName,
             path: filePath,
@@ -274,10 +286,25 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
           };
           setPrograms((prev) => [newProg, ...prev]);
         }
-        // Iniciar edición de nombre de inmediato para que el usuario pueda confirmar o afinar
         setEditingPath(filePath);
         setEditingName(suggestedName);
       }
+    } else if (Platform.OS === 'android') {
+      // En Android: abrir un cuadro para que el usuario escriba el paquete manualmente
+      // (por ejemplo: com.retroarch, com.mojang.minecraftpe)
+      const pkgName = '';
+      const newProg: InstalledProgram = {
+        name: 'Nueva App',
+        path: pkgName,
+        location: pkgName,
+        checked: true,
+        isCustom: true,
+        folderName: '',
+        exeName: pkgName,
+      };
+      setPrograms((prev) => [newProg, ...prev]);
+      setEditingPath(pkgName);
+      setEditingName('Nueva App');
     }
   };
 
@@ -470,8 +497,22 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
           if (meta.releaseDate) appToSave.releaseDate = meta.releaseDate;
         }
 
-        if ((window as any).electronAPI?.saveApp) {
+        // En Android: enriquecer la app del catálogo con los metadatos del catálogo local
+        if (Platform.OS !== 'web') {
+          const catalogEntry = POPULAR_ANDROID_CATALOG.find(c => c.packageName === prog.path);
+          if (catalogEntry) {
+            if (!appToSave.image && catalogEntry.image) appToSave.image = catalogEntry.image;
+            if (!appToSave.backgroundImage && catalogEntry.backgroundImage) appToSave.backgroundImage = catalogEntry.backgroundImage;
+            if (!appToSave.description && catalogEntry.description) appToSave.description = catalogEntry.description;
+            if (!appToSave.rating && catalogEntry.rating) appToSave.rating = catalogEntry.rating;
+          }
+        }
+
+        if (Platform.OS === 'web' && (window as any).electronAPI?.saveApp) {
           await (window as any).electronAPI.saveApp(appToSave);
+          addedCount++;
+        } else if (Platform.OS !== 'web') {
+          await nativeStorage.saveApp(appToSave);
           addedCount++;
         }
       }

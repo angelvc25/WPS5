@@ -1,3 +1,4 @@
+import nativeStorage from '@/services/nativeStorage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Image } from 'expo-image';
@@ -205,10 +206,17 @@ function RootLayoutInner() {
         }, 500);
       }, 900);
     };
-    window.addEventListener('wps5-home-ready', done, { once: true });
-    const safety = setTimeout(done, 8000); // red de seguridad (incluye el delay de 900 ms de presentación)
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.addEventListener('wps5-home-ready', done, { once: true });
+    } else {
+      // En Android, activar directamente sin depender del evento del DOM
+      setTimeout(done, 500);
+    }
+    const safety = setTimeout(done, 8000);
     return () => {
-      window.removeEventListener('wps5-home-ready', done);
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.removeEventListener('wps5-home-ready', done);
+      }
       clearTimeout(safety);
     };
   }, [activeUser?.id]);
@@ -225,7 +233,7 @@ function RootLayoutInner() {
   const finishSplash = () => {
     if (splashFinishedRef.current) return;
     splashFinishedRef.current = true;
-    if (typeof window !== 'undefined') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       (window as any).WPS5_SPLASH_DONE = true;
       window.dispatchEvent(new CustomEvent('wps5-splash-done'));
     }
@@ -305,9 +313,11 @@ function RootLayoutInner() {
   if (isOverlayMode) {
     return (
       <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-        <style dangerouslySetInnerHTML={{
-          __html: GLOBAL_CSS_FONTS + OVERLAY_CSS_TRANSPARENT
-        }} />
+        {Platform.OS === 'web' && (
+          <style dangerouslySetInnerHTML={{
+            __html: GLOBAL_CSS_FONTS + OVERLAY_CSS_TRANSPARENT
+          }} />
+        )}
         <OverlayScreen />
       </View>
     );
@@ -318,13 +328,12 @@ function RootLayoutInner() {
     // nunca herede la sesión de otro perfil.
     setCurrentOnlineProfileId(user.id, (user.settings as any)?.onlineUserId ?? null);
     setActiveUser(user);
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      localStorage.setItem(LAST_USER_STORAGE_KEY, user.id);
-    }
+    localStorage.setItem(LAST_USER_STORAGE_KEY, user.id);
+    nativeStorage.setItem(LAST_USER_STORAGE_KEY, user.id).catch(() => {});
     if (isLanguage(user.settings?.language)) {
       setLanguage(user.settings.language);
     }
-    if ((window as any).electronAPI?.setOverlaySettings) {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && (window as any).electronAPI?.setOverlaySettings) {
       (window as any).electronAPI.setOverlaySettings({
         enabled: user.settings?.overlayEnabled !== false,
         combo: user.settings?.overlayCombo || 'SELECT_START',
@@ -338,14 +347,18 @@ function RootLayoutInner() {
       const newUser = { ...prevUser, ...updates };
       const savedUsers = localStorage.getItem('console_users');
       if (savedUsers) {
-        const usersList: UserProfile[] = JSON.parse(savedUsers);
-        const updatedList = usersList.map(u => u.id === newUser.id ? newUser : u);
-        localStorage.setItem('console_users', JSON.stringify(updatedList));
-        if ((window as any).electronAPI) {
-          (window as any).electronAPI.saveUsers(updatedList).catch(console.error);
-        }
+        try {
+          const usersList: UserProfile[] = JSON.parse(savedUsers);
+          const updatedList = usersList.map(u => u.id === newUser.id ? newUser : u);
+          localStorage.setItem('console_users', JSON.stringify(updatedList));
+          // Persistir también en AsyncStorage (Android)
+          nativeStorage.saveUsers(updatedList).catch(() => {});
+          if (Platform.OS === 'web' && typeof window !== 'undefined' && (window as any).electronAPI) {
+            (window as any).electronAPI.saveUsers(updatedList).catch(console.error);
+          }
+        } catch {}
       }
-      if (updates.settings && (window as any).electronAPI?.setOverlaySettings) {
+      if (updates.settings && Platform.OS === 'web' && typeof window !== 'undefined' && (window as any).electronAPI?.setOverlaySettings) {
         (window as any).electronAPI.setOverlaySettings({
           enabled: newUser.settings?.overlayEnabled !== false,
           combo: newUser.settings?.overlayCombo || 'SELECT_START',
@@ -364,9 +377,11 @@ function RootLayoutInner() {
   return (
     <UserContext.Provider value={{ activeUser, changeUser: () => setActiveUser(null), updateUser }}>
       <WPSThemeProvider>
-        <style dangerouslySetInnerHTML={{
-          __html: GLOBAL_CSS_FONTS
-        }} />
+        {Platform.OS === 'web' && (
+          <style dangerouslySetInnerHTML={{
+            __html: GLOBAL_CSS_FONTS
+          }} />
+        )}
         <View style={{ flex: 1, backgroundColor: activeUser ? 'transparent' : '#000' }}>
           {activeUser && (
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

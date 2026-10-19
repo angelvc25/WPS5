@@ -37,6 +37,7 @@ import BackgroundVideo from './BackgroundVideo';
 import { toastService } from '@/services/toastService';
 import VirtualKeyboard from './VirtualKeyboard';
 import KHInsiderMusicModal from './KHInsiderMusicModal';
+import { androidAppService } from '../services/androidAppService';
 
 
 interface GameDetailViewProps {
@@ -1563,7 +1564,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               onOpenMediaGallery?.();
             } else if (item?.path) {
               if (onLaunch) onLaunch(item.id, item.path, item.launchArgs);
-              else if ((window as any).electronAPI) (window as any).electronAPI.launchApp(item.id, item.path, item.launchArgs);
+              else if (Platform.OS === 'web' && (window as any).electronAPI) (window as any).electronAPI.launchApp(item.id, item.path, item.launchArgs);
+              else androidAppService.launchApp({ id: item.id, title: item.title, path: item.path, launchArgs: item.launchArgs });
             }
           } else if (focusIndex === 1) {
             setEditModalVisible(true);
@@ -1971,6 +1973,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                     if (onLaunch) onLaunch(item.id, launchPath, editData.launchArgs ?? item.launchArgs);
                     else if (Platform.OS === 'web' && (window as any).electronAPI)
                       (window as any).electronAPI.launchApp(item.id, launchPath, editData.launchArgs ?? item.launchArgs);
+                    else
+                      androidAppService.launchApp({ id: item.id, title: item.title, path: launchPath, launchArgs: editData.launchArgs ?? item.launchArgs });
                   } else {
                     setActiveTab('path');
                     setEditModalVisible(true);
