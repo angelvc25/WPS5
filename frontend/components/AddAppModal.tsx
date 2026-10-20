@@ -551,8 +551,14 @@ export const AddAppModal: React.FC<AddAppModalProps> = ({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    if (Platform.OS === 'web') {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      if (Platform.OS === 'web') {
+        window.removeEventListener('keydown', handleKeyDown);
+      }
+    };
   }, [visible, onClose, editingPath]);
 
   // Estilos dinámicos calculados según el tamaño de la ventana

@@ -127,6 +127,25 @@ const DEFAULT_USERS: UserProfile[] = [
 ];
 
 // ─── Radar canvas drawing ────────────────────────────────────────────────────
+
+const DEFAULT_AVATAR_REQUIRE = require('@/assets/images/userDefault.jpeg');
+
+/** Resuelve la fuente de imagen del avatar para que funcione en web y Android. */
+function resolveAvatarSource(user: UserProfile): any {
+  if (user.settings?.useSteamAvatar && user.steamAvatarUrl) {
+    return { uri: user.steamAvatarUrl };
+  }
+  const avatar = (user as any).avatarBase64 || user.avatar;
+  if (typeof avatar === 'number') return avatar;
+  if (typeof avatar === 'string') {
+    if (avatar.startsWith('data:') || avatar.startsWith('http')) return { uri: avatar };
+    // Ruta local tipo "assets/images/..." → resolvemos con require en native
+    if (Platform.OS !== 'web' && avatar.includes('userDefault')) return DEFAULT_AVATAR_REQUIRE;
+    return { uri: avatar };
+  }
+  return DEFAULT_AVATAR_REQUIRE;
+}
+
 function startRadarAnimation(canvasId: string): () => void {
   if (typeof document === 'undefined' || !document.getElementById) return () => { };
   const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
@@ -223,6 +242,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
   // ── Inject CSS animations once ──────────────────────────────────────────
   useEffect(() => {
+    if (typeof document === 'undefined') return;
     const style = document.createElement('style');
     style.textContent = `
       @keyframes shimmerMove {
@@ -584,15 +604,18 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
       {/* BACKGROUND — COVER en vez de STRETCH: STRETCH deforma la imagen al
           rellenar un contenedor 21:9/32:9 que no comparte el aspect ratio
           original del video; COVER recorta manteniendo proporciones, igual
-          que BackgroundVideo.tsx hace en el resto de la app. */}
-      <BackgroundVideo
-        source={require('@/assets/video/particles.webm')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode={ResizeMode.COVER}
-        shouldPlay
-        isLooping
-        muted
-      />
+          que BackgroundVideo.tsx hace en el resto de la app.
+          En Android no se reproduce (.webm/opus incompatible). */}
+      {Platform.OS === 'web' && (
+        <BackgroundVideo
+          source={require('@/assets/video/particles.webm')}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay
+          isLooping
+          muted
+        />
+      )}
       <View style={styles.overlay} />
 
       {/* CLOCK */}
@@ -675,18 +698,31 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
                       }} />
                     </>
                   )}
-                  <div style={isSelected && Platform.OS === 'web'
-                    ? { display: 'flex', animation: 'wps5UserPulse 1.8s ease-in-out infinite' }
-                    : { display: 'flex' }}>
-                    <RadarFocusWrapper id={user.id} isFocused={isFocused} size={205} innerSize={isFocused ? 180 : 160}>
-                      <View style={[styles.card, isFocused && styles.cardFocused]}>
-                        <Image
-                          source={{ uri: (user.settings?.useSteamAvatar && user.steamAvatarUrl) ? user.steamAvatarUrl : ((user as any).avatarBase64 || user.avatar) }}
-                          style={styles.avatarImg}
-                        />
-                      </View>
-                    </RadarFocusWrapper>
-                  </div>
+                  {Platform.OS === 'web' ? (
+                    <div style={isSelected
+                      ? { display: 'flex', animation: 'wps5UserPulse 1.8s ease-in-out infinite' }
+                      : { display: 'flex' }}>
+                      <RadarFocusWrapper id={user.id} isFocused={isFocused} size={205} innerSize={isFocused ? 180 : 160}>
+                        <View style={[styles.card, isFocused && styles.cardFocused]}>
+                          <Image
+                            source={resolveAvatarSource(user)}
+                            style={styles.avatarImg}
+                          />
+                        </View>
+                      </RadarFocusWrapper>
+                    </div>
+                  ) : (
+                    <View style={{ display: 'flex' }}>
+                      <RadarFocusWrapper id={user.id} isFocused={isFocused} size={205} innerSize={isFocused ? 180 : 160}>
+                        <View style={[styles.card, isFocused && styles.cardFocused]}>
+                          <Image
+                            source={resolveAvatarSource(user)}
+                            style={styles.avatarImg}
+                          />
+                        </View>
+                      </RadarFocusWrapper>
+                    </View>
+                  )}
                 </View>
                 <Text style={[styles.userName, isFocused && styles.userNameFocused]}>
                   {user.name}

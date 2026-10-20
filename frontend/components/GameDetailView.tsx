@@ -1580,8 +1580,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           onClose();
         }
       };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
+      if (Platform.OS === 'web') {
+        window.addEventListener('keydown', handleKeyDown);
+      }
+      return () => {
+        if (Platform.OS === 'web') {
+          window.removeEventListener('keydown', handleKeyDown);
+        }
+      };
     }
   }, [
     isVisible,

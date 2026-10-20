@@ -1124,7 +1124,9 @@ export default function ConsoleHome() {
       soundService.playStartHome();
     };
     const splashDone =
-      typeof window === 'undefined' || (window as any).WPS5_SPLASH_DONE === true;
+      Platform.OS !== 'web' ||
+      typeof window === 'undefined' ||
+      (window as any).WPS5_SPLASH_DONE === true;
     let stopSplashListener: (() => void) | undefined;
     if (splashDone) {
       startInterfaceAudio();

@@ -173,8 +173,9 @@ function RootLayoutInner() {
 
   // Splash de arranque: video personalizado del último usuario; si no tiene
   // (o falla), el video por defecto; si este también falla, solo el logo.
+  // En Android no se intenta el video (.webm/opus no es compatible) — solo logo.
   const customBootActive = !!bootVideoUri && !bootVideoFailed;
-  const hasBootVideo = customBootActive || !defaultBootFailed;
+  const hasBootVideo = Platform.OS === 'web' && (customBootActive || !defaultBootFailed);
   const bootVideoSource = useMemo(
     () => (customBootActive ? { uri: bootVideoUri as string } : DEFAULT_BOOT_VIDEO),
     [customBootActive, bootVideoUri]

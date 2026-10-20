@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
   useSharedValue,
@@ -58,27 +58,29 @@ function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: strin
     >
       <Animated.View style={animatedStyle}>
       <View style={styles.toast}>
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: `
-                    linear-gradient(
-                      90deg,
-                      rgba(207, 241, 253, 0.14) 0%,
-                      rgba(207, 240, 255, 0.06) 35%,
-                      rgba(255,255,255,0.02) 50%,
-                      rgba(255,255,255,0.00) 65%,
-                      rgba(0, 0, 0, 0) 100%
-                    )
-                  `,
-            pointerEvents: 'none',
-            zIndex: 1,
-            opacity: 1,
-            borderRadius: 8,
-            transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-          }}
-        />
+        {Platform.OS === 'web' && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: `
+                      linear-gradient(
+                        90deg,
+                        rgba(207, 241, 253, 0.14) 0%,
+                        rgba(207, 240, 255, 0.06) 35%,
+                        rgba(255,255,255,0.02) 50%,
+                        rgba(255,255,255,0.00) 65%,
+                        rgba(0, 0, 0, 0) 100%
+                      )
+                    `,
+              pointerEvents: 'none',
+              zIndex: 1,
+              opacity: 1,
+              borderRadius: 8,
+              transition: 'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+            }}
+          />
+        )}
         {toast.coverImage ? (
           <Image source={toast.coverImage} style={styles.coverImage} contentFit="cover" />
         ) : toast.icon ? (
