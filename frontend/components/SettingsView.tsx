@@ -18,7 +18,7 @@ import {
   View,
   useWindowDimensions
 } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { toastService } from '../services/toastService';
 import { syncProfileMediaToOnline } from '../services/onlineAccountService';
 import {
@@ -258,6 +258,37 @@ export default function SettingsView({
   const [accessibilityFocusArea, setAccessibilityFocusArea] = useState<'left' | 'right'>('left');
   const [systemLeftIndex, setSystemLeftIndex] = useState(0);
   const [systemFocusArea, setSystemFocusArea] = useState<'left' | 'right'>('left');
+
+  // ── Transición del borde giratorio al cambiar de fila ─────────────────────
+  // IMPORTANTE: estos hooks viven en el CUERPO del componente, nunca dentro
+  // de renderMainScreen(). renderMainScreen() solo se ejecuta cuando la
+  // pantalla es visible, así que si los hooks vivieran ahí el número de hooks
+  // cambiaría entre renders (56 al montar, 57 al abrir Ajustes) y React
+  // lanzaría "Rendered more hooks than during the previous render".
+  const spinningBorderOpacity = useSharedValue(1);
+  const prevMainFocusIndexRef = useRef(mainFocusIndex);
+
+  useEffect(() => {
+    if (prevMainFocusIndexRef.current !== mainFocusIndex && prevMainFocusIndexRef.current !== -1) {
+      // Desaparece el borde de la fila anterior.
+      spinningBorderOpacity.value = withTiming(0, {
+        duration: 200,
+        easing: Easing.in(Easing.quad),
+      });
+      // Y aparece el de la nueva con un pequeño retardo.
+      setTimeout(() => {
+        spinningBorderOpacity.value = withTiming(1, {
+          duration: 300,
+          easing: Easing.out(Easing.quad),
+        });
+      }, 100);
+    }
+    prevMainFocusIndexRef.current = mainFocusIndex;
+  }, [mainFocusIndex]);
+
+  const spinningBorderStyle = useAnimatedStyle(() => ({
+    opacity: spinningBorderOpacity.value,
+  }));
 
   // HDMI toggles state for System sub-screen
   const [hdmiDeviceLink, setHdmiDeviceLink] = useState(true);
@@ -1365,7 +1396,11 @@ export default function SettingsView({
                   {...(Platform.OS === 'web' ? { onMouseEnter: () => setMainFocusIndex(index) } : {}) as any}
                   onPress={item.onPress}
                 >
-                  {isFocused && <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />}
+                  {isFocused && (
+                    <Animated.View style={[styles.spinningBorderContainer, spinningBorderStyle]}>
+                      <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />
+                    </Animated.View>
+                  )}
                   <View style={styles.psMenuRowLeft}>
                     {item.id === 'users_and_accounts' && userAvatarUri ? (
                       <Image
@@ -3488,6 +3523,16 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   psMenuRowFocused: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     //borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  // Contenedor del borde giratorio: se posiciona sobre la fila (inset 0) para
+  // poder animar su opacidad sin mover el resto del layout.
+  spinningBorderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
   },
   psMenuRowLeft: {
     flexDirection: 'row',
