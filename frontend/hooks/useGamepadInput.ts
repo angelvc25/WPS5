@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import { gamepadService } from '@/services/gamepadService';
 
 interface GamepadInfo {
   connected: boolean;
@@ -254,6 +255,11 @@ export function useGamepadInput({
         return;
       }
       const pads = getAlivePads();
+
+      // Se notifica el estado global de mando: los avisos de controles
+      // (iconos de PlayStation) cambian a mostrar las teclas del teclado en
+      // cuanto el mando se conecta o se desconecta.
+      gamepadService.report(pads.length > 0);
 
       if (pads.length === 0) {
         if (lastGamepadIdRef.current !== null) {

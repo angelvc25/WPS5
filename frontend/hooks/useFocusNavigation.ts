@@ -61,6 +61,7 @@ export interface UseFocusNavigationOptions {
   isSlidesModalVisible: boolean;
   isSearchVisible: boolean;
   isMediaGalleryVisible: boolean;
+  isTrophiesVisible: boolean;
   isDetailVisible: boolean;
   isLibraryDetailVisible: boolean;
   isContextMenuOpen: boolean;
@@ -141,6 +142,7 @@ export interface UseFocusNavigationOptions {
   setSystemNavCardExpanded: (v: boolean) => void;
   setInputMode: (mode: 'keyboard' | 'gamepad') => void;
   setSelectedMediaIndex: React.Dispatch<React.SetStateAction<number | null>>;
+  setTrophiesVisible: React.Dispatch<React.SetStateAction<boolean>>;
   saveWidgetOrder: typeof saveWidgetOrder;
   saveWidgetVisibility: typeof saveWidgetVisibility;
   setWidgetVisibility: React.Dispatch<React.SetStateAction<WidgetVisibility>>;
@@ -364,6 +366,7 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
       if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) e.preventDefault();
       if (o.isLaunching) return;
       if (o.isMediaGalleryVisible) return;
+      if (o.isTrophiesVisible) return;
       if (o.isDetailVisible || o.isLibraryDetailVisible) return;
       if (o.deleteConfirmItem) return;
 
@@ -1115,6 +1118,9 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
                   // Usar el toast para el caso de no juego lanzado
                 }
               }
+            } else if (gpfi === 2) {
+              // El widget de trofeos abre la vista con la lista de logros.
+              o.setTrophiesVisible?.(true);
             } else if (gpfi >= 200) {
               // Los logros son navegación; Enter no abre vista adicional
             } else if (gpfi >= 100) {

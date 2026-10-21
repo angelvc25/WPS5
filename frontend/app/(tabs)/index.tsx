@@ -49,20 +49,21 @@ import SearchView from '@/components/SearchView';
 import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
 import ThemeCharacterOverlay from '@/components/ThemeCharacterOverlay';
+import TrophiesView from '@/components/TrophiesView';
 import WelcomeSettingsView from '@/components/WelcomeSettingsView';
 import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
 import WidgetEditPanel, {
-    clampWidgetSize,
-    computeWidgetColumns,
-    loadWidgetOrder,
-    loadWidgetSizes,
-    loadWidgetVisibility,
-    PANEL_WIDGETS,
-    saveWidgetOrder,
-    saveWidgetSizes,
-    saveWidgetVisibility,
-    WidgetSizes,
-    WidgetVisibility
+  clampWidgetSize,
+  computeWidgetColumns,
+  loadWidgetOrder,
+  loadWidgetSizes,
+  loadWidgetVisibility,
+  PANEL_WIDGETS,
+  saveWidgetOrder,
+  saveWidgetSizes,
+  saveWidgetVisibility,
+  WidgetSizes,
+  WidgetVisibility
 } from '@/components/WidgetEditPanel';
 import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -73,7 +74,7 @@ import { usePresentationMode } from '@/hooks/usePresentationMode';
 import { useSteamSync } from '@/hooks/useSteamSync';
 import { Language } from '@/i18n/translations';
 import {
-    initOnlineLibraryAutoSync,
+  initOnlineLibraryAutoSync,
 } from '@/services/onlineAutoSync';
 import { initOnlineFriendWatcher } from '@/services/onlineFriendWatcher';
 import { psnLocaleForLanguage } from '@/services/psnMetadataService';
@@ -391,6 +392,10 @@ export default function ConsoleHome() {
 
   const [isFavoritesVisible, setFavoritesVisible] = useState(false);
   const [isSettingsVisible, setSettingsVisible] = useState(false);
+  // Vista de trofeos: se abre desde el widget de logros del panel del juego
+  // o del detalle del juego.
+  const [isTrophiesVisible, setTrophiesVisible] = useState(false);
+  const [trophiesItem, setTrophiesItem] = useState<ConsoleItem | null>(null);
   const [isWelcomeSettingsVisible, setWelcomeSettingsVisible] = useState(false);
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(() => loadWidgetVisibility());
   const [widgetOrder, setWidgetOrder] = useState<string[]>(() => loadWidgetOrder());
@@ -606,13 +611,13 @@ export default function ConsoleHome() {
   // handleLaunchApp y otros callbacks se definen más abajo pero usan valores
   // del hook (setActiveIndex, setFocusArea). Como el hook los lee siempre desde
   // optionsRef.current (actualizada en cada render), basta con wrappers estables.
-  const _handleLaunchAppRef = useRef<UseFocusNavigationOptions['handleLaunchApp']>(() => {});
-  const _openContextMenuRef = useRef<UseFocusNavigationOptions['openContextMenu']>(() => {});
-  const _handleContextMenuActionRef = useRef<UseFocusNavigationOptions['handleContextMenuAction']>(() => {});
-  const _handleProfileMenuActionRef = useRef<UseFocusNavigationOptions['handleProfileMenuAction']>(() => {});
-  const _handleSystemNavActionRef = useRef<UseFocusNavigationOptions['handleSystemNavAction']>(() => {});
-  const _handleToggleFavoriteRef = useRef<UseFocusNavigationOptions['handleToggleFavorite']>(() => {});
-  const _handleTogglePinRef = useRef<UseFocusNavigationOptions['handleTogglePin']>(() => {});
+  const _handleLaunchAppRef = useRef<UseFocusNavigationOptions['handleLaunchApp']>(() => { });
+  const _openContextMenuRef = useRef<UseFocusNavigationOptions['openContextMenu']>(() => { });
+  const _handleContextMenuActionRef = useRef<UseFocusNavigationOptions['handleContextMenuAction']>(() => { });
+  const _handleProfileMenuActionRef = useRef<UseFocusNavigationOptions['handleProfileMenuAction']>(() => { });
+  const _handleSystemNavActionRef = useRef<UseFocusNavigationOptions['handleSystemNavAction']>(() => { });
+  const _handleToggleFavoriteRef = useRef<UseFocusNavigationOptions['handleToggleFavorite']>(() => { });
+  const _handleTogglePinRef = useRef<UseFocusNavigationOptions['handleTogglePin']>(() => { });
 
   // ─── useFocusNavigation ───────────────────────────────────────────────────
   const {
@@ -650,6 +655,7 @@ export default function ConsoleHome() {
     isSlidesModalVisible,
     isSearchVisible,
     isMediaGalleryVisible,
+    isTrophiesVisible,
     isDetailVisible,
     isLibraryDetailVisible,
     isContextMenuOpen,
@@ -716,12 +722,13 @@ export default function ConsoleHome() {
     setSystemNavCardExpanded,
     setInputMode,
     setSelectedMediaIndex,
+    setTrophiesVisible,
     saveWidgetOrder,
     saveWidgetVisibility,
     setWidgetVisibility,
     setWidgetOrder,
-    setIsWidgetEditOpen: () => {}, // el hook gestiona este estado internamente
-    setWidgetEditFocusIndex: () => {}, // el hook gestiona este estado internamente
+    setIsWidgetEditOpen: () => { }, // el hook gestiona este estado internamente
+    setWidgetEditFocusIndex: () => { }, // el hook gestiona este estado internamente
     resizeWidget,
     resetInteraction,
     setLibraryTab,
@@ -1581,7 +1588,7 @@ export default function ConsoleHome() {
         } else {
           if (typeof document !== 'undefined') {
             document.querySelectorAll('video').forEach((v) => {
-              try { v.play().catch(() => {}); } catch (_) { }
+              try { v.play().catch(() => { }); } catch (_) { }
             });
           }
           try { soundService.playBackground(); } catch (_) { }
@@ -2709,6 +2716,11 @@ export default function ConsoleHome() {
                 setDetailInitialEditMode(true);
                 setDetailVisible(true);
               }}
+              onOpenTrophies={() => {
+                const target = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
+                setTrophiesItem(target ?? null);
+                setTrophiesVisible(true);
+              }}
               steamMedia={steamMedia}
               mediaLoading={mediaLoading}
               setSelectedMediaIndex={setSelectedMediaIndex}
@@ -2764,6 +2776,11 @@ export default function ConsoleHome() {
             setDetailInitialEditMode(false);
             setMediaGalleryVisible(true);
           }}
+          onOpenTrophies={() => {
+            // La vista de trofeos se monta por encima del detalle del juego.
+            setTrophiesItem(selectedItem);
+            setTrophiesVisible(true);
+          }}
           onLaunch={(_id, _path) => {
             if (selectedItem) handleLaunchApp(selectedItem);
           }}
@@ -2813,6 +2830,17 @@ export default function ConsoleHome() {
         favorites={currentData[activeIndex]?.isGrid ? media.filter(m => m.isFavorite) : games.filter(g => g.isFavorite)}
         onClose={() => setFavoritesVisible(false)}
         onLaunch={handleLaunchApp}
+      />
+
+      {/* Vista de trofeos: lista de logros juego a juego */}
+      <TrophiesView
+        visible={isTrophiesVisible}
+        onClose={() => setTrophiesVisible(false)}
+        activeUser={activeUser}
+        inputMode={inputMode}
+        gamepadConnected={gamepadInfo.connected}
+        initialItem={trophiesItem}
+        libraryGames={games}
       />
 
       <RandomSelectorView

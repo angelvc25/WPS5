@@ -7,25 +7,17 @@ import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useAchievementWatcher } from '../hooks/useAchievementWatcher';
+import { getRpcs3AppId } from '../services/achievementWatcherService';
 import {
-  fetchAwGameAchievements,
-  fetchPcGameAchievements, // juegos PC manuales — detecta AppID desde el exe
-  fetchRpcs3Trophies,
-  fetchRpcs3TrophiesFromLnk,
-  fetchRpcs3TrophiesFromRom,
-  getCachedAwAchievements,
-  getRpcs3AppId,
-} from '../services/achievementWatcherService';
-import {
-  fetchRetroAchievements,
-  getRaCredentialsFromSettings,
-  isRetroAchievementsSupported,
-} from '../services/retroAchievementsService';
+  fetchGameTrophies,
+  getCachedGameTrophies,
+  getTrophyContextFromUser,
+} from '../services/gameTrophiesService';
 import { formatPlaytime } from '../services/playtimeService';
 import { STEAM_API_LANG } from '../services/steamLanguage';
 import { fetchSteamDescription, isPlaytimePlaceholder } from '../services/steamDescriptionService';
 import { getGameActionLabel, getSteamAppId, isSteamGame } from '../services/steamLaunchService';
-import { fetchSteamGameAchievements, getCachedSteamGameAchievements, SteamGameAchievementsSummary } from '../services/steamUserService';
+import { SteamGameAchievementsSummary } from '../services/steamUserService';
 import MusicPlayerCard from './MusicPlayerCard';
 import { GameMetadataSection } from './GameMetadataSection';
 import { resolveFieldSyncPreferences } from '../services/metadataPreferences';
@@ -125,6 +117,8 @@ interface GameInfoPanelProps {
   onAchievementCountChange?: (count: number) => void;
   onOpenMediaGallery?: () => void;
   onOpenConfig?: (item: ConsoleItem) => void;
+  /** Abre la vista de trofeos con la lista de logros del juego. */
+  onOpenTrophies?: () => void;
 }
 
 export const GameInfoPanel = ({
@@ -155,6 +149,7 @@ export const GameInfoPanel = ({
   onAchievementCountChange,
   onOpenMediaGallery,
   onOpenConfig,
+  onOpenTrophies,
 }: GameInfoPanelProps) => {
   const { t, language } = useTranslation();
   const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : t('lastPlayed.title')) : activeItem?.title;
@@ -211,298 +206,68 @@ export const GameInfoPanel = ({
   // null     → sin logros
   const [achievementsSource, setAchievementsSource] = React.useState<'steam' | 'aw' | 'rpcs3' | 'retro' | null>(null);
 
+  // ── Contexto de resolución de trofeos (compartido con la vista de Trofeos) ─
+  const trophyContext = React.useMemo(
+    () => getTrophyContextFromUser(activeUser, steamLang, awAvailable),
+    [activeUser, steamLang, awAvailable]
+  );
+
   // Inicialización sincrónica desde caché ─────────────────────────────────────
   const [steamAchievements, setSteamAchievements] = React.useState<SteamGameAchievementsSummary | null>(() => {
-    // Caché Steam legítimo
-    if (steamId && achievementAppId) {
-      const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId), steamLang);
-      if (cached !== undefined) return cached;
-    }
-    // Caché AchievementWatcher (juego externo con appId Steam)
-    if (achievementAppId && !steamId) {
-      const awKey = achievementAppId;
-      const awCached = getCachedAwAchievements(awKey, 'local', steamLang);
-      if (awCached !== undefined) return awCached;
-    }
-    return null;
+    const cached = getCachedGameTrophies(
+      achievementGame,
+      getTrophyContextFromUser(activeUser, steamLang, awAvailable)
+    );
+    return cached?.summary ?? null;
   });
   const [achievementsLoading, setAchievementsLoading] = React.useState(false);
 
   React.useEffect(() => {
-    const apiKey = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
-
-    // ── RPCS3: leer trofeos via proceso Electron ─────────────────────────────
-    if (rpcs3AppId) {
-      const rpcs3Dir = (activeUser?.settings as any)?.rpcs3Path ?? null;
-
-      // console.log('[RPCS3]', {
-      //   title: achievementGame?.title,
-      //   platform: achievementGame?.platform,
-      //   path: achievementGame?.path,
-      //   rpcs3AppId,
-      //   rpcs3Dir,
-      //   isLnk: typeof achievementGame?.path === 'string' && achievementGame.path.toLowerCase().endsWith('.lnk'),
-      // });
-
-      if (!rpcs3Dir) {
-        // Sin rpcs3Path configurado, no hay nada que hacer silenciosamente.
-        setSteamAchievements(null);
-        setAchievementsSource(null);
-        setAchievementsLoading(false);
-        return;
-      }
-
-      const gamePath: string | null = achievementGame?.path ?? null;
-      const isLnk = typeof gamePath === 'string' && gamePath.toLowerCase().endsWith('.lnk');
-      // ROM añadida por escaneo: el exe está en `path` y la ROM citada en `launchArgs`.
-      const launchArgs: string | null = (achievementGame as any)?.launchArgs ?? null;
-      const romMatch = typeof launchArgs === 'string' ? launchArgs.match(/"([^"]+)"/g) : null;
-      const romPath: string | null = romMatch && romMatch.length > 0
-        ? romMatch[romMatch.length - 1].replace(/"/g, '')
-        : null;
-
-      let cancelled = false;
+    if (!achievementGame) {
       setSteamAchievements(null);
       setAchievementsSource(null);
       setAchievementsLoading(false);
-
-      const timer = setTimeout(() => {
-        setAchievementsLoading(true);
-
-        // Tres variantes: .lnk (acceso directo ES-DE/escritorio), ROM escaneada
-        // (GameID extraído de la ruta) o NPcommID directo a una carpeta en RPCS3.
-        const trophyPromise = isLnk
-          ? fetchRpcs3TrophiesFromLnk(gamePath!, rpcs3Dir)
-          : romPath
-            ? fetchRpcs3TrophiesFromRom(romPath, rpcs3Dir, achievementGame?.title || '')
-            : fetchRpcs3Trophies(rpcs3Dir, rpcs3AppId);
-
-        trophyPromise.then((summary) => {
-          if (cancelled) return;
-          setSteamAchievements(summary);
-          setAchievementsSource(summary ? 'rpcs3' : null);
-        }).catch(() => {
-          if (!cancelled) {
-            setSteamAchievements(null);
-            setAchievementsSource(null);
-          }
-        }).finally(() => {
-          if (!cancelled) setAchievementsLoading(false);
-        });
-      }, 300);
-
-      return () => {
-        cancelled = true;
-        clearTimeout(timer);
-        setAchievementsLoading(false);
-      };
+      return;
     }
 
-    // ── Juego con Steam AppID ─────────────────────────────────────────────────
-    // Para juegos PC manuales, achievementAppId es null — se continúa abajo.
-    if (!achievementAppId) {
-      // Antes de salir, verificar si es un juego PC que puede tener logros por exe
-      const isPcEarly = achievementGame?.platform?.toUpperCase() === 'PC'
-        || achievementGame?.platform?.toUpperCase() === 'WINDOWS';
-      const pathEarly = achievementGame?.path ?? null;
-      const isExeEarly = typeof pathEarly === 'string'
-        && (pathEarly.endsWith('.exe') || pathEarly.endsWith('.bat'));
-      const hasApiEarly = typeof (window as any)?.electronAPI?.getPcGameAchievements === 'function';
+    let cancelled = false;
 
-      if (!(isPcEarly && isExeEarly && hasApiEarly)) {
-        setSteamAchievements(null);
-        setAchievementsSource(null);
-        setAchievementsLoading(false);
-        return;
-      }
-      // Si es un juego PC con API disponible, continuar hasta la rama PC más abajo
-    }
-
-    // ── Ruta Steam legítimo (cuenta configurada) ──────────────────────────────
-    if (steamId && achievementAppId) {
-      // 1. Caché instantánea
-      const cached = getCachedSteamGameAchievements(steamId, Number(achievementAppId), steamLang);
-      if (cached !== undefined) {
-        setSteamAchievements(cached);
-        setAchievementsSource(cached ? 'steam' : null);
-        setAchievementsLoading(false);
-        return;
-      }
-
-      // 2. Fetch con debounce de 300 ms
-      setSteamAchievements(null);
-      setAchievementsSource(null);
+    // 1) Caché en memoria: respuesta instantánea.
+    const cached = getCachedGameTrophies(achievementGame, trophyContext);
+    if (cached) {
+      setSteamAchievements(cached.summary);
+      setAchievementsSource(cached.source);
       setAchievementsLoading(false);
-
-      let cancelled = false;
-      const timer = setTimeout(() => {
-        setAchievementsLoading(true);
-        fetchSteamGameAchievements(apiKey, steamId, Number(achievementAppId), false, steamLang).then((summary) => {
-          if (cancelled) return;
-
-          if (summary) {
-            // Steam legítimo devolvió datos
-            setSteamAchievements(summary);
-            setAchievementsSource('steam');
-            setAchievementsLoading(false);
-          } else {
-            // Steam no devolvió nada (perfil privado, juego sin estadísticas...).
-            // NO se usa AchievementWatcher como fallback: es el lector de juegos
-            // manuales/emulados y sus datos locales no son fiables para juegos
-            // oficiales de Steam (mostraba 0 desbloqueados con etiqueta errónea).
-            // Mejor no mostrar nada que mostrar datos incorrectos.
-            console.log('[Steam] Sin datos de logros para', achievementAppId);
-            setSteamAchievements(null);
-            setAchievementsSource(null);
-            setAchievementsLoading(false);
-          }
-        });
-      }, 300);
-
-      return () => {
-        cancelled = true;
-        clearTimeout(timer);
-      };
+      return;
     }
 
-    // ── Ruta AchievementWatcher puro (sin cuenta Steam configurada) ───────────
-    // Se activa cuando hay un appId Steam en el juego pero no hay steamId de
-    // usuario: típicamente juegos con emulador (Codex, Goldberg, etc.) añadidos
-    // manualmente a la librería.
-    if (awAvailable && achievementAppId) {
-      // 1. Caché instantánea
-      const awCached = getCachedAwAchievements(achievementAppId, 'local', steamLang);
-      if (awCached !== undefined) {
-        setSteamAchievements(awCached);
-        setAchievementsSource(awCached ? 'aw' : null);
-        setAchievementsLoading(false);
-        return;
-      }
-
-      // 2. Fetch con debounce de 300 ms
-      setSteamAchievements(null);
-      setAchievementsSource(null);
-      setAchievementsLoading(false);
-
-      let cancelled = false;
-      const timer = setTimeout(() => {
-        setAchievementsLoading(true);
-        fetchAwGameAchievements(Number(achievementAppId), 'local', steamLang).then((summary) => {
-          if (!cancelled) {
-            setSteamAchievements(summary);
-            setAchievementsSource(summary ? 'aw' : null);
-            setAchievementsLoading(false);
-          }
-        });
-      }, 300);
-
-      return () => {
-        cancelled = true;
-        clearTimeout(timer);
-      };
-    }
-
-    // ── Juego PC manual (platform="PC") sin Steam AppID en el id ─────────────
-    // Detecta el AppID leyendo steam_emu.ini / steam_appid.txt / CreamAPI.ini
-    // en el directorio del ejecutable del juego.
-    const isPcGame = achievementGame?.platform?.toUpperCase() === 'PC'
-      || achievementGame?.platform?.toUpperCase() === 'WINDOWS';
-    const gamePath = achievementGame?.path ?? null;
-    const hasExePath = typeof gamePath === 'string'
-      && (gamePath.endsWith('.exe') || gamePath.endsWith('.bat'));
-    // Detectar disponibilidad directamente, independiente de awAvailable
-    const hasPcAchApi = typeof (window as any)?.electronAPI?.getPcGameAchievements === 'function';
-
-    // console.log('[PC-ACH]', {
-    //   title: achievementGame?.title,
-    //   platform: achievementGame?.platform,
-    //   isPcGame,
-    //   hasExePath,
-    //   hasPcAchApi,
-    //   awAvailable,
-    //   gamePath,
-    // });
-
-    if (isPcGame && hasExePath && hasPcAchApi) {
-      setSteamAchievements(null);
-      setAchievementsSource(null);
-      setAchievementsLoading(false);
-
-      const apiKey = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
-      let cancelled = false;
-      const timer = setTimeout(() => {
-        setAchievementsLoading(true);
-        fetchPcGameAchievements(gamePath!, apiKey, steamLang).then((summary) => {
-          if (!cancelled) {
-            // console.log('[PC-ACH] result:', summary?.total, 'source:', (summary as any)?.source);
-            setSteamAchievements(summary);
-            setAchievementsSource(summary ? 'aw' : null);
-            setAchievementsLoading(false);
-          }
-        });
-      }, 300);
-
-      return () => {
-        cancelled = true;
-        clearTimeout(timer);
-      };
-    }
-
-    // ── RetroAchievements: juegos clásicos (PS1, PS2, N64, SNES, GBA, etc.) ──
-    // Requiere raUsername + raApiKey en Settings. El servicio resuelve el juego
-    // por título/consola y devuelve el mismo shape que Steam (icon, lockedIcon,
-    // rarity, globalPercentage...), así que el resto de la UI no cambia.
-    const raCreds = getRaCredentialsFromSettings(activeUser?.settings);
-    const raGame = achievementGame
-      ? {
-        id: achievementGame.id,
-        title: achievementGame.title ?? '',
-        platform: achievementGame.platform,
-        retroSystem: (achievementGame as any).retroSystem,
-        raGameId: (achievementGame as any).raGameId,
-      }
-      : null;
-
-    if (raCreds && raGame && raGame.title && isRetroAchievementsSupported(raGame)) {
-      setSteamAchievements(null);
-      setAchievementsSource(null);
-      setAchievementsLoading(false);
-
-      let cancelled = false;
-      const timer = setTimeout(() => {
-        setAchievementsLoading(true);
-        fetchRetroAchievements(raGame, raCreds, {
-          // Guarda el GameID de RA en el juego para no volver a buscarlo por título.
-          onResolved: ({ raGameId }) => {
-            if (!raGame.raGameId) {
-              (window as any).electronAPI?.updateApp?.({ id: raGame.id, raGameId });
-            }
-          },
-        }).then((summary) => {
-          if (cancelled) return;
-          setSteamAchievements(summary && summary.total > 0 ? summary : null);
-          setAchievementsSource(summary && summary.total > 0 ? 'retro' : null);
-          setAchievementsLoading(false);
-        }).catch(() => {
-          if (!cancelled) {
-            setSteamAchievements(null);
-            setAchievementsSource(null);
-            setAchievementsLoading(false);
-          }
-        });
-      }, 400);
-
-      return () => {
-        cancelled = true;
-        clearTimeout(timer);
-        setAchievementsLoading(false);
-      };
-    }
-
-    // Sin ninguna fuente disponible
     setSteamAchievements(null);
     setAchievementsSource(null);
     setAchievementsLoading(false);
+
+    // 2) Red / disco con debounce de 300 ms.
+    const timer = setTimeout(() => {
+      setAchievementsLoading(true);
+      fetchGameTrophies(achievementGame, trophyContext)
+        .then((result) => {
+          if (cancelled) return;
+          setSteamAchievements(result.summary);
+          setAchievementsSource(result.source);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSteamAchievements(null);
+          setAchievementsSource(null);
+        })
+        .finally(() => {
+          if (!cancelled) setAchievementsLoading(false);
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [achievementAppId, rpcs3AppId, steamId, awAvailable, steamLang,
     (activeUser?.settings as any)?.rpcs3Path,
@@ -984,7 +749,9 @@ export const GameInfoPanel = ({
             style={[styles.infoCardsRow, infoCardsStyle, { marginTop: s(20) }]}
           >
             {/* Trophies Card */}
-            <View
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => onOpenTrophies?.()}
               style={[
                 styles.infoCard,
                 { padding: s(16), minWidth: s(350), borderRadius: s(16) },
@@ -1284,7 +1051,7 @@ export const GameInfoPanel = ({
                   </Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Friends Playing Card */}
             <View

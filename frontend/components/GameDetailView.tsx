@@ -49,6 +49,8 @@ interface GameDetailViewProps {
   inputMode: 'keyboard' | 'gamepad';
   installedSteamAppIds?: Set<string> | null;
   onOpenMediaGallery?: () => void;
+  /** Abre la vista de trofeos con la lista de logros del juego. */
+  onOpenTrophies?: () => void;
   /** Hay un mando conectado. El teclado virtual solo se muestra si es true. */
   gamepadConnected?: boolean;
   initialEditMode?: boolean;
@@ -133,7 +135,7 @@ const DetailLightboxImage = React.memo(({
 });
 DetailLightboxImage.displayName = 'DetailLightboxImage';
 
-const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery, gamepadConnected = false, initialEditMode = false }) => {
+const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery, onOpenTrophies, gamepadConnected = false, initialEditMode = false }) => {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
@@ -1567,6 +1569,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             }
           } else if (focusIndex === 1) {
             setEditModalVisible(true);
+          } else if (focusIndex === 2) {
+            // El widget de trofeos abre la vista con la lista de logros.
+            onOpenTrophies?.();
           } else if (focusIndex >= 100 && focusIndex < 200) {
             const media = steamMedia[focusIndex - 100];
             if (media) setSelectedMediaIndex(focusIndex - 100);
@@ -1994,6 +1999,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                 installedSteamAppIds={installedSteamAppIds}
                 onAchievementCountChange={setAchievementCount}
                 onOpenMediaGallery={onOpenMediaGallery}
+                onOpenTrophies={onOpenTrophies}
               />
             </Animated.View>
           </ScrollView>
