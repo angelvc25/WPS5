@@ -1960,9 +1960,18 @@ export default function ConsoleHome() {
         : null);
 
   const prevActiveIndexRef = useRef(activeIndex);
+  const [prevActiveIndex, setPrevActiveIndex] = React.useState(activeIndex);
   const wipeDirection = useSharedValue<1 | -1>(1);
 
   const slideshowActive = !isThemeActiveForCurrentCard && slideshowImages.length > 0 && (isWelcomeCard || isPresentationMode);
+
+  // Track previous active index for spinning border transition
+  React.useEffect(() => {
+    if (activeIndex !== prevActiveIndexRef.current) {
+      setPrevActiveIndex(prevActiveIndexRef.current);
+      prevActiveIndexRef.current = activeIndex;
+    }
+  }, [activeIndex]);
 
   // "Sobre los widgets" desactivado: en la tarjeta de bienvenida el personaje se recorta a la zona del carrusel.
   const clipForegroundToCarousel = !foregroundOverWidgets && isWelcomeCard;
@@ -2613,6 +2622,7 @@ export default function ConsoleHome() {
             currentData={currentData}
             downloadsByAppId={downloadsByAppId}
             activeIndex={activeIndex}
+            prevActiveIndex={prevActiveIndex}
             carouselKey={carouselKey}
             lastPlayedGame={lastPlayedGame}
             focusArea={focusArea}
