@@ -212,6 +212,47 @@ app.commandLine.appendSwitch('media-cache-size', '33554432'); // 32 MB
 // 7) Activar purga de scripts y suspensión de memoria en segundo plano
 app.commandLine.appendSwitch('enable-features', 'CleanScriptCaches,PurgeAndSuspendMemory');
 
+// ── Frecuencia de refresco del display (alto refresco: 120/144/165/240 Hz) ──
+// Chromium limita el frame rate del renderer a la frecuencia de refresco del
+// monitor. Con un panel de 165 Hz eso significa 165 fps (medido en esta
+// maquina: 165 fps con y sin el switch, con la ventana en el monitor de
+// 165 Hz y en el de 60 Hz).
+//
+// El switch 'disable-frame-rate-limit' elimina ese limite, pero NO sube lo
+// que se ve (el panel no puede mostrar mas de 165 Hz) y si multiplica el
+// consumo de CPU: en las mismas mediciones paso de ~3% a ~17%. Por eso NO
+// se activa por defecto.
+//
+// Se deja disponible como opcion "Sin tope" para los setups en los que
+// Chromium se queda enganchado a 60 Hz por un driver o una configuracion de
+// multi-monitor: el contador de fps de Ajustes permite comprobarlo.
+//
+// La preferencia (Ajustes -> GPU & Performance) se persiste en
+// userData/perf-settings.json y se lee ANTES de crear la ventana, porque los
+// command-line switches solo surten efecto al arrancar el proceso.
+const PERF_SETTINGS_PATH = path.join(app.getPath('userData'), 'perf-settings.json');
+
+// 'auto' (por defecto) | 'on' | 'off'
+let highRefreshMode = 'auto';
+
+try {
+  if (fs.existsSync(PERF_SETTINGS_PATH)) {
+    const parsed = JSON.parse(fs.readFileSync(PERF_SETTINGS_PATH, 'utf8'));
+    if (parsed && (parsed.highRefreshMode === 'on' || parsed.highRefreshMode === 'off')) {
+      highRefreshMode = parsed.highRefreshMode;
+    }
+  }
+} catch (err) {
+  console.warn('[Perf] No se pudo leer perf-settings.json:', err.message);
+}
+
+if (highRefreshMode === 'on') {
+  app.commandLine.appendSwitch('disable-frame-rate-limit');
+  console.log('[Perf] Limite de frames de Chromium desactivado (modo: on)');
+} else {
+  console.log(`[Perf] El frame rate sigue la frecuencia del monitor (modo: ${highRefreshMode})`);
+}
+
 // Si el proceso GPU se cae, Chromium puede pasar a render por software sin
 // avisar; este log permite detectarlo.
 app.on('child-process-gone', (_event, details) => {
@@ -1025,6 +1066,77 @@ function stopStoreBackend() {
     backendProcess.kill();
     backendProcess = null;
   }
+}
+
+// ── Frecuencia de refresco de los displays ─────────────────────────────────
+// Electron expone `display.displayFrequency`, pero en Windows no siempre
+// viene informado (0). Cuando falta, se consulta el modo de video actual
+// del adaptador mediante WMI. El resultado se cachea porque no cambia
+// durante la sesion salvo que el usuario modifique la resolucion del monitor.
+let displayRefreshCache = null;
+
+function normalizeRefreshRate(value) {
+  const rate = Math.round(Number(value) || 0);
+  // Chromium y los drivers reportan valores tipo 59.94 -> 60 o 143.86 -> 144.
+  return rate > 0 ? rate : 0;
+}
+
+function queryWindowsPrimaryRefreshRate() {
+  return new Promise((resolve) => {
+    const script =
+      "(Get-CimInstance -ClassName Win32_VideoController | " +
+      "Where-Object { $_.CurrentRefreshRate } | " +
+      "Select-Object -First 1 -ExpandProperty CurrentRefreshRate)";
+
+    exec(
+      `powershell -NoProfile -WindowStyle Hidden -Command "${script.replace(/"/g, '\\"')}"`,
+      { timeout: 8000 },
+      (err, stdout) => {
+        if (err) {
+          console.warn('[Perf] No se pudo leer la frecuencia del monitor:', err.message);
+          resolve(0);
+          return;
+        }
+        const value = normalizeRefreshRate(parseInt(String(stdout || '').trim(), 10));
+        resolve(value);
+      }
+    );
+  });
+}
+
+async function getDisplayRefreshInfo() {
+  if (displayRefreshCache) return displayRefreshCache;
+
+  const displays = screen.getAllDisplays().map((display) => ({
+    id: display.id,
+    label: display.label,
+    bounds: display.bounds,
+    scaleFactor: display.scaleFactor,
+    refreshRate: normalizeRefreshRate(display.displayFrequency),
+  }));
+
+  const primary = screen.getPrimaryDisplay();
+  let primaryRefreshRate = normalizeRefreshRate(primary?.displayFrequency);
+
+  if (!primaryRefreshRate && process.platform === 'win32') {
+    primaryRefreshRate = await queryWindowsPrimaryRefreshRate();
+  }
+
+  displayRefreshCache = {
+    displays,
+    primaryRefreshRate,
+    // Objetivo real de refresco: la frecuencia del panel si es de alto
+    // refresco; si no, 60 fps (el estandar que el resto de monitores usa).
+    targetRefreshRate: primaryRefreshRate > 60 ? primaryRefreshRate : 60,
+  };
+
+  console.log(
+    `[Perf] Display principal: ${primaryRefreshRate || 'desconocida'} Hz` +
+    ` | objetivo: ${displayRefreshCache.targetRefreshRate} fps` +
+    ` | modo: ${highRefreshMode}`
+  );
+
+  return displayRefreshCache;
 }
 
 
@@ -3471,6 +3583,53 @@ app.whenReady().then(async () => {
     } catch (err) {
       console.warn('[GPU] Error obteniendo info de GPU:', err.message);
       return { success: false, error: err.message };
+    }
+  });
+
+  // ── IPC: Informacion de displays y frecuencia de refresco ───────────────
+  // El renderer la usa en Ajustes -> GPU & Performance para mostrar a que
+  // frecuencia refresca el monitor y cuantas animaciones por segundo puede
+  // alcanzar el launcher.
+  ipcMain.handle('get-display-info', async () => {
+    try {
+      const info = await getDisplayRefreshInfo();
+      return {
+        success: true,
+        ...info,
+        highRefreshMode,
+        highRefreshApplied: highRefreshMode === 'on',
+      };
+    } catch (err) {
+      console.warn('[Perf] Error obteniendo info de displays:', err.message);
+      return {
+        success: false,
+        error: err.message,
+        displays: [],
+        primaryRefreshRate: 0,
+        targetRefreshRate: 60,
+        highRefreshMode,
+        highRefreshApplied: highRefreshMode === 'on',
+      };
+    }
+  });
+
+  // ── IPC: Preferencia de alto refresco ───────────────────────────────────
+  // Cambia el switch 'disable-frame-rate-limit', que solo se puede aplicar
+  // al arrancar el proceso: el cambio se guarda y surte efecto al reiniciar
+  // el launcher.
+  ipcMain.handle('set-high-refresh-mode', async (_event, mode) => {
+    const next = mode === 'on' || mode === 'off' ? mode : 'auto';
+    try {
+      fs.writeFileSync(
+        PERF_SETTINGS_PATH,
+        JSON.stringify({ highRefreshMode: next }, null, 2)
+      );
+      highRefreshMode = next;
+      console.log('[Perf] Modo de alto refresco actualizado a:', next, '(requiere reinicio)');
+      return { success: true, highRefreshMode: next, requiresRestart: true };
+    } catch (err) {
+      console.warn('[Perf] No se pudo guardar la preferencia:', err.message);
+      return { success: false, error: err.message, highRefreshMode };
     }
   });
 

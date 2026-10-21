@@ -67,6 +67,8 @@ export interface UserSettings {
   showNews?: boolean;
   /** Muestra la ficha de metadatos estilo PS5 en el panel del juego. Por defecto true. */
   showGameMetadata?: boolean;
+  /** Muestra el contador de frames por segundo en la esquina superior izquierda. */
+  showFpsCounter?: boolean;
   /** Configuración de emuladores por consola (id de consola → config). */
   emulators?: Record<string, EmulatorConfig>;
 }
@@ -125,63 +127,6 @@ const DEFAULT_USERS: UserProfile[] = [
   },
 ];
 
-// ─── Radar canvas drawing ────────────────────────────────────────────────────
-function startRadarAnimation(canvasId: string): () => void {
-  const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
-  if (!canvas) return () => { };
-  const ctx = canvas.getContext('2d')!;
-  const SIZE = 164, cx = 82, cy = 82, R = 77, LINE = 2.5;
-  const CYCLE = 12; // seconds
-  let start: number | null = null;
-  let rafId: number;
-
-  const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
-
-  const draw = (ts: number) => {
-    if (!start) start = ts;
-    const elapsed = ((ts - start) / 1000) % CYCLE;
-    ctx.clearRect(0, 0, SIZE, SIZE);
-
-    let blend = 0, rotation = 0;
-    if (elapsed < 2) { blend = 0; rotation = 0; }
-    else if (elapsed < 4) { blend = easeInOut((elapsed - 2) / 2); rotation = 0; }
-    else if (elapsed < 8) { blend = 1; rotation = easeInOut((elapsed - 4) / 4) * Math.PI * 2; }
-    else if (elapsed < 10) { blend = easeInOut(1 - (elapsed - 8) / 2); rotation = Math.PI * 2; }
-    else { blend = 0; rotation = 0; }
-
-    for (let i = 0; i < 360; i++) {
-      const angleRot = (i / 360) * Math.PI * 2 + rotation;
-      const cosVal = Math.cos(angleRot);
-      const sweepA = (cosVal + 1) / 2; // 0..1
-
-      const solidAlpha = 0.55;
-      const brightAlpha = 0.65;
-      const fadeAlpha = 0.02;
-
-      let alpha: number;
-      if (blend === 0) {
-        alpha = solidAlpha;
-      } else {
-        const target = fadeAlpha + sweepA * (brightAlpha - fadeAlpha);
-        alpha = solidAlpha + blend * (target - solidAlpha);
-      }
-
-      const a0 = (i / 360) * Math.PI * 2 - Math.PI / 2;
-      const a1 = ((i + 1.8) / 360) * Math.PI * 2 - Math.PI / 2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, a0, a1);
-      ctx.strokeStyle = `rgba(255,255,255,${Math.max(0, alpha).toFixed(3)})`;
-      ctx.lineWidth = LINE;
-      ctx.stroke();
-    }
-
-    rafId = requestAnimationFrame(draw);
-  };
-
-  rafId = requestAnimationFrame(draw);
-  return () => cancelAnimationFrame(rafId);
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function UserSelectScreen({ onUserSelected }: UserSelectScreenProps) {
   const { t } = useTranslation();
@@ -205,9 +150,6 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   const othersOpacity = useRef(new Animated.Value(1)).current;
   const centerShift = useRef(new Animated.Value(0)).current;
 
-  // Store cleanup functions for radar animations
-  const radarCleanups = useRef<Record<string, () => void>>({});
-
   // ── Gamepad polling throttle state ───────────────────────────────────────
   // These MUST be refs (not locals inside the effect below) because that
   // effect depends on [hoveredId, users] and gets re-created on every
@@ -220,13 +162,13 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   const selectedRef = useRef(false);
 
   // ── Inject CSS animations once ──────────────────────────────────────────
+  // `shimmerMove` NO se define aquí: lo inyecta RadarFocusWrapper de forma
+  // global (y con translate3d en vez de left/top). Si se redefiniera aquí,
+  // esta versión antigua ganaría por orden de inserción y volvería a
+  // animar propiedades de layout en cada frame.
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
-      @keyframes shimmerMove {
-        0%   { left: -100%; top: -100%; }
-        100% { left: 200%;  top: 200%;  }
-      }
       @keyframes wps5UserPulse {
         0%, 100% { transform: scale(1); }
         50%      { transform: scale(1.06); }
@@ -239,22 +181,6 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     document.head.appendChild(style);
     return () => { document.head.removeChild(style); };
   }, []);
-
-  // ── Start/stop radar per focused user ───────────────────────────────────
-  useEffect(() => {
-    // Clean up previous
-    Object.values(radarCleanups.current).forEach(fn => fn());
-    radarCleanups.current = {};
-
-    if (hoveredId && hoveredId !== 'add' && hoveredId !== 'power') {
-      // Small delay so the canvas is in the DOM
-      const t = setTimeout(() => {
-        const cleanup = startRadarAnimation(`radar-${hoveredId}`);
-        radarCleanups.current[hoveredId] = cleanup;
-      }, 30);
-      return () => clearTimeout(t);
-    }
-  }, [hoveredId]);
 
   // ── Load users ──────────────────────────────────────────────────────────
   useEffect(() => {

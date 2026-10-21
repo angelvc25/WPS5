@@ -147,6 +147,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteImageFile: (filePath) => ipcRenderer.invoke('delete-image-file', filePath),
   // ── Info de GPU / Aceleración por hardware ──────────────────────────────
   getGpuInfo: () => ipcRenderer.invoke('get-gpu-info'),
+  // ── Info de displays / frecuencia de refresco (alto refresco) ───────────
+  // Devuelve { displays, primaryRefreshRate, targetRefreshRate,
+  // highRefreshMode, highRefreshApplied }.
+  getDisplayInfo: () => ipcRenderer.invoke('get-display-info'),
+  // Cambia el modo de alto refresco ('auto' | 'on' | 'off'). El switch de
+  // Chromium solo se puede aplicar al arrancar: requiere reiniciar.
+  setHighRefreshMode: (mode) => ipcRenderer.invoke('set-high-refresh-mode', mode),
   // ── Batería de mandos PlayStation (DualShock 4 / DualSense) vía HID ─────────
   // Devuelve [{ vendorId, productId, model, battery (0..1 | null), charging, wired }].
   getPsBatteries: () => ipcRenderer.invoke('get-ps-batteries'),

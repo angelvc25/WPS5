@@ -148,6 +148,32 @@ function applyLauncherBehaviorToElectron(behavior: LauncherPlayBehavior) {
   }
 }
 
+// Modos de alto refresco.
+//
+// 'auto' (por defecto): Chromium ya limita el frame rate a la frecuencia de
+// refresco del monitor, asi que en un panel de 165 Hz se renderiza a 165 fps
+// sin tocar nada.
+//
+// 'on': aplica el switch 'disable-frame-rate-limit' de Chromium, que elimina
+// el limite de frames. Solo hace falta en los setups en los que Chromium se
+// queda enganchado a 60 Hz (drivers o configuracion de multi-monitor), y
+// multiplica el consumo de CPU, asi que no se activa por defecto.
+//
+// El switch solo se puede aplicar al arrancar el proceso: cualquier cambio
+// aqui surte efecto al reiniciar el launcher.
+const HIGH_REFRESH_OPTIONS: { id: 'auto' | 'on'; label: string; desc: string }[] = [
+  {
+    id: 'auto',
+    label: 'Auto (recommended)',
+    desc: 'Follow the monitor refresh rate (165 fps on a 165 Hz screen)',
+  },
+  {
+    id: 'on',
+    label: 'Uncapped',
+    desc: 'Remove the frame rate limit. Only if the FPS counter shows 60 fps on a high refresh monitor (uses more CPU)',
+  },
+];
+
 // Valores por defecto estables: un `[]` nuevo en cada render invalidaría los useMemo.
 const NO_GAMES: any[] = [];
 const NO_USERS: UserProfile[] = [];
@@ -240,6 +266,11 @@ export default function SettingsView({
   // GPU / Hardware Acceleration info
   const [gpuInfo, setGpuInfo] = useState<any>(null);
   const [gpuLoading, setGpuLoading] = useState(false);
+
+  // Info de displays / frecuencia de refresco (alto refresco)
+  const [displayInfo, setDisplayInfo] = useState<any>(null);
+  const [displayLoading, setDisplayLoading] = useState(false);
+  const displayInfoRequestedRef = useRef(false);
 
   // Splash Videos (SteamDeckRepo) state
   const [splashQuery, setSplashQuery] = useState('');
@@ -689,6 +720,24 @@ export default function SettingsView({
     applyLauncherBehaviorToElectron(behavior);
   };
 
+  // ── Alto refresco (elimina el tope de 60 fps de Chromium) ───────────────
+  const persistHighRefreshMode = (mode: 'auto' | 'on' | 'off') => {
+    if (Platform.OS === 'web' && (window as any).electronAPI?.setHighRefreshMode) {
+      (window as any).electronAPI
+        .setHighRefreshMode(mode)
+        .then((result: any) => {
+          if (result?.success) {
+            setDisplayInfo((prev: any) => ({
+              ...(prev || {}),
+              highRefreshMode: result.highRefreshMode,
+              highRefreshApplied: result.highRefreshMode !== 'off',
+            }));
+          }
+        })
+        .catch(() => { });
+    }
+  };
+
   const activateAccessibilityRightItem = () => {
     if (accessibilityLeftIndex === 0) {
       if (subFocusIndex === 0) {
@@ -850,6 +899,7 @@ export default function SettingsView({
     if (systemLeftIndex === 1) return 1; // HDMI toggles
     if (systemLeftIndex === 2) return Math.max(0, LANGUAGE_OPTIONS.length - 1);
     if (systemLeftIndex === 4) return LAUNCHER_BEHAVIOR_OPTIONS.length - 1; // Comportamiento del launcher
+    if (systemLeftIndex === 5) return HIGH_REFRESH_OPTIONS.length; // 3 modos + toggle del contador de fps
     return 0;
   };
 
@@ -863,6 +913,20 @@ export default function SettingsView({
     } else if (systemLeftIndex === 4) {
       const opt = LAUNCHER_BEHAVIOR_OPTIONS[subFocusIndex];
       if (opt) persistLauncherBehavior(opt.id);
+    } else if (systemLeftIndex === 5) {
+      // Las tres primeras filas son los modos de alto refresco; la cuarta
+      // activa/desactiva el contador de fps.
+      if (subFocusIndex === HIGH_REFRESH_OPTIONS.length) {
+        updateUser({
+          settings: {
+            ...activeUser?.settings,
+            showFpsCounter: !activeUser?.settings?.showFpsCounter,
+          } as any,
+        });
+      } else {
+        const opt = HIGH_REFRESH_OPTIONS[subFocusIndex];
+        if (opt) persistHighRefreshMode(opt.id);
+      }
     }
   };
 
@@ -2580,6 +2644,23 @@ export default function SettingsView({
       }).catch(() => setGpuLoading(false));
     }
 
+    // Load display / refresh-rate info for the same section.
+    // El ref evita volver a pedirlo en cada render (y evita un bucle de
+    // render-phase updates cuando el launcher corre fuera de Electron).
+    if (systemLeftIndex === 5 && !displayInfo && !displayLoading && !displayInfoRequestedRef.current) {
+      const displayApi = (window as any).electronAPI;
+      if (displayApi?.getDisplayInfo) {
+        displayInfoRequestedRef.current = true;
+        setDisplayLoading(true);
+        displayApi.getDisplayInfo()
+          .then((info: any) => {
+            setDisplayInfo(info);
+            setDisplayLoading(false);
+          })
+          .catch(() => setDisplayLoading(false));
+      }
+    }
+
     const currentLauncherBehavior: LauncherPlayBehavior =
       (activeUser?.settings as any)?.launcherPlayBehavior || 'hide';
 
@@ -2846,9 +2927,101 @@ export default function SettingsView({
               const isAccelerated = summary?.hardwareAccelerated;
               // Si el handler falló ({ success: false }) no hay datos: "Unavailable", no "Inactive".
               const gpuFailed = !!gpuInfo && !gpuData;
+              const refreshRate = displayInfo?.primaryRefreshRate || 0;
+              const highRefreshMode: 'auto' | 'on' =
+                displayInfo?.highRefreshMode === 'on' ? 'on' : 'auto';
+              const highRefreshApplied = highRefreshMode === 'on';
+              const showFpsCounter = !!activeUser?.settings?.showFpsCounter;
               return (
                 <ScrollView showsVerticalScrollIndicator={false}>
                   <Text style={styles.rightSectionTitle}>GPU & Performance</Text>
+
+                  {/* ── Display & Frame Rate ───────────────────────────────── */}
+                  <Text style={[styles.rightSectionTitle, { marginTop: 18, fontSize: 13 }]}>
+                    Display &amp; Frame Rate
+                  </Text>
+
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoRowLabel}>Display Refresh Rate</Text>
+                    <Text style={styles.infoRowValue}>
+                      {displayLoading ? 'Checking…' : refreshRate ? `${refreshRate} Hz` : 'Unknown'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoRowLabel}>Frame Rate</Text>
+                    <Text
+                      style={[
+                        styles.infoRowValue,
+                        { color: highRefreshApplied ? '#FFB84D' : '#00D478' },
+                      ]}
+                    >
+                      {highRefreshApplied
+                        ? 'Uncapped'
+                        : refreshRate
+                          ? `Follows the monitor (${refreshRate} Hz)`
+                          : 'Follows the monitor'}
+                    </Text>
+                  </View>
+
+                  <Text style={{ color: '#888', fontSize: 11, marginTop: 2, marginBottom: 8 }}>
+                    {highRefreshApplied
+                      ? 'The frame rate limit is disabled: the launcher renders as fast as it can. This uses considerably more CPU.'
+                      : "The launcher renders at the monitor's refresh rate. Enable the FPS counter below to check the real frame rate."}
+                  </Text>
+
+                  {HIGH_REFRESH_OPTIONS.map((opt, optIdx) => {
+                    const isRowFocused = systemFocusArea === 'right' && subFocusIndex === optIdx;
+                    const isActive = highRefreshMode === opt.id;
+                    return (
+                      <View
+                        key={opt.id}
+                        style={[
+                          styles.toggleRowSection,
+                          isRowFocused && styles.rightItemFocused,
+                        ]}
+                      >
+                        {isRowFocused && <SpinningBorderSettings size={s(160)} spread={1} borderRadius={8} />}
+                        <View style={{ flex: 1, paddingRight: 20 }}>
+                          <Text style={styles.toggleRowTitle}>{opt.label}</Text>
+                          <Text style={styles.toggleRowDesc}>{opt.desc}</Text>
+                        </View>
+                        {isActive && <Ionicons name="checkmark-circle" size={22} color="#00D478" />}
+                      </View>
+                    );
+                  })}
+
+                  {/* Contador de fps en vivo */}
+                  <View
+                    style={[
+                      styles.toggleRowSection,
+                      systemFocusArea === 'right' &&
+                        subFocusIndex === HIGH_REFRESH_OPTIONS.length &&
+                        styles.rightItemFocused,
+                    ]}
+                  >
+                    {systemFocusArea === 'right' &&
+                      subFocusIndex === HIGH_REFRESH_OPTIONS.length && (
+                        <SpinningBorderSettings size={s(160)} spread={1} borderRadius={8} />
+                      )}
+                    <View style={{ flex: 1, paddingRight: 20 }}>
+                      <Text style={styles.toggleRowTitle}>Show FPS Counter</Text>
+                      <Text style={styles.toggleRowDesc}>
+                        Live frame rate overlay in the top-left corner
+                      </Text>
+                    </View>
+                    <View style={[styles.psSwitch, showFpsCounter && styles.psSwitchActive]}>
+                      <View
+                        style={[styles.psSwitchThumb, showFpsCounter && styles.psSwitchThumbActive]}
+                      />
+                    </View>
+                  </View>
+
+                  {highRefreshMode === 'on' && (
+                    <Text style={{ color: '#FFD166', fontSize: 11, marginTop: 4 }}>
+                      Restart the launcher to apply this change.
+                    </Text>
+                  )}
 
                   {/* Hardware Acceleration Status Badge */}
                   <View

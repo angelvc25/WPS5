@@ -77,66 +77,82 @@ const FILTER_RAIL_WIDTH = 88;
 // ─── SpinningBorder Component (adapted for square/library cards) ──────────────
 // Web-only: conic-gradient spinning halo + diagonal shimmer sweep.
 // Placed INSIDE the card's TouchableOpacity so it inherits transforms.
-const SpinningBorder = ({ id }: { id: string }) => {
+//
+// Los keyframes se inyectan UNA sola vez para toda la app. Antes se creaba un
+// <style> por tarjeta con 2 @keyframes únicos, de modo que cada cambio de
+// foco montaba y desmontaba ese <style> y obligaba al navegador a reparsear
+// la hoja de estilos (keyframes + conic-gradient) entero.
+const LIB_SPIN_STYLE_ID = 'wps5-library-spin-styles';
+
+const LIB_SPIN_CSS = `
+  /* --- SPINNING HALO ANIMATION --- */
+  @keyframes lib-spin-border {
+    0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
+    100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
+  }
+  .lib-spinning-inner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 250%;
+    height: 250%;
+    will-change: transform;
+    animation: lib-spin-border 9.8s linear infinite;
+    background: conic-gradient(
+      from 0deg,
+      rgba(255, 255, 255, 0.10) 0%,
+      var(--wps-accent, rgba(255, 255, 255, 0.79)) 28%,
+      var(--wps-accent-glow, rgba(180, 210, 255, 0.86)) 33%,
+      rgba(220, 235, 255, 0.95) 48%,
+      rgba(255, 255, 255, 1.0)  50%,
+      var(--wps-accent, rgba(223, 248, 182, 0.95)) 52%,
+      var(--wps-accent-glow, rgba(180, 210, 255, 0.88)) 57%,
+      rgba(255, 255, 255, 0.75) 62%,
+      rgba(255, 255, 255, 0.10) 100%
+    );
+    border-radius: 50%;
+  }
+
+  /* --- DIAGONAL SHIMMER SWEEP ANIMATION --- */
+  @keyframes lib-shimmer {
+    0%   { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
+    15%  { opacity: 1; }
+    50%  { opacity: 1; }
+    70%  { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+    100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+  }
+  .lib-shimmer-line {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 140%;
+    height: 420%;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(255, 255, 255, 0.01) 20%,
+      rgba(255, 255, 255, 0.15) 50%,
+      rgba(255, 255, 255, 0.01) 80%,
+      transparent 100%
+    );
+    animation: lib-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+  }
+`;
+
+const SpinningBorder = () => {
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (document.getElementById(LIB_SPIN_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = LIB_SPIN_STYLE_ID;
+    style.textContent = LIB_SPIN_CSS;
+    document.head.appendChild(style);
+  }, []);
+
   if (Platform.OS !== 'web') return null;
 
   return (
     <>
-      <style>{`
-        /* --- SPINNING HALO ANIMATION --- */
-        @keyframes lib-spin-border-${id} {
-          0%   { transform: translate3d(-50%, -50%, 0) rotate(0deg); }
-          100% { transform: translate3d(-50%, -50%, 0) rotate(360deg); }
-        }
-        .lib-spinning-inner-${id} {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 250%;
-          height: 250%;
-          will-change: transform;
-          animation: lib-spin-border-${id} 9.8s linear infinite;
-          background: conic-gradient(
-            from 0deg,
-            rgba(255, 255, 255, 0.10) 0%,
-            var(--wps-accent, rgba(255, 255, 255, 0.79)) 28%,
-            var(--wps-accent-glow, rgba(180, 210, 255, 0.86)) 33%,
-            rgba(220, 235, 255, 0.95) 48%,
-            rgba(255, 255, 255, 1.0)  50%,
-            var(--wps-accent, rgba(223, 248, 182, 0.95)) 52%,
-            var(--wps-accent-glow, rgba(180, 210, 255, 0.88)) 57%,
-            rgba(255, 255, 255, 0.75) 62%,
-            rgba(255, 255, 255, 0.10) 100%
-          );
-          border-radius: 50%;
-        }
-
-        /* --- DIAGONAL SHIMMER SWEEP ANIMATION --- */
-        @keyframes lib-shimmer-${id} {
-          0%   { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
-          15%  { opacity: 1; }
-          50%  { opacity: 1; }
-          70%  { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
-          100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
-        }
-        .lib-shimmer-line-${id} {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 140%;
-          height: 420%;
-          background: linear-gradient(
-            to right,
-            transparent 0%,
-            rgba(255, 255, 255, 0.01) 20%,
-            rgba(255, 255, 255, 0.15) 50%,
-            rgba(255, 255, 255, 0.01) 80%,
-            transparent 100%
-          );
-          animation: lib-shimmer-${id} 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
-        }
-      `}</style>
-
       {/* LAYER 1: Spinning halo behind the card */}
       <View
         style={{
@@ -152,7 +168,7 @@ const SpinningBorder = ({ id }: { id: string }) => {
         pointerEvents="none"
       >
         {/* @ts-ignore */}
-        <div className={`lib-spinning-inner-${id}`} />
+        <div className="lib-spinning-inner" />
       </View>
 
       {/* LAYER 2: Diagonal shimmer sweep over the card surface */}
@@ -170,9 +186,44 @@ const SpinningBorder = ({ id }: { id: string }) => {
         pointerEvents="none"
       >
         {/* @ts-ignore */}
-        <div className={`lib-shimmer-line-${id}`} />
+        <div className="lib-shimmer-line" />
       </View>
     </>
+  );
+};
+
+// ─── CardSurface ─────────────────────────────────────────────────────────────
+// Antes TODAS las tarjetas de la rejilla usaban <BlurView>, es decir
+// `backdrop-filter: saturate(180%) blur(Npx)`. Cada elemento con
+// backdrop-filter crea su propia "backdrop root", que hay que rasterizar de
+// nuevo cada vez que cambia lo que hay detrás (vídeo de fondo, animaciones
+// de las tarjetas contiguas...). Con ~35 tarjetas visibles eso hundía el
+// compositor.
+//
+// Ahora solo la tarjeta enfocada mantiene el desenfoque (que es la que se
+// está viendo en detalle); el resto usa un fondo equivalente sin
+// backdrop-filter, con el mismo tinte oscuro que aplicaba el BlurView.
+const CardSurface = ({
+  focused,
+  style,
+  children,
+}: {
+  focused: boolean;
+  style: any;
+  children: React.ReactNode;
+}) => {
+  if (focused) {
+    return (
+      <BlurView intensity={45} tint="dark" style={style}>
+        {children}
+      </BlurView>
+    );
+  }
+
+  return (
+    <View style={[style, styles.gameCardFlat]}>
+      {children}
+    </View>
   );
 };
 
@@ -1078,7 +1129,6 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
 
                       const isItemFocused = gridActive && focusedIndex === index;
                       const isInstalled = isGameInstalled(game);
-                      const borderId = `lib-${game.id ?? index}`;
                       const staggerDelay = Math.min(index * 24, 220);
 
                       return (
@@ -1095,11 +1145,10 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                               isItemFocused && styles.gameCardWrapperFocused,
                             ]}
                           >
-                            {isItemFocused && <SpinningBorder id={borderId} />}
+                            {isItemFocused && <SpinningBorder />}
 
-                            <BlurView
-                              intensity={isItemFocused ? 45 : 10}
-                              tint="dark"
+                            <CardSurface
+                              focused={isItemFocused}
                               style={[
                                 styles.gameCard,
                                 isItemFocused && styles.gameCardFocused,
@@ -1257,7 +1306,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                                   <View style={styles.unfocusedOverlay} />
                                 )}
                               </View>
-                            </BlurView>
+                            </CardSurface>
                           </TouchableOpacity>
                         </Animated.View>
                       );
@@ -1526,6 +1575,11 @@ const styles = StyleSheet.create({
   gameCardFocused: {
     borderColor: 'rgba(255, 255, 255, 0)',
     backgroundColor: 'rgba(40, 50, 70, 0)',
+  },
+  // Fondo equivalente al que aplicaba <BlurView intensity={10} tint="dark">
+  // mismo tinte, pero sin backdrop-filter (que es lo que costaba caro).
+  gameCardFlat: {
+    backgroundColor: 'rgba(25, 25, 25, 0.078)',
   },
   imageContainer: {
     width: '100%',

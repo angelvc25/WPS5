@@ -1,5 +1,6 @@
 import { ResizeMode, Video } from '@/components/AppVideo';
 import BackgroundVideo from '@/components/BackgroundVideo';
+import ClockText from '@/components/ClockText';
 import FavoritesView from '@/components/FavoritesView';
 import PSIcon from '@/components/PSIcon';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
@@ -25,7 +26,7 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import Animated, { cancelAnimation, Easing, FadeIn, FadeInDown, FadeOut, interpolate, measure, runOnJS, useAnimatedRef, useAnimatedStyle, useDerivedValue, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, FadeIn, FadeInDown, FadeOut, interpolate, measure, runOnJS, useAnimatedRef, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 
 // WPS5 UI Expansion Components
 import DeleteConfirmView from '@/components/DeleteConfirmView';
@@ -360,8 +361,7 @@ export default function ConsoleHome() {
   const LEFT_PADDING = Math.round(Math.max(windowWidth * 0.088, 80));
   const RIGHT_PADDING = Math.max(windowWidth - ITEM_WIDTH - LEFT_PADDING, 60);
 
-  // States for dynamic data and clock
-  const [currentTime, setCurrentTime] = useState('');
+  // States for dynamic data
   const [gamepadInfo, setGamepadInfo] = useState({ connected: false, name: '', battery: 0 });
   const [storageInfo, setStorageInfo] = useState<{
     percent: number;
@@ -745,7 +745,6 @@ export default function ConsoleHome() {
   const gamePanelFocusAnim = useSharedValue(0);
   const lowerSectionFocusAnim = useSharedValue(0);
   const welcomeWidgetsFocusAnim = useSharedValue(0);
-  const spinRotation = useSharedValue(0);
   const infoCardsAnim = useSharedValue(1); // 1=visible, 0=hidden
   const deepSectionFocusAnim = useSharedValue(0); // 1=capturas/noticias, 0=trofeos o arriba
 
@@ -796,15 +795,6 @@ export default function ConsoleHome() {
     // Fade in new content once swap happens
     tabFade.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.quad) });
   }, [currentRenderedTab]);
-
-  // Spinning border animation — continuous rotation for active card
-  useEffect(() => {
-    spinRotation.value = withRepeat(
-      withTiming(360, { duration: 2800, easing: Easing.linear }),
-      -1,
-      false
-    );
-  }, []);
 
   // Fetch PlayStation Storefront offers
   useEffect(() => {
@@ -1088,22 +1078,6 @@ export default function ConsoleHome() {
       focusArea === 'library_grid'
     );
   }, [activeIndex, focusArea, currentData]);
-
-  // Clock
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      let hours = now.getHours();
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      setCurrentTime(`${hours}:${minutes} ${ampm}`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // t() depende del idioma actual: se accede vía ref para que los toasts
   // en segundo plano (p. ej. solicitudes de amistad) salgan traducidos.
@@ -2591,14 +2565,14 @@ export default function ConsoleHome() {
             ]} />
           </View>
 
-          <Text style={styles.timeText2}>{currentTime}</Text>
+          <ClockText style={styles.timeText2} />
         </View>
       </Animated.View>
 
       {/* Presentation mode clock — shown when UI is hidden */}
       {isPresentationMode && (
         <Animated.View style={styles.presentationClock} entering={FadeIn.duration(600)}>
-          <Text style={styles.timeText2}>{currentTime}</Text>
+          <ClockText style={styles.timeText2} />
         </Animated.View>
       )}
 
@@ -3175,7 +3149,7 @@ export default function ConsoleHome() {
                 <Text style={styles.statusSeparator}>|</Text>
                 <View style={styles.statusInfo}>
                   <Ionicons name="time-outline" size={16} color="#A0A0C0" />
-                  <Text style={styles.statusText}>{currentTime}</Text>
+                  <ClockText style={styles.statusText} />
                 </View>
               </View>
             </View>

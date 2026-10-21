@@ -3,7 +3,7 @@ import { useFonts } from 'expo-font';
 import { Image } from 'expo-image';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, StyleSheet, View } from 'react-native';
 import Animated, {
     FadeOut,
@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import BackgroundVideo from '@/components/BackgroundVideo';
+import FpsOverlay from '@/components/FpsOverlay';
 import ToastHost from '@/components/ToastHost';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -21,6 +22,7 @@ import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
 import { ThemeProvider as WPSThemeProvider } from '@/contexts/ThemeContext';
 import { UserContext } from '@/contexts/UserContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useFpsMeter } from '@/hooks/useFpsMeter';
 import { isLanguage } from '@/i18n/translations';
 import { openWebLink } from '@/services/linkService';
 import { setCurrentOnlineProfileId } from '@/services/onlineAccountService';
@@ -184,6 +186,26 @@ function RootLayoutInner() {
   // Los hooks van antes de cualquier return temprano.
   const [homeReady, setHomeReady] = useState(false);
 
+  // ── Contador de fps (diagnóstico de fluidez) ──────────────────────────────
+  // Se activa desde Ajustes -> GPU & Performance -> "Show FPS Counter".
+  const showFpsCounter = !!(activeUser?.settings as any)?.showFpsCounter;
+  const fpsReading = useFpsMeter(showFpsCounter);
+  const [displayRefreshRate, setDisplayRefreshRate] = useState(0);
+
+  useEffect(() => {
+    if (!showFpsCounter) return;
+    const api = (window as any).electronAPI;
+    if (!api?.getDisplayInfo) return;
+    let cancelled = false;
+    api.getDisplayInfo()
+      .then((info: any) => {
+        if (cancelled) return;
+        setDisplayRefreshRate(info?.primaryRefreshRate || info?.targetRefreshRate || 0);
+      })
+      .catch(() => { });
+    return () => { cancelled = true; };
+  }, [showFpsCounter]);
+
   useEffect(() => {
     if (!activeUser) { setHomeReady(false); return; }
     let finished = false;
@@ -302,6 +324,46 @@ function RootLayoutInner() {
     },
   };
 
+  // ── UserContext ──────────────────────────────────────────────────────────
+  // Estos hooks deben declararse ANTES de cualquier return temprano: si se
+  // llamaran después del `if (isOverlayMode)` su orden cambiaría entre
+  // renders y React se quejaría.
+  const changeUser = useCallback(() => {
+    setActiveUser(null);
+  }, []);
+
+  const updateUser = useCallback(async (updates: Partial<UserProfile>) => {
+    setActiveUser(prevUser => {
+      if (!prevUser) return prevUser;
+      const newUser = { ...prevUser, ...updates };
+      const savedUsers = localStorage.getItem('console_users');
+      if (savedUsers) {
+        const usersList: UserProfile[] = JSON.parse(savedUsers);
+        const updatedList = usersList.map(u => u.id === newUser.id ? newUser : u);
+        localStorage.setItem('console_users', JSON.stringify(updatedList));
+        if ((window as any).electronAPI) {
+          (window as any).electronAPI.saveUsers(updatedList).catch(console.error);
+        }
+      }
+      if (updates.settings && (window as any).electronAPI?.setOverlaySettings) {
+        (window as any).electronAPI.setOverlaySettings({
+          enabled: newUser.settings?.overlayEnabled !== false,
+          combo: newUser.settings?.overlayCombo || 'SELECT_START',
+        });
+      }
+      return newUser;
+    });
+  }, []);
+
+  // El valor del contexto debe mantener una identidad estable: si se recrea
+  // en cada render, todos los consumidores de useUser() (Home, widgets,
+  // biblioteca, ajustes...) se re-renderizan en cascada aunque nada haya
+  // cambiado, y eso hunde el frame rate.
+  const userContextValue = useMemo(
+    () => ({ activeUser, changeUser, updateUser }),
+    [activeUser, changeUser, updateUser]
+  );
+
   if (isOverlayMode) {
     return (
       <View style={{ flex: 1, backgroundColor: 'transparent' }}>
@@ -332,29 +394,6 @@ function RootLayoutInner() {
     }
   };
 
-  const updateUser = async (updates: Partial<UserProfile>) => {
-    setActiveUser(prevUser => {
-      if (!prevUser) return prevUser;
-      const newUser = { ...prevUser, ...updates };
-      const savedUsers = localStorage.getItem('console_users');
-      if (savedUsers) {
-        const usersList: UserProfile[] = JSON.parse(savedUsers);
-        const updatedList = usersList.map(u => u.id === newUser.id ? newUser : u);
-        localStorage.setItem('console_users', JSON.stringify(updatedList));
-        if ((window as any).electronAPI) {
-          (window as any).electronAPI.saveUsers(updatedList).catch(console.error);
-        }
-      }
-      if (updates.settings && (window as any).electronAPI?.setOverlaySettings) {
-        (window as any).electronAPI.setOverlaySettings({
-          enabled: newUser.settings?.overlayEnabled !== false,
-          combo: newUser.settings?.overlayCombo || 'SELECT_START',
-        });
-      }
-      return newUser;
-    });
-  };
-
   // UserSelectScreen vive en la misma posición del árbol antes y después de
   // elegir perfil, así que NO se remonta: sigue mostrando al usuario elegido
   // con el radar pulsando mientras Home se monta detrás, y se retira con un
@@ -362,7 +401,7 @@ function RootLayoutInner() {
   const showSelectLayer = !activeUser || !homeReady;
 
   return (
-    <UserContext.Provider value={{ activeUser, changeUser: () => setActiveUser(null), updateUser }}>
+    <UserContext.Provider value={userContextValue}>
       <WPSThemeProvider>
         <style dangerouslySetInnerHTML={{
           __html: GLOBAL_CSS_FONTS
@@ -424,6 +463,8 @@ function RootLayoutInner() {
             </Animated.View>
           )}
           {!activeUser && <StatusBar style="light" />}
+
+          <FpsOverlay reading={fpsReading} displayRefreshRate={displayRefreshRate} />
         </View>
       </WPSThemeProvider>
     </UserContext.Provider>
