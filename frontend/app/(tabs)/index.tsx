@@ -35,6 +35,7 @@ import GameContextMenu from '@/components/GameContextMenu';
 import GameDetailView from '@/components/GameDetailView';
 import LibraryGrid, { LibraryGridHandle } from '@/components/LibraryGrid';
 import ProfileDropdownMenu from '@/components/ProfileDropdownMenu';
+import { Asset } from 'expo-asset';
 
 // Modular components
 import AddAppModal from '@/components/AddAppModal';
@@ -2012,57 +2013,71 @@ export default function ConsoleHome() {
   }, [activeIndex, activeUser?.settings?.invertTransitionDirection]);
 
   // Reemplaza el useEffect actual de background transition:
+  // Mantiene referencias para que el navegador no descarte lo ya decodificado
+  const decodedCacheRef = useRef<HTMLImageElement[]>([]);
+  const bgRequestRef = useRef(0);
+
+  const getBgUri = (bg: any): string | null => {
+    if (!bg) return null;
+    if (typeof bg === 'string') return bg;
+    if (typeof bg === 'number') return Asset.fromModule(bg).uri;
+    if (typeof bg === 'object' && bg.uri) return String(bg.uri);
+    return null;
+  };
+
+  const preloadDecoded = (uri: string, timeoutMs = 700) =>
+    new Promise<void>((resolve) => {
+      if (Platform.OS !== 'web' || typeof window === 'undefined') return resolve();
+      const img = new window.Image();
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      img.src = uri;
+      decodedCacheRef.current.push(img);
+      if (decodedCacheRef.current.length > 16) decodedCacheRef.current.shift();
+      (img.decode ? img.decode() : Promise.resolve()).then(finish, finish);
+      setTimeout(finish, timeoutMs); // red de seguridad
+    });
+
   useEffect(() => {
     if (!bgA && !bgB) {
       setBgA(currentBg);
       return;
     }
 
-    cancelAnimation(fade);
+    const requestId = ++bgRequestRef.current;
+    let cancelled = false;
 
     const startCrossfade = () => {
+      if (cancelled || requestId !== bgRequestRef.current) return;
+      cancelAnimation(fade);
       if (activeLayer === 'A') {
         fade.value = 0;
         if (currentBg !== bgA) {
           setBgB(currentBg);
           setActiveLayer('B');
-          fade.value = withTiming(1, { duration: 600, easing: Easing.inOut(Easing.quad) });
+          fade.value = withTiming(1, { duration: 450, easing: Easing.inOut(Easing.quad) });
         }
       } else {
         fade.value = 1;
         if (currentBg !== bgB) {
           setBgA(currentBg);
           setActiveLayer('A');
-          fade.value = withTiming(0, { duration: 600, easing: Easing.inOut(Easing.quad) });
+          fade.value = withTiming(0, { duration: 450, easing: Easing.inOut(Easing.quad) });
         }
       }
     };
 
-    // require() -> número; { uri } -> objeto; string http(s) -> URL remota
-    // (los héroes de SteamGrid llegan como string plano, no como { uri }).
-    const remoteUri =
-      typeof currentBg === 'string'
-        ? currentBg
-        : typeof currentBg === 'object' && currentBg?.uri
-          ? String(currentBg.uri)
-          : null;
-    const isRemoteBg =
-      typeof remoteUri === 'string' && /^https?:\/\//.test(remoteUri);
-
-    if (isRemoteBg && remoteUri) {
-      // Precalentamos la caché para que el crossfade no corra sobre una imagen
-      // aún sin descargar (era el tirón del fondo al enfocar juegos Steam).
-      // Con timeout: una red lenta jamás retrasa el fade más de ~350ms. Las
-      // tarjetas vecinas además se precalientan al mover el foco, así que este
-      // prefetch suele resolverse al instante desde caché.
-      const uriToWarm: string = remoteUri;
-      const prefetch = Image.prefetch(uriToWarm).catch(() => { /* si falla, igual animamos */ });
-      const timeout = new Promise<void>((resolve) => setTimeout(resolve, 350));
-      Promise.race([prefetch, timeout]).then(startCrossfade);
-    } else {
-      // Assets empaquetados con require() ya están disponibles síncronamente
+    // Debounce: al pasar rápido por varias tarjetas, solo se transiciona al fondo final
+    const timer = setTimeout(async () => {
+      const uri = getBgUri(currentBg);
+      if (uri) await preloadDecoded(uri);
       startCrossfade();
-    }
+    }, 90);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [currentBg]);
 
   useEffect(() => { if (currentBg && !bgA && !bgB) setBgA(currentBg); }, []);
@@ -2255,7 +2270,7 @@ export default function ConsoleHome() {
         ) : (
           <>
             <Animated.View style={[StyleSheet.absoluteFill, animatedStyleA]}>
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} />
+              {/* <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} /> */}
               {bgA && (
                 <Image
                   source={bgASource}
@@ -2269,7 +2284,7 @@ export default function ConsoleHome() {
             </Animated.View>
 
             <Animated.View style={[StyleSheet.absoluteFill, animatedStyleB]}>
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} />
+              {/* <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} /> */}
               {bgB && (
                 <Image
                   source={bgBSource}
