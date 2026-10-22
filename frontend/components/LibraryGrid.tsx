@@ -151,6 +151,16 @@ const SpinningBorder = () => {
 
   if (Platform.OS !== 'web') return null;
 
+  // Fase global de las animaciones: el ángulo del halo y la posición del
+  // shimmer se derivan de la hora actual, no del tiempo de vida del elemento.
+  // Antes cada tarjeta nueva reiniciaba sus animaciones desde 0, así que al
+  // mover el foco el barrido saltaba de golpe (se veía como un parpadeo).
+  // Con el retardo negativo todas las tarjetas van en fase y el movimiento
+  // entre ellas es continuo.
+  const now = Date.now();
+  const haloDelay = `-${(now % 9800) / 1000}s`;
+  const shimmerDelay = `-${(now % 5000) / 1000}s`;
+
   return (
     <>
       {/* LAYER 1: Spinning halo behind the card */}
@@ -168,7 +178,7 @@ const SpinningBorder = () => {
         pointerEvents="none"
       >
         {/* @ts-ignore */}
-        <div className="lib-spinning-inner" />
+        <div className="lib-spinning-inner" style={{ animationDelay: haloDelay }} />
       </View>
 
       {/* LAYER 2: Diagonal shimmer sweep over the card surface */}
@@ -186,7 +196,7 @@ const SpinningBorder = () => {
         pointerEvents="none"
       >
         {/* @ts-ignore */}
-        <div className="lib-shimmer-line" />
+        <div className="lib-shimmer-line" style={{ animationDelay: shimmerDelay }} />
       </View>
     </>
   );
@@ -212,16 +222,27 @@ const CardSurface = ({
   style: any;
   children: React.ReactNode;
 }) => {
-  if (focused) {
-    return (
-      <BlurView intensity={45} tint="dark" style={style}>
-        {children}
-      </BlurView>
-    );
-  }
-
+  // IMPORTANTE: el tipo de elemento NO puede cambiar entre enfocada y no
+  // enfocada. Antes se alternaba <BlurView> y <View>: al ser componentes
+  // distintos, React DESMONTABA y REMONTABA todo el contenido de la tarjeta
+  // (imagen, iconos y overlays) en cada cambio de foco. La imagen se
+  // volvía a crear y durante un frame se veía el fondo negro de la tarjeta,
+  // además de aparecer un backdrop-filter nuevo (que Chromium rasteriza en
+  // negro el primer frame). De ahí el "espabilón" al moverse entre juegos.
+  //
+  // Ahora la tarjeta es siempre un <View> y el desenfoque se pinta como una
+  // capa aparte sólo en la tarjeta enfocada: el contenido nunca se remonta
+  // y sigue habiendo un único backdrop-filter en toda la rejilla.
   return (
-    <View style={[style, styles.gameCardFlat]}>
+    <View style={[style, !focused && styles.gameCardFlat]}>
+      {focused && (
+        <BlurView
+          intensity={45}
+          tint="dark"
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      )}
       {children}
     </View>
   );
