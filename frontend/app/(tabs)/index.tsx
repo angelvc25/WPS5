@@ -1165,15 +1165,18 @@ export default function ConsoleHome() {
       if (isLaunchingRef.current) return; // el juego pudo lanzarse durante la espera de 2.5s
       try {
         await soundService.pauseBackground();
-        const uri = audioPath.startsWith('http') || audioPath.startsWith('local-file://')
+        const uri = audioPath.startsWith('http') || audioPath.startsWith('local-file://') || audioPath.startsWith('data:')
           ? audioPath
           : `local-file:///${audioPath.replace(/\\/g, '/')}`;
         const sound = createAudioPlayer(uri);
         sound.loop = true;
         sound.volume = 0.8;
-        sound.play();
+        const playPromise = sound.play() as any;
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {});
+        }
         if (focusAudioRequestRef.current !== requestId) {
-          sound.remove();
+          try { sound.remove(); } catch (_) {}
           return;
         }
         focusAudioSoundRef.current = sound;
@@ -2684,34 +2687,36 @@ export default function ConsoleHome() {
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         {!isLibraryFocused && uiReady && (
           activeItem?.id === '1' ? (
-            <Animated.View style={[styles.welcomePanel, welcomePanelLayout, gameInfoPanelStyle, presentationWidgetsStyle]} entering={FadeInDown.duration(500).delay(150)}>
-              <Animated.View style={widgetContainerStyle}>
-                <WelcomeWidgets
-                  ref={welcomeWidgetsRef}
-                  focusArea={focusArea}
-                  focusIndex={focusIndex}
-                  setFocusArea={setFocusArea}
-                  setFocusIndex={setFocusIndex}
-                  setHomeBgModalVisible={setHomeBgModalVisible}
-                  setAddModalVisible={setAddModalVisible}
-                  setRandomSelectorVisible={setRandomSelectorVisible}
-                  gamepadInfo={gamepadInfo}
-                  storageInfo={storageInfo}
-                  lastPlayedGame={lastPlayedGame}
-                  activeUser={activeUser}
-                  handleLaunchApp={handleLaunchApp}
-                  windowWidth={windowWidth}
-                  windowHeight={windowHeight}
-                  widgetContainerStyle={widgetContainerStyle}
-                  widgetContainerStyle2={widgetContainerStyle2}
-                  wviewStyle={wviewStyle}
-                  widgetVisibility={widgetVisibility}
-                  widgetOrder={widgetOrder}
-                  widgetSizes={widgetSizes}
-                  isMoveMode={isWidgetMoveMode}
-                  movingWidgetId={movingWidgetId}
-                  editingWidgetId={editingWidgetId}
-                />
+            <Animated.View style={[styles.welcomePanel, welcomePanelLayout]} entering={FadeInDown.duration(500).delay(150)}>
+              <Animated.View style={[gameInfoPanelStyle, presentationWidgetsStyle]}>
+                <Animated.View style={widgetContainerStyle}>
+                  <WelcomeWidgets
+                    ref={welcomeWidgetsRef}
+                    focusArea={focusArea}
+                    focusIndex={focusIndex}
+                    setFocusArea={setFocusArea}
+                    setFocusIndex={setFocusIndex}
+                    setHomeBgModalVisible={setHomeBgModalVisible}
+                    setAddModalVisible={setAddModalVisible}
+                    setRandomSelectorVisible={setRandomSelectorVisible}
+                    gamepadInfo={gamepadInfo}
+                    storageInfo={storageInfo}
+                    lastPlayedGame={lastPlayedGame}
+                    activeUser={activeUser}
+                    handleLaunchApp={handleLaunchApp}
+                    windowWidth={windowWidth}
+                    windowHeight={windowHeight}
+                    widgetContainerStyle={widgetContainerStyle}
+                    widgetContainerStyle2={widgetContainerStyle2}
+                    wviewStyle={wviewStyle}
+                    widgetVisibility={widgetVisibility}
+                    widgetOrder={widgetOrder}
+                    widgetSizes={widgetSizes}
+                    isMoveMode={isWidgetMoveMode}
+                    movingWidgetId={movingWidgetId}
+                    editingWidgetId={editingWidgetId}
+                  />
+                </Animated.View>
               </Animated.View>
             </Animated.View>
           ) : activeItem?.id === '5' ? (

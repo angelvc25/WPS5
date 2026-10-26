@@ -97,7 +97,10 @@ class SoundService {
   async playBackground() {
     if (this.isMuted || !this.backgroundSound) return;
     try {
-      this.backgroundSound.play();
+      const res = this.backgroundSound.play() as any;
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {});
+      }
     } catch (error) {
       // Ignorar error si ya está reproduciendo
     }
@@ -242,8 +245,13 @@ class SoundService {
   }
 
   private async replay(sound: AudioPlayer) {
-    await sound.seekTo(0);
-    sound.play();
+    try {
+      await sound.seekTo(0);
+      const res = sound.play() as any;
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {});
+      }
+    } catch (_) {}
   }
 }
 

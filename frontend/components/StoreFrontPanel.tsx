@@ -92,9 +92,10 @@ export const StoreFrontPanel = ({
 
   return (
     <Animated.View
-      style={[styles.container, gameInfoPanelStyle, { paddingLeft: s(150), paddingTop: s(280) }]}
+      style={[styles.container, { paddingLeft: s(150), paddingTop: s(280) }]}
       entering={FadeInDown.duration(400)}
     >
+      <Animated.View style={gameInfoPanelStyle}>
       {/* Header con altura fija para Logo o nombre del juego enfocado (elimina saltos de layout) */}
       <View
         style={{
@@ -551,6 +552,7 @@ export const StoreFrontPanel = ({
             Ver PlayStation Store completo
           </Text>
         </TouchableOpacity>
+      </Animated.View>
       </Animated.View>
     </Animated.View>
   );

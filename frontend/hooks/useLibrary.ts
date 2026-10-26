@@ -469,8 +469,12 @@ export function useLibrary({
                 // nunca rompa el refresco de toda la lista.
                 const toUri = (v: unknown) => {
                     if (typeof v !== 'string' || !v) return null;
-                    if (v.startsWith('http')) return { uri: v };
-                    const clean = v.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
+                    const str = v.trim();
+                    if (!str) return null;
+                    if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('data:') || str.startsWith('blob:')) {
+                        return { uri: str };
+                    }
+                    const clean = str.replace(/^local-file:\/+/, '').replace(/\\/g, '/');
                     return { uri: `local-file:///${clean}` };
                 };
                 const formatApp = (app: any) => ({

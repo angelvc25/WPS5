@@ -278,7 +278,8 @@ export const KHInsiderMusicModal: React.FC<KHInsiderMusicModalProps> = ({
         playerRef.current.pause();
         setIsPlaying(false);
       } else if (playerRef.current) {
-        playerRef.current.play();
+        const p = playerRef.current.play() as any;
+        if (p && typeof p.catch === 'function') p.catch(() => {});
         setIsPlaying(true);
       }
       return;
@@ -304,7 +305,8 @@ export const KHInsiderMusicModal: React.FC<KHInsiderMusicModalProps> = ({
       player.loop = true;
       player.volume = 0.9;
       playerRef.current = player;
-      player.play();
+      const p = player.play() as any;
+      if (p && typeof p.catch === 'function') p.catch(() => {});
       setIsPlaying(true);
 
       // Temporizador para progreso estimado a partir de la duración del track

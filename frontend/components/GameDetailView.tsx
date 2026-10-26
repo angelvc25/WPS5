@@ -1169,7 +1169,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
     detailAudioPathRef.current = audioPath;
 
-    const uri = audioPath.startsWith('http') || audioPath.startsWith('local-file://')
+    const uri = audioPath.startsWith('http') || audioPath.startsWith('local-file://') || audioPath.startsWith('data:')
       ? audioPath
       : `local-file:///${audioPath.replace(/\\/g, '/')}`;
 
@@ -1181,7 +1181,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         const player = createAudioPlayer(uri);
         player.loop = true;
         player.volume = 0.8;
-        player.play();
+        const p = player.play() as any;
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {});
+        }
         if (!mounted) { try { player.remove(); } catch (_) {} return; }
         detailAudioRef.current = player;
       } catch (err) {
@@ -1211,7 +1214,12 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     if (isVideo) {
       try { detailAudioRef.current.pause(); } catch (_) {}
     } else {
-      try { detailAudioRef.current.play(); } catch (_) {}
+      try {
+        const p = detailAudioRef.current.play() as any;
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {});
+        }
+      } catch (_) {}
     }
   }, [selectedMediaIndex, steamMedia]);
 

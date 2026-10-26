@@ -4,7 +4,28 @@ import { Image } from 'expo-image';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Platform, StyleSheet, View } from 'react-native';
+import { Linking, LogBox, Platform, StyleSheet, View } from 'react-native';
+
+LogBox.ignoreLogs([
+  '"shadow*" style props are deprecated. Use "boxShadow".',
+  '"textShadow*" style props are deprecated. Use "textShadow".',
+  'props.pointerEvents is deprecated. Use style.pointerEvents',
+]);
+
+if (Platform.OS === 'web' && typeof console !== 'undefined' && console.warn) {
+  const _warn = console.warn;
+  console.warn = (...args: any[]) => {
+    const first = typeof args[0] === 'string' ? args[0] : '';
+    if (
+      first.includes('"shadow*" style props are deprecated') ||
+      first.includes('"textShadow*" style props are deprecated') ||
+      first.includes('props.pointerEvents is deprecated')
+    ) {
+      return;
+    }
+    _warn.apply(console, args);
+  };
+}
 import Animated, {
     FadeOut,
     runOnJS,
@@ -162,7 +183,16 @@ function RootLayoutInner() {
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const onErr = (e: ErrorEvent) => console.error('[window.error]', e.error || e.message);
-      const onRej = (e: PromiseRejectionEvent) => console.error('[unhandledrejection]', e.reason);
+      const onRej = (e: PromiseRejectionEvent) => {
+        // Ignorar interrupciones benignas de audio/video HTML5 causadas por llamadas a pause()
+        if (
+          e.reason?.name === 'AbortError' ||
+          (typeof e.reason?.message === 'string' && e.reason.message.includes('interrupted by a call to pause'))
+        ) {
+          return;
+        }
+        console.error('[unhandledrejection]', e.reason);
+      };
       window.addEventListener('error', onErr);
       window.addEventListener('unhandledrejection', onRej);
       return () => {

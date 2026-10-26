@@ -332,7 +332,10 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
         const subscription = sound.addListener('playbackStatusUpdate', onStatusUpdate);
         if (!cancelled) {
           soundRef.current = sound;
-          if (isPlaying) sound.play();
+          if (isPlaying) {
+            const p = sound.play() as any;
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+          }
         } else {
           subscription.remove();
           sound.remove();
@@ -370,7 +373,8 @@ export default function MusicPlayerCard({ isFocused = false }: MusicPlayerCardPr
       if (isPlaying) {
         soundRef.current.pause();
       } else {
-        soundRef.current.play();
+        const p = soundRef.current.play() as any;
+        if (p && typeof p.catch === 'function') p.catch(() => {});
       }
     } catch (e) {
       console.warn('Cannot play/pause: sound not loaded', e);

@@ -3499,7 +3499,11 @@ app.whenReady().then(async () => {
   // Usamos protocol.handle para mejor soporte en versiones recientes de Electron
   protocol.handle('local-file', async (request) => {
     try {
-      let filePath = decodeURIComponent(request.url.replace('local-file://', ''));
+      const urlWithoutScheme = request.url.replace(/^local-file:\/+/i, '');
+      if (urlWithoutScheme.startsWith('data:')) {
+        return net.fetch(urlWithoutScheme);
+      }
+      let filePath = decodeURIComponent(urlWithoutScheme);
 
       // En Windows, las rutas pueden venir como /C:/ o C/ o C:/
       if (process.platform === 'win32') {
