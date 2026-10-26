@@ -886,12 +886,20 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
           }
         } else if (fa === 'header_avatar') {
           o.setActiveTab('Games');
-          setActiveIndex(0);
+          setActiveIndex(1);
           setFocusArea('main_carousel');
-          setFocusIndex(0);
+          setFocusIndex(1);
         } else if (fa === 'header_tabs') {
+          const newTab = TABS[fi].id;
+          if (newTab !== o.activeTab) {
+            o.setActiveTab(newTab);
+            const targetIdx = newTab === 'Games' ? 1 : 0;
+            setActiveIndex(targetIdx);
+            setFocusIndex(targetIdx);
+          } else {
+            setFocusIndex(ai);
+          }
           setFocusArea('main_carousel');
-          setFocusIndex(ai);
         } else if (fa === 'main_carousel') {
           if (activeItem?.id === 'more_library') {
             setFocusArea('library_grid');
@@ -1063,8 +1071,11 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
       if (e.key === 'Enter') {
         soundService.playActivation();
         if (fa === 'header_tabs') {
-          o.setActiveTab(TABS[fi].id);
-          setActiveIndex(0);
+          const newTab = TABS[fi].id;
+          o.setActiveTab(newTab);
+          const targetIdx = newTab === 'Games' ? 1 : 0;
+          setActiveIndex(targetIdx);
+          setFocusIndex(targetIdx);
           setFocusArea('main_carousel');
           return;
         }
@@ -1201,9 +1212,12 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
           const idx = TABS.findIndex(t => t.id === prev);
           const nextIdx = idx + direction;
           if (nextIdx >= 0 && nextIdx < TABS.length) {
-            setActiveIndex(0);
+            const nextTab = TABS[nextIdx].id;
+            const targetIdx = nextTab === 'Games' ? 1 : 0;
+            setActiveIndex(targetIdx);
             if (fa === 'header_tabs') setFocusIndex(nextIdx);
-            return TABS[nextIdx].id;
+            else if (fa === 'main_carousel') setFocusIndex(targetIdx);
+            return nextTab;
           }
           return prev;
         });

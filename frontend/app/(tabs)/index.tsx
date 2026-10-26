@@ -831,7 +831,7 @@ export default function ConsoleHome() {
       .finally(() => setStoreLoading(false));
   }, [activeUser?.settings?.storeSource, language]);
 
-  const isStoreCard = (currentRenderedTab === 'Games' ? games : media)[activeIndex]?.id === '5';
+  const isStoreCard = currentData[activeIndex]?.id === '5';
   const isGamePanelFocused = focusArea === 'game_panel';
   const isLowerSectionFocused = isGamePanelFocused && !isStoreCard && gamePanelFocusIndex >= 2;
   const isDeepSectionFocused = isGamePanelFocused && !isStoreCard && gamePanelFocusIndex >= 4;
@@ -892,7 +892,7 @@ export default function ConsoleHome() {
   });
 
   const spacerStyle = useAnimatedStyle(() => {
-    const isWelcome = (currentRenderedTab === 'Games' ? games : media)[activeIndex]?.id === '1';
+    const isWelcome = currentData[activeIndex]?.id === '1';
     const trophyHeight = 320;
     // Al navegar por capturas, trofeos o noticias conservamos la misma
     // separación vertical que usa GameDetailView, sin añadir espacio cuando
@@ -1173,10 +1173,10 @@ export default function ConsoleHome() {
         sound.volume = 0.8;
         const playPromise = sound.play() as any;
         if (playPromise && typeof playPromise.catch === 'function') {
-          playPromise.catch(() => {});
+          playPromise.catch(() => { });
         }
         if (focusAudioRequestRef.current !== requestId) {
-          try { sound.remove(); } catch (_) {}
+          try { sound.remove(); } catch (_) { }
           return;
         }
         focusAudioSoundRef.current = sound;
@@ -1957,21 +1957,37 @@ export default function ConsoleHome() {
     );
   }, [gamePanelFocusIndex, currentData, activeIndex, storeOffers]);
 
-  const isWelcomeCard = currentRenderedTab === 'Games' && currentData[activeIndex]?.id === '1';
+  const activeCard = currentData[activeIndex];
+  const isLastPlayedCard = activeCard?.isLastPlayed || activeCard?.id === 'last_played';
+  const lastPlayedAppId = lastPlayedGame ? getSteamAppId(lastPlayedGame as any) : null;
+  const lastPlayedBg = lastPlayedGame
+    ? (lastPlayedGame.backgroundImage ||
+       (lastPlayedAppId ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${lastPlayedAppId}/library_hero.jpg` : null) ||
+       lastPlayedGame.image ||
+       require('@/assets/images/FondoDefault2.jpg'))
+    : require('@/assets/images/FondoDefault2.jpg');
+
+  const regularCardAppId = activeCard ? getSteamAppId(activeCard as any) : null;
+  const regularCardBg = activeCard?.backgroundImage ||
+    (regularCardAppId ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${regularCardAppId}/library_hero.jpg` : null) ||
+    activeCard?.image ||
+    require('@/assets/images/FondoDefault2.jpg');
+
+  const isWelcomeCard = currentRenderedTab === 'Games' && activeCard?.id === '1';
   const isThemeActiveForCurrentCard = visualTheme && (!visualThemeOnlyHome || isWelcomeCard);
 
-  const currentBg = (isThemeActiveForCurrentCard && currentRenderedTab === 'Games' && currentData[activeIndex]?.id !== '5')
+  const currentBg = (isThemeActiveForCurrentCard && currentRenderedTab === 'Games' && activeCard?.id !== '5')
     ? visualTheme.background
-    : ((currentRenderedTab === 'Games' && activeIndex === 1)
+    : ((currentRenderedTab === 'Games' && activeCard?.id === '1')
       ? (homeBackground || require('@/assets/images/FondoDefault2.jpg'))
-      : (currentData[activeIndex]?.id === '5' && storeFocusedBackground
+      : (activeCard?.id === '5' && storeFocusedBackground
         ? storeFocusedBackground
-        : (currentData[activeIndex]?.isLastPlayed ? lastPlayedGame?.backgroundImage : (currentData[activeIndex]?.backgroundImage || require('@/assets/images/FondoDefault2.jpg')))));
+        : (isLastPlayedCard ? lastPlayedBg : regularCardBg)));
   const currentBackgroundVideo =
     isThemeActiveForCurrentCard
       ? null
-      : (currentRenderedTab === 'Games' && activeIndex === 0
-        ? currentData[activeIndex]?.backgroundVideo
+      : (currentRenderedTab === 'Games' && activeCard?.id === '5'
+        ? activeCard?.backgroundVideo
         : null);
 
   const prevActiveIndexRef = useRef(activeIndex);
@@ -2111,14 +2127,14 @@ export default function ConsoleHome() {
         if (currentBg !== a) {
           activeLayerShared.value = 1; // B pasa a ser la capa entrante
           setBgState({ bgA: a, bgB: currentBg, activeLayer: 'B' });
-          fade.value = withTiming(1, { duration: 450, easing: Easing.inOut(Easing.quad) });
+          fade.value = withTiming(1, { duration: 220, easing: Easing.inOut(Easing.quad) });
         }
       } else {
         fade.value = 1;
         if (currentBg !== b) {
           activeLayerShared.value = 0; // A pasa a ser la capa entrante
           setBgState({ bgA: currentBg, bgB: b, activeLayer: 'A' });
-          fade.value = withTiming(0, { duration: 450, easing: Easing.inOut(Easing.quad) });
+          fade.value = withTiming(0, { duration: 220, easing: Easing.inOut(Easing.quad) });
         }
       }
     };
@@ -2158,9 +2174,11 @@ export default function ConsoleHome() {
       transform: [
         { scale: interpolate(progress, [0, 1], [1.025, 1]) },
         // Entrante: viene de +dir*20 → 0 | Saliente: va de 0 → -dir*20
-        { translateX: isIncoming
+        {
+          translateX: isIncoming
             ? interpolate(progress, [0, 1], [dir * 20, 0])
-            : interpolate(progress, [0, 1], [-dir * 20, 0]) },
+            : interpolate(progress, [0, 1], [-dir * 20, 0])
+        },
       ],
     };
   });
@@ -2175,9 +2193,11 @@ export default function ConsoleHome() {
       transform: [
         { scale: interpolate(progress, [0, 1], [1.025, 1]) },
         // Entrante: viene de +dir*20 → 0 | Saliente: va de 0 → -dir*20
-        { translateX: isIncoming
+        {
+          translateX: isIncoming
             ? interpolate(progress, [0, 1], [dir * 20, 0])
-            : interpolate(progress, [0, 1], [-dir * 20, 0]) },
+            : interpolate(progress, [0, 1], [-dir * 20, 0])
+        },
       ],
     };
   });
@@ -2525,7 +2545,8 @@ export default function ConsoleHome() {
                 onPress={(e) => {
                   (e.currentTarget as any)?.blur?.();
                   setActiveTab(tab.id);
-                  setActiveIndex(0);
+                  const targetIdx = tab.id === 'Games' ? 1 : 0;
+                  setActiveIndex(targetIdx);
                   setFocusArea('main_carousel');
                 }}
                 activeOpacity={0.7}

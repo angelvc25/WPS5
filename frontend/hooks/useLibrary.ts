@@ -345,8 +345,10 @@ export function useLibrary({
         [steamGames, downloadsByAppId]);
 
     const currentData: ConsoleItem[] = useMemo(() => {
-        const BASE_CARD_IDS = ['1', 'last_played', '5'];
-        const baseCards = nonSteamGames.filter(g => BASE_CARD_IDS.includes(g.id));
+        const BASE_CARD_IDS = ['5', '1', 'last_played'];
+        const baseCardsMap = new Map(nonSteamGames.filter(g => BASE_CARD_IDS.includes(g.id)).map(g => [g.id, g]));
+        // Forzar orden explícito: Store → Home → last_played, independiente del orden en BD
+        const baseCards = BASE_CARD_IDS.map(id => baseCardsMap.get(id)).filter(Boolean) as typeof nonSteamGames;
         const otherSavedGames = nonSteamGames.filter(g => !BASE_CARD_IDS.includes(g.id));
         const pinnedManual = otherSavedGames.filter(g => g.isPinned);
         const unpinnedManual = otherSavedGames.filter(g => !g.isPinned);

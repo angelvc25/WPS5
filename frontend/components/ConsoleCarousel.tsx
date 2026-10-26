@@ -573,7 +573,11 @@ const ConsoleCarouselComponent = ({
       const item = currentData[i];
       if (!item) continue;
       pushSource(item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image);
-      pushSource(item.isLastPlayed ? lastPlayedGame?.backgroundImage : (item as any).backgroundImage);
+      const lastAppId = lastPlayedGame ? getSteamAppId(lastPlayedGame as any) : null;
+      const lastBg = lastPlayedGame?.backgroundImage ||
+        (lastAppId ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${lastAppId}/library_hero.jpg` : null) ||
+        lastPlayedGame?.image;
+      pushSource(item.isLastPlayed ? lastBg : (item as any).backgroundImage);
     }
     const toPrefetch = [...new Set(warm)].filter(uri => !prefetchedUrisRef.current.has(uri)).slice(0, 8);
     toPrefetch.forEach((uri) => {
