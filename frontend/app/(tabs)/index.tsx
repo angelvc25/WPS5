@@ -2604,10 +2604,7 @@ export default function ConsoleHome() {
                   setProfileMenuFocusIndex(0);
                   soundService.playNavigation();
                 }}
-                style={[
-                  styles.avatarContainer,
-                  activeUser ? { borderColor: activeUser.color } : {},
-                ]}
+                style={styles.avatarContainer}
                 activeOpacity={0.75}
               >
                 {activeUser?.avatar ? (
@@ -3479,8 +3476,6 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
   },
   avatarFocused: {
     borderColor: '#FFFFFF',
