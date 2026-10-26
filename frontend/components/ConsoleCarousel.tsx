@@ -516,7 +516,7 @@ const ConsoleCarouselComponent = ({
   React.useEffect(() => {
     if (isLaunching || isContextMenuOpen) {
       if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
-      spinningBorderScale.value = withTiming(1.15, { duration: 420, easing: Easing.out(Easing.cubic) });
+      spinningBorderScale.value = withTiming(1.15, { duration: 320, easing: Easing.out(Easing.cubic) });
       spinningBorderOpacity.value = withTiming(0, { duration: 380, easing: Easing.out(Easing.quad) });
     } else {
       spinningBorderScale.value = withTiming(1, { duration: 250 });

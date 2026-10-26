@@ -267,6 +267,7 @@ function RootLayoutInner() {
 
   // Valores compartidos de Reanimated
   const splashOpacity = useSharedValue(1);
+  const skipIndicatorOpacity = useSharedValue(0);
   const splashFinishedRef = useRef(false);
 
   // Marca el fin del splash y avisa a la app: la música de fondo de la
@@ -288,6 +289,64 @@ function RootLayoutInner() {
       }
     });
   };
+
+  // Muestra el indicador de skip 1 segundo después de arrancar el splash
+  // con un video y lo oculta al terminar.
+  useEffect(() => {
+    if (isOverlayMode || !showSplash || !hasBootVideo) {
+      skipIndicatorOpacity.value = 0;
+      return;
+    }
+    const showTimer = setTimeout(() => {
+      skipIndicatorOpacity.value = withTiming(1, { duration: 500 });
+    }, 1000);
+    return () => {
+      clearTimeout(showTimer);
+      skipIndicatorOpacity.value = 0;
+    };
+  }, [isOverlayMode, showSplash, hasBootVideo]);
+
+  // Listener global de skip: cualquier tecla, clic o botón de mando
+  // durante el splash llama a finishSplash().
+  useEffect(() => {
+    if (isOverlayMode || !showSplash || !hasBootVideo) return;
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const onSkip = () => { finishSplash(); };
+
+    window.addEventListener('keydown', onSkip, { once: true });
+    window.addEventListener('mousedown', onSkip, { once: true });
+
+    // Sondeo de mando: detecta cualquier botón presionado
+    let rafId: number | null = null;
+    let prevButtons: boolean[] = [];
+    const pollGamepad = () => {
+      if (splashFinishedRef.current) return;
+      const pads = navigator.getGamepads?.() ?? [];
+      for (let i = 0; i < pads.length; i++) {
+        const pad = pads[i];
+        if (!pad) continue;
+        for (let b = 0; b < pad.buttons.length; b++) {
+          const pressed = pad.buttons[b].pressed;
+          if (pressed && !prevButtons[b]) {
+            window.removeEventListener('keydown', onSkip);
+            window.removeEventListener('mousedown', onSkip);
+            finishSplash();
+            return;
+          }
+          prevButtons[b] = pressed;
+        }
+      }
+      rafId = requestAnimationFrame(pollGamepad);
+    };
+    rafId = requestAnimationFrame(pollGamepad);
+
+    return () => {
+      window.removeEventListener('keydown', onSkip);
+      window.removeEventListener('mousedown', onSkip);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [isOverlayMode, showSplash, hasBootVideo]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.openExternalUrl) return;
@@ -344,6 +403,10 @@ function RootLayoutInner() {
   // Estilos animados
   const animatedSplashStyle = useAnimatedStyle(() => ({
     opacity: splashOpacity.value,
+  }));
+
+  const animatedSkipStyle = useAnimatedStyle(() => ({
+    opacity: skipIndicatorOpacity.value,
   }));
 
   const transparentTheme = {
@@ -490,6 +553,18 @@ function RootLayoutInner() {
                   contentFit="contain"
                 />
               )}
+
+              {/* Indicador de skip — abajo a la derecha */}
+              {hasBootVideo && (
+                <Animated.View style={[styles.skipIndicator, animatedSkipStyle]} pointerEvents="none">
+                  <View style={styles.skipPill}>
+                    <Ionicons name="game-controller-outline" size={14} color="rgba(255,255,255,0.85)" style={{ marginRight: 6 }} />
+                    <Animated.Text style={styles.skipText}>
+                      {t('splash.skipPrompt')}
+                    </Animated.Text>
+                  </View>
+                </Animated.View>
+              )}
             </Animated.View>
           )}
           {!activeUser && <StatusBar style="light" />}
@@ -507,5 +582,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999
+  },
+  skipIndicator: {
+    position: 'absolute',
+    bottom: 32,
+    right: 32,
+  },
+  skipPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  skipText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 });

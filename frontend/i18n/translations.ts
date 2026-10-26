@@ -1050,6 +1050,7 @@ const es = {
   'settings.visualThemeActive': 'Tema visual activo',
   'settings.accentActive': 'Color de acento activo',
   'settings.soundPackActive': 'Pack de sonidos activo',
+  'splash.skipPrompt': 'Presiona un botón para skip',
 
 
 } as const;
@@ -2088,6 +2089,7 @@ const en: Record<TranslationKey, string> = {
   'settings.visualThemeActive': 'Active visual theme',
   'settings.accentActive': 'Active accent color',
   'settings.soundPackActive': 'Active sound pack',
+  'splash.skipPrompt': 'Press any button to skip',
 
 };
 
@@ -3126,6 +3128,7 @@ const pt: Record<TranslationKey, string> = {
   'settings.visualThemeActive': 'Tema visual ativo',
   'settings.accentActive': 'Cor de acento ativa',
   'settings.soundPackActive': 'Pacote de sons ativo',
+  'splash.skipPrompt': 'Pressione qualquer botão para pular',
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {
