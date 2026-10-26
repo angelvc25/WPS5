@@ -248,14 +248,14 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
     cardContent = (
       <AnimatedCardWrapper key={`more-${carouselKey}`} isActive={isActive} style={{ opacity: 0.75 }} entryIndex={index}>
         <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+          <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
+            {libraryContent}
+          </Animated.View>
           {isActive && focusArea === 'main_carousel' && (
             <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
               <SpinningBorder size={CARD_SIZE} />
             </Animated.View>
           )}
-          <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
-            {libraryContent}
-          </Animated.View>
         </TouchableOpacity>
       </AnimatedCardWrapper>
     );
@@ -263,11 +263,6 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
     cardContent = (
       <AnimatedCardWrapper key={`grid-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
         <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-          {isActive && focusArea === 'main_carousel' && (
-            <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
-              <SpinningBorder size={CARD_SIZE} />
-            </Animated.View>
-          )}
           <View style={[styles.card, styles.folderCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
             <View style={styles.folderCardHeader}>
               <MaterialCommunityIcons name="view-grid" size={14} color="rgba(255,255,255,0.7)" />
@@ -287,6 +282,11 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
               )}
             </View>
           </View>
+          {isActive && focusArea === 'main_carousel' && (
+            <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
+              <SpinningBorder size={CARD_SIZE} />
+            </Animated.View>
+          )}
         </TouchableOpacity>
       </AnimatedCardWrapper>
     );
@@ -294,11 +294,6 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
     cardContent = (
       <AnimatedCardWrapper key={`folder-${carouselKey}`} isActive={isActive} entryIndex={index}>
         <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-          {isActive && focusArea === 'main_carousel' && (
-            <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
-              <SpinningBorder size={CARD_SIZE} />
-            </Animated.View>
-          )}
           <View style={[styles.card, styles.folderCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
             <View style={styles.folderCardHeader}>
               <Ionicons name="heart" size={14} color="rgba(255,100,100,0.9)" />
@@ -318,6 +313,11 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
               )}
             </View>
           </View>
+          {isActive && focusArea === 'main_carousel' && (
+            <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
+              <SpinningBorder size={CARD_SIZE} />
+            </Animated.View>
+          )}
         </TouchableOpacity>
       </AnimatedCardWrapper>
     );
@@ -325,14 +325,14 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
     cardContent = (
       <AnimatedCardWrapper key={`lp-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
         <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+          <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
+            <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
+          </BlurView>
           {isActive && focusArea === 'main_carousel' && (
             <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
               <SpinningBorder size={CARD_SIZE} />
             </Animated.View>
           )}
-          <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
-            <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
-          </BlurView>
         </TouchableOpacity>
       </AnimatedCardWrapper>
     );
@@ -361,14 +361,14 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
     cardContent = (
       <AnimatedCardWrapper key={`${item.id}-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
         <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+          <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
+            {cardImage}
+          </Animated.View>
           {isActive && focusArea === 'main_carousel' && (
             <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
               <SpinningBorder size={CARD_SIZE} />
             </Animated.View>
           )}
-          <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
-            {cardImage}
-          </Animated.View>
         </TouchableOpacity>
       </AnimatedCardWrapper>
     );
@@ -533,6 +533,7 @@ const ConsoleCarouselComponent = ({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 10,
     pointerEvents: 'none' as const,
   }), []);
 

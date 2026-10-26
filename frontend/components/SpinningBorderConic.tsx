@@ -72,11 +72,11 @@ const SPIN_CSS = `
 
   /* --- ANIMACIÓN 2: DESTELLO DIAGONAL MÁS LARGO Y SUAVE --- */
   @keyframes wc-content-shimmer {
-    0% { transform: translate3d(-160%, -50%, 0) rotate(48deg); opacity: 0; }
+    0% { transform: translate3d(-180%, -50%, 0) rotate(45deg); opacity: 0; }
     15% { opacity: 1; }
-    50% { opacity: 1; }
-    70% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
-    100% { transform: translate3d(130%, -50%, 0) rotate(48deg); opacity: 0; }
+    55% { opacity: 1; }
+    75% { transform: translate3d(180%, -50%, 0) rotate(45deg); opacity: 0; }
+    100% { transform: translate3d(180%, -50%, 0) rotate(45deg); opacity: 0; }
   }
   .wc-shimmer-line {
     position: absolute;
@@ -85,15 +85,18 @@ const SPIN_CSS = `
     width: 140%; 
     height: 420%; 
     will-change: transform;
+    pointer-events: none;
     background: linear-gradient(
       to right,
       transparent 0%,
-      rgba(255, 255, 255, 0.01) 20%,
-      rgba(255, 255, 255, 0.18) 50%, 
-      rgba(255, 255, 255, 0.01) 80%,
+      rgba(255, 255, 255, 0.10) 15%,
+      rgba(255, 255, 255, 0.30) 38%,
+      rgba(255, 255, 255, 0.35) 50%, 
+      rgba(255, 255, 255, 0.30) 62%,
+      rgba(255, 255, 255, 0.10) 85%,
       transparent 100%
     );
-    animation: wc-content-shimmer 5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+    animation: wc-content-shimmer 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 `;
 
@@ -120,14 +123,14 @@ export const SpinningBorderConic = ({ size }: SpinningBorderConicProps) => {
         style={{
           position: 'absolute',
           top: 0,
-          left: 10,
-          right: 10,
+          left: 12,
+          right: 12,
           bottom: 0,
-          borderRadius: 22,
-          zIndex: 5,
+          borderRadius: 20,
+          zIndex: 25,
           overflow: 'hidden',
+          pointerEvents: 'none',
         } as any}
-        pointerEvents="none"
       >
         {/* @ts-ignore */}
         <div className="wc-shimmer-line" />
