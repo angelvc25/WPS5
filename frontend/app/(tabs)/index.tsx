@@ -1383,10 +1383,10 @@ export default function ConsoleHome() {
     if (activeUser?.settings?.showNews === false) { setSteamNews([]); setNewsLoading(false); return; }
     const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
     if (!title || title === 'Último Jugado') { setSteamNews([]); return; }
-    setNewsLoading(true);
-    setSteamNews([]);
     let cancelled = false;
     const timer = setTimeout(() => {
+      setNewsLoading(true);
+      setSteamNews([]);
       fetchSteamNewsByName(title, language).then(news => {
         if (!cancelled) { setSteamNews(news); setNewsLoading(false); }
       });
@@ -1405,10 +1405,10 @@ export default function ConsoleHome() {
     if (!playable) { setSteamMedia([]); return; }
     const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
     if (!title || title === 'Último Jugado') { setSteamMedia([]); return; }
-    setMediaLoading(true);
-    setSteamMedia([]);
     let cancelled = false;
     const timer = setTimeout(async () => {
+      setMediaLoading(true);
+      setSteamMedia([]);
       try {
         const srcItem = item.isLastPlayed ? lastPlayedGame : item;
         const [images, igdbVideos] = await Promise.all([
@@ -1963,8 +1963,15 @@ export default function ConsoleHome() {
         : null);
 
   const prevActiveIndexRef = useRef(activeIndex);
+  const wipePrevIndexRef = useRef(activeIndex);
   const [prevActiveIndex, setPrevActiveIndex] = React.useState(activeIndex);
   const wipeDirection = useSharedValue<1 | -1>(1);
+  // 0 = capa A activa/entrante, 1 = capa B activa/entrante
+  const activeLayerShared = useSharedValue<0 | 1>(0);
+
+  // Ref que se actualiza en CADA render: nunca queda obsoleto en closures
+  const invertTransitionRef = useRef(false);
+  invertTransitionRef.current = activeUser?.settings?.invertTransitionDirection === true;
 
   const slideshowActive = !isThemeActiveForCurrentCard && slideshowImages.length > 0 && (isWelcomeCard || isPresentationMode);
 
@@ -1972,6 +1979,15 @@ export default function ConsoleHome() {
   React.useEffect(() => {
     if (activeIndex !== prevActiveIndexRef.current) {
       setPrevActiveIndex(prevActiveIndexRef.current);
+
+      // Calcular la dirección del wipe ANTES de actualizar la ref.
+      // Se lee invertTransitionRef.current (siempre fresco) en lugar de la
+      // closure de activeUser para evitar el problema de stale closure.
+      const normalDirection = activeIndex > wipePrevIndexRef.current ? 1 : -1;
+      const invert = invertTransitionRef.current;
+      wipeDirection.value = (invert ? -1 * normalDirection : normalDirection) as (1 | -1);
+      wipePrevIndexRef.current = activeIndex;
+
       prevActiveIndexRef.current = activeIndex;
     }
   }, [activeIndex]);
@@ -2015,14 +2031,8 @@ export default function ConsoleHome() {
     focusArea !== 'welcome_widgets' &&
     focusArea !== 'welcome_toolbar';
 
-  useEffect(() => {
-    if (activeIndex !== prevActiveIndexRef.current) {
-      const normalDirection = activeIndex > prevActiveIndexRef.current ? 1 : -1;
-      const invert = activeUser?.settings?.invertTransitionDirection === true;
-      wipeDirection.value = (invert ? -1 * normalDirection : normalDirection) as (1 | -1);
-      prevActiveIndexRef.current = activeIndex;
-    }
-  }, [activeIndex, activeUser?.settings?.invertTransitionDirection]);
+  // La dirección del wipe se calcula en el useEffect de prevActiveIndexRef (arriba)
+  // para evitar la condición de carrera con prevActiveIndexRef.current.
 
   // Reemplaza el useEffect actual de background transition:
   // Mantiene referencias para que el navegador no descarte lo ya decodificado
@@ -2067,6 +2077,7 @@ export default function ConsoleHome() {
         if (currentBg !== bgA) {
           setBgB(currentBg);
           setActiveLayer('B');
+          activeLayerShared.value = 1; // B pasa a ser la capa entrante
           fade.value = withTiming(1, { duration: 450, easing: Easing.inOut(Easing.quad) });
         }
       } else {
@@ -2074,6 +2085,7 @@ export default function ConsoleHome() {
         if (currentBg !== bgB) {
           setBgA(currentBg);
           setActiveLayer('A');
+          activeLayerShared.value = 0; // A pasa a ser la capa entrante
           fade.value = withTiming(0, { duration: 450, easing: Easing.inOut(Easing.quad) });
         }
       }
@@ -2106,40 +2118,34 @@ export default function ConsoleHome() {
   const animatedStyleA = useAnimatedStyle(() => {
     const progress = 1 - fade.value;
     const dir = wipeDirection.value;
-    // Para un desvanecimiento muy suave, ampliamos el borde de transición a 100%.
-    // p va desde -100 hasta 150 (rango de 250).
-    const p = progress * 250 - 100;
-    // dir === 1 (moved right) -> wave starts from left (0%)
-    // dir === -1 (moved left) -> wave starts from right (100%)
-    const originX = dir === 1 ? '0%' : '100%';
-    const maskStr = `radial-gradient(circle at ${originX} 50%, black ${p}%, transparent ${p + 100}%)`;
-
+    const isIncoming = activeLayerShared.value === 0; // A es la capa entrante
     return {
-      zIndex: activeLayer === 'A' ? 1 : 0,
-      opacity: Platform.OS === 'web' ? 1 : progress, // Fallback for native
-      transform: [{ scale: interpolate(progress, [0, 1], [1.04, 1]) }],
-      ...(Platform.OS === 'web' ? {
-        WebkitMaskImage: activeLayer === 'A' ? maskStr : 'none',
-        maskImage: activeLayer === 'A' ? maskStr : 'none',
-      } : {})
+      zIndex: isIncoming ? 1 : 0,
+      opacity: progress,
+      transform: [
+        { scale: interpolate(progress, [0, 1], [1.025, 1]) },
+        // Entrante: viene de +dir*20 → 0 | Saliente: va de 0 → -dir*20
+        { translateX: isIncoming
+            ? interpolate(progress, [0, 1], [dir * 20, 0])
+            : interpolate(progress, [0, 1], [-dir * 20, 0]) },
+      ],
     };
   });
 
   const animatedStyleB = useAnimatedStyle(() => {
     const progress = fade.value;
     const dir = wipeDirection.value;
-    const p = progress * 250 - 100;
-    const originX = dir === 1 ? '0%' : '100%';
-    const maskStr = `radial-gradient(circle at ${originX} 50%, black ${p}%, transparent ${p + 100}%)`;
-
+    const isIncoming = activeLayerShared.value === 1; // B es la capa entrante
     return {
-      zIndex: activeLayer === 'B' ? 1 : 0,
-      opacity: Platform.OS === 'web' ? 1 : progress,
-      transform: [{ scale: interpolate(progress, [0, 1], [1.04, 1]) }],
-      ...(Platform.OS === 'web' ? {
-        WebkitMaskImage: activeLayer === 'B' ? maskStr : 'none',
-        maskImage: activeLayer === 'B' ? maskStr : 'none',
-      } : {})
+      zIndex: isIncoming ? 1 : 0,
+      opacity: progress,
+      transform: [
+        { scale: interpolate(progress, [0, 1], [1.025, 1]) },
+        // Entrante: viene de +dir*20 → 0 | Saliente: va de 0 → -dir*20
+        { translateX: isIncoming
+            ? interpolate(progress, [0, 1], [dir * 20, 0])
+            : interpolate(progress, [0, 1], [-dir * 20, 0]) },
+      ],
     };
   });
 
