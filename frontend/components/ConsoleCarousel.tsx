@@ -7,7 +7,7 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import AnimatedCardWrapper from './AnimatedCardWrapper';
 import SpinningBorder, { SpinningBorderStyles } from './SpinningBorderConic';
@@ -35,6 +35,7 @@ interface ConsoleCarouselProps {
   games: ConsoleItem[];
   collapseAnim: SharedValue<number>;
   downloadsByAppId?: Map<string, SteamDownloadItem>;
+  isLaunching?: boolean;
 }
 
 // Las portadas de Steam son URLs remotas (steamcdn / steamgriddb) mientras que
@@ -489,6 +490,7 @@ const ConsoleCarouselComponent = ({
   games,
   collapseAnim,
   downloadsByAppId,
+  isLaunching = false,
 }: ConsoleCarouselProps) => {
   const { t } = useTranslation();
 
@@ -503,14 +505,30 @@ const ConsoleCarouselComponent = ({
     opacity: 1,
   }));
 
-  // Spinning border transition - fades out when leaving, fades in when entering
+  // Spinning border transition:
+  // - Fades out when leaving, fades in when entering.
+  // - Al seleccionar/lanzar el juego: se expande hacia afuera (scale 1 -> 1.35) y desaparece (opacity 1 -> 0).
   const spinningBorderOpacity = useSharedValue(1);
+  const spinningBorderScale = useSharedValue(1);
   const prevActiveIndexRef = React.useRef(prevActiveIndex);
   const spinTimeoutRef = React.useRef<any>(null);
 
   React.useEffect(() => {
+    if (isLaunching || isContextMenuOpen) {
+      if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
+      spinningBorderScale.value = withTiming(1.15, { duration: 420, easing: Easing.out(Easing.cubic) });
+      spinningBorderOpacity.value = withTiming(0, { duration: 380, easing: Easing.out(Easing.quad) });
+    } else {
+      spinningBorderScale.value = withTiming(1, { duration: 250 });
+      spinningBorderOpacity.value = withTiming(1, { duration: 250 });
+    }
+  }, [isLaunching, isContextMenuOpen]);
+
+  React.useEffect(() => {
+    if (isLaunching || isContextMenuOpen) return;
     if (prevActiveIndexRef.current !== activeIndex && prevActiveIndexRef.current !== -1) {
       if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
+      spinningBorderScale.value = 1;
       spinningBorderOpacity.value = withTiming(0, { duration: 150 });
       spinTimeoutRef.current = setTimeout(() => {
         spinningBorderOpacity.value = withTiming(1, { duration: 250 });
@@ -520,10 +538,11 @@ const ConsoleCarouselComponent = ({
     return () => {
       if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
     };
-  }, [activeIndex]);
+  }, [activeIndex, isLaunching, isContextMenuOpen]);
 
   const spinningBorderStyle = useAnimatedStyle(() => ({
     opacity: spinningBorderOpacity.value,
+    transform: [{ scale: spinningBorderScale.value }],
   }));
 
   // Container style for the spinning border wrapper - ensures proper positioning context
@@ -559,7 +578,7 @@ const ConsoleCarouselComponent = ({
     const toPrefetch = [...new Set(warm)].filter(uri => !prefetchedUrisRef.current.has(uri)).slice(0, 8);
     toPrefetch.forEach((uri) => {
       prefetchedUrisRef.current.add(uri);
-      Image.prefetch(uri).catch(() => {});
+      Image.prefetch(uri).catch(() => { });
     });
   }, [activeIndex, currentData, lastPlayedGame]);
 

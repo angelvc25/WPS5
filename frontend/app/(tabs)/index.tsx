@@ -1489,17 +1489,29 @@ export default function ConsoleHome() {
       setDetailVisible(true);
       return;
     }
+    soundService.playActivation();
+    setLaunchingItem(targetItem);
+    setIsLaunching(true);
+
     if (launchPath.startsWith('http')) {
       if (Platform.OS === 'web' && (window as any).electronAPI) {
-        (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs).then(() => loadApps());
+        (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs).then(() => {
+          loadApps();
+          setTimeout(() => {
+            setIsLaunching(false);
+            setLaunchingItem(null);
+          }, 1500);
+        });
       } else {
         Linking.openURL(launchPath);
+        setTimeout(() => {
+          setIsLaunching(false);
+          setLaunchingItem(null);
+        }, 1500);
       }
       return;
     }
     if (Platform.OS === 'web' && (window as any).electronAPI) {
-      setLaunchingItem(targetItem);
-      setIsLaunching(true);
       // Cerrar cualquier detalle abierto (carrusel o librería) para que al
       // volver del juego ningún modal ni flag atrape el teclado.
       setDetailVisible(false);
@@ -2669,7 +2681,7 @@ export default function ConsoleHome() {
             media={media}
             games={games}
             collapseAnim={collapseAnim}
-
+            isLaunching={isLaunching}
           />
         </Animated.View>
 

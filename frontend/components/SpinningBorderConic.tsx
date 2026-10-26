@@ -17,11 +17,11 @@ const SPIN_CSS = `
   
   .wc-spinning-container {
     position: absolute;
-    top: -2px;
-    left: 10px;
-    right: 10px;
-    bottom: -2px;
-    border-radius: 22px;
+    top: -1px;
+    left: 11px;
+    right: 11px;
+    bottom: -1px;
+    border-radius: 20px;
     z-index: 20;
     overflow: visible;
     pointer-events: none;
@@ -57,15 +57,15 @@ const SPIN_CSS = `
     
     background: conic-gradient(
       from 0deg,
-      rgba(255, 255, 255, 0.15) 0%,
+      rgba(255, 255, 255, 0.06) 0%,
       var(--wps-accent, rgba(255, 255, 255, 0.79)) 28%,
       var(--wps-accent-glow, rgba(180, 210, 255, 0.86)) 33%,
       rgba(220, 235, 255, 0.95) 48%,
       rgba(255, 255, 255, 1.0) 50%,
       var(--wps-accent, rgba(223, 248, 182, 0.95)) 52%,
       var(--wps-accent-glow, rgba(180, 210, 255, 0.88)) 57%,
-      rgba(255, 255, 255, 0.75) 62%,
-      rgba(255, 255, 255, 0.15) 100%
+      rgba(255, 255, 255, 0.56) 62%,
+      rgba(255, 255, 255, 0.06) 100%
     );
     border-radius: 50%;
   }
