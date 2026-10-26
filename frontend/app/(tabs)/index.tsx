@@ -743,10 +743,10 @@ export default function ConsoleHome() {
   // Widget con foco en WidgetEditPanel (null si el panel está cerrado). WelcomeWidgets atenúa el resto.
   const editingWidgetId = isWidgetEditOpen ? (PANEL_WIDGETS[widgetEditFocusIndex]?.id ?? null) : null;
 
-  // Background transition states
-  const [bgA, setBgA] = useState<any>(null);
-  const [bgB, setBgB] = useState<any>(null);
-  const [activeLayer, setActiveLayer] = useState<'A' | 'B'>('A');
+  // Background transition: un solo estado combinado para evitar re-renders en cascada
+  const [bgState, setBgState] = useState<{ bgA: any; bgB: any; activeLayer: 'A' | 'B' }>(
+    { bgA: null, bgB: null, activeLayer: 'A' }
+  );
   const [showTrailer, setShowTrailer] = useState(false);
   const fade = useSharedValue(0);
   const tabFade = useSharedValue(1);
@@ -1964,7 +1964,6 @@ export default function ConsoleHome() {
 
   const prevActiveIndexRef = useRef(activeIndex);
   const wipePrevIndexRef = useRef(activeIndex);
-  const [prevActiveIndex, setPrevActiveIndex] = React.useState(activeIndex);
   const wipeDirection = useSharedValue<1 | -1>(1);
   // 0 = capa A activa/entrante, 1 = capa B activa/entrante
   const activeLayerShared = useSharedValue<0 | 1>(0);
@@ -1978,8 +1977,6 @@ export default function ConsoleHome() {
   // Track previous active index for spinning border transition
   React.useEffect(() => {
     if (activeIndex !== prevActiveIndexRef.current) {
-      setPrevActiveIndex(prevActiveIndexRef.current);
-
       // Calcular la dirección del wipe ANTES de actualizar la ref.
       // Se lee invertTransitionRef.current (siempre fresco) en lugar de la
       // closure de activeUser para evitar el problema de stale closure.
@@ -2035,34 +2032,57 @@ export default function ConsoleHome() {
   // para evitar la condición de carrera con prevActiveIndexRef.current.
 
   // Reemplaza el useEffect actual de background transition:
-  // Mantiene referencias para que el navegador no descarte lo ya decodificado
-  const decodedCacheRef = useRef<HTMLImageElement[]>([]);
+  // Mantiene referencias para que el navegador no descarte lo ya decodificado (LRU map cache)
+  const decodedCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const bgRequestRef = useRef(0);
 
   const getBgUri = (bg: any): string | null => {
     if (!bg) return null;
     if (typeof bg === 'string') return bg;
-    if (typeof bg === 'number') return Asset.fromModule(bg).uri;
+    if (typeof bg === 'number') {
+      try {
+        return Asset.fromModule(bg).uri;
+      } catch {
+        return null;
+      }
+    }
     if (typeof bg === 'object' && bg.uri) return String(bg.uri);
     return null;
   };
 
-  const preloadDecoded = (uri: string, timeoutMs = 700) =>
+  const preloadDecoded = (uri: string, timeoutMs = 600) =>
     new Promise<void>((resolve) => {
       if (Platform.OS !== 'web' || typeof window === 'undefined') return resolve();
+      if (decodedCacheRef.current.has(uri)) {
+        return resolve();
+      }
       const img = new window.Image();
       let done = false;
-      const finish = () => { if (!done) { done = true; resolve(); } };
+      const finish = () => {
+        if (!done) {
+          done = true;
+          decodedCacheRef.current.set(uri, img);
+          if (decodedCacheRef.current.size > 20) {
+            const firstKey = decodedCacheRef.current.keys().next().value;
+            if (firstKey) decodedCacheRef.current.delete(firstKey);
+          }
+          resolve();
+        }
+      };
       img.src = uri;
-      decodedCacheRef.current.push(img);
-      if (decodedCacheRef.current.length > 16) decodedCacheRef.current.shift();
       (img.decode ? img.decode() : Promise.resolve()).then(finish, finish);
       setTimeout(finish, timeoutMs); // red de seguridad
     });
 
+  // Ref actualizado en cada render: permite leer bgState en el efecto
+  // sin añadirlo como dependencia (evita el loop setBgState → re-runs).
+  const bgStateRef = useRef(bgState);
+  bgStateRef.current = bgState;
+
   useEffect(() => {
+    const { bgA, bgB, activeLayer } = bgStateRef.current;
     if (!bgA && !bgB) {
-      setBgA(currentBg);
+      setBgState(s => ({ ...s, bgA: currentBg }));
       return;
     }
 
@@ -2072,20 +2092,20 @@ export default function ConsoleHome() {
     const startCrossfade = () => {
       if (cancelled || requestId !== bgRequestRef.current) return;
       cancelAnimation(fade);
-      if (activeLayer === 'A') {
+      // Re-leer del ref: el estado puede haber cambiado en los 140ms de debounce
+      const { bgA: a, bgB: b, activeLayer: layer } = bgStateRef.current;
+      if (layer === 'A') {
         fade.value = 0;
-        if (currentBg !== bgA) {
-          setBgB(currentBg);
-          setActiveLayer('B');
+        if (currentBg !== a) {
           activeLayerShared.value = 1; // B pasa a ser la capa entrante
+          setBgState({ bgA: a, bgB: currentBg, activeLayer: 'B' });
           fade.value = withTiming(1, { duration: 450, easing: Easing.inOut(Easing.quad) });
         }
       } else {
         fade.value = 1;
-        if (currentBg !== bgB) {
-          setBgA(currentBg);
-          setActiveLayer('A');
+        if (currentBg !== b) {
           activeLayerShared.value = 0; // A pasa a ser la capa entrante
+          setBgState({ bgA: currentBg, bgB: b, activeLayer: 'A' });
           fade.value = withTiming(0, { duration: 450, easing: Easing.inOut(Easing.quad) });
         }
       }
@@ -2096,7 +2116,7 @@ export default function ConsoleHome() {
       const uri = getBgUri(currentBg);
       if (uri) await preloadDecoded(uri);
       startCrossfade();
-    }, 90);
+    }, 140);
 
     return () => {
       cancelled = true;
@@ -2104,12 +2124,13 @@ export default function ConsoleHome() {
     };
   }, [currentBg]);
 
-  useEffect(() => { if (currentBg && !bgA && !bgB) setBgA(currentBg); }, []);
+  useEffect(() => { if (currentBg && !bgStateRef.current.bgA && !bgStateRef.current.bgB) setBgState(s => ({ ...s, bgA: currentBg })); }, []);
 
   // Normaliza los sources del fondo: los strings remotos (héroes de Steam)
   // pasan a { uri } con identidad estable para que expo-image no los
   // re-resuelva en cada render, y ambas capas usan caché persistente sin
   // fundido propio (el crossfade lo hace el Animated.View padre).
+  const { bgA, bgB } = bgState;
   const bgASource = useMemo(() => (typeof bgA === 'string' ? { uri: bgA } : bgA), [bgA]);
   const bgBSource = useMemo(() => (typeof bgB === 'string' ? { uri: bgB } : bgB), [bgB]);
   const bgAKey = typeof bgA === 'string' ? bgA : (bgA?.uri ? String(bgA.uri) : undefined);
@@ -2287,7 +2308,7 @@ export default function ConsoleHome() {
 
         ) : (
           <>
-            <Animated.View style={[StyleSheet.absoluteFill, animatedStyleA]}>
+            <Animated.View style={[StyleSheet.absoluteFill, animatedStyleA, { willChange: 'transform, opacity', backfaceVisibility: 'hidden' } as any]}>
               {/* <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} /> */}
               {bgA && (
                 <Image
@@ -2301,7 +2322,7 @@ export default function ConsoleHome() {
               )}
             </Animated.View>
 
-            <Animated.View style={[StyleSheet.absoluteFill, animatedStyleB]}>
+            <Animated.View style={[StyleSheet.absoluteFill, animatedStyleB, { willChange: 'transform, opacity', backfaceVisibility: 'hidden' } as any]}>
               {/* <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} /> */}
               {bgB && (
                 <Image
@@ -2631,7 +2652,6 @@ export default function ConsoleHome() {
             currentData={currentData}
             downloadsByAppId={downloadsByAppId}
             activeIndex={activeIndex}
-            prevActiveIndex={prevActiveIndex}
             carouselKey={carouselKey}
             lastPlayedGame={lastPlayedGame}
             focusArea={focusArea}

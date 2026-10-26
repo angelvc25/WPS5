@@ -25,7 +25,7 @@ const SPIN_CSS = `
     z-index: 20;
     overflow: visible;
     pointer-events: none;
-    // contain: strict;
+    /* contain: strict; */
 
     /* ─── AQUÍ OCURRE LA MAGIA DE LA MÁSCARA CUADRADA ─── */
     /* 1. Definimos dos capas de gradientes básicos como máscaras */
@@ -97,10 +97,10 @@ const SPIN_CSS = `
   }
 `;
 
-export const SpinningBorderStyles = () => {
+export const SpinningBorderStyles = React.memo(() => {
   if (Platform.OS !== 'web') return null;
   return <style>{SPIN_CSS}</style>;
-};
+});
 
 export const SpinningBorderConic = ({ size }: SpinningBorderConicProps) => {
   if (Platform.OS !== 'web') return null;

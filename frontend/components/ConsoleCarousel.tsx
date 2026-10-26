@@ -78,7 +78,396 @@ const CarouselCardImage = React.memo(function CarouselCardImage({
   );
 });
 
-export const ConsoleCarousel = ({
+const renderPlatformBadge = (item: ConsoleItem, lastPlayedGame: ConsoleItem | null) => {
+  const platformSource = item.isLastPlayed ? (lastPlayedGame ?? item) : item;
+  const steamGame = isSteamGame(platformSource as any);
+  const platformId = platformSource.platform || (steamGame ? 'Steam' : 'PC');
+  const isRetro =
+    platformId === 'Retro' ||
+    Boolean((platformSource as any).retroSystem) ||
+    isRetroPlatform(platformId);
+  const isPS3 = platformId === 'PS3';
+  const isPS5 = !isRetro && (platformId === 'PS5' || platformId === 'PS1' || platformId === 'PS2' || platformId === 'PS4' || platformId === 'PC');
+  const isXbox = platformId === 'Xbox';
+  const isSwitch = platformId === 'Switch';
+  const badgeLabel = isRetro
+    ? ((platformSource as any).retroSystem?.trim() || platformId)
+    : platformId;
+
+  const isEpicGame = platformId === 'Epic';
+  const platformBgColor = isEpicGame
+    ? '#000000'
+    : steamGame
+      ? 'rgba(2, 15, 36, 1)'
+      : isPS3
+        ? 'rgba(0, 0, 0, 1)'
+        : isXbox
+          ? 'rgba(88, 151, 69, 1)'
+          : isSwitch
+            ? 'rgba(255, 40, 40, 1)'
+            : isRetro
+              ? 'rgba(175, 202, 21, 1)'
+              : 'white';
+
+  return (
+    <View style={[styles.platformBadge, { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 0 }]}>
+      {steamGame ? (
+        <Image
+          source={require('@/assets/images/SteamBadge.png')}
+          style={styles.platformBadgeImage}
+          contentFit="contain"
+        />
+      ) : isEpicGame ? (
+        <Image
+          source={require('@/assets/images/EpicBadge.png')}
+          style={styles.platformBadgeImage}
+          contentFit="contain"
+        />
+      ) : isPS3 ? (
+        <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
+          <Text style={{
+            color: '#ffffffff',
+            fontFamily: 'SSTBadge',
+            fontSize: 13,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            {badgeLabel}
+          </Text>
+        </View>
+      ) : isXbox ? (
+        <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
+          <Image
+            source={require('@/assets/images/XboxBadgeWhite.png')}
+            style={styles.platformBadgeImage2}
+            contentFit="contain"
+          />
+        </View>
+      ) : isSwitch ? (
+        <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
+          <Image
+            source={require('@/assets/images/SwitchBadge.png')}
+            style={styles.platformBadgeImage2}
+            contentFit="contain"
+          />
+        </View>
+      ) : isRetro ? (
+        <View style={[styles.platformRow, { backgroundColor: platformBgColor }]}>
+          <Image
+            source={require('@/assets/images/retroBadge.png')}
+            style={styles.platformBadgeImage3}
+            contentFit="contain"
+          />
+          <Text style={[styles.platformBadgeText, { fontFamily: 'SSTMediumIt', fontSize: 14, color: 'white' }]}>
+            {badgeLabel}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.platformBadge}>
+          <Text style={styles.platformBadgeText}>
+            {badgeLabel}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+interface CarouselCardItemProps {
+  item: ConsoleItem;
+  index: number;
+  isActive: boolean;
+  carouselKey: number;
+  CARD_SIZE: number;
+  focusArea: string;
+  isContextMenuOpen: boolean;
+  setIsContextMenuOpen: (open: boolean) => void;
+  openContextMenu: () => void;
+  handleAppPress: (index: number, item: ConsoleItem) => void;
+  activeCardRef: React.RefObject<View | null>;
+  activeCardReady: SharedValue<boolean>;
+  lastPlayedGame: ConsoleItem | null;
+  downloadsByAppId?: Map<string, SteamDownloadItem>;
+  favoriteMedia: ConsoleItem[];
+  favoriteGames: ConsoleItem[];
+  spinningBorderContainerStyle: any;
+  spinningBorderStyle: any;
+  activeImageStyle: any;
+  inactiveImageStyle: any;
+  titleText: string;
+}
+
+const CarouselCardItem = React.memo(function CarouselCardItem({
+  item,
+  index,
+  isActive,
+  carouselKey,
+  CARD_SIZE,
+  focusArea,
+  isContextMenuOpen,
+  setIsContextMenuOpen,
+  openContextMenu,
+  handleAppPress,
+  activeCardRef,
+  activeCardReady,
+  lastPlayedGame,
+  downloadsByAppId,
+  favoriteMedia,
+  favoriteGames,
+  spinningBorderContainerStyle,
+  spinningBorderStyle,
+  activeImageStyle,
+  inactiveImageStyle,
+  titleText,
+}: CarouselCardItemProps) {
+  const isHomeCard = item.id === '1';
+  const isStoreCard = item.id === '5';
+
+  const customOpacity = isHomeCard
+    ? (isActive ? 0.9 : 0.9)
+    : isStoreCard
+      ? (isActive ? 0.9 : 0.9)
+      : 1;
+
+  let cardContent: React.ReactNode;
+
+  if (item.id === 'more_library') {
+    const libraryContent = (
+      <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0, opacity: 0.8, width: CARD_SIZE, height: CARD_SIZE }]}>
+        <Image
+          source={require('@/assets/images/Libreria.jpeg')}
+          style={{
+            width: '100%',
+            height: '100%',
+          }}
+          resizeMode="cover"
+        />
+      </BlurView>
+    );
+
+    cardContent = (
+      <AnimatedCardWrapper key={`more-${carouselKey}`} isActive={isActive} style={{ opacity: 0.75 }} entryIndex={index}>
+        <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+          {isActive && focusArea === 'main_carousel' && (
+            <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
+              <SpinningBorder size={CARD_SIZE} />
+            </Animated.View>
+          )}
+          <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
+            {libraryContent}
+          </Animated.View>
+        </TouchableOpacity>
+      </AnimatedCardWrapper>
+    );
+  } else if (item.isGrid) {
+    cardContent = (
+      <AnimatedCardWrapper key={`grid-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
+        <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+          {isActive && focusArea === 'main_carousel' && (
+            <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
+              <SpinningBorder size={CARD_SIZE} />
+            </Animated.View>
+          )}
+          <View style={[styles.card, styles.folderCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
+            <View style={styles.folderCardHeader}>
+              <MaterialCommunityIcons name="view-grid" size={14} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.folderCardTitle}> Media</Text>
+            </View>
+            <View style={styles.folderCardContent}>
+              {favoriteMedia.length === 0 ? (
+                <Ionicons name="apps-outline" size={28} color="rgba(255,255,255,0.2)" />
+              ) : favoriteMedia.length === 1 ? (
+                <Image source={favoriteMedia[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" cachePolicy="memory-disk" transition={0} />
+              ) : (
+                <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
+                  {favoriteMedia.slice(0, 4).map((f, fi) => (
+                    <Image key={fi} source={f.image} style={{ width: '50%', height: '50%' }} contentFit="cover" />
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </AnimatedCardWrapper>
+    );
+  } else if (item.isFolder) {
+    cardContent = (
+      <AnimatedCardWrapper key={`folder-${carouselKey}`} isActive={isActive} entryIndex={index}>
+        <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+          {isActive && focusArea === 'main_carousel' && (
+            <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
+              <SpinningBorder size={CARD_SIZE} />
+            </Animated.View>
+          )}
+          <View style={[styles.card, styles.folderCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
+            <View style={styles.folderCardHeader}>
+              <Ionicons name="heart" size={14} color="rgba(255,100,100,0.9)" />
+              <Text style={styles.folderCardTitle}> Favs</Text>
+            </View>
+            <View style={styles.folderCardContent}>
+              {favoriteGames.length === 0 ? (
+                <Ionicons name="star-outline" size={28} color="rgba(255,255,255,0.2)" />
+              ) : favoriteGames.length === 1 ? (
+                <Image source={favoriteGames[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" cachePolicy="memory-disk" transition={0} />
+              ) : (
+                <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
+                  {favoriteGames.slice(0, 4).map((f, fi) => (
+                    <Image key={fi} source={f.image} style={{ width: '50%', height: '50%' }} contentFit="cover" />
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </AnimatedCardWrapper>
+    );
+  } else if (item.isLastPlayed && !lastPlayedGame) {
+    cardContent = (
+      <AnimatedCardWrapper key={`lp-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
+        <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+          {isActive && focusArea === 'main_carousel' && (
+            <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
+              <SpinningBorder size={CARD_SIZE} />
+            </Animated.View>
+          )}
+          <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
+            <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
+          </BlurView>
+        </TouchableOpacity>
+      </AnimatedCardWrapper>
+    );
+  } else {
+    const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
+    const itemAppId = getSteamAppId(item as any);
+    const download = itemAppId ? downloadsByAppId?.get(itemAppId) : undefined;
+    const showMiniProgress = !!download && !isActive;
+
+    const cardImage = (
+      <View>
+        <CarouselCardImage
+          source={imgSource}
+          itemId={String(item.id)}
+          size={CARD_SIZE}
+          isActive={isActive}
+        />
+        {showMiniProgress && (
+          <View style={styles.miniProgressTrack} pointerEvents="none">
+            <View style={[styles.miniProgressFill, { width: `${Math.max(2, Math.round(download!.percent))}%` }]} />
+          </View>
+        )}
+      </View>
+    );
+
+    cardContent = (
+      <AnimatedCardWrapper key={`${item.id}-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
+        <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
+          {isActive && focusArea === 'main_carousel' && (
+            <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
+              <SpinningBorder size={CARD_SIZE} />
+            </Animated.View>
+          )}
+          <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
+            {cardImage}
+          </Animated.View>
+        </TouchableOpacity>
+      </AnimatedCardWrapper>
+    );
+  }
+
+  return (
+    <View
+      ref={isActive ? (activeCardRef as any) : null}
+      key={item.id}
+      onLayout={() => {
+        if (isActive) {
+          activeCardReady.value = true;
+        }
+      }}
+      style={{
+        position: 'relative',
+        overflow: 'visible',
+        zIndex: isActive ? 10 : 1,
+        opacity: customOpacity,
+      }}
+    >
+      {cardContent}
+      {isActive && (
+        <Animated.View
+          style={[
+            styles.activeLabelContainer,
+            {
+              top: CARD_SIZE,
+              left: Math.round(CARD_SIZE * 1.46) + 20,
+            },
+          ]}
+          entering={FadeIn.delay(350).duration(450)}
+        >
+          {item.id !== '1' &&
+            item.id !== '5' &&
+            item.id !== 'more_library' &&
+            renderPlatformBadge(item, lastPlayedGame)}
+
+          <Text
+            style={[
+              styles.activeGameTitle,
+              { fontSize: Math.round(CARD_SIZE * 0.23) },
+            ]}
+            numberOfLines={1}
+          >
+            {titleText}
+          </Text>
+
+          {/* Options button to open context menu via mouse/click */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={{
+              marginLeft: 6,
+              paddingHorizontal: 4,
+              display: 'none',
+            }}
+            onPress={() => {
+              if (isContextMenuOpen) {
+                setIsContextMenuOpen(false);
+              } else {
+                openContextMenu();
+              }
+            }}
+          >
+            <Ionicons
+              name="ellipsis-vertical"
+              size={14}
+              color="#FFF"
+            />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+    </View>
+  );
+}, (prev, next) => {
+  if (prev.isActive !== next.isActive) return false;
+  if (next.isActive) {
+    if (prev.focusArea !== next.focusArea) return false;
+    if (prev.isContextMenuOpen !== next.isContextMenuOpen) return false;
+    if (prev.titleText !== next.titleText) return false;
+  }
+  if (prev.item !== next.item) return false;
+  if (prev.CARD_SIZE !== next.CARD_SIZE) return false;
+  if (prev.carouselKey !== next.carouselKey) return false;
+  if (prev.item.isLastPlayed && prev.lastPlayedGame !== next.lastPlayedGame) return false;
+  if (prev.item.isGrid && prev.favoriteMedia !== next.favoriteMedia) return false;
+  if (prev.item.isFolder && prev.favoriteGames !== next.favoriteGames) return false;
+
+  const prevAppId = getSteamAppId(prev.item as any);
+  const nextAppId = getSteamAppId(next.item as any);
+  if (prevAppId || nextAppId) {
+    const prevDl = prevAppId ? prev.downloadsByAppId?.get(prevAppId) : undefined;
+    const nextDl = nextAppId ? next.downloadsByAppId?.get(nextAppId) : undefined;
+    if (prevDl !== nextDl) return false;
+  }
+  return true;
+});
+
+const ConsoleCarouselComponent = ({
   currentData,
   activeIndex,
   prevActiveIndex = -1,
@@ -101,35 +490,36 @@ export const ConsoleCarousel = ({
   collapseAnim,
   downloadsByAppId,
 }: ConsoleCarouselProps) => {
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
 
-  const activeImageStyle = useAnimatedStyle(() => {
-    return {
-      opacity: 1 - collapseAnim.value,
-    };
-  });
+  const favoriteMedia = React.useMemo(() => media.filter(m => m.isFavorite), [media]);
+  const favoriteGames = React.useMemo(() => games.filter(g => g.isFavorite), [games]);
 
-  const inactiveImageStyle = useAnimatedStyle(() => {
-    return {
-      opacity: 1,
-    };
-  });
+  const activeImageStyle = useAnimatedStyle(() => ({
+    opacity: 1 - collapseAnim.value,
+  }));
+
+  const inactiveImageStyle = useAnimatedStyle(() => ({
+    opacity: 1,
+  }));
 
   // Spinning border transition - fades out when leaving, fades in when entering
   const spinningBorderOpacity = useSharedValue(1);
   const prevActiveIndexRef = React.useRef(prevActiveIndex);
+  const spinTimeoutRef = React.useRef<any>(null);
 
   React.useEffect(() => {
     if (prevActiveIndexRef.current !== activeIndex && prevActiveIndexRef.current !== -1) {
-      // Fade out the old spinning border
-      spinningBorderOpacity.value = withTiming(0, { duration: 200, easing: (t) => t * t });
-      
-      // Fade in the new spinning border after a short delay
-      setTimeout(() => {
-        spinningBorderOpacity.value = withTiming(1, { duration: 300, easing: (t) => 1 - (1 - t) * (1 - t) });
-      }, 100);
+      if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
+      spinningBorderOpacity.value = withTiming(0, { duration: 150 });
+      spinTimeoutRef.current = setTimeout(() => {
+        spinningBorderOpacity.value = withTiming(1, { duration: 250 });
+      }, 90);
     }
     prevActiveIndexRef.current = activeIndex;
+    return () => {
+      if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
+    };
   }, [activeIndex]);
 
   const spinningBorderStyle = useAnimatedStyle(() => ({
@@ -137,19 +527,21 @@ export const ConsoleCarousel = ({
   }));
 
   // Container style for the spinning border wrapper - ensures proper positioning context
-  const spinningBorderContainerStyle = {
+  const spinningBorderContainerStyle = React.useMemo(() => ({
     position: 'absolute' as const,
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     pointerEvents: 'none' as const,
-  };
+  }), []);
 
   // Precalienta el arte y el fondo de las tarjetas vecinas (±2) cada vez que
   // se mueve el foco: cuando el usuario llega a un juego Steam, su portada y
   // su héroe ya están en caché y ni el scale ni el crossfade sufren tirones.
-  // Fire-and-forget: no bloquea la animación en curso.
+  // Fire-and-forget con Set deduplicado: no re-descarga lo ya pedido.
+  const prefetchedUrisRef = React.useRef<Set<string>>(new Set());
+
   React.useEffect(() => {
     const warm: string[] = [];
     const pushSource = (src: any) => {
@@ -163,7 +555,9 @@ export const ConsoleCarousel = ({
       pushSource(item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image);
       pushSource(item.isLastPlayed ? lastPlayedGame?.backgroundImage : (item as any).backgroundImage);
     }
-    [...new Set(warm)].slice(0, 8).forEach((uri) => {
+    const toPrefetch = [...new Set(warm)].filter(uri => !prefetchedUrisRef.current.has(uri)).slice(0, 8);
+    toPrefetch.forEach((uri) => {
+      prefetchedUrisRef.current.add(uri);
       Image.prefetch(uri).catch(() => {});
     });
   }, [activeIndex, currentData, lastPlayedGame]);
@@ -195,328 +589,47 @@ export const ConsoleCarousel = ({
           }
         }}
       >
-      {currentData.map((item, index) => {
-        const isActive = index === activeIndex;
-        const isHomeCard = item.id === '1';
-        const isStoreCard = item.id === '5';
+        {currentData.map((item, index) => {
+          const isActive = index === activeIndex;
+          const titleText = item.id === 'more_library'
+            ? t('library.title')
+            : item.isLastPlayed
+              ? (lastPlayedGame?.title || t('lastPlayed.title'))
+              : item.title;
 
-        const customOpacity =
-          isHomeCard
-            ? (isActive ? 0.9 : 0.9)
-            : isStoreCard
-              ? (isActive ? 0.9 : 0.9)
-              : 1;
-
-        let cardContent;
-
-        if (item.id === 'more_library') {
-          const libraryContent = (
-            <BlurView intensity={40} tint="dark" style={[styles.card, styles.moreCard, isActive && styles.cardActive, { overflow: 'hidden', padding: 0, opacity: 0.8, width: CARD_SIZE, height: CARD_SIZE }]}>
-              <Image
-                source={require('@/assets/images/Libreria.jpeg')}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                }}
-                resizeMode="cover"
-              />
-            </BlurView>
+          return (
+            <CarouselCardItem
+              key={item.id}
+              item={item}
+              index={index}
+              isActive={isActive}
+              carouselKey={carouselKey}
+              CARD_SIZE={CARD_SIZE}
+              focusArea={focusArea}
+              isContextMenuOpen={isContextMenuOpen}
+              setIsContextMenuOpen={setIsContextMenuOpen}
+              openContextMenu={openContextMenu}
+              handleAppPress={handleAppPress}
+              activeCardRef={activeCardRef}
+              activeCardReady={activeCardReady}
+              lastPlayedGame={lastPlayedGame}
+              downloadsByAppId={downloadsByAppId}
+              favoriteMedia={favoriteMedia}
+              favoriteGames={favoriteGames}
+              spinningBorderContainerStyle={spinningBorderContainerStyle}
+              spinningBorderStyle={spinningBorderStyle}
+              activeImageStyle={activeImageStyle}
+              inactiveImageStyle={inactiveImageStyle}
+              titleText={titleText}
+            />
           );
-
-          cardContent = (
-            <AnimatedCardWrapper key={`more-${carouselKey}`} isActive={isActive} style={{ opacity: 0.75 }} entryIndex={index}>
-              <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-                {isActive && focusArea === 'main_carousel' && (
-                  <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
-                    <SpinningBorder size={CARD_SIZE} />
-                  </Animated.View>
-                )}
-                <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
-                  {libraryContent}
-                </Animated.View>
-              </TouchableOpacity>
-            </AnimatedCardWrapper>
-          );
-        } else if (item.isGrid) {
-          cardContent = (
-            <AnimatedCardWrapper key={`grid-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
-              <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-                {isActive && focusArea === 'main_carousel' && (
-                  <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
-                    <SpinningBorder size={CARD_SIZE} />
-                  </Animated.View>
-                )}
-                <View style={[styles.card, styles.folderCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
-                  <View style={styles.folderCardHeader}>
-                    <MaterialCommunityIcons name="view-grid" size={14} color="rgba(255,255,255,0.7)" />
-                    <Text style={styles.folderCardTitle}> Media</Text>
-                  </View>
-                  <View style={styles.folderCardContent}>
-                    {(() => {
-                      const favs = media.filter(m => m.isFavorite);
-                      if (favs.length === 0) return <Ionicons name="apps-outline" size={28} color="rgba(255,255,255,0.2)" />;
-                      if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" cachePolicy="memory-disk" transition={0} />;
-                      return (
-                        <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
-                          {favs.slice(0, 4).map((f, fi) => (
-                            <Image key={fi} source={f.image} style={{ width: '50%', height: '50%' }} contentFit="cover" />
-                          ))}
-                        </View>
-                      );
-                    })()}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </AnimatedCardWrapper>
-          );
-        } else if (item.isFolder) {
-          cardContent = (
-            <AnimatedCardWrapper key={`folder-${carouselKey}`} isActive={isActive} entryIndex={index}>
-              <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-                {isActive && focusArea === 'main_carousel' && (
-                  <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
-                    <SpinningBorder size={CARD_SIZE} />
-                  </Animated.View>
-                )}
-                <View style={[styles.card, styles.folderCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
-                  <View style={styles.folderCardHeader}>
-                    <Ionicons name="heart" size={14} color="rgba(255,100,100,0.9)" />
-                    <Text style={styles.folderCardTitle}> Favs</Text>
-                  </View>
-                  <View style={styles.folderCardContent}>
-                    {(() => {
-                      const favs = games.filter(g => g.isFavorite);
-                      if (favs.length === 0) return <Ionicons name="star-outline" size={28} color="rgba(255,255,255,0.2)" />;
-                      if (favs.length === 1) return <Image source={favs[0].image} style={{ width: '100%', height: '100%' }} contentFit="cover" cachePolicy="memory-disk" transition={0} />;
-                      return (
-                        <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
-                          {favs.slice(0, 4).map((f, fi) => (
-                            <Image key={fi} source={f.image} style={{ width: '50%', height: '50%' }} contentFit="cover" />
-                          ))}
-                        </View>
-                      );
-                    })()}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </AnimatedCardWrapper>
-          );
-        } else if (item.isLastPlayed && !lastPlayedGame) {
-          cardContent = (
-            <AnimatedCardWrapper key={`lp-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
-              <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-                {isActive && focusArea === 'main_carousel' && (
-                  <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
-                    <SpinningBorder size={CARD_SIZE} />
-                  </Animated.View>
-                )}
-                <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
-                  <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
-                </BlurView>
-              </TouchableOpacity>
-            </AnimatedCardWrapper>
-          );
-        } else {
-          const imgSource = item.isLastPlayed ? (lastPlayedGame?.image ?? item.image) : item.image;
-          const itemAppId = getSteamAppId(item as any);
-          const download = itemAppId ? downloadsByAppId?.get(itemAppId) : undefined;
-          const showMiniProgress = !!download && !isActive;
-
-          const cardImage = (
-            <View>
-              <CarouselCardImage
-                source={imgSource}
-                itemId={String(item.id)}
-                size={CARD_SIZE}
-                isActive={isActive}
-              />
-              {showMiniProgress && (
-                <View style={styles.miniProgressTrack} pointerEvents="none">
-                  <View style={[styles.miniProgressFill, { width: `${Math.max(2, Math.round(download!.percent))}%` }]} />
-                </View>
-              )}
-            </View>
-          );
-
-          cardContent = (
-            <AnimatedCardWrapper key={`${item.id}-${carouselKey}`} isActive={isActive} style={{ opacity: customOpacity }} entryIndex={index}>
-              <TouchableOpacity onPress={() => handleAppPress(index, item)} activeOpacity={0.9}>
-                {isActive && focusArea === 'main_carousel' && (
-                  <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
-                    <SpinningBorder size={CARD_SIZE} />
-                  </Animated.View>
-                )}
-                <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
-                  {cardImage}
-                </Animated.View>
-              </TouchableOpacity>
-            </AnimatedCardWrapper>
-          );
-        }
-
-        return (
-          <View
-            ref={isActive ? (activeCardRef as any) : null}
-            key={item.id}
-            onLayout={() => {
-              if (isActive) {
-                activeCardReady.value = true;
-              }
-            }}
-            style={{
-              position: 'relative',
-              overflow: 'visible',
-              zIndex: isActive ? 10 : 1,
-              opacity: customOpacity,
-            }}
-          >
-            {cardContent}
-            {isActive && (
-              <Animated.View
-                style={[
-                  styles.activeLabelContainer,
-                  {
-                    top: CARD_SIZE,
-                    left: Math.round(CARD_SIZE * 1.46) + 20,
-                  },
-                ]}
-                entering={FadeIn.delay(350).duration(450)}
-              >
-                {item.id !== '1' &&
-                  item.id !== '5' &&
-                  item.id !== 'more_library' &&
-                  (() => {
-                    const platformSource = item.isLastPlayed
-                      ? (lastPlayedGame ?? item)
-                      : item;
-
-                    const steamGame = isSteamGame(platformSource as any);
-                    const platformId =
-                      platformSource.platform || (steamGame ? 'Steam' : 'PC');
-                    const isRetro =
-                      platformId === 'Retro' ||
-                      Boolean((platformSource as any).retroSystem) ||
-                      isRetroPlatform(platformId);
-                    const isPS3 = platformId === 'PS3';
-                    const isPS5 = !isRetro && (platformId === 'PS5' || platformId === 'PS1' || platformId === 'PS2' || platformId === 'PS4' || platformId === 'PC');
-                    const isXbox = platformId === 'Xbox';
-                    const isSwitch = platformId === 'Switch';
-                    const badgeLabel = isRetro
-                      ? ((platformSource as any).retroSystem?.trim() || platformId)
-                      : platformId;
-
-                    const isEpicGame = platformId === 'Epic';
-                    const platformBgColor = isEpicGame ? '#000000' : steamGame ? 'rgba(2, 15, 36, 1)' : isPS3 ? 'rgba(0, 0, 0, 1)' : isXbox ? 'rgba(88, 151, 69, 1)' : isSwitch ? 'rgba(255, 40, 40, 1)' : isRetro ? 'rgba(175, 202, 21, 1)' : 'white';
-
-                    return (
-                      <View style={[styles.platformBadge, { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 0 }]}>
-                        {steamGame ? (
-                          <Image
-                            source={require('@/assets/images/SteamBadge.png')}
-                            style={styles.platformBadgeImage}
-                            contentFit="contain"
-                          />
-                        ) : isEpicGame ? (
-                          <Image
-                            source={require('@/assets/images/EpicBadge.png')}
-                            style={styles.platformBadgeImage}
-                            contentFit="contain"
-                          />
-                        ) : isPS3 ? (
-                          <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
-                            <Text style={{
-                              color: '#ffffffff',
-                              fontFamily: 'SSTBadge',
-                              fontSize: 13,
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}>
-                              {badgeLabel}
-                            </Text>
-                          </View>
-                        ) : isXbox ? (
-                          <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
-                            <Image
-                              source={require('@/assets/images/XboxBadgeWhite.png')}
-                              style={styles.platformBadgeImage2}
-                              contentFit="contain"
-                            />
-                          </View>
-                        ) : isSwitch ? (
-                          <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
-                            <Image
-                              source={require('@/assets/images/SwitchBadge.png')}
-                              style={styles.platformBadgeImage2}
-                              contentFit="contain"
-                            />
-                          </View>
-                        ) : isRetro ? (
-                          <View style={[styles.platformRow, { backgroundColor: platformBgColor }]}>
-                            <Image
-                              source={require('@/assets/images/retroBadge.png')}
-                              style={styles.platformBadgeImage3}
-                              contentFit="contain"
-                            />
-                            <Text style={[styles.platformBadgeText, { fontFamily: 'SSTMediumIt', fontSize: 14, color: 'white' }]}>
-                              {badgeLabel}
-                            </Text>
-                          </View>
-                        ) : (
-                          <View style={styles.platformBadge}>
-                            <Text style={styles.platformBadgeText}>
-                              {badgeLabel}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })()}
-
-                <Text
-                  style={[
-                    styles.activeGameTitle,
-                    { fontSize: Math.round(CARD_SIZE * 0.23) },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {item.id === 'more_library'
-                    ? t('library.title')
-                    : item.isLastPlayed
-                      ? (lastPlayedGame?.title || t('lastPlayed.title'))
-                      : item.title}
-                </Text>
-
-                {/* Options button to open context menu via mouse/click */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={{
-                    marginLeft: 6,
-                    paddingHorizontal: 4,
-                    display: 'none',
-                  }}
-                  onPress={() => {
-                    if (isContextMenuOpen) {
-                      setIsContextMenuOpen(false);
-                    } else {
-                      openContextMenu();
-                    }
-                  }}
-                >
-                  <Ionicons
-                    name="ellipsis-vertical"
-                    size={14}
-                    color="#FFF"
-                  />
-                </TouchableOpacity>
-              </Animated.View>
-            )}
-          </View>
-        );
-      })}
+        })}
       </ScrollView>
     </>
   );
 };
+
+export const ConsoleCarousel = React.memo(ConsoleCarouselComponent);
 
 const styles = StyleSheet.create({
   card: {
