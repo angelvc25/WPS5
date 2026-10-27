@@ -252,7 +252,7 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
           <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
             {libraryContent}
           </Animated.View>
-          {isActive && focusArea === 'main_carousel' && (
+          {isActive && (
             <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
               <SpinningBorder size={CARD_SIZE} />
             </Animated.View>
@@ -283,7 +283,7 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
               )}
             </View>
           </View>
-          {isActive && focusArea === 'main_carousel' && (
+          {isActive && (
             <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
               <SpinningBorder size={CARD_SIZE} />
             </Animated.View>
@@ -314,7 +314,7 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
               )}
             </View>
           </View>
-          {isActive && focusArea === 'main_carousel' && (
+          {isActive && (
             <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
               <SpinningBorder size={CARD_SIZE} />
             </Animated.View>
@@ -329,7 +329,7 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
           <BlurView intensity={30} tint="dark" style={[styles.card, styles.emptyCard, isActive && styles.cardActive, { width: CARD_SIZE, height: CARD_SIZE }]}>
             <MaterialCommunityIcons name="history" size={32} color={isActive ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
           </BlurView>
-          {isActive && focusArea === 'main_carousel' && (
+          {isActive && (
             <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
               <SpinningBorder size={CARD_SIZE} />
             </Animated.View>
@@ -365,7 +365,7 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
           <Animated.View style={isActive ? activeImageStyle : inactiveImageStyle}>
             {cardImage}
           </Animated.View>
-          {isActive && focusArea === 'main_carousel' && (
+          {isActive && (
             <Animated.View style={[spinningBorderContainerStyle, spinningBorderStyle]}>
               <SpinningBorder size={CARD_SIZE} />
             </Animated.View>
@@ -507,25 +507,70 @@ const ConsoleCarouselComponent = ({
 
   // Spinning border transition:
   // - Fades out when leaving, fades in when entering.
-  // - Al seleccionar/lanzar el juego: se expande hacia afuera (scale 1 -> 1.35) y desaparece (opacity 1 -> 0).
-  const spinningBorderOpacity = useSharedValue(1);
-  const spinningBorderScale = useSharedValue(1);
+  // - Al seleccionar/lanzar el juego: se expande hacia afuera (scale 1 -> 1.15) y desaparece (opacity 1 -> 0).
+  // - Al bajar de la barra de navegación al carrusel o subir desde el gameinfopanel: animación contraria
+  //   (se comprime de scale 1.15 -> 1 y reaparece opacity 0 -> 1 dando la impresión que el spinning encierra el juego).
+  const isCarouselFocused = focusArea === 'main_carousel';
+  const spinningBorderOpacity = useSharedValue(isCarouselFocused && !isLaunching && !isContextMenuOpen ? 1 : 0);
+  const spinningBorderScale = useSharedValue(isCarouselFocused ? 1 : 1.15);
+  const prevFocusAreaRef = React.useRef(focusArea);
   const prevActiveIndexRef = React.useRef(prevActiveIndex);
   const spinTimeoutRef = React.useRef<any>(null);
+  const justEnteredCarouselRef = React.useRef(false);
 
   React.useEffect(() => {
+    const isFocused = focusArea === 'main_carousel';
+    const wasFocused = prevFocusAreaRef.current === 'main_carousel';
+    prevFocusAreaRef.current = focusArea;
+
     if (isLaunching || isContextMenuOpen) {
       if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
       spinningBorderScale.value = withTiming(1.15, { duration: 320, easing: Easing.out(Easing.cubic) });
       spinningBorderOpacity.value = withTiming(0, { duration: 380, easing: Easing.out(Easing.quad) });
+      justEnteredCarouselRef.current = false;
+      return;
+    }
+
+    if (!isFocused) {
+      // Al salir del carrusel (subir a barra de navegación o bajar al gameinfopanel):
+      // El spinning se expande y desaparece de forma similar a cuando se lanza un juego
+      if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
+      spinningBorderScale.value = withTiming(1.15, { duration: 320, easing: Easing.out(Easing.cubic) });
+      spinningBorderOpacity.value = withTiming(0, { duration: 380, easing: Easing.out(Easing.quad) });
+      justEnteredCarouselRef.current = false;
+      return;
+    }
+
+    // A partir de aquí: el carrusel tiene el foco (isFocused === true) y no se está lanzando ni menú abierto
+    if (!wasFocused) {
+      // Entrada al carrusel: al bajar de la barra de navegación o al subir desde el gameinfopanel.
+      // Animación contraria a abrir un juego: se comprime desde 1.15 a 1 y reaparece (opacity 0 -> 1)
+      // dando la impresión de que el spinning reaparece y encierra el juego.
+      if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
+      justEnteredCarouselRef.current = true;
+      spinningBorderScale.value = 1.15;
+      spinningBorderOpacity.value = 0;
+      spinningBorderScale.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
+      spinningBorderOpacity.value = withTiming(1, { duration: 380, easing: Easing.out(Easing.quad) });
     } else {
+      // Ya estaba en el carrusel y volvió de context menu o launch cancelado
       spinningBorderScale.value = withTiming(1, { duration: 250 });
       spinningBorderOpacity.value = withTiming(1, { duration: 250 });
+      justEnteredCarouselRef.current = false;
     }
-  }, [isLaunching, isContextMenuOpen]);
+  }, [focusArea, isLaunching, isContextMenuOpen]);
 
   React.useEffect(() => {
-    if (isLaunching || isContextMenuOpen) return;
+    if (isLaunching || isContextMenuOpen || focusArea !== 'main_carousel') {
+      prevActiveIndexRef.current = activeIndex;
+      return;
+    }
+    // Si acaba de entrar desde afuera, la animación de compresión ya se está ejecutando
+    if (justEnteredCarouselRef.current) {
+      justEnteredCarouselRef.current = false;
+      prevActiveIndexRef.current = activeIndex;
+      return;
+    }
     if (prevActiveIndexRef.current !== activeIndex && prevActiveIndexRef.current !== -1) {
       if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
       spinningBorderScale.value = 1;
@@ -538,7 +583,7 @@ const ConsoleCarouselComponent = ({
     return () => {
       if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
     };
-  }, [activeIndex, isLaunching, isContextMenuOpen]);
+  }, [activeIndex, isLaunching, isContextMenuOpen, focusArea]);
 
   const spinningBorderStyle = useAnimatedStyle(() => ({
     opacity: spinningBorderOpacity.value,
