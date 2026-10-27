@@ -236,7 +236,7 @@ const es = {
   'common.hoursAgo': 'h',
   'common.daysAgo': 'días',
 
-  'userSelect.title': 'Te damos la bienvenida nuevamente a FifthStation UI',
+  'userSelect.title': 'Te damos la bienvenida nuevamente a WPS5',
   'userSelect.subtitle': '¿Quién está usando este control?',
   'userSelect.addUser': 'Agregar usuario',
 
@@ -1278,7 +1278,7 @@ const en: Record<TranslationKey, string> = {
   'common.hoursAgo': 'h ago',
   'common.daysAgo': 'days ago',
 
-  'userSelect.title': 'Welcome back to FifthStation UI',
+  'userSelect.title': 'Welcome back to WPS5',
   'userSelect.subtitle': "Who's using this controller?",
   'userSelect.addUser': 'Add User',
 
@@ -2314,7 +2314,7 @@ const pt: Record<TranslationKey, string> = {
   'common.hoursAgo': 'h atrás',
   'common.daysAgo': 'dias atrás',
 
-  'userSelect.title': 'Bem-vindo de volta ao FifthStation UI',
+  'userSelect.title': 'Bem-vindo de volta ao WPS5',
   'userSelect.subtitle': 'Quem está usando este controle?',
   'userSelect.addUser': 'Adicionar usuário',
 

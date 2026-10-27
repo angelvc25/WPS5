@@ -1051,7 +1051,7 @@ export default function ConsoleHome() {
       const latest = data[0];
       console.log(latest.version, latest.tipe, latest.link);
       console.log(data);
-      const currentVersion = '1.1.5';
+      const currentVersion = '1.1.6';
       const comparison = compareVersions(latest.version, currentVersion);
       if (comparison > 0) {
         toastService.show(`${t('settings.updateAvailable')}\n${latest.version}`, {
@@ -1962,9 +1962,9 @@ export default function ConsoleHome() {
   const lastPlayedAppId = lastPlayedGame ? getSteamAppId(lastPlayedGame as any) : null;
   const lastPlayedBg = lastPlayedGame
     ? (lastPlayedGame.backgroundImage ||
-       (lastPlayedAppId ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${lastPlayedAppId}/library_hero.jpg` : null) ||
-       lastPlayedGame.image ||
-       require('@/assets/images/FondoDefault2.jpg'))
+      (lastPlayedAppId ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${lastPlayedAppId}/library_hero.jpg` : null) ||
+      lastPlayedGame.image ||
+      require('@/assets/images/FondoDefault2.jpg'))
     : require('@/assets/images/FondoDefault2.jpg');
 
   const regularCardAppId = activeCard ? getSteamAppId(activeCard as any) : null;
