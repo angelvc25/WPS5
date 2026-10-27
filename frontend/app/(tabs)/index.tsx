@@ -100,6 +100,13 @@ interface SlideshowOverlayProps {
 
 const SLIDE_MS = 900;
 
+// Transición de fondo del carrusel (estilo PS5): larga, suave y con desaceleración.
+const BG_TRANSITION_MS = 750;
+// Deslizamiento (px) de las capas de fondo. Cada capa se extiende este mismo
+// margen por ambos lados para que al desplazarse no deje ver su borde.
+const BG_SLIDE_PX = 20;
+const BG_EASING = Easing.bezier(0.25, 0.8, 0.25, 1);
+
 const SlideshowOverlay = React.memo<SlideshowOverlayProps>(({
   images, currentIndex, transition, windowWidth, windowHeight,
 }) => {
@@ -2127,14 +2134,14 @@ export default function ConsoleHome() {
         if (currentBg !== a) {
           activeLayerShared.value = 1; // B pasa a ser la capa entrante
           setBgState({ bgA: a, bgB: currentBg, activeLayer: 'B' });
-          fade.value = withTiming(1, { duration: 220, easing: Easing.inOut(Easing.quad) });
+          fade.value = withTiming(1, { duration: BG_TRANSITION_MS, easing: BG_EASING });
         }
       } else {
         fade.value = 1;
         if (currentBg !== b) {
           activeLayerShared.value = 0; // A pasa a ser la capa entrante
           setBgState({ bgA: currentBg, bgB: b, activeLayer: 'A' });
-          fade.value = withTiming(0, { duration: 220, easing: Easing.inOut(Easing.quad) });
+          fade.value = withTiming(0, { duration: BG_TRANSITION_MS, easing: BG_EASING });
         }
       }
     };
@@ -2164,43 +2171,63 @@ export default function ConsoleHome() {
   const bgAKey = typeof bgA === 'string' ? bgA : (bgA?.uri ? String(bgA.uri) : undefined);
   const bgBKey = typeof bgB === 'string' ? bgB : (bgB?.uri ? String(bgB.uri) : undefined);
 
-  const animatedStyleA = useAnimatedStyle(() => {
-    const progress = 1 - fade.value;
-    const dir = wipeDirection.value;
-    const isIncoming = activeLayerShared.value === 0; // A es la capa entrante
-    return {
-      zIndex: isIncoming ? 1 : 0,
-      opacity: progress,
-      transform: [
-        { scale: interpolate(progress, [0, 1], [1.025, 1]) },
-        // Entrante: viene de +dir*20 → 0 | Saliente: va de 0 → -dir*20
-        {
-          translateX: isIncoming
-            ? interpolate(progress, [0, 1], [dir * 20, 0])
-            : interpolate(progress, [0, 1], [-dir * 20, 0])
-        },
-      ],
-    };
-  });
+  // Estilo de una capa de fondo. `p` es el progreso propio de la capa (0→1 si
+  // entra, 1→0 si sale); lo convertimos a `t` = progreso global de la transición.
+  //  - Entrante: aparece (opacity 0→1, completada al 65%) mientras se asienta
+  //    desde un zoom leve y un pequeño desplazamiento lateral.
+  //  - Saliente: se mantiene opaca y se desplaza/escala apenas, quedando
+  //    cubierta por la entrante. Así nunca se ve el fondo oscuro "a través"
+  //    de ambas capas semitransparentes (el bajón de brillo del crossfade clásico).
+  // Transición: deslizamiento corto + revelado circular con degradado.
+  //  - dir = 1 (te mueves a la derecha): ambas imágenes se desplazan un poco
+  //    hacia la izquierda, y la nueva se funde dentro de un círculo difuminado
+  //    que nace en el borde DERECHO y crece hacia la izquierda.
+  //  - dir = -1: exactamente lo mismo, invertido.
+  // El círculo es una máscara radial (CSS mask-image, el launcher corre en
+  // Electron/web) cuyo radio y borde suave se animan con el progreso `t`.
+  const bgLayerStyle = (p: number, isIncoming: boolean, dir: number, W: number, H: number) => {
+    'worklet';
+    const t = isIncoming ? p : 1 - p;
+    const SLIDE = BG_SLIDE_PX; // px de deslizamiento
 
-  const animatedStyleB = useAnimatedStyle(() => {
-    const progress = fade.value;
-    const dir = wipeDirection.value;
-    const isIncoming = activeLayerShared.value === 1; // B es la capa entrante
+    if (!isIncoming) {
+      return {
+        zIndex: 0,
+        opacity: 1,
+        transform: [{ translateX: interpolate(t, [0, 1], [0, -dir * SLIDE]) }],
+        maskImage: 'none',
+        WebkitMaskImage: 'none',
+      } as any;
+    }
+
+    // Radio necesario para cubrir toda la pantalla desde un borde + ancho del degradado.
+    const feather = W * 0.60;
+    const maxR = Math.sqrt((W + SLIDE * 2) * (W + SLIDE * 2) + (H / 2) * (H / 2)) + feather;
+    const R = t * maxR;
+    const inner = Math.max(0, R - feather);
+    // La capa mide W + 2*SLIDE (sobresale SLIDE por cada lado), así que los
+    // bordes de la pantalla están en x = SLIDE y x = SLIDE + W dentro de ella.
+    const cx = dir === 1 ? SLIDE + W : SLIDE; // origen: borde derecho si vas a la derecha
+    const mask = t >= 0.999
+      ? 'none'
+      : `radial-gradient(circle at ${cx}px 30%, rgba(0,0,0,1) ${inner}px, rgba(0,0,0,0) ${R}px)`;
+
     return {
-      zIndex: isIncoming ? 1 : 0,
-      opacity: progress,
-      transform: [
-        { scale: interpolate(progress, [0, 1], [1.025, 1]) },
-        // Entrante: viene de +dir*20 → 0 | Saliente: va de 0 → -dir*20
-        {
-          translateX: isIncoming
-            ? interpolate(progress, [0, 1], [dir * 20, 0])
-            : interpolate(progress, [0, 1], [-dir * 20, 0])
-        },
-      ],
-    };
-  });
+      zIndex: 1,
+      opacity: interpolate(t, [0, 0.04], [0, 1], 'clamp'),
+      transform: [{ translateX: interpolate(t, [0, 1], [dir * SLIDE, 0]) }],
+      maskImage: mask,
+      WebkitMaskImage: mask,
+    } as any;
+  };
+
+  const animatedStyleA = useAnimatedStyle(() =>
+    bgLayerStyle(1 - fade.value, activeLayerShared.value === 0, wipeDirection.value, windowWidth, windowHeight)
+  );
+
+  const animatedStyleB = useAnimatedStyle(() =>
+    bgLayerStyle(fade.value, activeLayerShared.value === 1, wipeDirection.value, windowWidth, windowHeight)
+  );
 
   // Get the active item info for the bottom panel
   const activeItem = currentData[activeIndex];
@@ -2340,7 +2367,7 @@ export default function ConsoleHome() {
 
         ) : (
           <>
-            <Animated.View style={[StyleSheet.absoluteFill, animatedStyleA, { willChange: 'transform, opacity', backfaceVisibility: 'hidden' } as any]}>
+            <Animated.View style={[StyleSheet.absoluteFill, { left: -BG_SLIDE_PX, right: -BG_SLIDE_PX }, animatedStyleA, { willChange: 'transform, opacity', backfaceVisibility: 'hidden' } as any]}>
               {/* <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} /> */}
               {bgA && (
                 <Image
@@ -2354,7 +2381,7 @@ export default function ConsoleHome() {
               )}
             </Animated.View>
 
-            <Animated.View style={[StyleSheet.absoluteFill, animatedStyleB, { willChange: 'transform, opacity', backfaceVisibility: 'hidden' } as any]}>
+            <Animated.View style={[StyleSheet.absoluteFill, { left: -BG_SLIDE_PX, right: -BG_SLIDE_PX }, animatedStyleB, { willChange: 'transform, opacity', backfaceVisibility: 'hidden' } as any]}>
               {/* <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000' }]} /> */}
               {bgB && (
                 <Image
