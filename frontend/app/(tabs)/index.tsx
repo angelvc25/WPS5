@@ -104,7 +104,7 @@ const SLIDE_MS = 900;
 const BG_TRANSITION_MS = 750;
 // Deslizamiento (px) de las capas de fondo. Cada capa se extiende este mismo
 // margen por ambos lados para que al desplazarse no deje ver su borde.
-const BG_SLIDE_PX = 20;
+const BG_SLIDE_PX = 44;
 const BG_EASING = Easing.bezier(0.25, 0.8, 0.25, 1);
 
 const SlideshowOverlay = React.memo<SlideshowOverlayProps>(({
@@ -2201,7 +2201,7 @@ export default function ConsoleHome() {
     }
 
     // Radio necesario para cubrir toda la pantalla desde un borde + ancho del degradado.
-    const feather = W * 0.60;
+    const feather = W * 0.45;
     const maxR = Math.sqrt((W + SLIDE * 2) * (W + SLIDE * 2) + (H / 2) * (H / 2)) + feather;
     const R = t * maxR;
     const inner = Math.max(0, R - feather);
@@ -2210,7 +2210,7 @@ export default function ConsoleHome() {
     const cx = dir === 1 ? SLIDE + W : SLIDE; // origen: borde derecho si vas a la derecha
     const mask = t >= 0.999
       ? 'none'
-      : `radial-gradient(circle at ${cx}px 30%, rgba(0,0,0,1) ${inner}px, rgba(0,0,0,0) ${R}px)`;
+      : `radial-gradient(circle at ${cx}px 50%, rgba(0,0,0,1) ${inner}px, rgba(0,0,0,0) ${R}px)`;
 
     return {
       zIndex: 1,
@@ -2857,6 +2857,7 @@ export default function ConsoleHome() {
       <ThemeCharacterOverlay
         theme={visualTheme}
         visible={showThemeForeground}
+        bleed={BG_SLIDE_PX}
         clipBottom={clipForegroundToCarousel ? (carouselClipBottom ?? CARD_SIZE + 80 + Math.round(windowHeight * 0.12)) : null}
       />
 

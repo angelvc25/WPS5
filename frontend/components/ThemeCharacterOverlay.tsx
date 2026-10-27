@@ -20,16 +20,25 @@ export default function ThemeCharacterOverlay({
   theme,
   visible,
   clipBottom = null,
+  bleed = 0,
 }: {
   theme: VisualTheme | null;
   visible: boolean;
   clipBottom?: number | null;
+  /**
+   * Píxeles que la imagen sobresale por cada lado de la pantalla. Debe ser el
+   * mismo valor con el que index.tsx ensancha las capas del fondo
+   * (BG_SLIDE_PX), para que `cover` produzca exactamente la misma composición
+   * y el personaje coincida con el fondo.
+   */
+  bleed?: number;
 }) {
   const { height: windowHeight } = useWindowDimensions();
 
   if (!theme?.foreground || !visible) return null;
 
   const clipped = clipBottom != null && clipBottom > 0;
+  const bleedStyle = bleed > 0 ? { left: -bleed, right: -bleed } : null;
 
   const clippedWebMask =
     Platform.OS === 'web'
@@ -48,7 +57,9 @@ export default function ThemeCharacterOverlay({
     >
       <Image
         source={theme.foreground}
-        style={clipped ? [styles.imageClipped, { height: windowHeight }] : styles.image}
+        style={clipped
+          ? [styles.imageClipped, { height: windowHeight }, bleedStyle]
+          : [styles.image, bleedStyle]}
         contentFit="cover"
         cachePolicy="memory-disk"
         transition={0}
@@ -62,6 +73,7 @@ export default function ThemeCharacterOverlay({
 const styles = StyleSheet.create({
   layer: {
     ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden', // la imagen sobresale `bleed` px por cada lado
     zIndex: 3,
     elevation: 3,
   },
