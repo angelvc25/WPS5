@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import type { SteamDownloadItem } from './useSteamDownloads';
 import { useSteamDownloads } from './useSteamDownloads';
+import { useLauncherSettled } from '@/hooks/useLauncherSettled';
 
 type Vars = Record<string, string | number>;
 type TFunction = (key: TranslationKey, vars?: Vars) => string;
@@ -79,6 +80,7 @@ const migrateCachedSteamGames = (parsed: any): ConsoleItem[] =>
 
 export function useSteamSync({ activeUser, games, t, language: _language, libraryTab }: UseSteamSyncParams): UseSteamSyncResult {
   // ── Steam ─────────────────────────────────────────────────────────────────
+  const settled = useLauncherSettled();
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
   const steamGamesRef = useRef<ConsoleItem[]>([]);
   steamGamesRef.current = steamGames;
@@ -141,6 +143,7 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
 
   // ── Effect: cargar caché de Steam al montar o cambiar de usuario ──────────
   useEffect(() => {
+    if (!settled) return;
     const steamId = activeUser?.settings?.steamId;
     if (steamId) {
       const cachedRaw = localStorage.getItem(`steam_games_${steamId}`);
@@ -157,10 +160,11 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
     } else {
       setSteamGames([]);
     }
-  }, [activeUser?.settings?.steamId]);
+  }, [settled, activeUser?.settings?.steamId]);
 
   // ── Effect: refresco silencioso de playtimes en segundo plano ─────────────
   useEffect(() => {
+    if (!settled) return;
     const steamId = activeUser?.settings?.steamId;
     if (!steamId || steamGames.length === 0) return;
 
@@ -204,10 +208,11 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
   useEffect(() => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
     fetchSteamInstalledAppIds().then(setInstalledSteamAppIds);
-  }, []);
+  }, [settled]);
 
   // ── Effect: detectar fin de instalación de un juego de Steam ─────────────
   useEffect(() => {
+    if (!settled) return;
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
 
     const interval = setInterval(async () => {
@@ -235,10 +240,11 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [games, t]);
+  }, [settled, games, t]);
 
   // ── Effect: wishlist watcher ──────────────────────────────────────────────
   useEffect(() => {
+    if (!settled) return;
     const steamId = activeUser?.settings?.steamId;
     if (!steamId) return;
 
@@ -290,10 +296,11 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
     checkWishlist();
     const interval = setInterval(checkWishlist, 30 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [activeUser?.settings?.steamId, t]);
+  }, [settled, activeUser?.settings?.steamId, t]);
 
   // ── Effect: carga inicial de juegos Epic ──────────────────────────────────
   useEffect(() => {
+    if (!settled) return;
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getEpicInstalledGames) return;
     if (epicGames.length > 0 || loadingEpic) return;
 
@@ -382,10 +389,11 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
       setEpicGames(withMetadata);
       setLoadingEpic(false);
     }).catch(() => setLoadingEpic(false));
-  }, []);
+  }, [settled]);
 
   // ── Effect: carga inicial de juegos Xbox ──────────────────────────────────
   useEffect(() => {
+    if (!settled) return;
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getXboxInstalledGames) return;
     if (xboxGames.length > 0 || loadingXbox) return;
 
@@ -474,18 +482,20 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
       setXboxGames(withMetadata);
       setLoadingXbox(false);
     }).catch(() => setLoadingXbox(false));
-  }, []);
+  }, [settled]);
 
   // ── Effect: refresco de installedSteamAppIds al cambiar a colección ─────────
   useEffect(() => {
+    if (!settled) return;
     if (libraryTab !== 'collection') return;
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
 
     fetchSteamInstalledAppIds().then(setInstalledSteamAppIds);
-  }, [libraryTab, steamGames.length]);
+  }, [settled, libraryTab, steamGames.length]);
 
   // ── Effect: carga de juegos Steam al cambiar a colección (bajo demanda) ───
   useEffect(() => {
+    if (!settled) return;
     if (libraryTab !== 'collection') return;
     if (steamGames.length > 0 || loadingSteam) return;
 
@@ -556,6 +566,7 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
 
   // ── Effect: orphan installs (juegos instalados fuera de GetOwnedGames) ─────
   useEffect(() => {
+    if (!settled) return;
     if (libraryTab !== 'collection') return;
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledAppsDetailed) return;
     if (steamGames.length === 0) return;
@@ -649,7 +660,7 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
         }
       }
     });
-  }, [libraryTab, steamGames.length, activeUser?.settings?.steamId, t]);
+  }, [settled, libraryTab, steamGames.length, activeUser?.settings?.steamId, t]);
 
   return {
     steamGames,

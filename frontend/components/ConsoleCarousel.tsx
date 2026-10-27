@@ -1,5 +1,6 @@
 import { isRetroPlatform } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { useLauncherSettled, useSplashDone } from '@/hooks/useLauncherSettled';
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { getSteamAppId, isSteamGame } from '@/services/steamLaunchService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -221,6 +222,9 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
   inactiveImageStyle,
   titleText,
 }: CarouselCardItemProps) {
+  // La etiqueta (plataforma + título) entra con fundido: esperar al fin del splash
+  // para que se vea y no se ejecute oculta durante el arranque.
+  const splashDone = useSplashDone();
   const isHomeCard = item.id === '1';
   const isStoreCard = item.id === '5';
 
@@ -392,7 +396,7 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
       }}
     >
       {cardContent}
-      {isActive && (
+      {isActive && splashDone && (
         <Animated.View
           style={[
             styles.activeLabelContainer,
@@ -510,6 +514,12 @@ const ConsoleCarouselComponent = ({
   // - Al seleccionar/lanzar el juego: se expande hacia afuera (scale 1 -> 1.15) y desaparece (opacity 1 -> 0).
   // - Al bajar de la barra de navegación al carrusel o subir desde el gameinfopanel: animación contraria
   //   (se comprime de scale 1.15 -> 1 y reaparece opacity 0 -> 1 dando la impresión que el spinning encierra el juego).
+  // Arranque: hasta que el launcher se asienta, el borde cambia sin animar.
+  const launcherSettled = useLauncherSettled();
+  const launcherSettledRef = React.useRef(launcherSettled);
+  launcherSettledRef.current = launcherSettled;
+  const anim = (to: number, cfg?: any) => (launcherSettledRef.current ? withTiming(to, cfg) : to);
+
   const isCarouselFocused = focusArea === 'main_carousel';
   const spinningBorderOpacity = useSharedValue(isCarouselFocused && !isLaunching && !isContextMenuOpen ? 1 : 0);
   const spinningBorderScale = useSharedValue(isCarouselFocused ? 1 : 1.15);
@@ -525,8 +535,8 @@ const ConsoleCarouselComponent = ({
 
     if (isLaunching || isContextMenuOpen) {
       if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
-      spinningBorderScale.value = withTiming(1.15, { duration: 320, easing: Easing.out(Easing.cubic) });
-      spinningBorderOpacity.value = withTiming(0, { duration: 380, easing: Easing.out(Easing.quad) });
+      spinningBorderScale.value = anim(1.15, { duration: 320, easing: Easing.out(Easing.cubic) });
+      spinningBorderOpacity.value = anim(0, { duration: 380, easing: Easing.out(Easing.quad) });
       justEnteredCarouselRef.current = false;
       return;
     }
@@ -535,8 +545,8 @@ const ConsoleCarouselComponent = ({
       // Al salir del carrusel (subir a barra de navegación o bajar al gameinfopanel):
       // El spinning se expande y desaparece de forma similar a cuando se lanza un juego
       if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
-      spinningBorderScale.value = withTiming(1.15, { duration: 320, easing: Easing.out(Easing.cubic) });
-      spinningBorderOpacity.value = withTiming(0, { duration: 380, easing: Easing.out(Easing.quad) });
+      spinningBorderScale.value = anim(1.15, { duration: 320, easing: Easing.out(Easing.cubic) });
+      spinningBorderOpacity.value = anim(0, { duration: 380, easing: Easing.out(Easing.quad) });
       justEnteredCarouselRef.current = false;
       return;
     }
@@ -550,12 +560,12 @@ const ConsoleCarouselComponent = ({
       justEnteredCarouselRef.current = true;
       spinningBorderScale.value = 1.15;
       spinningBorderOpacity.value = 0;
-      spinningBorderScale.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
-      spinningBorderOpacity.value = withTiming(1, { duration: 380, easing: Easing.out(Easing.quad) });
+      spinningBorderScale.value = anim(1, { duration: 320, easing: Easing.out(Easing.cubic) });
+      spinningBorderOpacity.value = anim(1, { duration: 380, easing: Easing.out(Easing.quad) });
     } else {
       // Ya estaba en el carrusel y volvió de context menu o launch cancelado
-      spinningBorderScale.value = withTiming(1, { duration: 250 });
-      spinningBorderOpacity.value = withTiming(1, { duration: 250 });
+      spinningBorderScale.value = anim(1, { duration: 250 });
+      spinningBorderOpacity.value = anim(1, { duration: 250 });
       justEnteredCarouselRef.current = false;
     }
   }, [focusArea, isLaunching, isContextMenuOpen]);

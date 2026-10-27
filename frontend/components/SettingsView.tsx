@@ -40,9 +40,8 @@ import OnlineAuthView from './OnlineAuthView';
 import PSIcon from './PSIcon';
 import VirtualKeyboard from './VirtualKeyboard';
 import { UserProfile } from './UserSelectScreen';
-import SpinningBorderSearch from './SpinningBorderSearch';
+import { AnimatedSpinningBorderSearch as SpinningBorderSearch, AnimatedSpinningBorderSettings as SpinningBorderSettings } from './AnimatedSpinningBorders';
 import UserProfileView, { resolveImageSource } from './UserProfileView';
-import SpinningBorderSettings from './spinninBorderSettings';
 import ThemeSettingsView from './ThemeSettingsView';
 
 function compareVersions(a: string, b: string): number {
@@ -258,37 +257,6 @@ export default function SettingsView({
   const [accessibilityFocusArea, setAccessibilityFocusArea] = useState<'left' | 'right'>('left');
   const [systemLeftIndex, setSystemLeftIndex] = useState(0);
   const [systemFocusArea, setSystemFocusArea] = useState<'left' | 'right'>('left');
-
-  // ── Transición del borde giratorio al cambiar de fila ─────────────────────
-  // IMPORTANTE: estos hooks viven en el CUERPO del componente, nunca dentro
-  // de renderMainScreen(). renderMainScreen() solo se ejecuta cuando la
-  // pantalla es visible, así que si los hooks vivieran ahí el número de hooks
-  // cambiaría entre renders (56 al montar, 57 al abrir Ajustes) y React
-  // lanzaría "Rendered more hooks than during the previous render".
-  const spinningBorderOpacity = useSharedValue(1);
-  const prevMainFocusIndexRef = useRef(mainFocusIndex);
-
-  useEffect(() => {
-    if (prevMainFocusIndexRef.current !== mainFocusIndex && prevMainFocusIndexRef.current !== -1) {
-      // Desaparece el borde de la fila anterior.
-      spinningBorderOpacity.value = withTiming(0, {
-        duration: 200,
-        easing: Easing.in(Easing.quad),
-      });
-      // Y aparece el de la nueva con un pequeño retardo.
-      setTimeout(() => {
-        spinningBorderOpacity.value = withTiming(1, {
-          duration: 300,
-          easing: Easing.out(Easing.quad),
-        });
-      }, 100);
-    }
-    prevMainFocusIndexRef.current = mainFocusIndex;
-  }, [mainFocusIndex]);
-
-  const spinningBorderStyle = useAnimatedStyle(() => ({
-    opacity: spinningBorderOpacity.value,
-  }));
 
   // HDMI toggles state for System sub-screen
   const [hdmiDeviceLink, setHdmiDeviceLink] = useState(true);
@@ -1397,9 +1365,7 @@ export default function SettingsView({
                   onPress={item.onPress}
                 >
                   {isFocused && (
-                    <Animated.View style={[styles.spinningBorderContainer, spinningBorderStyle]}>
-                      <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />
-                    </Animated.View>
+                    <SpinningBorderSearch size={s(180)} spread={1} borderRadius={0} />
                   )}
                   <View style={styles.psMenuRowLeft}>
                     {item.id === 'users_and_accounts' && userAvatarUri ? (
@@ -1576,7 +1542,7 @@ export default function SettingsView({
           {/* Right Column (Submenu Content) */}
           <View style={styles.systemRightColumn}>
             {accessibilityLeftIndex === 0 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                 <Text style={styles.rightSectionTitle}>{t('settings.accVisual')}</Text>
 
                 {/* Auto Play Video Toggle */}
@@ -1691,7 +1657,7 @@ export default function SettingsView({
                 isRightFocused && subFocusIndex === row && subColumnIndex === col;
 
               return (
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                   <Text style={styles.rightSectionTitle}>{t('settings.accWallpapers')}</Text>
 
                   {/* Wallpaper Selection */}
@@ -1855,7 +1821,7 @@ export default function SettingsView({
                 isRightFocused && subFocusIndex === row && subColumnIndex === col;
 
               return (
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                   <Text style={styles.rightSectionTitle}>{t('settings.avatars')}</Text>
 
                   <Text style={styles.pathDesc}>
@@ -1932,7 +1898,7 @@ export default function SettingsView({
               const isConnected = !!activeUser?.settings?.steamId;
 
               return (
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                   <Text style={styles.rightSectionTitle}>Steam</Text>
                   <Text style={[styles.pathDesc, { marginBottom: 16 }]}>
                     {t('settings.Steam')}
@@ -1991,7 +1957,7 @@ export default function SettingsView({
               const raUsername = activeUser?.settings?.raUsername || '';
               const raApiKey = activeUser?.settings?.raApiKey || '';
               return (
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                   <Text style={styles.rightSectionTitle}>RetroAchievements</Text>
                   <Text style={[styles.pathDesc, { marginBottom: 16 }]}>
                     {t('settings.achievementDesc')}
@@ -2051,7 +2017,7 @@ export default function SettingsView({
             })()}
 
             {accessibilityLeftIndex === 6 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                 <Text style={styles.rightSectionTitle}>{t('settings.gamePanel')}</Text>
                 <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.gamePanelDesc')}</Text>
 
@@ -2133,7 +2099,7 @@ export default function SettingsView({
               const isRightFocused = accessibilityFocusArea === 'right';
 
               return (
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                   <Text style={styles.rightSectionTitle}>{t('settings.overlay')}</Text>
 
                   <View
@@ -2258,7 +2224,7 @@ export default function SettingsView({
               const isPagerFocused = isRightFocused && splashFocusZone === 'pager';
 
               return (
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                   <Text style={styles.rightSectionTitle}>{t('settings.steamDeckRepo')}</Text>
                   <Text style={[styles.pathDesc, { marginBottom: 16 }]}>
                     {t('settings.steamDeckRepoDesc')}
@@ -2585,7 +2551,7 @@ export default function SettingsView({
             })()}
 
             {accessibilityLeftIndex === 5 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                 <Text style={styles.rightSectionTitle}>{t('settings.smartSync')}</Text>
                 <Text style={[styles.pathDesc, { marginBottom: 16 }]}>{t('settings.smartSyncDesc')}</Text>
 
@@ -2744,7 +2710,7 @@ export default function SettingsView({
           {/* Right Column (Sub-options for selected item) */}
           <View style={styles.systemRightColumn}>
             {systemLeftIndex === 0 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                 {/* ── Banner WPS5 ── */}
                 <View style={styles.systemBannerContainer}>
                   <Image
@@ -2821,7 +2787,7 @@ export default function SettingsView({
             )}
 
             {systemLeftIndex === 1 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                 <Text style={styles.rightSectionTitle}>{t('settings.hdmi')}</Text>
 
                 <View
@@ -2865,7 +2831,7 @@ export default function SettingsView({
             )}
 
             {systemLeftIndex === 2 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                 <Text style={styles.rightSectionTitle}>{t('settings.language')}</Text>
                 <Text style={[styles.pathDesc, { marginBottom: 20 }]}>{t('settings.languageDesc')}</Text>
 
@@ -2903,7 +2869,7 @@ export default function SettingsView({
             )}
 
             {systemLeftIndex === 4 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                 <Text style={styles.rightSectionTitle}>{t('settings.launcherBehavior')}</Text>
                 <Text style={[styles.pathDesc, { marginBottom: 20 }]}>
                   {t('settings.launcherBehaviorDesc')}
@@ -2943,7 +2909,7 @@ export default function SettingsView({
             )}
 
             {systemLeftIndex === 3 && (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                 <Text style={styles.rightSectionTitle}>{t('settings.dateAndTime')}</Text>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoRowLabel}>Current Time</Text>
@@ -2968,7 +2934,7 @@ export default function SettingsView({
               const highRefreshApplied = highRefreshMode === 'on';
               const showFpsCounter = !!activeUser?.settings?.showFpsCounter;
               return (
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
                   <Text style={styles.rightSectionTitle}>GPU & Performance</Text>
 
                   {/* ── Display & Frame Rate ───────────────────────────────── */}
@@ -3605,6 +3571,16 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
   },
 
   // Toggle rows
+  // Margen extra alrededor del contenido para que el borde giratorio, al escalar,
+  // no sea recortado por el ScrollView. El margen negativo compensa el padding.
+  borderBleedScroll: {
+    marginHorizontal: -s(24),
+    marginVertical: -s(16),
+  },
+  borderBleedContent: {
+    paddingHorizontal: s(24),
+    paddingVertical: s(16),
+  },
   toggleRowSection: {
     flexDirection: 'row',
     alignItems: 'center',

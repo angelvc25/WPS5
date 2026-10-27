@@ -5,6 +5,7 @@ import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, LogBox, Platform, StyleSheet, View } from 'react-native';
+import { markLauncherRevealed, resetLauncherSettled } from '@/hooks/useLauncherSettled';
 
 LogBox.ignoreLogs([
   '"shadow*" style props are deprecated. Use "boxShadow".',
@@ -27,11 +28,11 @@ if (Platform.OS === 'web' && typeof console !== 'undefined' && console.warn) {
   };
 }
 import Animated, {
-    FadeOut,
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming
+  FadeOut,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 
 import BackgroundVideo from '@/components/BackgroundVideo';
@@ -237,31 +238,26 @@ function RootLayoutInner() {
   }, [showFpsCounter]);
 
   useEffect(() => {
-    if (!activeUser) { setHomeReady(false); return; }
+    if (!activeUser) { setHomeReady(false); resetLauncherSettled(); return; }
     let finished = false;
+    let revealTimer: ReturnType<typeof setTimeout>;
     const done = () => {
       if (finished) return;
       finished = true;
       clearTimeout(safety);
-      // Pequeño delay de presentación: garantiza que la animación de rebote
-      // complete al menos medio ciclo más (900 ms) y que el browser haya
-      // terminado de pintar el primer frame del home antes de retirar el overlay.
       setTimeout(() => {
         setHomeReady(true);
-        // El aviso de bienvenida sale cuando la capa de carga ya se está retirando.
-        setTimeout(() => {
-          toastService.show(tRef.current('toast.loggedPS5'), {
-            source: 'system',
-            icon: require('@/assets/icons/Logonegro.png'),
-          });
-        }, 500);
+        // La capa de selección hace FadeOut de 450 ms: revelamos al terminar
+        revealTimer = setTimeout(markLauncherRevealed, 480);
+        setTimeout(() => { /* toast de bienvenida, igual que antes */ }, 500);
       }, 900);
     };
     window.addEventListener('wps5-home-ready', done, { once: true });
-    const safety = setTimeout(done, 8000); // red de seguridad (incluye el delay de 900 ms de presentación)
+    const safety = setTimeout(done, 8000);
     return () => {
       window.removeEventListener('wps5-home-ready', done);
       clearTimeout(safety);
+      clearTimeout(revealTimer);
     };
   }, [activeUser?.id]);
 

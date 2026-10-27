@@ -83,6 +83,7 @@ import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId, fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { useLauncherSettled } from '@/hooks/useLauncherSettled';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -444,7 +445,17 @@ export default function ConsoleHome() {
 
   const [settingsInitialScreen, setSettingsInitialScreen] = useState<SettingsScreenType>('main');
   const [settingsTab, setSettingsTab] = useState<'profile' | 'home' | 'sync' | 'support'>('profile');
-  const [homeBackground, setHomeBackground] = useState<any>(null);
+  // Lectura síncrona: si se cargara en un efecto tras montar, el fondo cambiaría
+  // justo durante el arranque y dispararía una transición innecesaria.
+  const [homeBackground, setHomeBackground] = useState<any>(() => {
+    if (Platform.OS !== 'web') return null;
+    try {
+      const savedBg = localStorage.getItem('home_background');
+      return savedBg ? { uri: savedBg } : null;
+    } catch {
+      return null;
+    }
+  });
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchingItem, setLaunchingItem] = useState<ConsoleItem | null>(null);
 
@@ -2114,6 +2125,15 @@ export default function ConsoleHome() {
   const bgStateRef = useRef(bgState);
   bgStateRef.current = bgState;
 
+  // Durante el arranque el hilo JS está saturado (splash, carga de apps, Steam,
+  // fondos remotos): Reanimated en web anima con timestamps, así que los frames
+  // se saltan y la transición parece instantánea/entrecortada. Hasta que el
+  // launcher se asiente, los cambios de fondo se aplican sin animar.
+  // Estado compartido con el carrusel y las tarjetas (hooks/useLauncherSettled).
+  const launcherSettled = useLauncherSettled();
+  const bgAnimReadyRef = useRef(launcherSettled);
+  bgAnimReadyRef.current = launcherSettled;
+
   useEffect(() => {
     const { bgA, bgB, activeLayer } = bgStateRef.current;
     if (!bgA && !bgB) {
@@ -2129,6 +2149,19 @@ export default function ConsoleHome() {
       cancelAnimation(fade);
       // Re-leer del ref: el estado puede haber cambiado en los 140ms de debounce
       const { bgA: a, bgB: b, activeLayer: layer } = bgStateRef.current;
+      // Arranque: reemplazar la imagen de la capa activa sin animación.
+      if (!bgAnimReadyRef.current) {
+        if (layer === 'A') {
+          fade.value = 0;
+          activeLayerShared.value = 0;
+          if (currentBg !== a) setBgState({ bgA: currentBg, bgB: b, activeLayer: 'A' });
+        } else {
+          fade.value = 1;
+          activeLayerShared.value = 1;
+          if (currentBg !== b) setBgState({ bgA: a, bgB: currentBg, activeLayer: 'B' });
+        }
+        return;
+      }
       if (layer === 'A') {
         fade.value = 0;
         if (currentBg !== a) {

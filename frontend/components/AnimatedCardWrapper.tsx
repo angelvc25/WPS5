@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLauncherSettled, useSplashDone } from '@/hooks/useLauncherSettled';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -29,22 +30,36 @@ export const AnimatedCardWrapper = React.memo(({
   const entryScale = useSharedValue(0.7);
   const entryTranslateX = useSharedValue(150);
 
+  // Arranque: mientras el launcher no se asienta (splash + margen) el hilo JS
+  // está saturado y las animaciones saltan frames. Los cambios de estado se
+  // aplican directo, sin animar; la entrada escalonada espera al fin del splash.
+  const splashDone = useSplashDone();
+  const settled = useLauncherSettled();
+  const settledRef = React.useRef(settled);
+  settledRef.current = settled;
+  const wasWaitingForSplashRef = React.useRef(!splashDone);
+
   React.useEffect(() => {
-    scale.value = withTiming(isActive ? 1.5 : 1, { duration: 280, easing: Easing.out(Easing.quad) });
-    translateY.value = withTiming(isActive ? 17 : 0, { duration: 280, easing: Easing.out(Easing.quad) });
-    marginH.value = withTiming(isActive ? 20 : 6, { duration: 280, easing: Easing.out(Easing.quad) });
+    const cfg = { duration: 280, easing: Easing.out(Easing.quad) };
+    const to = (v: number) => (settledRef.current ? withTiming(v, cfg) : v);
+    scale.value = to(isActive ? 1.5 : 1);
+    translateY.value = to(isActive ? 17 : 0);
+    marginH.value = to(isActive ? 20 : 6);
   }, [isActive]);
 
-  // Trigger staggered entry animation on mount
+  // Trigger staggered entry animation (tras el splash, o al montar si ya terminó)
   React.useEffect(() => {
+    if (!splashDone) return;
     // Clamp delay: first 10 cards stagger nicely, rest enter together at the end
     const clampedIndex = Math.min(entryIndex, 10);
-    const delay = 80 + clampedIndex * 60;
+    // Primer arranque: pequeño margen extra para que el hilo respire tras el splash.
+    const baseDelay = wasWaitingForSplashRef.current ? 250 : 80;
+    const delay = baseDelay + clampedIndex * 60;
     const easing = Easing.out(Easing.exp);
     entryOpacity.value = withDelay(delay, withTiming(1, { duration: 700, easing }));
     entryScale.value = withDelay(delay, withTiming(1, { duration: 700, easing }));
     entryTranslateX.value = withDelay(delay, withTiming(0, { duration: 700, easing }));
-  }, []);
+  }, [splashDone]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [

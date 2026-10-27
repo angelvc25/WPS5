@@ -37,6 +37,7 @@ import BackgroundVideo from './BackgroundVideo';
 import { toastService } from '@/services/toastService';
 import VirtualKeyboard from './VirtualKeyboard';
 import KHInsiderMusicModal from './KHInsiderMusicModal';
+import { AnimatedSpinningBorderSettings as EditSpinningBorder } from './AnimatedSpinningBorders';
 
 
 interface GameDetailViewProps {
@@ -613,8 +614,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     const tab = assetSelectorTab;
     const field =
       tab === 'hero' ? 'backgroundImage' :
-      tab === 'logo' ? 'logo' :
-      tab === 'icon' ? 'icon' : 'image';
+        tab === 'logo' ? 'logo' :
+          tab === 'icon' ? 'icon' : 'image';
 
     setEditData((prev) => ({ ...prev, [field]: url }));
     soundService.playActivation?.();
@@ -1151,7 +1152,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     if (!audioPath) {
       // No hay audio: limpiar si había algo reproduciéndose
       if (detailAudioRef.current) {
-        try { detailAudioRef.current.remove(); } catch (_) {}
+        try { detailAudioRef.current.remove(); } catch (_) { }
         detailAudioRef.current = null;
         detailAudioPathRef.current = null;
       }
@@ -1163,7 +1164,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
     // Detener el audio anterior si cambió
     if (detailAudioRef.current) {
-      try { detailAudioRef.current.remove(); } catch (_) {}
+      try { detailAudioRef.current.remove(); } catch (_) { }
       detailAudioRef.current = null;
     }
 
@@ -1183,9 +1184,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         player.volume = 0.8;
         const p = player.play() as any;
         if (p && typeof p.catch === 'function') {
-          p.catch(() => {});
+          p.catch(() => { });
         }
-        if (!mounted) { try { player.remove(); } catch (_) {} return; }
+        if (!mounted) { try { player.remove(); } catch (_) { } return; }
         detailAudioRef.current = player;
       } catch (err) {
         console.warn('[GameDetailView] No se pudo reproducir focusAudio:', err);
@@ -1198,7 +1199,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     return () => {
       mounted = false;
       if (detailAudioRef.current) {
-        try { detailAudioRef.current.remove(); } catch (_) {}
+        try { detailAudioRef.current.remove(); } catch (_) { }
         detailAudioRef.current = null;
         detailAudioPathRef.current = null;
       }
@@ -1212,14 +1213,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     const media = selectedMediaIndex !== null ? steamMedia[selectedMediaIndex] : null;
     const isVideo = media?.type === 'movie';
     if (isVideo) {
-      try { detailAudioRef.current.pause(); } catch (_) {}
+      try { detailAudioRef.current.pause(); } catch (_) { }
     } else {
       try {
         const p = detailAudioRef.current.play() as any;
         if (p && typeof p.catch === 'function') {
-          p.catch(() => {});
+          p.catch(() => { });
         }
-      } catch (_) {}
+      } catch (_) { }
     }
   }, [selectedMediaIndex, steamMedia]);
 
@@ -2215,13 +2216,15 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                         style={[
                           styles.editTab,
                           isTabActive && styles.editTabActive,
-                          isTabFocused && styles.editTabFocused
+                          isTabFocused && styles.editTabFocused,
+                          isTabFocused && styles.spinFocusTab
                         ]}
                         onPress={() => {
                           setEditModalFocusIndex(tab.index);
                           setActiveTab(tab.id as any);
                         }}
                       >
+                        {isTabFocused && <EditSpinningBorder size={s(320)} spread={0} borderRadius={s(6)} />}
                         <Ionicons
                           name={tab.icon as any}
                           size={s(22)}
@@ -2244,15 +2247,17 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                     {activeTab === 'basic' && (
                       <>
                         <Text style={styles.editSectionTitle}>{t('edit.basic')}</Text>
-                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                        <ScrollView showsVerticalScrollIndicator={false} style={styles.editBleedScroll} contentContainerStyle={[styles.editBleedContent, { paddingBottom: 20 + s(14) }]}>
                           <Text style={styles.editLabel}>{t('edit.gameTitle')}</Text>
                           <TouchableOpacity
                             activeOpacity={0.9}
+                            style={{ marginBottom: s(20) }}
                             onPress={() => { setEditModalFocusIndex(2); setEditVKField('title'); }}
                           >
+                            {editModalFocusIndex === 2 && <EditSpinningBorder size={s(600)} spread={0} borderRadius={s(14)} />}
                             <TextInput
                               ref={editTitleRef}
-                              style={[styles.editInput, editModalFocusIndex === 2 && styles.editInputFocused]}
+                              style={[styles.editInput, { marginBottom: 0 }, editModalFocusIndex === 2 && styles.editInputFocused, editModalFocusIndex === 2 && styles.spinFocusSubtle]}
                               value={editData.title}
                               onChangeText={(text) => setEditData({ ...editData, title: text })}
                               showSoftInputOnFocus={!gamepadConnected}
@@ -2279,11 +2284,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                         style={[
                                           styles.platformBtnNew,
                                           isActive && styles.platformBtnActiveNew,
-                                          isFocused && styles.platformBtnFocusedNew
+                                          isFocused && styles.platformBtnFocusedNew,
+                                          isFocused && styles.spinFocusSubtle
                                         ]}
                                         onPress={() => { setEditModalFocusIndex(focusIdx); setEditData({ ...editData, platform: plat.id }); }}
                                         onLayout={(e) => { editPlatformOffsets.current[idx] = e.nativeEvent.layout.x; }}
                                       >
+                                        {isFocused && <EditSpinningBorder size={s(100)} spread={0} borderRadius={s(10)} />}
                                         <MaterialCommunityIcons
                                           name={plat.icon as any}
                                           size={s(20)}
@@ -2315,12 +2322,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                             styles.platformBtnNew,
                                             isActive && styles.platformBtnActiveNew,
                                             isFocused && styles.platformBtnFocusedNew,
+                                            isFocused && styles.spinFocusSubtle,
                                           ]}
                                           onPress={() => {
                                             setEditModalFocusIndex(focusIdx);
                                             setEditData({ ...editData, retroSystem: sys.id } as any);
                                           }}
                                         >
+                                          {isFocused && <EditSpinningBorder size={s(100)} spread={0} borderRadius={s(10)} />}
                                           <Text style={[styles.platformBtnTextNew, isActive && styles.platformBtnTextActiveNew]}>
                                             {sys.label}
                                           </Text>
@@ -2336,11 +2345,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           <Text style={styles.editLabel}>{t('edit.description')}</Text>
                           <TouchableOpacity
                             activeOpacity={0.9}
+                            style={{ marginBottom: s(20) }}
                             onPress={() => { setEditModalFocusIndex(14); setEditVKField('description'); }}
                           >
+                            {editModalFocusIndex === 14 && <EditSpinningBorder size={s(600)} spread={0} borderRadius={s(14)} />}
                             <TextInput
                               ref={editDescRef}
-                              style={[styles.editInput, { height: 140, textAlignVertical: 'top' }, editModalFocusIndex === 14 && styles.editInputFocused]}
+                              style={[styles.editInput, { marginBottom: 0 }, { height: 140, textAlignVertical: 'top' }, editModalFocusIndex === 14 && styles.editInputFocused, editModalFocusIndex === 14 && styles.spinFocusSubtle]}
                               multiline
                               value={editData.description}
                               onChangeText={(text) => setEditData({ ...editData, description: text })}
@@ -2384,16 +2395,18 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                     {activeTab === 'path' && (
                       <>
                         <Text style={styles.editSectionTitle}>{t('edit.path')}</Text>
-                        <ScrollView showsVerticalScrollIndicator={false}>
+                        <ScrollView showsVerticalScrollIndicator={false} style={styles.editBleedScroll} contentContainerStyle={styles.editBleedContent}>
                           <Text style={styles.editLabel}>{t('edit.executableLocation')}</Text>
                           {((editData.type || item?.type) === 'web') ? (
                             <TouchableOpacity
                               activeOpacity={0.9}
+                              style={{ marginBottom: s(20) }}
                               onPress={() => { setEditModalFocusIndex(22); setEditVKField('path'); }}
                             >
+                              {editModalFocusIndex === 22 && <EditSpinningBorder size={s(600)} spread={0} borderRadius={s(14)} />}
                               <TextInput
                                 ref={editPathInputRef}
-                                style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
+                                style={[styles.editInput, { marginBottom: 0 }, editModalFocusIndex === 22 && styles.editInputFocused, editModalFocusIndex === 22 && styles.spinFocusSubtle]}
                                 placeholder="URL (https://...)"
                                 placeholderTextColor="#888"
                                 value={editData.path}
@@ -2410,11 +2423,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             <>
                               <TouchableOpacity
                                 activeOpacity={0.9}
+                                style={{ marginBottom: s(20) }}
                                 onPress={() => { setEditModalFocusIndex(22); setEditVKField('path'); }}
                               >
+                                {editModalFocusIndex === 22 && <EditSpinningBorder size={s(600)} spread={0} borderRadius={s(14)} />}
                                 <TextInput
                                   ref={editPathInputRef}
-                                  style={[styles.editInput, editModalFocusIndex === 22 && styles.editInputFocused]}
+                                  style={[styles.editInput, { marginBottom: 0 }, editModalFocusIndex === 22 && styles.editInputFocused, editModalFocusIndex === 22 && styles.spinFocusSubtle]}
                                   placeholder="steam://rungameid/..."
                                   placeholderTextColor="#888"
                                   value={editData.path}
@@ -2437,9 +2452,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           ) : (
                             <>
                               <TouchableOpacity
-                                style={[styles.editSecondaryBtn, editModalFocusIndex === 22 && styles.editSecondaryBtnFocused]}
+                                style={[styles.editSecondaryBtn, editModalFocusIndex === 22 && styles.editSecondaryBtnFocused, editModalFocusIndex === 22 && styles.spinFocusSubtle]}
                                 onPress={() => { setEditModalFocusIndex(22); handleSelectPath(); }}
                               >
+                                {editModalFocusIndex === 22 && <EditSpinningBorder size={s(300)} spread={0} borderRadius={s(14)} />}
                                 <Ionicons name="folder-open-outline" size={s(20)} color="#FFF" />
                                 <Text style={styles.editSecondaryBtnText}>{t('add.selectExe')}</Text>
                               </TouchableOpacity>
@@ -2453,11 +2469,13 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                                   <Text style={[styles.editLabel, { marginTop: 20 }]}>{t('edit.launchArgs')}</Text>
                                   <TouchableOpacity
                                     activeOpacity={0.9}
+                                    style={{ marginBottom: s(20) }}
                                     onPress={() => { setEditModalFocusIndex(27); setEditVKField('launchArgs'); }}
                                   >
+                                    {editModalFocusIndex === 27 && <EditSpinningBorder size={s(600)} spread={0} borderRadius={s(14)} />}
                                     <TextInput
                                       ref={editLaunchArgsRef}
-                                      style={[styles.editInput, editModalFocusIndex === 27 && styles.editInputFocused]}
+                                      style={[styles.editInput, { marginBottom: 0 }, editModalFocusIndex === 27 && styles.editInputFocused, editModalFocusIndex === 27 && styles.spinFocusSubtle]}
                                       placeholder="-dx11 -windowed"
                                       placeholderTextColor="#888"
                                       autoCapitalize="none"
@@ -2484,7 +2502,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                     {activeTab === 'art' && (
                       <>
                         <Text style={styles.editSectionTitle}>{t('edit.art')}</Text>
-                        <ScrollView showsVerticalScrollIndicator={false}>
+                        <ScrollView showsVerticalScrollIndicator={false} style={styles.editBleedScroll} contentContainerStyle={styles.editBleedContent}>
                           <Text style={styles.editLabel}>{t('edit.smartSync')}</Text>
                           <View style={styles.syncRow}>
                             <TouchableOpacity
@@ -2492,6 +2510,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                               onPress={() => { setEditModalFocusIndex(0); handleUnifiedSync(); }}
                               disabled={isSyncing}
                             >
+                              {editModalFocusIndex === 0 && <EditSpinningBorder size={s(500)} spread={0} borderRadius={s(14)} />}
                               <Ionicons name="sync-outline" size={s(18)} color="#000" />
                               <Text style={styles.editSyncBtnUnifiedText}>{isSyncing ? t('edit.syncing') : t('edit.syncData')}</Text>
                             </TouchableOpacity>
@@ -2500,45 +2519,50 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                           <Text style={styles.editLabel}>{t('edit.localFiles')}</Text>
                           <View style={styles.artGrid}>
                             <TouchableOpacity
-                              style={[styles.editArtFileBtn, editModalFocusIndex === 15 && styles.editArtFileBtnFocused]}
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 15 && styles.editArtFileBtnFocused, editModalFocusIndex === 15 && styles.spinFocusSubtle]}
                               onPress={() => { setEditModalFocusIndex(15); openAssetSelector('capsule'); }}
                             >
+                              {editModalFocusIndex === 15 && <EditSpinningBorder size={s(400)} spread={0} borderRadius={s(14)} />}
                               <Ionicons name="image-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.cover')}</Text>
                               <Text style={styles.artFileBtnSub}>{t('edit.coverSub')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                              style={[styles.editArtFileBtn, editModalFocusIndex === 16 && styles.editArtFileBtnFocused]}
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 16 && styles.editArtFileBtnFocused, editModalFocusIndex === 16 && styles.spinFocusSubtle]}
                               onPress={() => { setEditModalFocusIndex(16); openAssetSelector('logo'); }}
                             >
+                              {editModalFocusIndex === 16 && <EditSpinningBorder size={s(400)} spread={0} borderRadius={s(14)} />}
                               <Ionicons name="color-palette-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.logoPng')}</Text>
                               <Text style={styles.artFileBtnSub}>{t('edit.transparent')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                              style={[styles.editArtFileBtn, editModalFocusIndex === 17 && styles.editArtFileBtnFocused]}
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 17 && styles.editArtFileBtnFocused, editModalFocusIndex === 17 && styles.spinFocusSubtle]}
                               onPress={() => { setEditModalFocusIndex(17); openAssetSelector('hero'); }}
                             >
+                              {editModalFocusIndex === 17 && <EditSpinningBorder size={s(400)} spread={0} borderRadius={s(14)} />}
                               <Ionicons name="images-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.background')}</Text>
                               <Text style={styles.artFileBtnSub}>{t('edit.horizontal')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                              style={[styles.editArtFileBtn, editModalFocusIndex === 18 && styles.editArtFileBtnFocused]}
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 18 && styles.editArtFileBtnFocused, editModalFocusIndex === 18 && styles.spinFocusSubtle]}
                               onPress={() => { setEditModalFocusIndex(18); handleSelectVideo(); }}
                             >
+                              {editModalFocusIndex === 18 && <EditSpinningBorder size={s(400)} spread={0} borderRadius={s(14)} />}
                               <Ionicons name="videocam-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.video')}</Text>
                               <Text style={styles.artFileBtnSub}>Trailer/Gameplay</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                              style={[styles.editArtFileBtn, editModalFocusIndex === 26 && styles.editArtFileBtnFocused]}
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 26 && styles.editArtFileBtnFocused, editModalFocusIndex === 26 && styles.spinFocusSubtle]}
                               onPress={() => { setEditModalFocusIndex(26); handleSelectFocusAudio(); }}
                             >
+                              {editModalFocusIndex === 26 && <EditSpinningBorder size={s(400)} spread={0} borderRadius={s(14)} />}
                               <Ionicons name="musical-notes-outline" size={s(24)} color="#FFF" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.focusAudio')}</Text>
                               <Text style={styles.artFileBtnSub} numberOfLines={1}>
@@ -2547,9 +2571,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                              style={[styles.editArtFileBtn, editModalFocusIndex === 28 && styles.editArtFileBtnFocused]}
+                              style={[styles.editArtFileBtn, editModalFocusIndex === 28 && styles.editArtFileBtnFocused, editModalFocusIndex === 28 && styles.spinFocusSubtle]}
                               onPress={() => { setEditModalFocusIndex(28); setKhinsiderModalVisible(true); }}
                             >
+                              {editModalFocusIndex === 28 && <EditSpinningBorder size={s(400)} spread={0} borderRadius={s(14)} />}
                               <Ionicons name="disc-outline" size={s(24)} color="#38EF7D" style={{ marginBottom: 6 }} />
                               <Text style={styles.artFileBtnTitle}>{t('edit.khinsiderMusic')}</Text>
                               <Text style={styles.artFileBtnSub} numberOfLines={1}>
@@ -2566,23 +2591,26 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   <View style={styles.modalDivider} />
                   <View style={styles.modalActions}>
                     <TouchableOpacity
-                      style={[styles.editDeleteBtn, editModalFocusIndex === 19 && styles.editDeleteBtnFocused]}
+                      style={[styles.editDeleteBtn, editModalFocusIndex === 19 && styles.editDeleteBtnFocused, editModalFocusIndex === 19 && styles.spinFocusDelete]}
                       onPress={() => { setEditModalFocusIndex(19); handleDeleteApp(); }}
                     >
+                      {editModalFocusIndex === 19 && <EditSpinningBorder size={s(60)} spread={0} borderRadius={s(14)} />}
                       <Ionicons name="trash-outline" size={s(20)} color={editModalFocusIndex === 19 ? '#FFF' : '#FF3B30'} />
                     </TouchableOpacity>
 
                     <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 15 }}>
                       <TouchableOpacity
-                        style={[styles.editSecondaryBtn, { paddingVertical: 14, paddingHorizontal: 24 }, editModalFocusIndex === 20 && styles.editSecondaryBtnFocused]}
+                        style={[styles.editSecondaryBtn, { paddingVertical: 14, paddingHorizontal: 24 }, editModalFocusIndex === 20 && styles.editSecondaryBtnFocused, editModalFocusIndex === 20 && styles.spinFocusSubtle]}
                         onPress={() => { setEditModalFocusIndex(20); setEditModalVisible(false); }}
                       >
+                        {editModalFocusIndex === 20 && <EditSpinningBorder size={s(110)} spread={0} borderRadius={s(14)} />}
                         <Text style={styles.editSecondaryBtnText}>{t('common.cancel')}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.editPrimaryBtn, editModalFocusIndex === 21 && styles.editPrimaryBtnFocused]}
                         onPress={() => { setEditModalFocusIndex(21); handleSaveEdit(); }}
                       >
+                        {editModalFocusIndex === 21 && <EditSpinningBorder size={s(90)} spread={0} borderRadius={s(14)} />}
                         <Text style={styles.editPrimaryBtnText}>{t('common.save')}</Text>
                       </TouchableOpacity>
                     </View>
@@ -3420,7 +3448,7 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     borderColor: '#00FFFF',
     backgroundColor: '#0A0A0A',
   },
-  platformScrollContent: { gap: 10, paddingVertical: 5 },
+  platformScrollContent: { gap: 10, paddingVertical: 10, paddingHorizontal: 6 },
   platformBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#444' },
   platformBtnActive: { borderColor: '#00FFFF', backgroundColor: '#00FFFF' },
   platformBtnText: { color: '#FFF', fontFamily: 'SSTBold', marginLeft: 6, fontSize: 12 },
@@ -3586,6 +3614,13 @@ const createStyles = (s: ScaleFn) => StyleSheet.create({
     borderColor: '#FFFFFF',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
+  // Al enfocar, el borde giratorio reemplaza al borde fijo blanco.
+  spinFocusTab: { borderColor: 'transparent' },
+  spinFocusSubtle: { borderColor: 'rgba(255, 255, 255, 0.08)' },
+  spinFocusDelete: { borderColor: 'rgba(255, 45, 85, 0.3)' },
+  // Espacio extra para que escala/borde no los recorte el ScrollView (margen negativo compensa).
+  editBleedScroll: { marginHorizontal: -s(14), marginVertical: -s(14) },
+  editBleedContent: { paddingHorizontal: s(14), paddingVertical: s(14) },
   editSecondaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
