@@ -1051,7 +1051,7 @@ export default function ConsoleHome() {
       const latest = data[0];
       console.log(latest.version, latest.tipe, latest.link);
       console.log(data);
-      const currentVersion = '1.1.5';
+      const currentVersion = '1.1.6';
       const comparison = compareVersions(latest.version, currentVersion);
       if (comparison > 0) {
         toastService.show(`${t('settings.updateAvailable')}\n${latest.version}`, {
@@ -1483,6 +1483,13 @@ export default function ConsoleHome() {
       markGameAsLastPlayed(targetItem);
     }
 
+    const isMediaItem =
+      targetItem?.type === 'media' ||
+      targetItem?.type === 'web' ||
+      activeTab === 'Media' ||
+      currentRenderedTab === 'Media' ||
+      targetItem?.id === 'spotify_default';
+
     const launchPath = resolveSteamLaunchPath(targetItem, installedSteamAppIds);
     if (!launchPath) {
       setSelectedItem(targetItem);
@@ -1490,24 +1497,31 @@ export default function ConsoleHome() {
       return;
     }
     soundService.playActivation();
-    setLaunchingItem(targetItem);
-    setIsLaunching(true);
+
+    if (!isMediaItem) {
+      setLaunchingItem(targetItem);
+      setIsLaunching(true);
+    }
 
     if (launchPath.startsWith('http')) {
       if (Platform.OS === 'web' && (window as any).electronAPI) {
-        (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs).then(() => {
+        (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs, isMediaItem).then(() => {
           loadApps();
+          if (!isMediaItem) {
+            setTimeout(() => {
+              setIsLaunching(false);
+              setLaunchingItem(null);
+            }, 1500);
+          }
+        });
+      } else {
+        Linking.openURL(launchPath);
+        if (!isMediaItem) {
           setTimeout(() => {
             setIsLaunching(false);
             setLaunchingItem(null);
           }, 1500);
-        });
-      } else {
-        Linking.openURL(launchPath);
-        setTimeout(() => {
-          setIsLaunching(false);
-          setLaunchingItem(null);
-        }, 1500);
+        }
       }
       return;
     }
@@ -1517,16 +1531,18 @@ export default function ConsoleHome() {
       setDetailVisible(false);
       libraryGridRef.current?.closeDetail();
       setIsLibraryDetailVisible(false);
-      (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs).then((result: any) => {
+      (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs, isMediaItem).then((result: any) => {
         loadApps();
-        console.log('Juego lanzado');
-        soundService.stopBackground();
-        if (activeTab === 'Games') {
-          const lpIdx = currentData.findIndex(x => x.id === 'last_played');
-          if (lpIdx !== -1) {
-            setActiveIndex(lpIdx);
-          } else {
-            setActiveIndex(2);
+        if (!isMediaItem) {
+          console.log('Juego lanzado');
+          soundService.stopBackground();
+          if (activeTab === 'Games') {
+            const lpIdx = currentData.findIndex(x => x.id === 'last_played');
+            if (lpIdx !== -1) {
+              setActiveIndex(lpIdx);
+            } else {
+              setActiveIndex(2);
+            }
           }
         }
         setFocusArea('main_carousel');
@@ -1536,14 +1552,12 @@ export default function ConsoleHome() {
         setFavoritesVisible(false);
         setRandomSelectorVisible(false);
 
-        if (!result?.suspended) {
-          setTimeout(() => {
-            setIsLaunching(false);
-            setLaunchingItem(null);
-          }, 5000);
+        if (!result?.suspended || isMediaItem) {
+          setIsLaunching(false);
+          setLaunchingItem(null);
         }
       }).catch((e: any) => {
-        console.error('[Launch] Error lanzando el juego:', e);
+        console.error('[Launch] Error lanzando la app:', e);
         setIsLaunching(false);
         setLaunchingItem(null);
         toastService.show(t('toast.error'));
@@ -1962,9 +1976,9 @@ export default function ConsoleHome() {
   const lastPlayedAppId = lastPlayedGame ? getSteamAppId(lastPlayedGame as any) : null;
   const lastPlayedBg = lastPlayedGame
     ? (lastPlayedGame.backgroundImage ||
-       (lastPlayedAppId ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${lastPlayedAppId}/library_hero.jpg` : null) ||
-       lastPlayedGame.image ||
-       require('@/assets/images/FondoDefault2.jpg'))
+      (lastPlayedAppId ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${lastPlayedAppId}/library_hero.jpg` : null) ||
+      lastPlayedGame.image ||
+      require('@/assets/images/FondoDefault2.jpg'))
     : require('@/assets/images/FondoDefault2.jpg');
 
   const regularCardAppId = activeCard ? getSteamAppId(activeCard as any) : null;

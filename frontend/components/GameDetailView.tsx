@@ -1572,8 +1572,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             if (item?.id === 'media_gallery') {
               onOpenMediaGallery?.();
             } else if (item?.path) {
+              const isMedia = item?.type === 'media' || item?.type === 'web';
               if (onLaunch) onLaunch(item.id, item.path, item.launchArgs);
-              else if ((window as any).electronAPI) (window as any).electronAPI.launchApp(item.id, item.path, item.launchArgs);
+              else if ((window as any).electronAPI) (window as any).electronAPI.launchApp(item.id, item.path, item.launchArgs, isMedia);
             }
           } else if (focusIndex === 1) {
             setEditModalVisible(true);
@@ -1982,8 +1983,10 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
                   const launchPath = resolveSteamLaunchPath({ ...item, ...editData } as ConsoleItem, installedSteamAppIds);
                   if (launchPath) {
                     if (onLaunch) onLaunch(item.id, launchPath, editData.launchArgs ?? item.launchArgs);
-                    else if (Platform.OS === 'web' && (window as any).electronAPI)
-                      (window as any).electronAPI.launchApp(item.id, launchPath, editData.launchArgs ?? item.launchArgs);
+                    else if (Platform.OS === 'web' && (window as any).electronAPI) {
+                      const isMedia = item?.type === 'media' || item?.type === 'web';
+                      (window as any).electronAPI.launchApp(item.id, launchPath, editData.launchArgs ?? item.launchArgs, isMedia);
+                    }
                   } else {
                     setActiveTab('path');
                     setEditModalVisible(true);

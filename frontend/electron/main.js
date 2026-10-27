@@ -4227,33 +4227,47 @@ app.whenReady().then(async () => {
   }
 
   // IPC: Ejecutar un programa externo (con suspensión del launcher)
-  ipcMain.handle('launch-app', async (event, id, executablePath, extraLaunchArgs) => {
+  ipcMain.handle('launch-app', async (event, id, executablePath, extraLaunchArgs, isMedia) => {
     if (!executablePath) return;
 
     let appRecord = null;
+    let isFromMediaDb = false;
 
     // Actualizar timestamp de último juego en la DB si el id existe y no es un elemento de sistema
     if (id && id !== 'last_played' && id !== '1' && id !== '5' && id !== 'more_library') {
       console.log('Actualizando lastPlayed para:', id);
-      const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-      const updateInList = (list) => {
-        const item = list.find(i => i.id === id);
-        if (item) {
-          appRecord = item;
-          item.lastPlayed = Date.now();
-          console.log('Timestamp actualizado para:', item.title);
-          return true;
-        }
-        return false;
-      };
+      try {
+        const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+        const updateInList = (list, isMediaList) => {
+          const item = list.find(i => i.id === id);
+          if (item) {
+            appRecord = item;
+            if (isMediaList) isFromMediaDb = true;
+            item.lastPlayed = Date.now();
+            console.log('Timestamp actualizado para:', item.title);
+            return true;
+          }
+          return false;
+        };
 
-      if (updateInList(data.games || []) || updateInList(data.media || [])) {
-        fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
-        console.log('DB guardada con éxito');
-      } else {
-        console.log('ID no encontrado en la base de datos:', id);
+        if (updateInList(data.games || [], false) || updateInList(data.media || [], true)) {
+          fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+          console.log('DB guardada con éxito');
+        } else {
+          console.log('ID no encontrado en la base de datos:', id);
+        }
+      } catch (err) {
+        console.error('Error actualizando DB:', err);
       }
     }
+
+    const isMediaApp = Boolean(
+      isMedia ||
+      isFromMediaDb ||
+      appRecord?.type === 'media' ||
+      appRecord?.type === 'web' ||
+      id === 'spotify_default'
+    );
 
     const lowerPath = executablePath.toLowerCase();
 
@@ -4309,6 +4323,11 @@ app.whenReady().then(async () => {
     const shellAppsMatch = executablePath.match(/^shell:AppsFolder[\\/](.+)$/i);
     if (shellAppsMatch) {
       const aumid = shellAppsMatch[1].trim();
+      if (isMediaApp) {
+        console.log('[Media] Lanzando app multimedia vía shell:AppsFolder sin suspender launcher:', aumid);
+        spawn('explorer.exe', [`shell:AppsFolder\\${aumid}`], { detached: true, stdio: 'ignore' });
+        return { success: true, suspended: false };
+      }
       // PackageFamilyName = parte antes del '!' en el AUMID (ej: "Microsoft.MinecraftUWP_8wekyb3d8bbwe")
       const packageFamilyName = aumid.includes('!') ? aumid.split('!')[0] : null;
       const installDir = findXboxGameInstallDir(aumid) || findXboxGameInstallDir(id);
@@ -4441,12 +4460,14 @@ app.whenReady().then(async () => {
     };
 
     // Aplicar el comportamiento configurado (ocultar/minimizar/segundo plano)
-    // tras un breve delay.
-    hideTimer = setTimeout(() => {
-      if (!gameExited && mainWindow) {
-        suspendLauncherForGame('nativo');
-      }
-    }, 1500);
+    // tras un breve delay, SOLO para juegos (no para multimedia).
+    if (!isMediaApp) {
+      hideTimer = setTimeout(() => {
+        if (!gameExited && mainWindow) {
+          suspendLauncherForGame('nativo');
+        }
+      }, 1500);
+    }
 
     // Lanzar el juego y monitorear el proceso
     try {
@@ -4475,34 +4496,36 @@ app.whenReady().then(async () => {
         windowsVerbatimArguments: true,
       });
 
-      // ── NUEVO: registrar juego activo + habilitar overlay ──
-      activeGameInfo = {
-        id,
-        title: appRecord?.title || path.basename(targetExe),
-        image: resolveAppRecordThumbnail(appRecord),
-        installDir: gameCwd,
-        appId: null,
-        source: 'native',
-        nativePid: child.pid,
-      };
-      enableOverlayHotkey();
-      startGamepadOverlayListener();
+      if (!isMediaApp) {
+        // ── NUEVO: registrar juego activo + habilitar overlay ──
+        activeGameInfo = {
+          id,
+          title: appRecord?.title || path.basename(targetExe),
+          image: resolveAppRecordThumbnail(appRecord),
+          installDir: gameCwd,
+          appId: null,
+          source: 'native',
+          nativePid: child.pid,
+        };
+        enableOverlayHotkey();
+        startGamepadOverlayListener();
+      }
 
       child.on('error', (err) => {
-        console.error('Error al iniciar el juego:', err);
+        console.error('Error al iniciar la aplicación:', err);
         resumeLauncher();
       });
 
       child.on('close', (code) => {
-        console.log(`Juego cerrado (código: ${code})${formatExitCode(code)}`);
+        console.log(`Aplicación cerrada (código: ${code})${formatExitCode(code)}`);
         resumeLauncher();
       });
     } catch (err) {
-      console.error('Excepción al lanzar el juego:', err);
+      console.error('Excepción al lanzar la aplicación:', err);
       resumeLauncher();
     }
 
-    return { success: true, suspended: true };
+    return { success: true, suspended: !isMediaApp };
   });
 
   const showOpenDialogWithParent = (options) => {

@@ -50,8 +50,8 @@ export type PSIconName = keyof typeof PSIcons;
 export const PS_ICON_KEYBOARD_KEYS: Partial<Record<PSIconName, string>> = {
   cross: 'ENTER',
   circle: 'ESC',
-  triangle: 'X',
-  square: 'T',
+  triangle: 'T',
+  square: 'X',
   l1: 'Q',
   r1: 'E',
   l2: 'Z',
