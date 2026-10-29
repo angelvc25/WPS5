@@ -4,6 +4,7 @@ import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import SpinningBorderSearch from './SpinningBorderSearch';
 import SpinningBorderSettings from './spinninBorderSettings';
 import SpinningBorderLogros from './SpinningBorderLogros';
+import SpinningBorderWidgets from './SpinningBorderWidgets';
 
 // Mismo comportamiento que el borde del ConsoleCarousel:
 //  - al enfocar: arranca expandido (scale 1.15, opacidad 0) y se comprime a 1 apareciendo
@@ -73,3 +74,4 @@ const styles = StyleSheet.create({
 export const AnimatedSpinningBorderSearch = withScaleFade(SpinningBorderSearch as any);
 export const AnimatedSpinningBorderSettings = withScaleFade(SpinningBorderSettings as any);
 export const AnimatedSpinningBorderLogros = withScaleFade(SpinningBorderLogros as any);
+export const AnimatedSpinningBorderWidgets = withScaleFade(SpinningBorderWidgets as any);
