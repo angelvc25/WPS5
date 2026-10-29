@@ -5,6 +5,9 @@ import SpinningBorderSearch from './SpinningBorderSearch';
 import SpinningBorderSettings from './spinninBorderSettings';
 import SpinningBorderLogros from './SpinningBorderLogros';
 import SpinningBorderWidgets from './SpinningBorderWidgets';
+import SpinningBorderTabs from './SpinningBorderTabs';
+import SpinningBorderConic from './SpinningBorderConic';
+import Spinningborder from './Spinningborder';
 
 // Mismo comportamiento que el borde del ConsoleCarousel:
 //  - al enfocar: arranca expandido (scale 1.15, opacidad 0) y se comprime a 1 apareciendo
@@ -75,3 +78,6 @@ export const AnimatedSpinningBorderSearch = withScaleFade(SpinningBorderSearch a
 export const AnimatedSpinningBorderSettings = withScaleFade(SpinningBorderSettings as any);
 export const AnimatedSpinningBorderLogros = withScaleFade(SpinningBorderLogros as any);
 export const AnimatedSpinningBorderWidgets = withScaleFade(SpinningBorderWidgets as any);
+export const AnimatedSpinningBorderTabs = withScaleFade(SpinningBorderTabs as any);
+export const AnimatedSpinningBorderConic = withScaleFade(SpinningBorderConic as any);
+export const AnimatedSpinningborder = withScaleFade(Spinningborder as any);

@@ -6,6 +6,7 @@ import PSIcon from '@/components/PSIcon';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import RandomSelectorView from '@/components/RandomSelectorView';
 import SpinningBorderTabs from '@/components/SpinningBorderTabs';
+import { AnimatedSpinningBorderTabs } from '@/components/AnimatedSpinningBorders';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import { PSIcons } from '@/constants/psIcons';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -2607,7 +2608,7 @@ export default function ConsoleHome() {
           {/* <ControlPrompt btn="L" label="" inputMode={inputMode} /> */}
           {TABS.map((tab, idx) => (
             <View key={tab.id} style={styles.tabTouchable}>
-              {focusArea === 'header_tabs' && focusIndex === idx && <SpinningBorderTabs size={100} />}
+              {focusArea === 'header_tabs' && focusIndex === idx && <AnimatedSpinningBorderTabs size={100} />}
               <TouchableOpacity
                 id={`tab-${tab.id.toLowerCase()}`}
                 onPress={(e) => {
@@ -2812,42 +2813,42 @@ export default function ConsoleHome() {
         {!isLibraryFocused && uiReady && (
           activeItem?.id === '1' ? (
             !launcherSettled ? null : (
-            <Animated.View
-              key={animClockReady ? 'welcome-intro' : 'welcome-pre'}
-              style={[styles.welcomePanel, welcomePanelLayout, !animClockReady && { opacity: 0 }]}
-              entering={animClockReady ? FadeInDown.duration(500).delay(150) : undefined}
-            >
-              <Animated.View style={[gameInfoPanelStyle, presentationWidgetsStyle]}>
-                <Animated.View style={widgetContainerStyle}>
-                  <WelcomeWidgets
-                    ref={welcomeWidgetsRef}
-                    focusArea={focusArea}
-                    focusIndex={focusIndex}
-                    setFocusArea={setFocusArea}
-                    setFocusIndex={setFocusIndex}
-                    setHomeBgModalVisible={setHomeBgModalVisible}
-                    setAddModalVisible={setAddModalVisible}
-                    setRandomSelectorVisible={setRandomSelectorVisible}
-                    gamepadInfo={gamepadInfo}
-                    storageInfo={storageInfo}
-                    lastPlayedGame={lastPlayedGame}
-                    activeUser={activeUser}
-                    handleLaunchApp={handleLaunchApp}
-                    windowWidth={windowWidth}
-                    windowHeight={windowHeight}
-                    widgetContainerStyle={widgetContainerStyle}
-                    widgetContainerStyle2={widgetContainerStyle2}
-                    wviewStyle={wviewStyle}
-                    widgetVisibility={widgetVisibility}
-                    widgetOrder={widgetOrder}
-                    widgetSizes={widgetSizes}
-                    isMoveMode={isWidgetMoveMode}
-                    movingWidgetId={movingWidgetId}
-                    editingWidgetId={editingWidgetId}
-                  />
+              <Animated.View
+                key={animClockReady ? 'welcome-intro' : 'welcome-pre'}
+                style={[styles.welcomePanel, welcomePanelLayout, !animClockReady && { opacity: 0 }]}
+                entering={animClockReady ? FadeInDown.duration(500).delay(150) : undefined}
+              >
+                <Animated.View style={[gameInfoPanelStyle, presentationWidgetsStyle]}>
+                  <Animated.View style={widgetContainerStyle}>
+                    <WelcomeWidgets
+                      ref={welcomeWidgetsRef}
+                      focusArea={focusArea}
+                      focusIndex={focusIndex}
+                      setFocusArea={setFocusArea}
+                      setFocusIndex={setFocusIndex}
+                      setHomeBgModalVisible={setHomeBgModalVisible}
+                      setAddModalVisible={setAddModalVisible}
+                      setRandomSelectorVisible={setRandomSelectorVisible}
+                      gamepadInfo={gamepadInfo}
+                      storageInfo={storageInfo}
+                      lastPlayedGame={lastPlayedGame}
+                      activeUser={activeUser}
+                      handleLaunchApp={handleLaunchApp}
+                      windowWidth={windowWidth}
+                      windowHeight={windowHeight}
+                      widgetContainerStyle={widgetContainerStyle}
+                      widgetContainerStyle2={widgetContainerStyle2}
+                      wviewStyle={wviewStyle}
+                      widgetVisibility={widgetVisibility}
+                      widgetOrder={widgetOrder}
+                      widgetSizes={widgetSizes}
+                      isMoveMode={isWidgetMoveMode}
+                      movingWidgetId={movingWidgetId}
+                      editingWidgetId={editingWidgetId}
+                    />
+                  </Animated.View>
                 </Animated.View>
               </Animated.View>
-            </Animated.View>
             )
           ) : activeItem?.id === '5' ? (
             <StoreFrontPanel

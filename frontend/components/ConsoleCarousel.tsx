@@ -80,6 +80,12 @@ const CarouselCardImage = React.memo(function CarouselCardImage({
   );
 });
 
+// Tiempos de la transición del spinning border al cambiar de juego (ms).
+// Sube/baja estos valores para hacerla más o menos evidente.
+const SPIN_OUT_MS = 150;  // desaparece
+const SPIN_GAP_MS = 100;  // pausa sin borde visible
+const SPIN_IN_MS = 200;   // reaparece en el nuevo juego
+
 const renderPlatformBadge = (item: ConsoleItem, lastPlayedGame: ConsoleItem | null) => {
   const platformSource = item.isLastPlayed ? (lastPlayedGame ?? item) : item;
   const steamGame = isSteamGame(platformSource as any);
@@ -584,11 +590,16 @@ const ConsoleCarouselComponent = ({
     }
     if (prevActiveIndexRef.current !== activeIndex && prevActiveIndexRef.current !== -1) {
       if (spinTimeoutRef.current) clearTimeout(spinTimeoutRef.current);
-      spinningBorderScale.value = 1;
-      spinningBorderOpacity.value = withTiming(0, { duration: 150 });
+      // Desaparece en la tarjeta anterior: se expande levemente y se desvanece.
+      spinningBorderScale.value = withTiming(1, { duration: SPIN_OUT_MS, easing: Easing.out(Easing.cubic) });
+      spinningBorderOpacity.value = withTiming(0, { duration: SPIN_OUT_MS, easing: Easing.out(Easing.quad) });
+      // Tras una pausa breve (el borde se "ve" ausente), reaparece en la nueva
+      // tarjeta comprimiéndose de 1.12 -> 1 y haciendo fade-in, como si la enmarcara.
       spinTimeoutRef.current = setTimeout(() => {
-        spinningBorderOpacity.value = withTiming(1, { duration: 250 });
-      }, 90);
+        spinningBorderScale.value = 1;
+        spinningBorderScale.value = withTiming(1, { duration: SPIN_IN_MS, easing: Easing.out(Easing.cubic) });
+        spinningBorderOpacity.value = withTiming(1, { duration: SPIN_IN_MS, easing: Easing.out(Easing.quad) });
+      }, SPIN_OUT_MS + SPIN_GAP_MS);
     }
     prevActiveIndexRef.current = activeIndex;
     return () => {

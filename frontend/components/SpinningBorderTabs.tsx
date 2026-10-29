@@ -23,7 +23,7 @@ export const SpinningBorderTabs = ({ size }: SpinningBorderTabsProps) => {
     left: 1px;
     right: 1px;
     bottom: -2px;
-    border-radius: 0px !important;
+    border-radius: 4px !important;
     z-index: 20;
     overflow: visible;
 
@@ -111,7 +111,7 @@ export const SpinningBorderTabs = ({ size }: SpinningBorderTabsProps) => {
           left: 1,
           right: 1,
           bottom: 0,
-          borderRadius: 0,
+          borderRadius: 4,
           zIndex: 5,
           overflow: 'hidden',
         } as any}
