@@ -1,6 +1,6 @@
 import { isRetroPlatform } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
-import { useLauncherSettled, useSplashDone } from '@/hooks/useLauncherSettled';
+import { useIntroReady, useLauncherSettled, useSplashDone } from '@/hooks/useLauncherSettled';
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
 import { getSteamAppId, isSteamGame } from '@/services/steamLaunchService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -225,6 +225,7 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
   // La etiqueta (plataforma + título) entra con fundido: esperar al fin del splash
   // para que se vea y no se ejecute oculta durante el arranque.
   const splashDone = useSplashDone();
+  const introReady = useIntroReady();
   const isHomeCard = item.id === '1';
   const isStoreCard = item.id === '5';
 
@@ -396,7 +397,7 @@ const CarouselCardItem = React.memo(function CarouselCardItem({
       }}
     >
       {cardContent}
-      {isActive && splashDone && (
+      {isActive && splashDone && introReady && (
         <Animated.View
           style={[
             styles.activeLabelContainer,

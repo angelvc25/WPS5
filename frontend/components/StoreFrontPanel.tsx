@@ -13,6 +13,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StoreOffer } from '../services/storeService';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { useAnimClockReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 
 interface StoreFrontPanelProps {
   windowWidth: number;
@@ -67,6 +68,8 @@ export const StoreFrontPanel = ({
   const focusedLogo = focusedItem?.logo || null;
   const focusedTitle = focusedItem?.title || '';
   const hasValidLogo = !!focusedLogo && !failedLogos[focusedLogo];
+  const settled = useLauncherSettled();
+  const animReady = useAnimClockReady();
 
   // Horizontal scroll adjustment on focus change
   useEffect(() => {
@@ -90,10 +93,15 @@ export const StoreFrontPanel = ({
     }
   }, [gamePanelFocusIndex, focusArea, CARD_W, scale]);
 
+  if (!settled) {
+    return <Animated.View style={[styles.container, { paddingLeft: s(150), paddingTop: s(280), opacity: 0 }]} />;
+  }
+
   return (
     <Animated.View
-      style={[styles.container, { paddingLeft: s(150), paddingTop: s(280) }]}
-      entering={FadeInDown.duration(400)}
+      key={animReady ? 'intro' : 'pre'}
+      style={[styles.container, { paddingLeft: s(150), paddingTop: s(280) }, !animReady && { opacity: 0 }]}
+      entering={animReady ? FadeInDown.duration(400) : undefined}
     >
       <Animated.View style={gameInfoPanelStyle}>
       {/* Header con altura fija para Logo o nombre del juego enfocado (elimina saltos de layout) */}

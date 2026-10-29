@@ -83,7 +83,7 @@ import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId, fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
-import { useLauncherSettled } from '@/hooks/useLauncherSettled';
+import { afterPaint, useAnimClockReady, useIntroReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -2131,8 +2131,10 @@ export default function ConsoleHome() {
   // launcher se asiente, los cambios de fondo se aplican sin animar.
   // Estado compartido con el carrusel y las tarjetas (hooks/useLauncherSettled).
   const launcherSettled = useLauncherSettled();
-  const bgAnimReadyRef = useRef(launcherSettled);
-  bgAnimReadyRef.current = launcherSettled;
+  const animClockReady = useAnimClockReady();
+  const introReady = useIntroReady();
+  const bgAnimReadyRef = useRef(introReady);
+  bgAnimReadyRef.current = introReady;
 
   useEffect(() => {
     const { bgA, bgB, activeLayer } = bgStateRef.current;
@@ -2167,14 +2169,20 @@ export default function ConsoleHome() {
         if (currentBg !== a) {
           activeLayerShared.value = 1; // B pasa a ser la capa entrante
           setBgState({ bgA: a, bgB: currentBg, activeLayer: 'B' });
-          fade.value = withTiming(1, { duration: BG_TRANSITION_MS, easing: BG_EASING });
+          afterPaint(() => {
+            if (cancelled || requestId !== bgRequestRef.current) return;
+            fade.value = withTiming(1, { duration: BG_TRANSITION_MS, easing: BG_EASING });
+          });
         }
       } else {
         fade.value = 1;
         if (currentBg !== b) {
           activeLayerShared.value = 0; // A pasa a ser la capa entrante
           setBgState({ bgA: currentBg, bgB: b, activeLayer: 'A' });
-          fade.value = withTiming(0, { duration: BG_TRANSITION_MS, easing: BG_EASING });
+          afterPaint(() => {
+            if (cancelled || requestId !== bgRequestRef.current) return;
+            fade.value = withTiming(0, { duration: BG_TRANSITION_MS, easing: BG_EASING });
+          });
         }
       }
     };
@@ -2803,7 +2811,12 @@ export default function ConsoleHome() {
         {/* GAME INFO PANEL (bottom-left, PS5 style) */}
         {!isLibraryFocused && uiReady && (
           activeItem?.id === '1' ? (
-            <Animated.View style={[styles.welcomePanel, welcomePanelLayout]} entering={FadeInDown.duration(500).delay(150)}>
+            !launcherSettled ? null : (
+            <Animated.View
+              key={animClockReady ? 'welcome-intro' : 'welcome-pre'}
+              style={[styles.welcomePanel, welcomePanelLayout, !animClockReady && { opacity: 0 }]}
+              entering={animClockReady ? FadeInDown.duration(500).delay(150) : undefined}
+            >
               <Animated.View style={[gameInfoPanelStyle, presentationWidgetsStyle]}>
                 <Animated.View style={widgetContainerStyle}>
                   <WelcomeWidgets
@@ -2835,6 +2848,7 @@ export default function ConsoleHome() {
                 </Animated.View>
               </Animated.View>
             </Animated.View>
+            )
           ) : activeItem?.id === '5' ? (
             <StoreFrontPanel
               windowWidth={windowWidth}

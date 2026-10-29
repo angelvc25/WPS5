@@ -88,6 +88,8 @@ export interface UserProfile {
 
 interface UserSelectScreenProps {
   onUserSelected: (user: UserProfile) => void;
+  /** Mientras el splash de arranque está visible, no se elige perfil. */
+  inputEnabled?: boolean;
 }
 
 interface ProfileMenuState {
@@ -128,7 +130,7 @@ const DEFAULT_USERS: UserProfile[] = [
 ];
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export default function UserSelectScreen({ onUserSelected }: UserSelectScreenProps) {
+export default function UserSelectScreen({ onUserSelected, inputEnabled = true }: UserSelectScreenProps) {
   const { t } = useTranslation();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -160,6 +162,8 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   const prevGamepadButtonsRef = useRef<boolean[]>(new Array(16).fill(false));
   const isFirstPollRef = useRef(true);
   const selectedRef = useRef(false);
+  const inputEnabledRef = useRef(inputEnabled);
+  inputEnabledRef.current = inputEnabled;
 
   // ── Inject CSS animations once ──────────────────────────────────────────
   // `shimmerMove` NO se define aquí: lo inyecta RadarFocusWrapper de forma
@@ -303,6 +307,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
     // ── Keyboard navigation ──────────────────────────────────────────────
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!inputEnabledRef.current) return;
       if (selectedRef.current) return; // ya hay un perfil elegido: entrada bloqueada
       if (!(e as any).fromGamepad) setInputMode('keyboard');
       // Con el menú abierto, todo el input se redirige al menú.
@@ -383,6 +388,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
 
     let wheelTimeout: ReturnType<typeof setTimeout> | null = null;
     const handleWheel = (e: WheelEvent) => {
+      if (!inputEnabledRef.current) return;
       if (selectedRef.current) return;
       if (wheelTimeout || menu) return;
 
@@ -413,6 +419,13 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
     const THROTTLE = 300;
 
     const poll = () => {
+      if (!inputEnabledRef.current) {
+        // El skip del splash puede dejar un botón pulsado: al habilitar
+        // entrada, el primer poll debe tomar esa foto y no confirmar perfil.
+        isFirstPollRef.current = true;
+        rafId = requestAnimationFrame(poll);
+        return;
+      }
       const gp = navigator.getGamepads()[0];
       if (gp) {
         if (isFirstPollRef.current) {
@@ -462,6 +475,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   }, [hoveredId, users, menu]);
 
   const handleSelect = (user: UserProfile) => {
+    if (!inputEnabledRef.current) return;
     if (selectedRef.current) return;
     selectedRef.current = true;
     soundService.playActivation?.();
@@ -510,7 +524,7 @@ export default function UserSelectScreen({ onUserSelected }: UserSelectScreenPro
   });
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents={inputEnabled ? 'auto' : 'none'}>
       {/* BACKGROUND — COVER en vez de STRETCH: STRETCH deforma la imagen al
           rellenar un contenedor 21:9/32:9 que no comparte el aspect ratio
           original del video; COVER recorta manteniendo proporciones, igual

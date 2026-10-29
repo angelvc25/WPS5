@@ -520,7 +520,7 @@ function RootLayoutInner() {
               exiting={FadeOut.duration(450)}
               style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', zIndex: 9000 }]}
             >
-              <UserSelectScreen onUserSelected={handleUserSelected} />
+              <UserSelectScreen onUserSelected={handleUserSelected} inputEnabled={!showSplash} />
             </Animated.View>
           )}
 

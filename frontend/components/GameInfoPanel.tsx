@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import React from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
+import { useAnimClockReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useAchievementWatcher } from '../hooks/useAchievementWatcher';
 import { getRpcs3AppId } from '../services/achievementWatcherService';
@@ -396,8 +397,16 @@ export const GameInfoPanel = ({
     transform: [{ translateY: interpolate(newsHideAnim.value, [0, 1], [0, -16]) }],
   }));
 
+  // El panel se pre-monta al asentarse (imágenes/layout) con opacity 0.
+  // Al marcar animReady se remonta para que las entering actuales corran
+  // ya con el hilo estable, sin cambiar duraciones ni delays.
+  const settled = useLauncherSettled();
+  const animReady = useAnimClockReady();
+
   return (
-    <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }]}>
+    <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }, !animReady && { opacity: 0 }]}>
+      {settled ? (
+      <React.Fragment key={animReady ? 'intro' : 'pre'}>
       <Animated.View style={spacerStyle}>
         <Animated.View style={topPanelStyle}>
           {/* Logo or title — para isLastPlayed mostramos el encabezado estilo PS5 */}
@@ -1876,6 +1885,8 @@ export const GameInfoPanel = ({
           isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 300}
         />
       )}
+      </React.Fragment>
+      ) : null}
     </Animated.View>
   );
 };
