@@ -30,7 +30,8 @@ import type { SteamGridAsset } from '../services/steamGridService';
 import { toastService } from '../services/toastService';
 import { OnlineFriendsPanel, type FriendsGridInfo } from './OnlineFriendsPanel';
 import { OnlineUserFullProfile } from './OnlineUserFullProfile';
-import SpinningBorderSearch from './SpinningBorderSearch';
+import { AnimatedSpinningBorderSearch as SpinningBorderSearch, AnimatedSpinningBorderSettings as SpinningBorderSettings } from './AnimatedSpinningBorders';
+
 import type { UserProfile } from './UserSelectScreen';
 
 type ProfileEditSection =

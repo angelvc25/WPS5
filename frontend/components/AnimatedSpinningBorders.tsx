@@ -8,6 +8,7 @@ import SpinningBorderWidgets from './SpinningBorderWidgets';
 import SpinningBorderTabs from './SpinningBorderTabs';
 import SpinningBorderConic from './SpinningBorderConic';
 import Spinningborder from './Spinningborder';
+import RadarFocusWrapper from './RadarFocusWrapper';
 
 // Mismo comportamiento que el borde del ConsoleCarousel:
 //  - al enfocar: arranca expandido (scale 1.15, opacidad 0) y se comprime a 1 apareciendo
@@ -81,3 +82,4 @@ export const AnimatedSpinningBorderWidgets = withScaleFade(SpinningBorderWidgets
 export const AnimatedSpinningBorderTabs = withScaleFade(SpinningBorderTabs as any);
 export const AnimatedSpinningBorderConic = withScaleFade(SpinningBorderConic as any);
 export const AnimatedSpinningborder = withScaleFade(Spinningborder as any);
+export const AnimatedRadarFocusWrapper = withScaleFade(RadarFocusWrapper as any);

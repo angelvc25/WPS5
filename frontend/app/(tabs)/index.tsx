@@ -7,6 +7,7 @@ import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import RandomSelectorView from '@/components/RandomSelectorView';
 import SpinningBorderTabs from '@/components/SpinningBorderTabs';
 import { AnimatedSpinningBorderTabs } from '@/components/AnimatedSpinningBorders';
+import AnimatedRadarFocusWrapper from '@/components/AnimatedRadarFocusWrapper';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import { PSIcons } from '@/constants/psIcons';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -2561,7 +2562,7 @@ export default function ConsoleHome() {
                 key={item.id}
                 id={`wtoolbar-${item.id}`}
                 isFocused={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx}
-                size={50}
+                size={52}
                 innerSize={40}
                 borderRadius="50%"
               >
@@ -2637,7 +2638,7 @@ export default function ConsoleHome() {
         <View style={styles.headerRight}>
 
           {/* Search Icon — RadarFocusWrapper */}
-          <RadarFocusWrapper id="hdr-search" isFocused={focusArea === 'header_avatar' && focusIndex === 0} size={50} innerSize={40} borderRadius="50%">
+          <RadarFocusWrapper id="hdr-search" isFocused={focusArea === 'header_avatar' && focusIndex === 0} size={52} innerSize={40} borderRadius="50%">
             <TouchableOpacity
               style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 0 && styles.headerIconBtnFocused]}
               activeOpacity={0.7}
@@ -2661,7 +2662,7 @@ export default function ConsoleHome() {
           </RadarFocusWrapper>
 
           {/* Settings Icon — RadarFocusWrapper */}
-          <RadarFocusWrapper id="hdr-settings" isFocused={focusArea === 'header_avatar' && focusIndex === 1} size={50} innerSize={40} borderRadius="50%">
+          <RadarFocusWrapper id="hdr-settings" isFocused={focusArea === 'header_avatar' && focusIndex === 1} size={52} innerSize={40} borderRadius="50%">
             <TouchableOpacity
               style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 1 && styles.headerIconBtnFocused]}
               activeOpacity={0.7}

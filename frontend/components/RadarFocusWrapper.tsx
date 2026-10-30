@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
+import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 
 
 interface RadarFocusWrapperProps {
@@ -97,6 +98,52 @@ export default function RadarFocusWrapper({
     borderRadius = '50%',
 }: RadarFocusWrapperProps) {
 
+    const radarEntering = useMemo(
+        () =>
+            new Keyframe({
+                0: {
+                    opacity: 0,
+                    transform: [
+                        { scaleX: 1.03 },
+                        { scaleY: 1.08 },
+                    ],
+                },
+                100: {
+                    opacity: 1,
+                    transform: [
+                        { scaleX: 1 },
+                        { scaleY: 1 },
+                    ],
+                    easing: Easing.out(Easing.cubic),
+                },
+            })
+                .delay(90)
+                .duration(320),
+        [],
+    );
+
+    const radarExiting = useMemo(
+        () =>
+            new Keyframe({
+                0: {
+                    opacity: 1,
+                    transform: [
+                        { scaleX: 1 },
+                        { scaleY: 1 },
+                    ],
+                },
+                100: {
+                    opacity: 0,
+                    transform: [
+                        { scaleX: 1.03 },
+                        { scaleY: 1.08 },
+                    ],
+                    easing: Easing.out(Easing.cubic),
+                },
+            }).duration(200),
+        [],
+    );
+
     // Inyectar los estilos globales de CSS una sola vez
     useEffect(() => {
         if (Platform.OS !== 'web') return;
@@ -123,8 +170,13 @@ export default function RadarFocusWrapper({
         <View style={[styles.wrapper, { width: size, height: size }]}>
             {/* 1. RADAR (Capas CSS animadas por el compositor) */}
             {isFocused && Platform.OS === 'web' && (
-                <>
-                    {/* Aro base: contorno siempre visible, antialiaseado */}
+                <Animated.View
+                    entering={radarEntering}
+                    exiting={radarExiting}
+                    pointerEvents="none"
+                    style={styles.radarAnimation}
+                >
+                    {/* Aro base: contorno siempre visible */}
                     {/* @ts-ignore */}
                     <div
                         className="wps5-radar-base"
@@ -136,6 +188,7 @@ export default function RadarFocusWrapper({
                             ['--wps5-radar-t' as any]: `${ringThickness}px`,
                         } as any}
                     />
+
                     {/* Barrido: gradiente cónico del tema girando */}
                     {/* @ts-ignore */}
                     <div
@@ -148,7 +201,7 @@ export default function RadarFocusWrapper({
                             ['--wps5-radar-t' as any]: `${ringThickness}px`,
                         } as any}
                     />
-                </>
+                </Animated.View>
             )}
 
             {/* 2. TU ELEMENTO (En el centro) */}
@@ -190,5 +243,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
+    },
+
+    radarAnimation: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 0,
     },
 });
