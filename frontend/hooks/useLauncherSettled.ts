@@ -3,21 +3,22 @@ import { Platform } from 'react-native';
 
 /**
  * - splashDone (= "revealed"): Home ya es visible (la capa de selección de usuario se retiró).
- * - settled: tras revelar, el hilo JS lleva ~20 frames seguidos estables
- *   (o pasó el tope de seguridad). Hasta entonces no se anima ni se dispara
- *   trabajo pesado (Steam, etc.).
+ * - settled: tras revelar, el hilo JS lleva ~12 frames seguidos estables
+ *   (o pasó el tope de seguridad). Hasta entonces no se anima.
+ * - introDone: ~1800 ms después de introReady. Ahí sí se dispara el trabajo
+ *   pesado (Steam, noticias, sync online, etc.).
  * - animReady: segunda espera, DESPUÉS de settled. El notify de settled
- *   dispara fetches y el pre-montaje de paneles; si las entering arrancan
- *   en ese mismo tick, Reanimated (web) usa timestamps y las da por
- *   terminadas. animReady espera a que el reloj vuelva a estar estable.
+ *   dispara el pre-montaje de paneles; si las entering arrancan en ese
+ *   mismo tick, Reanimated (web) usa timestamps y las da por terminadas.
+ *   animReady espera a que el reloj vuelva a estar estable.
  * - introReady: tercera espera, DESPUÉS de animReady. El remount de
  *   GameInfoPanel / widgets dispara otro hitch; las intros del carrusel
  *   (withTiming) esperan a que ese commit ya se haya pintado.
  */
 const MIN_SETTLE_MS = 600;
 const SETTLE_MAX_MS = 4000;
-const STABLE_FRAMES = 20;
-const FRAME_BUDGET_MS = 20;
+const STABLE_FRAMES = 12;
+const FRAME_BUDGET_MS = 25;
 
 const ANIM_MIN_MS = 280;
 const ANIM_MAX_MS = 2500;
@@ -30,10 +31,14 @@ const INTRO_STABLE_FRAMES = 8;
 const AFTER_PAINT_STABLE = 2;
 const AFTER_PAINT_MAX_MS = 1200;
 
+/** Margen tras introReady: stagger (~250+600) + 700 ms de animación de entrada. */
+const INTRO_DONE_AFTER_MS = 1800;
+
 let revealed = false;
 let settled = false;
 let animReady = false;
 let introReady = false;
+let introDone = false;
 let generation = 0;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
@@ -61,6 +66,9 @@ function waitForStableFrames(
     stable = delta <= FRAME_BUDGET_MS ? stable + 1 : 0;
     const elapsed = ts - start;
     if ((stable >= stableNeeded && elapsed >= minMs) || elapsed > maxMs) {
+      if (elapsed > maxMs && stable < stableNeeded) {
+        console.warn('[launcher-clock] TIMEOUT sin estabilizar', { minMs, maxMs, stable });
+      }
       onDone();
       return;
     }
@@ -73,6 +81,11 @@ function markIntroReady(gen: number) {
   if (gen !== generation || introReady) return;
   introReady = true;
   notify();
+  setTimeout(() => {
+    if (gen !== generation) return;
+    introDone = true;
+    notify();
+  }, INTRO_DONE_AFTER_MS);
 }
 
 function beginIntroClock(gen: number) {
@@ -110,6 +123,7 @@ export function resetLauncherSettled() {
   settled = false;
   animReady = false;
   introReady = false;
+  introDone = false;
   notify();
 }
 
@@ -123,6 +137,7 @@ export function markLauncherRevealed() {
     settled = true;
     animReady = true;
     introReady = true;
+    introDone = true;
     notify();
     return;
   }
@@ -193,3 +208,4 @@ export const useSplashDone = () => useFlag(() => revealed);
 export const useLauncherSettled = () => useFlag(() => settled);
 export const useAnimClockReady = () => useFlag(() => animReady);
 export const useIntroReady = () => useFlag(() => introReady);
+export const useIntroDone = () => useFlag(() => introDone);

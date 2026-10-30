@@ -85,7 +85,7 @@ import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId, fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
-import { afterPaint, useAnimClockReady, useIntroReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
+import { afterPaint, useAnimClockReady, useIntroDone, useIntroReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -270,6 +270,7 @@ export default function ConsoleHome() {
   const carouselSectionRef = useRef<any>(null);
   const [carouselClipBottom, setCarouselClipBottom] = useState<number | null>(null);
   const { t, language, setLanguage } = useTranslation();
+  const introDone = useIntroDone();
   const changeLanguage = (lang: Language) => {
     setLanguage(lang);
     updateUser({ settings: { ...activeUser?.settings, language: lang } });
@@ -826,6 +827,7 @@ export default function ConsoleHome() {
 
   // Fetch PlayStation Storefront offers
   useEffect(() => {
+    if (!introDone) return;
     const source = activeUser?.settings?.storeSource || 'ps5';
     setStoreLoading(true);
     const loader = source === 'steam'
@@ -849,7 +851,7 @@ export default function ConsoleHome() {
         }
       })
       .finally(() => setStoreLoading(false));
-  }, [activeUser?.settings?.storeSource, language]);
+  }, [introDone, activeUser?.settings?.storeSource, language]);
 
   const isStoreCard = currentData[activeIndex]?.id === '5';
   const isGamePanelFocused = focusArea === 'game_panel';
@@ -1094,12 +1096,6 @@ export default function ConsoleHome() {
   }
 
   useEffect(() => {
-    setTimeout(() => {
-      CheckUpdates();
-    }, 8000);
-  }, []);
-
-  useEffect(() => {
     const currentItem = currentData[activeIndex];
     setIsLibraryFocused(
       currentItem?.id === 'more_library' ||
@@ -1114,9 +1110,6 @@ export default function ConsoleHome() {
 
   useEffect(() => {
     loadApps();
-    fetchGamingNews().then(() => { });
-    initOnlineLibraryAutoSync();
-    initOnlineFriendWatcher((key, params) => tRef.current(key as any, params));
     // La música de la interfaz espera al fin del splash/video de booteo
     // (el _layout avisa con 'wps5-splash-done') para no pisar su audio.
     soundService.init();
@@ -1145,6 +1138,15 @@ export default function ConsoleHome() {
     }
     return stopSplashListener;
   }, []);
+
+  useEffect(() => {
+    if (!introDone) return;
+    fetchGamingNews().then(() => { });
+    initOnlineLibraryAutoSync();
+    initOnlineFriendWatcher((key, params) => tRef.current(key as any, params));
+    const t = setTimeout(CheckUpdates, 3000);
+    return () => clearTimeout(t);
+  }, [introDone]);
 
   // La música temática solo se activa en Inicio y después de mantener el foco
   // sobre un juego. Así no se dispara durante una navegación rápida del carrusel.
@@ -1397,6 +1399,7 @@ export default function ConsoleHome() {
 
   // Obtener noticias de Steam cuando cambia el juego activo (con debounce)
   useEffect(() => {
+    if (!introDone) return;
     const item = currentData[activeIndex];
     const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
     if (!playable) { setSteamNews([]); return; }
@@ -1416,10 +1419,11 @@ export default function ConsoleHome() {
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language, activeUser?.settings?.showNews]);
+  }, [introDone, activeIndex, currentRenderedTab, lastPlayedGame?.id, language, activeUser?.settings?.showNews]);
 
   // Obtener capturas y tráilers cuando cambia el juego activo (con debounce)
   useEffect(() => {
+    if (!introDone) return;
     const item = currentData[activeIndex];
     const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
     if (!playable) { setSteamMedia([]); return; }
@@ -1453,7 +1457,7 @@ export default function ConsoleHome() {
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, currentRenderedTab, lastPlayedGame?.id, language]);
+  }, [introDone, activeIndex, currentRenderedTab, lastPlayedGame?.id, language]);
 
   const handleLaunchApp = (item: ConsoleItem) => {
     if (!item || item.id === '1' || item.id === '5' || item.id === 'more_library' || item.isFolder || item.isGrid) return;
@@ -2015,6 +2019,10 @@ export default function ConsoleHome() {
   const wipeDirection = useSharedValue<1 | -1>(1);
   // 0 = capa A activa/entrante, 1 = capa B activa/entrante
   const activeLayerShared = useSharedValue<0 | 1>(0);
+  // El wipe con mask-image se repinta en el hilo principal cada frame. En frío
+  // el primer cambio de fondo va solo con opacity; el wipe se activa después.
+  const bgWipeEnabled = useSharedValue(0);
+  const bgAnimatedOnceRef = useRef(false);
 
   // Ref que se actualiza en CADA render: nunca queda obsoleto en closures
   const invertTransitionRef = useRef(false);
@@ -2166,6 +2174,15 @@ export default function ConsoleHome() {
         }
         return;
       }
+      const willAnimate = layer === 'A' ? currentBg !== a : currentBg !== b;
+      if (willAnimate) {
+        if (bgAnimatedOnceRef.current) {
+          bgWipeEnabled.value = 1;
+        } else {
+          bgWipeEnabled.value = 0;
+          bgAnimatedOnceRef.current = true;
+        }
+      }
       if (layer === 'A') {
         fade.value = 0;
         if (currentBg !== a) {
@@ -2228,10 +2245,29 @@ export default function ConsoleHome() {
   //  - dir = -1: exactamente lo mismo, invertido.
   // El círculo es una máscara radial (CSS mask-image, el launcher corre en
   // Electron/web) cuyo radio y borde suave se animan con el progreso `t`.
-  const bgLayerStyle = (p: number, isIncoming: boolean, dir: number, W: number, H: number) => {
+  const bgLayerStyle = (p: number, isIncoming: boolean, dir: number, W: number, H: number, useWipe: number) => {
     'worklet';
     const t = isIncoming ? p : 1 - p;
     const SLIDE = BG_SLIDE_PX; // px de deslizamiento
+
+    if (useWipe < 0.5) {
+      if (!isIncoming) {
+        return {
+          zIndex: 0,
+          opacity: 1,
+          transform: [{ translateX: 0 }],
+          maskImage: 'none',
+          WebkitMaskImage: 'none',
+        } as any;
+      }
+      return {
+        zIndex: 1,
+        opacity: interpolate(t, [0, 1], [0, 1], 'clamp'),
+        transform: [{ translateX: 0 }],
+        maskImage: 'none',
+        WebkitMaskImage: 'none',
+      } as any;
+    }
 
     if (!isIncoming) {
       return {
@@ -2265,11 +2301,11 @@ export default function ConsoleHome() {
   };
 
   const animatedStyleA = useAnimatedStyle(() =>
-    bgLayerStyle(1 - fade.value, activeLayerShared.value === 0, wipeDirection.value, windowWidth, windowHeight)
+    bgLayerStyle(1 - fade.value, activeLayerShared.value === 0, wipeDirection.value, windowWidth, windowHeight, bgWipeEnabled.value)
   );
 
   const animatedStyleB = useAnimatedStyle(() =>
-    bgLayerStyle(fade.value, activeLayerShared.value === 1, wipeDirection.value, windowWidth, windowHeight)
+    bgLayerStyle(fade.value, activeLayerShared.value === 1, wipeDirection.value, windowWidth, windowHeight, bgWipeEnabled.value)
   );
 
   // Get the active item info for the bottom panel

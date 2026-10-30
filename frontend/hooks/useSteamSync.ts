@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import type { SteamDownloadItem } from './useSteamDownloads';
 import { useSteamDownloads } from './useSteamDownloads';
-import { useLauncherSettled } from '@/hooks/useLauncherSettled';
+import { useIntroDone } from '@/hooks/useLauncherSettled';
 
 type Vars = Record<string, string | number>;
 type TFunction = (key: TranslationKey, vars?: Vars) => string;
@@ -80,7 +80,7 @@ const migrateCachedSteamGames = (parsed: any): ConsoleItem[] =>
 
 export function useSteamSync({ activeUser, games, t, language: _language, libraryTab }: UseSteamSyncParams): UseSteamSyncResult {
   // ── Steam ─────────────────────────────────────────────────────────────────
-  const settled = useLauncherSettled();
+  const settled = useIntroDone();
   const [steamGames, setSteamGames] = useState<ConsoleItem[]>([]);
   const steamGamesRef = useRef<ConsoleItem[]>([]);
   steamGamesRef.current = steamGames;

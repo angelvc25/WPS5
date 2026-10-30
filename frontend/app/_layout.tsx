@@ -37,6 +37,7 @@ import Animated, {
 
 import BackgroundVideo from '@/components/BackgroundVideo';
 import FpsOverlay from '@/components/FpsOverlay';
+import GpuWarmup from '@/components/GpuWarmup';
 import ToastHost from '@/components/ToastHost';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -565,6 +566,7 @@ function RootLayoutInner() {
           )}
           {!activeUser && <StatusBar style="light" />}
 
+          {!activeUser && <GpuWarmup />}
           <FpsOverlay reading={fpsReading} displayRefreshRate={displayRefreshRate} />
         </View>
       </WPSThemeProvider>
