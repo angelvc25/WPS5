@@ -76,9 +76,11 @@
   "private": true,
   "build": {
     "appId": "com.fifthstationui.app",
-    "productName": "FifthStation UI",
+    "productName": "WPS5",
+    "copyright": "Copyright © WPS5",
     "compression": "maximum",
     "directories": {
+      "buildResources": "build",
       "output": "dist-electron"
     },
     "extraResources": [
@@ -116,14 +118,28 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icons/wps5.ico"
+      "icon": "assets/icons/wps5.ico",
+      "executableName": "WPS5"
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WPS5",
+      "uninstallDisplayName": "WPS5",
+      "artifactName": "WPS5-Setup-${version}.${ext}",
+      "include": "installer.nsh",
       "installerIcon": "assets/icons/wps5.ico",
       "uninstallerIcon": "assets/icons/wps5.ico",
-      "installerHeaderIcon": "assets/icons/wps5.ico"
+      "installerHeaderIcon": "assets/icons/wps5.ico",
+      "installerHeader": "installerHeader.bmp",
+      "installerSidebar": "installerSidebar.bmp",
+      "uninstallerSidebar": "uninstallerSidebar.bmp"
     }
   }
 }

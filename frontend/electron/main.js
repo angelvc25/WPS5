@@ -1,6 +1,33 @@
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage, screen, Tray, Menu, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// Nombre visible: WPS5. La carpeta de datos se mantiene en AppData\FifhtStation
+// (y se reutiliza cualquier carpeta anterior de FifthStation) para no perder
+// perfiles, juegos ni configuración al cambiar el productName.
+app.setName('WPS5');
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.fifthstationui.app');
+}
+(function pinUserDataDir() {
+  const appData = app.getPath('appData');
+  const preferred = path.join(appData, 'FifhtStation');
+  const legacyCandidates = [
+    preferred,
+    path.join(appData, 'FifthStation UI'),
+    path.join(appData, 'FifthStationUI'),
+    path.join(appData, 'FifthStation'),
+  ];
+  const existing = legacyCandidates.find((dir) => {
+    try {
+      return fs.existsSync(dir);
+    } catch {
+      return false;
+    }
+  });
+  app.setPath('userData', existing || preferred);
+})();
+
 const crypto = require('crypto');
 const zlib = require('zlib');
 const { exec, spawn, fork } = require('child_process');
@@ -1177,6 +1204,7 @@ function createWindow() {
     height: 700,
     fullscreen: true,
     show: false,
+    title: 'WPS5',
     // ── Acelerar el primer paint: el renderer comienza a componer frames
     // incluso mientras la ventana está oculta (show: false), así cuando
     // se dispara 'ready-to-show' la UI ya está renderizada y no hay flash
