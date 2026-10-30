@@ -1,3 +1,4 @@
+import { AnimatedSpinningBorderTabs } from '@/components/AnimatedSpinningBorders';
 import { ResizeMode, Video } from '@/components/AppVideo';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import ClockText from '@/components/ClockText';
@@ -5,13 +6,11 @@ import FavoritesView from '@/components/FavoritesView';
 import PSIcon from '@/components/PSIcon';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import RandomSelectorView from '@/components/RandomSelectorView';
-import SpinningBorderTabs from '@/components/SpinningBorderTabs';
-import { AnimatedSpinningBorderTabs } from '@/components/AnimatedSpinningBorders';
-import AnimatedRadarFocusWrapper from '@/components/AnimatedRadarFocusWrapper';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import { PSIcons } from '@/constants/psIcons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
+import { fetchAwGameAchievements, fetchPcGameAchievements } from '@/services/achievementWatcherService';
 import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchGamingNews } from '@/services/newsService';
 import { syncProfileMediaToOnline } from '@/services/onlineAccountService';
@@ -21,7 +20,6 @@ import { getGameActionLabel, resolveSteamLaunchPath } from '@/services/steamLaun
 import { resolveGameScreenshots, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamGameAchievements } from '@/services/steamUserService';
-import { fetchAwGameAchievements, fetchPcGameAchievements } from '@/services/achievementWatcherService';
 import { toastService } from '@/services/toastService';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -72,6 +70,7 @@ import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useFocusNavigation, type UseFocusNavigationOptions } from '@/hooks/useFocusNavigation';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
+import { afterPaint, useAnimClockReady, useIntroDone, useLauncherSettled } from '@/hooks/useLauncherSettled';
 import { useLibrary } from '@/hooks/useLibrary';
 import { usePresentationMode } from '@/hooks/usePresentationMode';
 import { useSteamSync } from '@/hooks/useSteamSync';
@@ -85,7 +84,6 @@ import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId, fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
-import { afterPaint, useAnimClockReady, useIntroDone, useIntroReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -2019,10 +2017,10 @@ export default function ConsoleHome() {
   const wipeDirection = useSharedValue<1 | -1>(1);
   // 0 = capa A activa/entrante, 1 = capa B activa/entrante
   const activeLayerShared = useSharedValue<0 | 1>(0);
-  // El wipe con mask-image se repinta en el hilo principal cada frame. En frío
-  // el primer cambio de fondo va solo con opacity; el wipe se activa después.
+  // El wipe con mask-image se repinta en el hilo principal cada frame. Se usa
+  // desde el primer cambio de fondo (incluso en frío/arranque): ya no hay un
+  // primer paso solo con opacity.
   const bgWipeEnabled = useSharedValue(0);
-  const bgAnimatedOnceRef = useRef(false);
 
   // Ref que se actualiza en CADA render: nunca queda obsoleto en closures
   const invertTransitionRef = useRef(false);
@@ -2136,15 +2134,15 @@ export default function ConsoleHome() {
   bgStateRef.current = bgState;
 
   // Durante el arranque el hilo JS está saturado (splash, carga de apps, Steam,
-  // fondos remotos): Reanimated en web anima con timestamps, así que los frames
-  // se saltan y la transición parece instantánea/entrecortada. Hasta que el
-  // launcher se asiente, los cambios de fondo se aplican sin animar.
+  // fondos remotos): Reanimated en web anima con timestamps y los frames se
+  // saltan. El wipe circular se usa desde el primer cambio de fondo (también en
+  // frío/arranque); la transición se arranca tras afterPaint (espera a que el
+  // hilo pinte estable) para que no se salte. Ya no hay un primer paso solo con
+  // opacity ni un snap en frío: el wipe va desde el primer cambio, a la
+  // duración/easing del fondo (BG_TRANSITION_MS / BG_EASING).
   // Estado compartido con el carrusel y las tarjetas (hooks/useLauncherSettled).
   const launcherSettled = useLauncherSettled();
   const animClockReady = useAnimClockReady();
-  const introReady = useIntroReady();
-  const bgAnimReadyRef = useRef(introReady);
-  bgAnimReadyRef.current = introReady;
 
   useEffect(() => {
     const { bgA, bgB, activeLayer } = bgStateRef.current;
@@ -2161,28 +2159,16 @@ export default function ConsoleHome() {
       cancelAnimation(fade);
       // Re-leer del ref: el estado puede haber cambiado en los 140ms de debounce
       const { bgA: a, bgB: b, activeLayer: layer } = bgStateRef.current;
-      // Arranque: reemplazar la imagen de la capa activa sin animación.
-      if (!bgAnimReadyRef.current) {
-        if (layer === 'A') {
-          fade.value = 0;
-          activeLayerShared.value = 0;
-          if (currentBg !== a) setBgState({ bgA: currentBg, bgB: b, activeLayer: 'A' });
-        } else {
-          fade.value = 1;
-          activeLayerShared.value = 1;
-          if (currentBg !== b) setBgState({ bgA: a, bgB: currentBg, activeLayer: 'B' });
-        }
-        return;
-      }
+      // El wipe circular se usa desde el primer cambio de fondo (incluso en
+      // frío/arranque): ya no hay un primer paso solo con opacity.
       const willAnimate = layer === 'A' ? currentBg !== a : currentBg !== b;
-      if (willAnimate) {
-        if (bgAnimatedOnceRef.current) {
-          bgWipeEnabled.value = 1;
-        } else {
-          bgWipeEnabled.value = 0;
-          bgAnimatedOnceRef.current = true;
-        }
-      }
+      if (willAnimate) bgWipeEnabled.value = 1;
+      // Mismo camino en frío y en caliente: swap de la capa entrante + wipe a la
+      // duración/easing del fondo (BG_TRANSITION_MS / BG_EASING). Antes, en frío,
+      // se reemplazaba la capa activa sin animar (snap) y se veía "demasiado
+      // rápido"; ahora se transiciona igual. afterPaint espera a que el hilo
+      // pinte estable para que Reanimated (web) no salte al final. La imagen ya
+      // está descargada (preloadDecoded) al llegar aquí, así que no hay flash.
       if (layer === 'A') {
         fade.value = 0;
         if (currentBg !== a) {
