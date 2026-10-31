@@ -3145,6 +3145,16 @@ function getSteamLibraryFolders(steamPath) {
   return unique;
 }
 
+// ── Apps de Steam que nunca deben mostrarse (descargas ni biblioteca) ──
+const IGNORED_STEAM_APP_IDS = new Set(['228980']); // Steamworks Common Redistributables
+const IGNORED_STEAM_NAME_RE = /^steamworks common redistributables/i;
+function isIgnoredSteamApp(appId, name) {
+  return (
+    IGNORED_STEAM_APP_IDS.has(String(appId)) ||
+    IGNORED_STEAM_NAME_RE.test(String(name || '').trim())
+  );
+}
+
 function getInstalledSteamAppIds() {
   const steamPath = getSteamInstallPath();
   if (!steamPath) return [];
@@ -3192,6 +3202,9 @@ function getInstalledSteamAppIds() {
           const isStillWorking = (stateFlags & STILL_WORKING_MASK) !== 0;
           const hasPendingBytes = bytesToDownload > 0 && bytesDownloaded < bytesToDownload;
           const hasDownloadingFolder = fs.existsSync(downloadingFolder);
+
+          const appName = get('name');
+          if (isIgnoredSteamApp(appId, appName)) continue;
 
           // Solo lo contamos como "instalado" si Steam lo marca como
           // completamente instalado Y no hay ningún indicio de que
@@ -3261,7 +3274,7 @@ function getInstalledSteamAppsDetailed() {
 
           if (isFullyInstalled && !isStillWorking && !hasPendingBytes && !hasDownloadingFolder) {
             const name = get('name');
-            if (name) {
+            if (name && !isIgnoredSteamApp(appId, name)) {
               apps.push({ appId, name });
               seenAppIds.add(appId);
             }
@@ -3285,73 +3298,72 @@ function parseContentLogForDownloads() {
   const steamPath = getSteamInstallPath();
   if (!steamPath) return;
 
-  const libraryFolders = getSteamLibraryFolders(steamPath);
-  for (const steamappsDir of libraryFolders) {
-    const logPath = path.join(steamappsDir, '..', 'logs', 'content_log.txt');
-    if (!fs.existsSync(logPath)) continue;
+  const logPath = path.join(steamPath, 'logs', 'content_log.txt');
+  if (!fs.existsSync(logPath)) return;
 
-    try {
-      const stat = fs.statSync(logPath);
-      const readSize = Math.min(stat.size, 512 * 1024);
-      const fd = fs.openSync(logPath, 'r');
-      const buffer = Buffer.alloc(readSize);
-      fs.readSync(fd, buffer, 0, readSize, stat.size - readSize);
-      fs.closeSync(fd);
+  try {
+    const stat = fs.statSync(logPath);
+    const readSize = Math.min(stat.size, 512 * 1024);
+    const fd = fs.openSync(logPath, 'r');
+    const buffer = Buffer.alloc(readSize);
+    fs.readSync(fd, buffer, 0, readSize, stat.size - readSize);
+    fs.closeSync(fd);
 
-      const content = buffer.toString('utf8');
-      const lines = content.split('\n');
+    const lines = buffer.toString('utf8').split(/\r?\n/);
+    const now = Date.now();
 
-      let lastSpeed = 0;
-      for (let i = lines.length - 1; i >= 0; i--) {
-        const speedMatch = lines[i].match(/Current download rate:\s*([\d.]+)\s*Mbps/);
-        if (speedMatch) {
-          lastSpeed = parseFloat(speedMatch[1]);
-          break;
-        }
+    const parseTs = (line) => {
+      const m = line.match(/^\[(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\]/);
+      return m ? new Date(`${m[1]}T${m[2]}`).getTime() : now; // hora local
+    };
+
+    // Última velocidad registrada (solo si es reciente, para no arrastrar
+    // una velocidad vieja cuando la descarga ya se detuvo)
+    let lastSpeed = 0;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const m = lines[i].match(/Current download rate:\s*([\d.]+)\s*Mbps/i);
+      if (m) {
+        lastSpeed = (now - parseTs(lines[i])) < 5 * 60 * 1000 ? parseFloat(m[1]) : 0;
+        break;
       }
+    }
+    const speedBps = (lastSpeed * 1000000) / 8;
 
-      const appUpdates = new Map();
-      for (const line of lines) {
-        const match = line.match(/AppID\s+(\d+)\s+update started\s*:\s*download\s+(\d+)\/(\d+)/);
-        if (match) {
-          const appId = match[1];
-          const downloaded = parseInt(match[2], 10);
-          const total = parseInt(match[3], 10);
-          const tsMatch = line.match(/^\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]/);
-          let timestamp = Date.now();
-          if (tsMatch) timestamp = new Date(tsMatch[1]).getTime();
-          appUpdates.set(appId, { downloaded, total, timestamp });
-        }
-      }
+    // Último "update started" por AppID
+    const appUpdates = new Map();
+    for (const line of lines) {
+      const m = line.match(/AppID\s+(\d+)\s+update started\s*:\s*download\s+(\d+)\/(\d+)/i);
+      if (!m || isIgnoredSteamApp(m[1])) continue;
+      appUpdates.set(m[1], {
+        downloaded: parseInt(m[2], 10),
+        total: parseInt(m[3], 10),
+        timestamp: parseTs(line),
+      });
+    }
 
-      const now = Date.now();
-      for (const [appId, info] of appUpdates) {
-        const existing = downloadInfoCache.get(appId);
-        if (!existing || info.timestamp >= existing.updated) {
-          const elapsedSec = (now - info.timestamp) / 1000;
-          const speedBytesPerSec = (lastSpeed * 1000000) / 8;
-          const estimatedAdditional = speedBytesPerSec * elapsedSec;
-          const estimatedDownloaded = Math.min(info.total, info.downloaded + estimatedAdditional);
-          downloadInfoCache.set(appId, { downloaded: estimatedDownloaded, total: info.total, speed: lastSpeed, updated: now });
-        } else {
-          const elapsedSec = (now - existing.updated) / 1000;
-          const speedBytesPerSec = (lastSpeed * 1000000) / 8;
-          existing.downloaded = Math.min(existing.total, existing.downloaded + speedBytesPerSec * elapsedSec);
-          existing.speed = lastSpeed;
-          existing.updated = now;
-        }
+    for (const [appId, info] of appUpdates) {
+      const cached = downloadInfoCache.get(appId);
+      const isNewUpdate = !cached || cached.startTs !== info.timestamp || cached.total !== info.total;
+      if (isNewUpdate) {
+        const elapsed = Math.max(0, (now - info.timestamp) / 1000);
+        downloadInfoCache.set(appId, {
+          startTs: info.timestamp,
+          total: info.total,
+          downloaded: Math.min(info.total, info.downloaded + speedBps * elapsed),
+          speed: lastSpeed,
+          updated: now,
+        });
       }
+    }
 
-      for (const [appId, info] of downloadInfoCache) {
-        if (!appUpdates.has(appId) && info.speed > 0 && info.downloaded < info.total) {
-          const elapsedSec = (now - info.updated) / 1000;
-          const speedBytesPerSec = (info.speed * 1000000) / 8;
-          info.downloaded = Math.min(info.total, info.downloaded + speedBytesPerSec * elapsedSec);
-          info.updated = now;
-        }
-      }
-    } catch { /* ignore */ }
-  }
+    // Avanzar la estimación de todas las descargas conocidas
+    for (const [, c] of downloadInfoCache) {
+      if (c.updated === now) continue;
+      c.downloaded = Math.min(c.total, c.downloaded + speedBps * ((now - c.updated) / 1000));
+      c.speed = lastSpeed;
+      c.updated = now;
+    }
+  } catch { /* ignore */ }
 }
 
 function setupDownloadWatchers() {
@@ -3426,6 +3438,7 @@ function getSteamDownloadProgress() {
           };
 
           const name = get('name');
+          if (isIgnoredSteamApp(appId, name)) continue;
           const bytesToDownload = parseInt(get('BytesToDownload') || '0', 10) || 0;
           const bytesDownloaded = parseInt(get('BytesDownloaded') || '0', 10) || 0;
           const bytesToStage = parseInt(get('BytesToStage') || '0', 10) || 0;
@@ -3442,34 +3455,41 @@ function getSteamDownloadProgress() {
 
           const realTimeInfo = downloadInfoCache.get(appId);
 
-          let total, downloaded;
-          if (realTimeInfo && realTimeInfo.total > 0) {
-            total = realTimeInfo.total;
-            downloaded = realTimeInfo.downloaded;
-          } else if (isStaging && bytesToStage > 0) {
-            total = bytesToStage;
-            downloaded = bytesStaged;
-          } else if (bytesToDownload > 0) {
-            total = bytesToDownload;
-            downloaded = bytesDownloaded;
+          // Datos reales del manifiesto
+          const manifestTotal = isStaging && bytesToStage > 0 ? bytesToStage : bytesToDownload;
+          const manifestDone = isStaging && bytesToStage > 0 ? bytesStaged : bytesDownloaded;
+          const manifestFrac = manifestTotal > 0 ? manifestDone / manifestTotal : 0;
+
+          // Estimación en vivo (solo mientras realmente descarga)
+          const rt = (!isStaging && !paused) ? realTimeInfo : null;
+          const estFrac = rt && rt.total > 0 ? rt.downloaded / rt.total : 0;
+
+          let frac;
+          if (manifestFrac > 0) {
+            // El manifiesto manda; la estimación solo lo "adelanta" hasta un 3 %
+            frac = rt ? Math.min(Math.max(manifestFrac, estFrac), manifestFrac + 0.03) : manifestFrac;
           } else {
-            total = 0;
-            downloaded = 0;
+            frac = estFrac;
           }
+          frac = Math.min(1, Math.max(0, frac));
 
-          const percent = total > 0 ? Math.min(100, (downloaded / total) * 100) : 0;
-          const downloadSpeed = realTimeInfo?.speed || 0;
+          const total = manifestTotal > 0 ? manifestTotal : (rt?.total || realTimeInfo?.total || 0);
+          const downloaded = Math.round(total * frac);
+          const percent = frac * 100;
+          const downloadSpeed = paused ? 0 : (rt?.speed || 0);
 
-          // "Activo" = realmente descargando/procesando AHORA, no solo con
-          // una actualización pendiente (eso es lo que hace que un juego
-          // "Programado" se marque como activo para siempre).
           const isActive = downloading || validating || paused || isStaging || hasDownloadingFolder;
 
           if (isActive) {
             seenAppIds.add(appId);
             downloads.push({
-              appId, name, bytesToDownload, bytesDownloaded, bytesToStage, bytesStaged,
-              stateFlags, downloading: downloading || hasDownloadingFolder, validating, paused, percent, downloadSpeed
+              appId, name,
+              bytesToDownload: total,
+              bytesDownloaded: downloaded,
+              bytesToStage, bytesStaged,
+              stateFlags,
+              downloading: downloading || hasDownloadingFolder,
+              validating, paused, percent, downloadSpeed,
             });
           }
         } catch { /* ignore malformed manifest */ }
@@ -3521,7 +3541,7 @@ app.whenReady().then(async () => {
   // Backup timer: re-parse content_log.txt every 4 seconds for smooth progress
   downloadParseInterval = setInterval(() => {
     broadcastDownloadProgress();
-  }, 4000);
+  }, 2000);
 
   // Registrar protocolo personalizado para cargar imágenes locales y videos de forma segura
   // Usamos protocol.handle para mejor soporte en versiones recientes de Electron

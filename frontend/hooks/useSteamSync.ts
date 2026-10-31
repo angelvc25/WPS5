@@ -72,11 +72,21 @@ const migrateSteamArtUrl = (url: any): any =>
     ? url.replace('library_600x900_2x.jpg', 'library_600x900.jpg')
     : url;
 
+// Apps de Steam que nunca deben aparecer en la biblioteca.
+const IGNORED_STEAM_APP_IDS = new Set(['228980']); // Steamworks Common Redistributables
+const IGNORED_STEAM_NAME_RE = /^steamworks common redistributables/i;
+
+const isIgnoredSteamGame = (g: any): boolean =>
+  IGNORED_STEAM_APP_IDS.has(String(g?.id ?? '').replace(/^steam_/, '')) ||
+  IGNORED_STEAM_NAME_RE.test(String(g?.title ?? g?.name ?? '').trim());
+
 const migrateCachedSteamGames = (parsed: any): ConsoleItem[] =>
-  (Array.isArray(parsed) ? parsed : []).map((g: any) => ({
-    ...g,
-    image: migrateSteamArtUrl(g?.image),
-  }));
+  (Array.isArray(parsed) ? parsed : [])
+    .filter((g: any) => !isIgnoredSteamGame(g))
+    .map((g: any) => ({
+      ...g,
+      image: migrateSteamArtUrl(g?.image),
+    }));
 
 export function useSteamSync({ activeUser, games, t, language: _language, libraryTab }: UseSteamSyncParams): UseSteamSyncResult {
   // ── Steam ─────────────────────────────────────────────────────────────────
@@ -517,17 +527,19 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
 
     setLoadingSteam(true);
     fetchSteamOwnedGames(GLOBAL_STEAM_API_KEY, steamId).then(async (gamesList) => {
-      const baseFormatted: ConsoleItem[] = gamesList.map((g: any) => ({
-        id: `steam_${g.appid}`,
-        title: g.name,
-        time: 'Steam',
-        image: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900.jpg`,
-        description: '',
-        playtime_forever: Number(g.playtime_forever || 0),
-        playtimeMinutes: Number(g.playtime_forever || 0),
-        platform: 'Steam',
-        path: buildSteamRunUrl(g.appid),
-      }));
+      const baseFormatted: ConsoleItem[] = gamesList
+        .filter((g: any) => !isIgnoredSteamGame({ id: `steam_${g.appid}`, title: g.name }))
+        .map((g: any) => ({
+          id: `steam_${g.appid}`,
+          title: g.name,
+          time: 'Steam',
+          image: `https://steamcdn-a.akamaihd.net/steam/apps/${g.appid}/library_600x900.jpg`,
+          description: '',
+          playtime_forever: Number(g.playtime_forever || 0),
+          playtimeMinutes: Number(g.playtime_forever || 0),
+          platform: 'Steam',
+          path: buildSteamRunUrl(g.appid),
+        }));
 
       const withMetadata = await Promise.all(
         baseFormatted.map(async (game) => {
@@ -571,7 +583,10 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledAppsDetailed) return;
     if (steamGames.length === 0) return;
 
-    fetchSteamInstalledGamesDetailed().then(async (detailed) => {
+    fetchSteamInstalledGamesDetailed().then(async (rawDetailed) => {
+      const detailed = rawDetailed.filter(
+        d => !isIgnoredSteamGame({ id: `steam_${d.appId}`, title: d.name })
+      );
       if (detailed.length === 0) return;
 
       const knownIds = new Set(

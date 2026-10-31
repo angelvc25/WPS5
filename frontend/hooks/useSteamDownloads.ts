@@ -16,6 +16,12 @@ export interface SteamDownloadItem {
   downloadSpeed: number;
 }
 
+// Apps de Steam que nunca deben mostrarse como descarga.
+const IGNORED_APP_IDS = new Set(['228980']); // Steamworks Common Redistributables
+const IGNORED_NAME_RE = /^steamworks common redistributables/i;
+const isIgnored = (d: { appId: string; name: string }) =>
+  IGNORED_APP_IDS.has(String(d.appId)) || IGNORED_NAME_RE.test((d.name || '').trim());
+
 export interface DownloadCompletion {
   appId: string;
   name: string;
@@ -35,9 +41,7 @@ function areDownloadListsEqual(a: SteamDownloadItem[], b: SteamDownloadItem[]): 
       x.downloading !== y.downloading ||
       x.validating !== y.validating ||
       x.paused !== y.paused ||
-      Math.round(x.percent) !== Math.round(y.percent) ||
-      x.bytesDownloaded !== y.bytesDownloaded ||
-      x.bytesToDownload !== y.bytesToDownload
+      Math.round(x.percent) !== Math.round(y.percent)
     ) {
       return false;
     }
@@ -61,7 +65,9 @@ export function useSteamDownloads(pollIntervalMs: number = 2000) {
       .getSteamDownloadProgress()
       .then((result: any) => {
         if (!mountedRef.current) return;
-        const list: SteamDownloadItem[] = Array.isArray(result) ? result : [];
+        const list: SteamDownloadItem[] = (Array.isArray(result) ? result : []).filter(
+          (d: SteamDownloadItem) => !isIgnored(d)
+        );
         // Evita re-renders si nada cambió: el poll corre cada ~2s y cada
         // setState con un array nuevo re-renderiza el carrusel completo.
         // Como las portadas de Steam son URLs remotas, re-renderizar a mitad
