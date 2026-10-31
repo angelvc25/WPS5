@@ -1,7 +1,8 @@
 
 # WPS5
 
-<img width="1918" height="821" alt="image" src="https://github.com/user-attachments/assets/2c550745-e102-46bf-959b-85869047adbc" />
+<img width="1919" height="825" alt="Captura de pantalla 2026-10-30 214235" src="https://github.com/user-attachments/assets/855aead0-3cc6-47e7-887b-e04acf43e067" />
+
 
 # v1.1.4 AVAILABLE NOW!
 
