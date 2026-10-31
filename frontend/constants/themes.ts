@@ -134,6 +134,12 @@ export const VISUAL_THEMES: VisualTheme[] = [
     foreground: require('@/assets/temas/foreground gta6.webp'),
   },
   {
+    id: 'background gta 6 alt',
+    label: 'Grand Theft Auto VI - alternative',
+    background: require('@/assets/temas/back grand theft auto 6.webp'),
+    foreground: require('@/assets/temas/fore grand theft auto 6.webp'),
+  },
+  {
     id: 'Lucia',
     label: 'Grand Theft Auto VI - Lucia',
     background: require('@/assets/temas/background lucia.webp'),
@@ -247,6 +253,36 @@ export const VISUAL_THEMES: VisualTheme[] = [
     foreground: require('@/assets/temas/foreground stellar blade.webp'),
   },
   {
+    id: 'background stellar blade 3',
+    label: 'Stellar Blade playa',
+    background: require('@/assets/temas/stellar blade 3 background.webp'),
+    foreground: require('@/assets/temas/stellar blade 3 foreground.webp'),
+  },
+  {
+    id: 'background stellar blade 4',
+    label: 'Stellar Blade Ive',
+    background: require('@/assets/temas/stellar blade 4 background.webp'),
+    foreground: require('@/assets/temas/stellar blade 4 foreground.webp'),
+  },
+  {
+    id: 'background stellar blade lentes',
+    label: 'Stellar Blade lentes',
+    background: require('@/assets/temas/stellar blade lentes 2 background.webp'),
+    foreground: require('@/assets/temas/stellar blade lentes 2 foreground.webp'),
+  },
+  {
+    id: 'background stellar blade traje',
+    label: 'Stellar Blade traje',
+    background: require('@/assets/temas/stellar blade traje background.webp'),
+    foreground: require('@/assets/temas/stellar blade traje foreground.webp'),
+  },
+  {
+    id: 'background stellar blade vestido',
+    label: 'Stellar Blade vestido',
+    background: require('@/assets/temas/stellar blade vestido background.webp'),
+    foreground: require('@/assets/temas/stellar blade vestido foreground.webp'),
+  },
+  {
     id: 'background cyberpunk 2077',
     label: 'Cyberpunk 2077',
     background: require('@/assets/temas/background cyberpunk 2077.webp'),
@@ -263,6 +299,12 @@ export const VISUAL_THEMES: VisualTheme[] = [
     label: 'Modern Warfare 4',
     background: require('@/assets/temas/background modern warfare 4.webp'),
     foreground: require('@/assets/temas/foreground modern warfare 4.webp'),
+  },
+  {
+    id: 'background cod emma kagan',
+    label: 'Call of Duty - Emma Kagan',
+    background: require('@/assets/temas/background emma kagan cod.webp'),
+    foreground: require('@/assets/temas/foreground emma kagan cod.webp'),
   },
   {
     id: 'background gta v',
@@ -324,7 +366,6 @@ export const VISUAL_THEMES: VisualTheme[] = [
     background: require('@/assets/temas/background gohan.webp'),
     foreground: require('@/assets/temas/foreground gohan.webp'),
   },
-
   {
     id: 'background daima',
     label: 'Dragon Ball Daima',
@@ -355,7 +396,6 @@ export const VISUAL_THEMES: VisualTheme[] = [
     background: require('@/assets/temas/background zzz.webp'),
     foreground: require('@/assets/temas/foreground zzz.webp'),
   },
-
   {
     id: 'background zzz lucy',
     label: 'Zenless Zone Zero - Lucy',
@@ -367,6 +407,72 @@ export const VISUAL_THEMES: VisualTheme[] = [
     label: 'Zenless Zone Zero - Yuzuha',
     background: require('@/assets/temas/background zzz yuzuha.webp'),
     foreground: require('@/assets/temas/foreground zzz yuzuha.webp'),
+  },
+  {
+    id: 'background warhammer 40k',
+    label: 'Warhammer 40k',
+    background: require('@/assets/temas/background warhammer 40k.webp'),
+    foreground: require('@/assets/temas/foreground warhammer 40k.webp'),
+  },
+  {
+    id: 'background warhammer 40k alternative',
+    label: 'Warhammer 40k alternative',
+    background: require('@/assets/temas/background warhammer 40k alternative.webp'),
+    foreground: require('@/assets/temas/foreground warhammer 40k alternative.webp'),
+  },
+  {
+    id: 'background fallout 4',
+    label: 'Fallout 4',
+    background: require('@/assets/temas/background fallout 4.webp'),
+    foreground: require('@/assets/temas/foreground fallout 4.webp'),
+  },
+  {
+    id: 'background fornite',
+    label: 'Fornite',
+    background: require('@/assets/temas/fornite back.webp'),
+    foreground: require('@/assets/temas/fornite fore.webp'),
+  },
+  {
+    id: 'background phantom blade zero',
+    label: 'Phantom Blade Zero',
+    background: require('@/assets/temas/phantom blade zero background.webp'),
+    foreground: require('@/assets/temas/phantom blade zero foreground.webp'),
+  },
+  {
+    id: 'background lollipop chainsaw',
+    label: 'Lollipop Chainsaw',
+    background: require('@/assets/temas/lollipop chainsaw background.webp'),
+    foreground: require('@/assets/temas/lollipop chainsaw foreground.webp'),
+  },
+  {
+    id: 'background lollipop chainsaw alt',
+    label: 'lollipop chainsaw alternative',
+    background: require('@/assets/temas/lollipop chainsaw alternative 2 background.webp'),
+    foreground: require('@/assets/temas/lollipop chainsaw alternative 2 foreground.webp'),
+  },
+  {
+    id: 'background lollipop chainsaw alt 2',
+    label: 'Lollipop Chainsaw Alternative 2',
+    background: require('@/assets/temas/lollipop chainsaw alternative 3 background.webp'),
+    foreground: require('@/assets/temas/lollipop chainsaw alternative 3 foreground.webp'),
+  },
+  {
+    id: 'background Geralt',
+    label: 'The Witcher - Geralt',
+    background: require('@/assets/temas/Geralt back.webp'),
+    foreground: require('@/assets/temas/Geralt fore.webp'),
+  },
+  {
+    id: 'background the division',
+    label: 'The Division',
+    background: require('@/assets/temas/background the division.webp'),
+    foreground: require('@/assets/temas/foreground the division.webp'),
+  },
+  {
+    id: 'background the legend of zelda',
+    label: 'The Legend of Zelda',
+    background: require('@/assets/temas/background the legend of zelda.webp'),
+    foreground: require('@/assets/temas/foreground the legend of zelda.webp'),
   },
 
 ];

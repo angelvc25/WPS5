@@ -194,6 +194,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
   const tabFocusIndexRef = useRef(tabFocusIndex);
   const gridFocusIndexRef = useRef(gridFocusIndex);
   const imagesRef = useRef(images);
+  const filteredImagesRef = useRef<FolderImage[]>([]);
   const selectedItemsRef = useRef(selectedItems);
   const selectedAlbumsRef = useRef(selectedAlbums);
   const isSelectModeRef = useRef(isSelectMode);
@@ -313,6 +314,8 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     return images;
   }, [images, activeTab, favorites, albums, openAlbumIndex]);
 
+  filteredImagesRef.current = filteredImages;
+
   useEffect(() => {
     if (!lightboxVisible) return;
     [lightboxIndex - 1, lightboxIndex + 1].forEach((i) => {
@@ -418,6 +421,14 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     soundService.playBack();
   }, []);
 
+  // Si la lista filtrada se encoge (p. ej. quitar un favorito dentro de la pestaña Favoritos),
+  // cierra o ajusta el lightbox para no apuntar a un índice inexistente
+  useEffect(() => {
+    if (!lightboxVisible) return;
+    if (filteredImages.length === 0) closeLightbox();
+    else if (lightboxIndex > filteredImages.length - 1) setLightboxIndex(filteredImages.length - 1);
+  }, [filteredImages.length, lightboxVisible, lightboxIndex, closeLightbox]);
+
   // Abre el modal de confirmación
   const requestRemoveOrDelete = useCallback(() => {
     setConfirmModalFocusIndex(0);
@@ -453,14 +464,21 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
       }
     } else {
       // ── Imagen individual: eliminar el archivo físico del disco ──
-      if (Platform.OS === 'web' && (window as any).electronAPI?.deleteImageFile) {
-        try {
-          await (window as any).electronAPI.deleteImageFile(imageUri);
-        } catch (e) {
-          // Si falla el borrado físico, igualmente lo quitamos de la vista
+      const api = Platform.OS === 'web' ? (window as any).electronAPI : null;
+      if (api?.deleteImageFile) {
+        const result = await api.deleteImageFile(imageUri);
+        // Si falló (y no es simplemente que ya no existía), no la quites de la vista
+        if (!result?.success && !result?.notFound) {
+          console.warn('No se pudo eliminar la imagen:', result?.error);
+          setConfirmDeleteVisible(false);
+          return;
         }
       }
+
       setImages(prev => prev.filter(img => img.uri !== imageUri));
+      // Limpiar referencias a la imagen borrada
+      setFavorites(prev => { const n = new Set(prev); n.delete(imageUri); return n; });
+      setAlbums(prev => prev.map(a => ({ ...a, items: a.items.filter(u => u !== imageUri) })));
       closeLightbox();
     }
 
@@ -535,8 +553,19 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
         if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') { soundService.playBack(); closeLightbox(); return; }
 
         if (area === 'lightbox') {
-          if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q') { playGridNavSound(); setLightboxIndex(prev => Math.max(0, prev - 1)); setLightboxActionFocus(0); return; }
-          if (e.key === 'ArrowRight' || e.key === 'e' || e.key === 'E') { playGridNavSound(); setLightboxIndex(prev => Math.min(imagesRef.current.length - 1, prev + 1)); setLightboxActionFocus(0); return; }
+          const total = filteredImagesRef.current.length;
+          if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q') {
+            playGridNavSound();
+            setLightboxIndex(prev => Math.max(0, prev - 1));
+            setLightboxActionFocus(0);
+            return;
+          }
+          if (e.key === 'ArrowRight' || e.key === 'e' || e.key === 'E') {
+            playGridNavSound();
+            setLightboxIndex(prev => Math.min(total - 1, prev + 1));
+            setLightboxActionFocus(0);
+            return;
+          }
           if (e.key === 'ArrowDown') { soundService.playNavigation(); setFocusArea('lightboxActions'); setLightboxActionFocus(0); return; }
         }
 
@@ -546,7 +575,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
           if (e.key === 'ArrowUp') { soundService.playNavigation(); setFocusArea('lightbox'); return; }
           if (e.key === 'Enter' || e.key === ' ') {
             soundService.playActivation();
-            const lbImg = imagesRef.current[lightboxIndexRef.current];
+            const lbImg = filteredImagesRef.current[lightboxIndexRef.current];
             if (!lbImg) return;
             if (lightboxActionFocusRef.current === 0) { toggleFavoriteSingle(lbImg.uri); }
             else if (lightboxActionFocusRef.current === 2) { requestRemoveOrDelete(); }
@@ -624,11 +653,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
 
       // ── Grid ──
       if (area === 'grid') {
-        const filtered = imagesRef.current.filter(img => {
-          const activeTabVal = TABS[tabFocusIndexRef.current]?.id || 'all';
-          if (activeTabVal === 'favorites') return favorites.has(img.uri);
-          return true;
-        });
+        const filtered = filteredImagesRef.current;
         if (filtered.length === 0) { if (e.key === 'ArrowUp') { soundService.playNavigation(); setFocusArea('tabs'); } return; }
 
         if (e.key === 'ArrowRight') {

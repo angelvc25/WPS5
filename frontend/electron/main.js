@@ -1234,7 +1234,7 @@ function createWindow() {
         path.join(app.getPath('userData'), 'renderer-crash.log'),
         `[${new Date().toISOString()}] ${details.reason} (${details.exitCode})\n`
       );
-    } catch (_) {}
+    } catch (_) { }
     if (details.reason !== 'clean-exit' && mainWindow && !mainWindow.isDestroyed()) {
       setTimeout(() => mainWindow.webContents.reload(), 500);
     }
@@ -1259,12 +1259,12 @@ function createWindow() {
     } catch (_) { }
     if (mainWindow && !mainWindow.isDestroyed()) {
       try {
-        mainWindow.webContents.session.clearCache().catch(() => {});
+        mainWindow.webContents.session.clearCache().catch(() => { });
         mainWindow.webContents.executeJavaScript(`
           if (typeof window.gc === 'function') {
             try { window.gc(); } catch (_) {}
           }
-        `).catch(() => {});
+        `).catch(() => { });
       } catch (_) { }
     }
   };
@@ -1780,12 +1780,12 @@ function suspendLauncherForGame(sourceLabel = 'Steam') {
     if (typeof global.gc === 'function') global.gc();
   } catch (_) { }
   try {
-    mainWindow.webContents.session.clearCache().catch(() => {});
+    mainWindow.webContents.session.clearCache().catch(() => { });
     mainWindow.webContents.executeJavaScript(`
       if (typeof window.gc === 'function') {
         try { window.gc(); } catch (_) {}
       }
-    `).catch(() => {});
+    `).catch(() => { });
   } catch (_) { }
 
   if (launcherPlayBehavior === 'minimize') {
@@ -1851,9 +1851,9 @@ function stopSteamGameWatch(id) {
 function trophyRarityStyle(rarity) {
   switch (rarity) {
     case 'platinum': return { color: '#B0C4DE', label: 'Platinum', glow: 'rgba(176,196,222,0.55)', icon: '🏆' };
-    case 'gold':     return { color: '#FFD700', label: 'Gold',     glow: 'rgba(255,215,0,0.55)',   icon: '🥇' };
-    case 'silver':   return { color: '#C0C0C0', label: 'Silver',   glow: 'rgba(192,192,192,0.45)', icon: '🥈' };
-    default:         return { color: '#CD7F32', label: 'Bronze',   glow: 'rgba(205,127,50,0.45)',  icon: '🥉' };
+    case 'gold': return { color: '#FFD700', label: 'Gold', glow: 'rgba(255,215,0,0.55)', icon: '🥇' };
+    case 'silver': return { color: '#C0C0C0', label: 'Silver', glow: 'rgba(192,192,192,0.45)', icon: '🥈' };
+    default: return { color: '#CD7F32', label: 'Bronze', glow: 'rgba(205,127,50,0.45)', icon: '🥉' };
   }
 }
 
@@ -1906,9 +1906,9 @@ function processTrophyQueue() {
     // Iconos de rareza SVG inline para evitar dependencias externas
     const trophyIconHtml = {
       platinum: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#B0C4DE" stroke="#7fa8c9" stroke-width="0.5"/></svg>`,
-      gold:     `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#FFD700" stroke="#c8a400" stroke-width="0.5"/></svg>`,
-      silver:   `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#C0C0C0" stroke="#909090" stroke-width="0.5"/></svg>`,
-      bronze:   `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#CD7F32" stroke="#9a5c1e" stroke-width="0.5"/></svg>`,
+      gold: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#FFD700" stroke="#c8a400" stroke-width="0.5"/></svg>`,
+      silver: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#C0C0C0" stroke="#909090" stroke-width="0.5"/></svg>`,
+      bronze: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L9.5 8.5H3l5.5 4L6.5 19 12 15l5.5 4-2-6.5L21 8.5h-6.5L12 2z" fill="#CD7F32" stroke="#9a5c1e" stroke-width="0.5"/></svg>`,
     }[achievement.rarity || 'bronze'] || trophyIconHtml.bronze;
 
     // Imagen del juego: si es una ruta local la convertimos a base64 para el HTML inline.
@@ -1972,9 +1972,9 @@ function processTrophyQueue() {
     <span class="unlocked-label">Trofeo desbloqueado</span>
     <div class="ach-row">
       ${achImgHtml}
-      <span class="ach-name">${(achievement.name || 'Logro').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+      <span class="ach-name">${(achievement.name || 'Logro').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
     </div>
-    <span class="ach-desc">${(achievement.description || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+    <span class="ach-desc">${(achievement.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
   </div>
   <div class="rarity-badge">
     ${trophyIconHtml}
@@ -2130,8 +2130,8 @@ function startTrophyPoller(id, appId, apiKey, steamId, gameInfo) {
 
   const rarityForPct = (pct) => {
     if (pct === null || pct === undefined) return 'bronze';
-    if (pct <= 1)  return 'platinum';
-    if (pct <= 5)  return 'gold';
+    if (pct <= 1) return 'platinum';
+    if (pct <= 5) return 'gold';
     if (pct <= 15) return 'silver';
     return 'bronze';
   };
@@ -2268,7 +2268,7 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
     // ── Limpieza de overlay tras salir del juego ──
     hideOverlayWindow();
     if (overlayWindow && !overlayWindow.isDestroyed()) {
-      try { overlayWindow.destroy(); } catch (_) {}
+      try { overlayWindow.destroy(); } catch (_) { }
       overlayWindow = null;
     }
     activeGameInfo = null;
@@ -2825,7 +2825,7 @@ function getXboxInstalledGames() {
                 const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
                 const b64 = fs.readFileSync(logoPath).toString('base64');
                 icon = `data:${mime};base64,${b64}`;
-              } catch (_) {}
+              } catch (_) { }
             }
 
             const pkgName = identityMatch ? identityMatch[1] : f.name;
@@ -2987,7 +2987,7 @@ $games | ConvertTo-Json -Compress
                 const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
                 const b64 = fs.readFileSync(cand).toString('base64');
                 icon = `data:${mime};base64,${b64}`;
-              } catch (_) {}
+              } catch (_) { }
             }
           }
           games.push({
@@ -3499,7 +3499,7 @@ app.whenReady().then(async () => {
   setupDownloadWatchers();
 
   // Pre-calentar el Cloudflare Worker silenciosamente para eliminar la latencia de cold start
-  fetch(`${WORKER_API_BASE}/`).catch(() => {});
+  fetch(`${WORKER_API_BASE}/`).catch(() => { });
 
   // Iniciar descarga offline de arte en segundo plano para juegos existentes (con retraso para no saturar al inicio)
   setTimeout(() => {
@@ -3893,7 +3893,7 @@ app.whenReady().then(async () => {
           console.warn('[MediaCache] Error actualizando arte cacheado tras save-app:', e.message);
         }
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     return data;
   });
@@ -3981,7 +3981,7 @@ app.whenReady().then(async () => {
           console.warn('[MediaCache] Error actualizando arte cacheado tras update-app:', e.message);
         }
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     return { success: true, data };
   });
@@ -4452,7 +4452,7 @@ app.whenReady().then(async () => {
       // ── Limpieza de overlay y pollers tras salir del juego ──
       hideOverlayWindow();
       if (overlayWindow && !overlayWindow.isDestroyed()) {
-        try { overlayWindow.destroy(); } catch (_) {}
+        try { overlayWindow.destroy(); } catch (_) { }
         overlayWindow = null;
       }
       stopTrophyPoller(id); // detener polling de logros
@@ -5222,7 +5222,7 @@ app.whenReady().then(async () => {
         if (res.ok) {
           html = await res.text();
         }
-      } catch (_) {}
+      } catch (_) { }
 
       if (!html || html.includes('challenges.cloudflare.com') || html.includes('Just a moment')) {
         const win = getKhinsiderScraperWindow();
@@ -5289,7 +5289,7 @@ app.whenReady().then(async () => {
         try {
           hasSonglist = await win.webContents.executeJavaScript('!!document.getElementById("songlist")');
           if (hasSonglist) break;
-        } catch (_) {}
+        } catch (_) { }
         await new Promise((r) => setTimeout(r, 400));
       }
 
@@ -5357,7 +5357,7 @@ app.whenReady().then(async () => {
             return anyAudio ? anyAudio.href : null;
           })()`);
           if (audioUrl) break;
-        } catch (_) {}
+        } catch (_) { }
         await new Promise((r) => setTimeout(r, 350));
       }
 
@@ -5468,24 +5468,45 @@ app.whenReady().then(async () => {
     return { success: true };
   });
 
-  // IPC: Eliminar imagen del sistema de archivos (mueve a Papelera de reciclaje)
+  // Convierte local-file:///C:/... o file:///C:/... a una ruta real del sistema
+  function uriToFsPath(uri) {
+    let p = uri;
+    if (/^(local-file|file):\/+/i.test(p)) {
+      p = p.replace(/^(local-file|file):\/+/i, '');
+      try { p = decodeURIComponent(p); } catch (_) { /* nombre con % literal */ }
+      if (process.platform === 'win32') {
+        if (p.startsWith('/')) p = p.slice(1);
+        if (/^[a-zA-Z]\//.test(p)) p = p[0] + ':' + p.slice(1);
+      } else if (!p.startsWith('/')) {
+        p = '/' + p;
+      }
+    }
+    return path.normalize(p);
+  }
+
+  const DELETABLE_IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
+
   ipcMain.handle('delete-image-file', async (event, filePath) => {
     try {
       if (!filePath || typeof filePath !== 'string') {
         return { success: false, error: 'Ruta inválida' };
       }
-      // Normalizar: quitar prefijo file:// si viene como URI
-      const normalizedPath = filePath.startsWith('file://')
-        ? decodeURIComponent(filePath.replace(/^file:\/\/\/?/, '').replace(/\//g, path.sep))
-        : filePath;
 
-      if (!fs.existsSync(normalizedPath)) {
-        return { success: false, error: 'Archivo no encontrado' };
+      const normalizedPath = uriToFsPath(filePath);
+
+      // Seguridad: solo imágenes, nunca carpetas ni otros tipos de archivo
+      if (!DELETABLE_IMAGE_EXTS.has(path.extname(normalizedPath).toLowerCase())) {
+        return { success: false, error: 'Tipo de archivo no permitido' };
       }
-      // shell.trashItem mueve a la papelera — seguro y recuperable
+      if (!fs.existsSync(normalizedPath) || !fs.statSync(normalizedPath).isFile()) {
+        return { success: false, error: 'Archivo no encontrado', notFound: true };
+      }
+
+      // Mueve a la Papelera (recuperable)
       await shell.trashItem(normalizedPath);
       return { success: true };
     } catch (err) {
+      console.error('[delete-image-file]', err);
       return { success: false, error: err.message };
     }
   });
@@ -6040,7 +6061,7 @@ app.whenReady().then(async () => {
         if (!overlayEnabled) {
           hideOverlayWindow();
           if (overlayWindow && !overlayWindow.isDestroyed()) {
-            try { overlayWindow.destroy(); } catch (_) {}
+            try { overlayWindow.destroy(); } catch (_) { }
             overlayWindow = null;
           }
           disableOverlayHotkey();
@@ -6086,7 +6107,7 @@ app.whenReady().then(async () => {
       const finish = (result) => {
         if (settled) return;
         settled = true;
-        try { if (captureChild) captureChild.kill(); } catch (_) {}
+        try { if (captureChild) captureChild.kill(); } catch (_) { }
         resolve(result);
       };
 
