@@ -563,8 +563,29 @@ export function useLibrary({
                         currentEpicGames.find(g => g.id === latestGame!.id) ||
                         currentXboxGames.find(g => g.id === latestGame!.id);
                     if (richVersion) {
+                        // La versión "rica" (steamGames/epicGames/xboxGames) trae el arte
+                        // autodetectado, NO las ediciones del usuario, que viven en el
+                        // registro de games.json (gamesList). Si no las reaplicamos, al
+                        // lanzar el juego el "Último Jugado" vuelve a los datos por defecto
+                        // hasta que se reinicia el launcher.
+                        const gameId = String(latestGame.id);
+                        const rawDb = validRawGames.find((a: any) => String(a.id) === gameId);
+                        const dbVersion: any = gamesList.find((g: any) => String(g.id) === gameId);
+                        const userOverrides: Record<string, any> = {};
+                        if (rawDb && dbVersion) {
+                            const hasValue = (v: any) => v !== undefined && v !== null && v !== '';
+                            if (hasValue(rawDb.image) || hasValue(rawDb.imageBase64)) userOverrides.image = dbVersion.image;
+                            if (hasValue(rawDb.logo) || hasValue(rawDb.logoBase64)) userOverrides.logo = dbVersion.logo;
+                            if (hasValue(rawDb.backgroundImage) || hasValue(rawDb.backgroundImageBase64)) userOverrides.backgroundImage = dbVersion.backgroundImage;
+                            if (hasValue(rawDb.video)) userOverrides.video = dbVersion.video;
+                            (['title', 'description', 'rating', 'publisher', 'genres', 'releaseDate',
+                                'focusAudio', 'launchArgs', 'youtubeId', 'retroSystem'] as const).forEach(field => {
+                                    if (hasValue(rawDb[field])) userOverrides[field] = dbVersion[field];
+                                });
+                        }
                         latestGame = {
                             ...richVersion,
+                            ...userOverrides,
                             lastPlayed: latestGame.lastPlayed,
                             playtimeMinutes: latestGame.playtimeMinutes ?? richVersion.playtimeMinutes,
                             playtime_forever: latestGame.playtime_forever ?? richVersion.playtime_forever,

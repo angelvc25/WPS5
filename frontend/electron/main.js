@@ -30,9 +30,11 @@ if (process.platform === 'win32') {
 
 const crypto = require('crypto');
 const zlib = require('zlib');
-const { exec, spawn, fork } = require('child_process');
+const { exec, execSync, spawn, fork } = require('child_process');
 const { pathToFileURL } = require('url');
 const http = require('http');
+const GameSessionManager = require('./services/GameSessionManager');
+const gameSessionManager = new GameSessionManager();
 
 // Desactivar advertencias de seguridad de Electron en consola de desarrollo
 // (webSecurity se desactiva deliberadamente para permitir la carga de assets locales y de emuladores)
@@ -1745,10 +1747,105 @@ function isProcessRunningUnderDir(dirPath) {
 function isUwpProcessRunning(packageFamilyName) {
   return new Promise((resolve) => {
     if (!packageFamilyName || process.platform !== 'win32') return resolve(false);
-    const escaped = packageFamilyName.replace(/'/g, "''");
-    // Buscamos cualquier proceso cuya ruta de ejecutable contenga el PFN
-    const psCommand = `(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '*${escaped}*' } | Select-Object -First 1 -ExpandProperty ProcessId)`;
+
+    // El PFN no aparece literalmente en la ruta de WindowsApps.
+    // PFN:  Microsoft.MinecraftUWP_8wekyb3d8bbwe
+    // Ruta: Microsoft.MinecraftUWP_1.26.6005.0_x64__8wekyb3d8bbwe\...
+    // Windows inserta versión/arquitectura entre el nombre y el publisher ID.
+    const separator = packageFamilyName.lastIndexOf('_');
+    if (separator <= 0 || separator === packageFamilyName.length - 1) return resolve(false);
+
+    const packageName = packageFamilyName.slice(0, separator).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const publisherId = packageFamilyName.slice(separator + 1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pathPattern = `${packageName}_.+__${publisherId}(\\\\|$)`;
+    const escapedPattern = pathPattern.replace(/'/g, "''");
+    const psCommand = `(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath -match '${escapedPattern}' } | Select-Object -First 1 -ExpandProperty ProcessId)`;
     exec(`powershell -NoProfile -Command "${psCommand}"`, { timeout: 8000 }, (error, stdout) => {
+      if (error) return resolve(false);
+      resolve(Boolean(stdout && stdout.trim().length > 0));
+    });
+  });
+}
+
+// ── Helpers Xbox / Game Pass ────────────────────────────────────────────────
+// Lee MicrosoftGame.Config del juego (instalado en <Unidad>:\XboxGames\<Juego>)
+// y devuelve el nombre de identidad del paquete y los .exe reales del juego.
+// Esto NO depende del escaneo AppX, así que funciona aunque éste falle.
+function parseXboxGameConfig(installDir) {
+  const result = { identityName: null, executableNames: [] };
+  if (!installDir) return result;
+  const candidates = [
+    path.join(installDir, 'Content', 'MicrosoftGame.Config'),
+    path.join(installDir, 'MicrosoftGame.Config'),
+  ];
+  for (const cfg of candidates) {
+    try {
+      if (!fs.existsSync(cfg)) continue;
+      const xml = fs.readFileSync(cfg, 'utf8');
+      const identity = xml.match(/<Identity\b[^>]*?\bName="([^"]+)"/i);
+      if (identity) result.identityName = identity[1];
+      for (const m of xml.matchAll(/<Executable\b[^>]*?\bName="([^"]+)"/gi)) {
+        const exe = path.win32.basename(m[1]).toLowerCase();
+        if (exe && !result.executableNames.includes(exe)) result.executableNames.push(exe);
+      }
+      return result;
+    } catch (_) { /* probar siguiente candidato */ }
+  }
+  return result;
+}
+
+// Obtiene el PackageFamilyName a partir del nombre de identidad del paquete.
+function resolvePackageFamilyName(identityName) {
+  return new Promise((resolve) => {
+    if (!identityName || process.platform !== 'win32') return resolve(null);
+    if (!/^[A-Za-z0-9._-]+$/.test(identityName)) return resolve(null);
+    const ps = `(Get-AppxPackage -Name '${identityName}' | Select-Object -First 1 -ExpandProperty PackageFamilyName)`;
+    const b64 = Buffer.from(ps, 'utf16le').toString('base64');
+    exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`, { timeout: 10000 }, (error, stdout) => {
+      const value = (stdout || '').trim();
+      resolve(!error && value ? value : null);
+    });
+  });
+}
+
+// Detecta si el juego Xbox/Game Pass está en ejecución. Combina tres señales:
+//  1) nombre del .exe real (MicrosoftGame.Config) — la más fiable
+//  2) ruta bajo la carpeta de instalación (XboxGames)
+//  3) ruta bajo WindowsApps\<PackageName>_<versión>__<publisher>
+// Se ignora gamelaunchhelper.exe: es un lanzador efímero que termina en
+// segundos y contaba como "juego en ejecución" (o no llegaba a verse).
+function isXboxGameProcessRunning({ installDir, packageFamilyName, packageName, executableNames }) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve(false);
+
+    let pkg = packageName || '';
+    if (!pkg && packageFamilyName) {
+      const i = packageFamilyName.lastIndexOf('_');
+      if (i > 0) pkg = packageFamilyName.slice(0, i);
+    }
+    const q = (v) => String(v || '').replace(/'/g, "''");
+    const names = (executableNames || []).map((n) => `'${q(n.toLowerCase())}'`).join(',');
+
+    const ps = `
+$ErrorActionPreference = 'SilentlyContinue'
+$names = @(${names})
+$dir = '${q(installDir)}'
+$pkg = '${q(pkg)}'
+$hit = Get-CimInstance Win32_Process | Where-Object {
+  $n = ([string]$_.Name).ToLower()
+  $p = [string]$_.ExecutablePath
+  if ($n -eq 'gamelaunchhelper.exe') { return $false }
+  if ($names.Count -gt 0 -and ($names -contains $n)) { return $true }
+  if ($p) {
+    if ($dir -and $p.StartsWith($dir, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    if ($pkg -and ($p -like ('*\\WindowsApps\\' + $pkg + '_*'))) { return $true }
+  }
+  return $false
+} | Select-Object -First 1 -ExpandProperty ProcessId
+if ($hit) { Write-Output $hit }
+`;
+    const b64 = Buffer.from(ps, 'utf16le').toString('base64');
+    exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`, { timeout: 10000 }, (error, stdout) => {
       if (error) return resolve(false);
       resolve(Boolean(stdout && stdout.trim().length > 0));
     });
@@ -2223,8 +2320,25 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
   let seenRunning = false;
   let firstSeenRunningAt = null;
   let gameExited = false;
+  let launcherSuspended = false;
 
-  // ── NUEVO: registrar juego activo + habilitar overlay ──
+  // Registrar la sesión antes de iniciar el watcher. El manager es la
+  // fuente de verdad del ciclo de vida; activeGameInfo se conserva como
+  // adaptador compatible con el overlay y el resto del código existente.
+  const sessionStart = gameSessionManager.startSession({
+    id,
+    title: gameMeta.title || sourceLabel,
+    image: gameMeta.image || null,
+    installDir,
+    appId,
+    source: sourceLabel,
+    packageFamilyName,
+  });
+  if (!sessionStart.success) {
+    console.warn('[GameSession] No se pudo iniciar sesión:', sessionStart.error);
+    return;
+  }
+
   activeGameInfo = {
     id,
     title: gameMeta.title || sourceLabel,
@@ -2234,8 +2348,8 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
     source: sourceLabel.toLowerCase(),
     nativePid: null,
   };
-  enableOverlayHotkey();
-  startGamepadOverlayListener();
+  // El overlay y la suspensión se activan cuando el watcher confirma
+  // que el proceso del juego realmente apareció, no solo al solicitar el URI.
 
   // ── Poller de logros en tiempo real ──
   // Solo para juegos Steam con appId numérico válido. Las credenciales
@@ -2253,14 +2367,13 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
     });
   })();
 
-  // Ya no tapamos la pantalla con el launcher mientras Steam/Epic arranca:
-  // aplicamos directamente el comportamiento configurado por el usuario
-  // (ocultar/minimizar/segundo plano) apenas se pide lanzar el juego.
-  suspendLauncherForGame(`juego de ${sourceLabel}`);
+  // El launcher permanece disponible mientras la plataforma prepara el juego.
 
-  const finish = () => {
+  const finish = (reason = 'process-exited') => {
     if (gameExited) return;
     gameExited = true;
+    const finishedSession = gameSessionManager.finish(reason);
+    if (!finishedSession.success && !activeGameInfo) return;
     stopSteamGameWatch(id);
     stopTrophyPoller(id); // detener polling de logros
     hideTrayIcon();
@@ -2280,29 +2393,40 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
     if (mainWindow) {
       mainWindow.setAlwaysOnTop(false);
       mainWindow.webContents.send('game-closed', id);
-      refocusLauncherAfterGame(`juego de ${sourceLabel} finalizado`);
+      if (launcherSuspended) {
+        refocusLauncherAfterGame(`juego de ${sourceLabel} finalizado`);
+      }
     }
   };
 
   const timer = setInterval(async () => {
     try {
-      // Para Xbox/UWP comprobamos tanto la carpeta de instalación como el PFN del proceso
-      let running = await isProcessRunningUnderDir(installDir);
-      if (!running && packageFamilyName) {
-        running = await isUwpProcessRunning(packageFamilyName);
-      }
-      // Tercer metodo de deteccion: buscar por el PackageFamilyName extraido del appId
-      // Cubre el caso en que installDir esta vacio y packageFamilyName tambien es null
-      // (juego añadido desde Servicios de Juegos de Microsoft sin AUMID completo).
-      if (!running && !packageFamilyName && appId && typeof appId === 'string' && appId.includes('!')) {
-        const derivedPfn = appId.split('!')[0];
-        if (derivedPfn) running = await isUwpProcessRunning(derivedPfn);
+      let running = false;
+      if (sourceLabel === 'Xbox') {
+        // Xbox/Game Pass/Store: detección por nombre de .exe + carpeta + WindowsApps
+        running = await isXboxGameProcessRunning({
+          installDir,
+          packageFamilyName,
+          packageName: extraOpts.packageName || null,
+          executableNames: extraOpts.executableNames || [],
+        });
+      } else {
+        running = await isProcessRunningUnderDir(installDir);
+        if (!running && packageFamilyName) {
+          running = await isUwpProcessRunning(packageFamilyName);
+        }
       }
       if (running) {
         consecutiveMisses = 0;
         if (!seenRunning) {
           seenRunning = true;
           firstSeenRunningAt = Date.now();
+          gameSessionManager.markRunning();
+          console.log(`[GameSession] ${gameMeta.title || sourceLabel}: RUNNING`);
+          enableOverlayHotkey();
+          startGamepadOverlayListener();
+          suspendLauncherForGame(`juego de ${sourceLabel}`);
+          launcherSuspended = true;
         }
         return;
       }
@@ -2323,7 +2447,7 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
         // lo que requerimos 3 polls consecutivos sin proceso antes de confirmar
         // el cierre, incluso fuera de la ventana de arranque.
         const isUwpWatch = !!(packageFamilyName || (sourceLabel === 'Xbox'));
-        const missesNeeded = withinStartupGrace ? MISSES_TO_CONFIRM_EXIT : (isUwpWatch ? 3 : 1);
+        const missesNeeded = withinStartupGrace ? MISSES_TO_CONFIRM_EXIT : (isUwpWatch ? 2 : 1);
         if (consecutiveMisses >= missesNeeded) {
           console.log(`[${sourceLabel}] Proceso del juego finalizado, restaurando launcher (` + appId + ')');
           finish();
@@ -2334,7 +2458,8 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
       }
       if (Date.now() - startedAt > MAX_WAIT_FOR_START_MS) {
         console.warn(`[${sourceLabel}] No se detectó el proceso del juego tras`, MAX_WAIT_FOR_START_MS / 1000, 's — restaurando launcher');
-        finish();
+        gameSessionManager.fail('start-timeout');
+        finish('start-timeout');
       }
     } catch (err) {
       console.error(`[${sourceLabel}] Error verificando proceso en ejecución:`, err);
@@ -2963,14 +3088,31 @@ $games | ConvertTo-Json -Compress
         const launchPath = aumid ? `shell:AppsFolder\\${aumid}` : '';
 
         // Si ya fue detectado por la carpeta XboxGames, enriquecerlo con el AUMID oficial
-        const existingIdx = games.findIndex(g =>
-          g.id === id ||
-          (g.packageName && item.PackageName && g.packageName.toLowerCase() === item.PackageName.toLowerCase()) ||
-          (g.title && item.Title && g.title.toLowerCase() === item.Title.toLowerCase())
-        );
+        const normalizeXboxName = (value) => String(value || '')
+          .toLowerCase()
+          .replace(/\b(for windows|windows)\b/g, '')
+          .replace(/[^a-z0-9]/g, '');
+        const appxPackageName = String(item.PackageName || '').toLowerCase();
+        const appxFamilyName = String(item.PackageFamilyName || '').toLowerCase();
+        const appxTitle = normalizeXboxName(item.Title);
+
+        const existingIdx = games.findIndex(g => {
+          const cachedPackageName = String(g.packageName || '').toLowerCase();
+          const cachedTitle = normalizeXboxName(g.title);
+          const packageMatches = cachedPackageName && appxPackageName && (
+            cachedPackageName === appxPackageName ||
+            appxFamilyName.startsWith(cachedPackageName + '_') ||
+            appxPackageName.startsWith(cachedPackageName + '.') ||
+            cachedPackageName.startsWith(appxPackageName + '.')
+          );
+          const titleMatches = cachedTitle && appxTitle && cachedTitle === appxTitle;
+          return g.id === id || packageMatches || titleMatches;
+        });
 
         if (existingIdx !== -1) {
           if (aumid) games[existingIdx].aumid = aumid;
+          if (item.PackageFamilyName) games[existingIdx].packageFamilyName = item.PackageFamilyName;
+          if (item.PackageName) games[existingIdx].storePackageName = item.PackageName;
           if (!games[existingIdx].installLocation && item.InstallLocation) {
             games[existingIdx].installLocation = item.InstallLocation;
           }
@@ -2997,6 +3139,8 @@ $games | ConvertTo-Json -Compress
             contentDir: item.InstallLocation,
             launchPath,
             aumid,
+            packageFamilyName: item.PackageFamilyName || '',
+            storePackageName: item.PackageName || '',
             logoPath,
             icon,
             packageName: pkgName,
@@ -4276,7 +4420,13 @@ app.whenReady().then(async () => {
 
   // IPC: Ejecutar un programa externo (con suspensión del launcher)
   ipcMain.handle('launch-app', async (event, id, executablePath, extraLaunchArgs) => {
-    if (!executablePath) return;
+    if (!executablePath) return { success: false, error: 'missing-executable-path' };
+
+    // Una sola sesión de juego a la vez. Evita sobrescribir watchers y
+    // referencias de procesos si el usuario pulsa dos juegos rápidamente.
+    if (gameSessionManager.hasActiveSession()) {
+      return { success: false, error: 'game-already-running' };
+    }
 
     let appRecord = null;
 
@@ -4373,10 +4523,18 @@ app.whenReady().then(async () => {
 
       // Usar tanto el installDir como el PFN para detectar el proceso del juego
       const watchDir = installDir || '';
+      const shellCfg = parseXboxGameConfig(installDir);
+      const shellCacheEntry = xboxGamesCache.find(g =>
+        (g.aumid && g.aumid.toLowerCase() === aumid.toLowerCase()) || g.id === id
+      );
       startSteamGameWatch(id, aumid, watchDir, 'Xbox', {
         title: appRecord?.title,
         image: resolveAppRecordThumbnail(appRecord),
-      }, { packageFamilyName });
+      }, {
+        packageFamilyName,
+        packageName: shellCacheEntry?.storePackageName || shellCacheEntry?.packageName || shellCfg.identityName || null,
+        executableNames: shellCfg.executableNames,
+      });
       return { success: true, suspended: true };
     }
 
@@ -4386,13 +4544,49 @@ app.whenReady().then(async () => {
       const installDir = findXboxGameInstallDir(executablePath) || path.dirname(executablePath);
       console.log('[Xbox] Lanzando ejecutable Xbox Game Pass:', executablePath, 'dir:', installDir);
 
-      // Intentar obtener el PFN desde el caché de Xbox para mejorar la detección del proceso
-      const xboxEntry = xboxGamesCache.find(g =>
-        g.installLocation && installDir && g.installLocation.toLowerCase() === installDir.toLowerCase()
+      // Obtener el PFN desde el caché de Xbox. La ruta del helper suele ser
+      // ...\XboxGames\<Juego>\Content\gamelaunchhelper.exe, mientras que
+      // InstallLocation puede terminar en la carpeta Content. Una comparación
+      // exacta deja fuera el registro y el watcher nunca encuentra el proceso
+      // real, que en Minecraft vive bajo WindowsApps.
+      const normalizeXboxPath = (value) => {
+        if (!value) return '';
+        return path.win32.normalize(String(value).replace(/\//g, '\\')).replace(/[\\]+$/, '').toLowerCase();
+      };
+      const normalizedExecutable = normalizeXboxPath(executablePath);
+      const normalizedInstallDir = normalizeXboxPath(installDir);
+      const normalizedTitle = String(appRecord?.title || '').trim().toLowerCase();
+      const xboxEntry = xboxGamesCache.find(g => {
+        const locations = [g.installLocation, g.contentDir, g.launchPath].filter(Boolean).map(normalizeXboxPath);
+        const pathMatches = locations.some(location =>
+          location === normalizedInstallDir ||
+          location.startsWith(normalizedInstallDir + '\\') ||
+          normalizedInstallDir.startsWith(location + '\\') ||
+          normalizedExecutable.startsWith(location + '\\') ||
+          location.startsWith(normalizedExecutable)
+        );
+        const titleMatches = normalizedTitle && String(g.title || '').trim().toLowerCase() === normalizedTitle;
+        return pathMatches || titleMatches;
+      });
+      let packageFamilyName = xboxEntry?.packageFamilyName || (
+        xboxEntry?.aumid?.includes('!') ? xboxEntry.aumid.split('!')[0] : null
       );
-      const packageFamilyName = xboxEntry?.aumid?.includes('!')
-        ? xboxEntry.aumid.split('!')[0]
-        : null;
+      console.log('[Xbox] Registro detectado:', xboxEntry?.title || 'no encontrado', 'PFN:', packageFamilyName || 'no disponible');
+
+      // Si el escaneo AppX no aportó el PFN, lo resolvemos ahora a partir de
+      // MicrosoftGame.Config (Identity Name) + Get-AppxPackage.
+      const xboxConfig = parseXboxGameConfig(installDir);
+      const xboxPackageName = xboxEntry?.storePackageName || xboxEntry?.packageName || xboxConfig.identityName || null;
+      if (!packageFamilyName && xboxPackageName) {
+        packageFamilyName = await resolvePackageFamilyName(xboxPackageName);
+      }
+      const xboxExecutableNames = Array.from(new Set([
+        ...(xboxEntry?.executableNames || []),
+        ...xboxConfig.executableNames,
+      ]));
+      console.log('[Xbox] Detección: package =', xboxPackageName || 'n/d',
+        '| PFN =', packageFamilyName || 'n/d',
+        '| exe =', xboxExecutableNames.join(', ') || 'n/d');
 
       const gameCwd = path.dirname(executablePath);
       spawn(executablePath, [], {
@@ -4406,7 +4600,11 @@ app.whenReady().then(async () => {
         startSteamGameWatch(id, path.basename(installDir), installDir, 'Xbox', {
           title: appRecord?.title,
           image: resolveAppRecordThumbnail(appRecord),
-        }, { packageFamilyName });
+        }, {
+          packageFamilyName,
+          packageName: xboxPackageName,
+          executableNames: xboxExecutableNames,
+        });
         return { success: true, suspended: true };
       }
     }
@@ -4467,6 +4665,10 @@ app.whenReady().then(async () => {
     const resumeLauncher = () => {
       if (gameExited) return; // Evitar doble ejecución
       gameExited = true;
+      // Cubre errores síncronos y rutas de salida donde el proceso no llegó
+      // a emitir 'close'. finish() es idempotente, por lo que no duplica la limpieza.
+      gameSessionManager.finish('native-session-ended');
+      stopSteamGameWatch(id); // también limpia el watcher de descendientes nativos
       if (hideTimer) clearTimeout(hideTimer);
       hideTrayIcon();
       // ── Limpieza de overlay y pollers tras salir del juego ──
@@ -4488,13 +4690,8 @@ app.whenReady().then(async () => {
       }
     };
 
-    // Aplicar el comportamiento configurado (ocultar/minimizar/segundo plano)
-    // tras un breve delay.
-    hideTimer = setTimeout(() => {
-      if (!gameExited && mainWindow) {
-        suspendLauncherForGame('nativo');
-      }
-    }, 1500);
+    // El launcher se suspende después del evento 'spawn', no antes de
+    // comprobar que Windows aceptó crear el proceso.
 
     // Lanzar el juego y monitorear el proceso
     try {
@@ -4513,6 +4710,18 @@ app.whenReady().then(async () => {
 
       console.log('Lanzando:', targetExe, spawnArgs);
       console.log('Directorio de trabajo:', gameCwd);
+
+      const nativeSession = gameSessionManager.startSession({
+        id,
+        title: appRecord?.title || path.basename(targetExe),
+        image: resolveAppRecordThumbnail(appRecord),
+        installDir: gameCwd,
+        source: 'native',
+      });
+      if (!nativeSession.success) {
+        if (hideTimer) clearTimeout(hideTimer);
+        return { success: false, error: nativeSession.error };
+      }
 
       const child = spawn(targetExe, spawnArgs, {
         cwd: gameCwd,
@@ -4536,13 +4745,58 @@ app.whenReady().then(async () => {
       enableOverlayHotkey();
       startGamepadOverlayListener();
 
+      child.once('spawn', () => {
+        gameSessionManager.markRunning({ nativePid: child.pid });
+        console.log(`[GameSession] ${appRecord?.title || targetExe}: RUNNING (PID ${child.pid})`);
+        hideTimer = setTimeout(() => {
+          if (!gameExited && mainWindow) suspendLauncherForGame('nativo');
+        }, 1500);
+      });
+
       child.on('error', (err) => {
         console.error('Error al iniciar el juego:', err);
+        gameSessionManager.fail('spawn-error', { error: err.message });
         resumeLauncher();
       });
 
-      child.on('close', (code) => {
-        console.log(`Juego cerrado (código: ${code})${formatExitCode(code)}`);
+      child.on('close', async (code) => {
+        console.log(`Proceso inicial finalizado (código: ${code})${formatExitCode(code)}`);
+
+        // Algunos accesos directos/launchers terminan después de delegar el
+        // arranque a otro .exe. Antes de restaurar WPS5 comprobamos si quedó
+        // algún proceso vivo dentro de la carpeta del juego.
+        let descendantStillRunning = false;
+        try {
+          descendantStillRunning = await isProcessRunningUnderDir(gameCwd);
+        } catch (_) { }
+
+        if (descendantStillRunning) {
+          console.log('[GameSession] El proceso inicial terminó, pero el juego sigue activo. Supervisando descendientes.');
+          let consecutiveMisses = 0;
+          const nativeWatcher = setInterval(async () => {
+            try {
+              const running = await isProcessRunningUnderDir(gameCwd);
+              if (running) {
+                consecutiveMisses = 0;
+                return;
+              }
+              consecutiveMisses += 1;
+              if (consecutiveMisses >= 2) {
+                clearInterval(nativeWatcher);
+                if (activeGameWatchers.get(id) === nativeWatcher) activeGameWatchers.delete(id);
+                console.log('[GameSession] No quedan procesos del juego; restaurando WPS5.');
+                gameSessionManager.finish('native-descendants-exited', { exitCode: code });
+                resumeLauncher();
+              }
+            } catch (err) {
+              console.warn('[GameSession] Error supervisando procesos descendientes:', err.message);
+            }
+          }, 3000);
+          activeGameWatchers.set(id, nativeWatcher);
+          return;
+        }
+
+        gameSessionManager.finish('native-process-closed', { exitCode: code });
         resumeLauncher();
       });
     } catch (err) {
@@ -5990,6 +6244,8 @@ app.whenReady().then(async () => {
   });
 
   // ── IPC: Overlay ─────────────────────────────────────────────────────────
+  ipcMain.handle('get-active-game-session', async () => gameSessionManager.getActiveSession());
+
   ipcMain.handle('get-active-game-info', async () => {
     if (!activeGameInfo) return null;
     return {
@@ -6003,6 +6259,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('close-current-game', async (_event, installDirArg) => {
     if (!activeGameInfo) return { success: false, error: 'No hay juego activo' };
+    gameSessionManager.markClosing();
     let ok = false;
     if (activeGameInfo.nativePid) {
       ok = await killProcessTree(activeGameInfo.nativePid);
@@ -6056,6 +6313,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('show-main-window-to-switch-game', async () => {
     hideOverlayWindow();
     if (activeGameInfo) {
+      gameSessionManager.markClosing();
       if (activeGameInfo.nativePid) {
         await killProcessTree(activeGameInfo.nativePid);
       } else if (activeGameInfo.installDir) {
@@ -6065,7 +6323,8 @@ app.whenReady().then(async () => {
     hideTrayIcon();
     disableOverlayHotkey();
     stopGamepadOverlayListener();
-    activeGameInfo = null;
+    // No borrar activeGameInfo ni la sesión aquí: el watcher/child close es
+    // quien confirma el cierre y ejecuta la limpieza final de forma única.
     restoreMainWindow();
     return { success: true };
   });
@@ -6223,6 +6482,7 @@ app.on('before-quit', () => {
   for (const id of Array.from(activeGameWatchers.keys())) {
     stopSteamGameWatch(id);
   }
+  gameSessionManager.finish('application-quit');
   if (downloadParseInterval) {
     clearInterval(downloadParseInterval);
     downloadParseInterval = null;
