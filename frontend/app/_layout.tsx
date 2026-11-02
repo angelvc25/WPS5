@@ -359,6 +359,7 @@ function RootLayoutInner() {
       L3_R3: [10, 11],
       L1_R1: [4, 5],
       L2_R2_START: [6, 7, 9],
+      PS_START: [16],
     };
 
     const parseOverlayCombo = (combo: string): number[] | null => {

@@ -75,6 +75,7 @@ const OVERLAY_COMBO_OPTIONS = [
   { id: 'L3_R3', labelKey: 'settings.comboL3R3' },
   { id: 'L1_R1', labelKey: 'settings.comboL1R1' },
   { id: 'L2_R2_START', labelKey: 'settings.comboL2R2Start' },
+  { id: 'PS_START', labelKey: 'settings.comboPsStart' },
 ] as const;
 
 // Mapeo de índice de botón (Gamepad API) a nombre legible
