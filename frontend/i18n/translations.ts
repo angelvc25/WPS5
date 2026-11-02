@@ -714,6 +714,7 @@ const es = {
 
   'overlay.resume': 'Reanudar',
   'overlay.switch': 'Cambiar juego',
+  'overlay.backToHome': 'volver al home',
   'overlay.close': 'Cerrar juego',
   'overlay.quit': 'Salir a escritorio',
   'overlay.confirmClose': '¿Cerrar? Pulsa de nuevo',
@@ -723,6 +724,7 @@ const es = {
   'toast.noPath': 'La aplicación no tiene ruta asignada.',
   'toast.error': 'Error.',
   'toast.noGameLaunched': 'Aún no has jugado a ningún juego.',
+  'toast.gameAlreadyRunning': 'El juego ya está corriendo',
 
   'edit.title': 'Editar Datos',
   'edit.basic': 'Datos Básicos',
@@ -1756,6 +1758,7 @@ const en: Record<TranslationKey, string> = {
 
   'overlay.resume': 'Resume',
   'overlay.switch': 'Switch game',
+  'overlay.backToHome': 'back to home',
   'overlay.close': 'Close game',
   'overlay.quit': 'Quit to desktop',
   'overlay.confirmClose': 'Close? Press again',
@@ -1765,6 +1768,7 @@ const en: Record<TranslationKey, string> = {
   'toast.noPath': 'The application has no path assigned.',
   'toast.error': 'Error.',
   'toast.noGameLaunched': 'You haven\'t played any games yet.',
+  'toast.gameAlreadyRunning': 'The game is already running',
 
   'edit.title': 'Edit Data',
   'edit.basic': 'Basic Data',
@@ -2793,6 +2797,7 @@ const pt: Record<TranslationKey, string> = {
 
   'overlay.resume': 'Retomar',
   'overlay.switch': 'Trocar jogo',
+  'overlay.backToHome': 'voltar à página inicial',
   'overlay.close': 'Fechar jogo',
   'overlay.quit': 'Sair para desktop',
   'overlay.confirmClose': 'Fechar? Pressione de novo',
@@ -2802,6 +2807,7 @@ const pt: Record<TranslationKey, string> = {
   'toast.noPath': 'A aplicação não tem rota atribuída.',
   'toast.error': 'Erro.',
   'toast.noGameLaunched': 'Você ainda não jogou nenhum jogo.',
+  'toast.gameAlreadyRunning': 'O jogo já está a ser executado',
 
   'edit.title': 'Editar Datos',
   'edit.basic': 'Datos Básicos',

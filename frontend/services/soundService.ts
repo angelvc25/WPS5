@@ -171,6 +171,21 @@ class SoundService {
     }
   }
 
+  /**
+   * Silencia o reactiva únicamente la música de fondo, sin afectar los
+   * efectos de sonido (navigation, activation, etc.). Útil para silenciar
+   * el launcher mientras el usuario está jugando y reanudarla al volver al Home.
+   */
+  async setBackgroundMuted(muted: boolean) {
+    if (this.backgroundSound) {
+      try {
+        this.backgroundSound.muted = muted;
+      } catch (error) {
+        console.error('Error setting background muted:', error);
+      }
+    }
+  }
+
   getSoundPackId() {
     return this.soundPackId;
   }

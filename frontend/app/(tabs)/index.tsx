@@ -461,6 +461,11 @@ export default function ConsoleHome() {
   });
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchingItem, setLaunchingItem] = useState<ConsoleItem | null>(null);
+  const [backgroundedGame, setBackgroundedGame] = useState<ConsoleItem | null>(null);
+  const backgroundedGameRef = useRef<ConsoleItem | null>(null);
+  backgroundedGameRef.current = backgroundedGame;
+  const launchingItemRef = useRef<ConsoleItem | null>(null);
+  launchingItemRef.current = launchingItem;
 
   // ─── Modo presentación (estados, refs y effects extraídos) ────────────────
   const {
@@ -803,6 +808,27 @@ export default function ConsoleHome() {
         raf2Ref.current = null;
       }
     };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !(window as any).electronAPI?.onGameBackgrounded) return;
+    const remove = (window as any).electronAPI.onGameBackgrounded((payload: any) => {
+      if (payload?.backgrounded) {
+        // El juego sigue vivo, pero el launcher vuelve a ser interactivo
+        const item = launchingItemRef.current
+          ?? ({ id: payload.game?.id, title: payload.game?.title } as ConsoleItem);
+        setBackgroundedGame(item);
+        setIsLaunching(false);
+        setLaunchingItem(null);
+        setFocusArea('main_carousel');
+      } else {
+        // Reanudando: el launcher vuelve a modo "juego en curso"
+        setLaunchingItem(backgroundedGameRef.current);
+        setIsLaunching(true);
+        setBackgroundedGame(null);
+      }
+    });
+    return () => { remove?.(); };
   }, []);
 
   // Evita que el efecto de cambio de pestaña corra en el primer render
@@ -1468,6 +1494,28 @@ export default function ConsoleHome() {
     const targetItem = item.isLastPlayed ? lastPlayedGame! : item;
     if (!targetItem || targetItem.id === '1' || targetItem.id === '5' || targetItem.id === 'more_library') return;
 
+    const handleResumeGame = async () => {
+      soundService.playActivation();
+      const res = await (window as any).electronAPI?.resumeGame?.();
+      if (!res?.success) {
+        // El juego ya no existe: limpiar estado
+        setBackgroundedGame(null);
+        setIsLaunching(false);
+        setLaunchingItem(null);
+        toastService.show(t('toast.error'));
+      }
+    };
+
+    // dentro de handleLaunchApp, tras validar targetItem:
+    if (backgroundedGameRef.current) {
+      if (String(backgroundedGameRef.current.id) === String(targetItem.id)) {
+        void handleResumeGame();
+      } else {
+        toastService.show(t('toast.gameAlreadyRunning'));
+      }
+      return;
+    }
+
     if (targetItem?.id && (!targetItem.type || targetItem.type === 'game') && !launchStartTimeRef.current[targetItem.id]) {
       launchStartTimeRef.current[targetItem.id] = Date.now();
       sessionPlaytimeRef.current[targetItem.id] = Number(targetItem.playtimeMinutes ?? targetItem.playtime_forever ?? 0);
@@ -1613,7 +1661,7 @@ export default function ConsoleHome() {
   // Escuchar suspensión del launcher para pausar videos en el DOM y sonido mientras se juega
   useEffect(() => {
     if (Platform.OS === 'web' && (window as any).electronAPI?.onLauncherSuspended) {
-      const removeListener = (window as any).electronAPI.onLauncherSuspended((suspended: boolean) => {
+      const removeListener = (window as any).electronAPI.onLauncherSuspended(async (suspended: boolean) => {
         if (suspended) {
           if (typeof document !== 'undefined') {
             document.querySelectorAll('video').forEach((v) => {
@@ -1621,6 +1669,8 @@ export default function ConsoleHome() {
             });
           }
           try { soundService.pauseBackground(); } catch (_) { }
+          // Silenciar la música de fondo mientras el juego está en foco
+          try { await soundService.setBackgroundMuted(true); } catch (_) { }
           void stopFocusAudio(false);
           if (typeof (window as any).gc === 'function') {
             try { (window as any).gc(); } catch (_) { }
@@ -1631,6 +1681,8 @@ export default function ConsoleHome() {
               try { v.play().catch(() => { }); } catch (_) { }
             });
           }
+          // Reactivar la música de fondo al volver al Home
+          try { await soundService.setBackgroundMuted(false); } catch (_) { }
           try { soundService.playBackground(); } catch (_) { }
         }
       });
@@ -1759,6 +1811,7 @@ export default function ConsoleHome() {
 
         soundService.playBackground();
         setIsLaunching(false);
+        setBackgroundedGame(null);
         setLaunchingItem(null);
         // Higiene al volver: ningún modal ni flag debe atrapar el teclado.
         setDetailVisible(false);

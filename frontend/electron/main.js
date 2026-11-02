@@ -342,8 +342,10 @@ let overlayCombo = 'SELECT_START';
 // 'background' -> dejar la ventana abierta tal cual, sin ocultar ni minimizar
 let launcherPlayBehavior = 'hide';
 let activeGameInfo = null; // { id, title, image, installDir, appId, source, nativePid }
+// true cuando el juego sigue corriendo pero el usuario está en el Home de WPS5
+let gameBackgrounded = false;
 // En Windows, 'F12' está reservado por el sistema/depurador para RegisterHotKey.
-// Usamos F11 como atajo principal y combinaciones adicionales como alternativa:
+// Usamos F10 como atajo principal y combinaciones adicionales como alternativa:
 const OVERLAY_HOTKEYS = ['F10', 'Alt+F12'];
 let activeHidDevice = null;
 let hidCheckInterval = null;
@@ -1444,6 +1446,15 @@ function createOverlayWindow() {
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setIgnoreMouseEvents(true, { forward: true });
 
+  // Diagnóstico: ver en la terminal de Electron qué pasa dentro de la ventana overlay
+  overlayWindow.webContents.on('did-finish-load', () => console.log('[Overlay] ventana cargada:', overlayWindow && overlayWindow.webContents.getURL()));
+  overlayWindow.webContents.on('did-fail-load', (_e, code, desc, url) => console.error('[Overlay] FALLÓ la carga:', code, desc, url));
+  overlayWindow.webContents.on('render-process-gone', (_e, details) => console.error('[Overlay] render process gone:', details));
+  overlayWindow.webContents.on('preload-error', (_e, p, err) => console.error('[Overlay] preload-error:', p, err));
+  overlayWindow.webContents.on('console-message', (_e, level, message, line, source) => {
+    if (level >= 2) console.error('[Overlay:renderer]', message, `(${source}:${line})`);
+  });
+
   loadOverlayContent(overlayWindow); // ← CAMBIO: antes overlayWindow.loadURL(resolveOverlayEntry())
 
   overlayWindow.on('closed', () => {
@@ -1494,7 +1505,12 @@ function showWindowsTaskbar() {
 }
 
 function showOverlay() {
+  console.log('[Overlay] showOverlay() llamado, overlayWindow existente:', !!overlayWindow && !overlayWindow.isDestroyed());
   const win = createOverlayWindow();
+  if (!win) {
+    console.error('[Overlay] showOverlay: createOverlayWindow devolvió null');
+    return;
+  }
   win.setIgnoreMouseEvents(false);
   win.show();
   win.moveTop();
@@ -1534,22 +1550,50 @@ function isOverlayVisible() {
 }
 
 function toggleOverlay() {
-  if (!overlayEnabled) return;
+  console.log('[Overlay] toggle llamado', {
+    overlayEnabled,
+    gameBackgrounded,
+    hasSession: gameSessionManager.hasActiveSession(),
+    visible: isOverlayVisible(),
+    overlayWindow: overlayWindow ? (!!overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) : null,
+  });
+  if (!overlayEnabled) {
+    console.log('[Overlay] toggle bloqueado: overlayEnabled=false');
+    return;
+  }
+  // El overlay se puede abrir tanto desde el Home (juego en segundo plano)
+  // como desde dentro del juego (tipo Game Bar). No bloqueamos por
+  // gameBackgrounded ni por sesión activa.
   if (isOverlayVisible()) {
+    console.log('[Overlay] toggle -> ocultando overlay');
     hideOverlayWindow();
   } else {
+    console.log('[Overlay] toggle -> mostrando overlay');
     showOverlay();
   }
 }
 
 function enableOverlayHotkey() {
-  if (!overlayEnabled) return;
-  if (overlayHotkeyRegistered) return;
+  if (!overlayEnabled) {
+    console.log('[Overlay] enableOverlayHotkey: saltado (overlayEnabled=false)');
+    return;
+  }
+  if (overlayHotkeyRegistered) {
+    console.log('[Overlay] enableOverlayHotkey: ya registrado, saltando');
+    return;
+  }
   let registeredCount = 0;
   for (const hotkey of OVERLAY_HOTKEYS) {
     try {
-      if (globalShortcut.register(hotkey, () => toggleOverlay())) {
+      const ok = globalShortcut.register(hotkey, () => {
+        console.log('[Overlay] globalShortcut pulsado:', hotkey);
+        toggleOverlay();
+      });
+      if (ok) {
         registeredCount++;
+        console.log('[Overlay] globalShortcut registrado OK:', hotkey);
+      } else {
+        console.warn('[Overlay] globalShortcut NO se pudo registrar (devuelto false):', hotkey);
       }
     } catch (err) {
       console.warn('[Overlay] Error registrando hotkey:', hotkey, err.message);
@@ -1557,9 +1601,9 @@ function enableOverlayHotkey() {
   }
   overlayHotkeyRegistered = registeredCount > 0;
   if (overlayHotkeyRegistered) {
-    console.log(`[Overlay] Hotkeys registrados correctamente (${registeredCount}):`, OVERLAY_HOTKEYS.join(', '));
+    console.log(`[Overlay] Hotkeys registrados (${registeredCount}):`, OVERLAY_HOTKEYS.join(', '));
   } else {
-    console.warn('[Overlay] No se pudo registrar ningún hotkey:', OVERLAY_HOTKEYS);
+    console.warn('[Overlay] No se pudo registrar ningún hotkey de teclado:', OVERLAY_HOTKEYS.join(', '));
   }
 }
 
@@ -1852,6 +1896,61 @@ if ($hit) { Write-Output $hit }
   });
 }
 
+function notifyGameBackgrounded(backgrounded) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('game-backgrounded', {
+    backgrounded,
+    game: activeGameInfo
+      ? { id: activeGameInfo.id, title: activeGameInfo.title, image: activeGameInfo.image }
+      : null,
+  });
+}
+
+// Mejor esfuerzo: trae al frente la ventana del juego (Windows).
+// Para UWP/Xbox puede no encontrar la ventana; en ese caso basta con
+// que el launcher se oculte/minimice y Windows devuelva el foco al juego.
+function focusGameWindow() {
+  if (process.platform !== 'win32' || !activeGameInfo) return;
+  const q = (v) => String(v || '').replace(/'/g, "''");
+  const pid = Number(activeGameInfo.nativePid) || 0;
+  const dir = q(activeGameInfo.installDir);
+
+  const ps = `
+$ErrorActionPreference = 'SilentlyContinue'
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class WPS5Focus {
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c);
+  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+}
+"@
+$pidHint = ${pid}
+$dir = '${dir}'
+$ids = @()
+if ($pidHint -gt 0) { $ids += $pidHint }
+if ($dir) {
+  $ids += (Get-CimInstance Win32_Process | Where-Object {
+    $_.ExecutablePath -and $_.ExecutablePath.StartsWith($dir, [System.StringComparison]::OrdinalIgnoreCase)
+  } | ForEach-Object { $_.ProcessId })
+}
+$target = $ids | ForEach-Object { Get-Process -Id $_ } |
+  Where-Object { $_.MainWindowHandle -ne 0 } |
+  Sort-Object WorkingSet64 -Descending | Select-Object -First 1
+if ($target) {
+  $h = $target.MainWindowHandle
+  if ([WPS5Focus]::IsIconic($h)) { [WPS5Focus]::ShowWindow($h, 9) | Out-Null }
+  (New-Object -ComObject WScript.Shell).AppActivate($target.Id) | Out-Null
+  [WPS5Focus]::SetForegroundWindow($h) | Out-Null
+}
+`;
+  const b64 = Buffer.from(ps, 'utf16le').toString('base64');
+  exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`, { timeout: 10000 }, (err) => {
+    if (err) console.warn('[GameSession] No se pudo enfocar la ventana del juego:', err.message);
+  });
+}
+
 // Aplica el comportamiento configurado por el usuario cuando arranca un juego.
 // Centraliza lo que antes eran dos bloques duplicados (uno en launch-app,
 // otro en startSteamGameWatch) para que 'hide' | 'minimize' | 'background'
@@ -1902,23 +2001,16 @@ function suspendLauncherForGame(sourceLabel = 'Steam') {
 // minimizado, restoreMainWindow() ya se encarga de traerlo de vuelta; si el
 // usuario eligió 'background', la ventana nunca perdió visibilidad pero puede
 // haber quedado detrás de la ventana del juego, así que solo la enfocamos.
-function refocusLauncherAfterGame(sourceLabel = 'Steam') {
+function refocusLauncherAfterGame(sourceLabel = 'Steam', { force = false } = {}) {
   if (!mainWindow) return;
-
-  // 1. Restaurar throttling para render suave a 60fps
-  try {
-    mainWindow.webContents.setBackgroundThrottling(false);
-  } catch (_) { }
-
-  // 2. Notificar al renderer para reactivar videos y UI
-  try {
-    mainWindow.webContents.send('launcher-suspended', false);
-  } catch (_) { }
-
-  // 3. Reanudar timers de fondo
+  try { mainWindow.webContents.setBackgroundThrottling(false); } catch (_) { }
+  try { mainWindow.webContents.send('launcher-suspended', false); } catch (_) { }
   resumeBackgroundTasksAfterGame();
 
-  if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
+  if (force) {
+    restoreMainWindow();
+    console.log(`Launcher al frente (${sourceLabel})`);
+  } else if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
     setTimeout(() => {
       if (mainWindow) {
         restoreMainWindow();
@@ -2384,6 +2476,7 @@ function startSteamGameWatch(id, appId, installDir, sourceLabel = 'Steam', gameM
       try { overlayWindow.destroy(); } catch (_) { }
       overlayWindow = null;
     }
+    gameBackgrounded = false;
     activeGameInfo = null;
     if (!overlayEnabled) {
       disableOverlayHotkey();
@@ -4678,6 +4771,7 @@ app.whenReady().then(async () => {
         overlayWindow = null;
       }
       stopTrophyPoller(id); // detener polling de logros
+      gameBackgrounded = false;
       activeGameInfo = null;
       if (!overlayEnabled) {
         disableOverlayHotkey();
@@ -6273,6 +6367,32 @@ app.whenReady().then(async () => {
     return { success: ok };
   });
 
+  // Volver al Home: el juego y la sesión siguen vivos (no se llama a finish()).
+  ipcMain.handle('return-to-home', async () => {
+    if (!gameSessionManager.hasActiveSession() || !activeGameInfo) {
+      return { success: false, error: 'no-active-session' };
+    }
+    hideOverlayWindow();
+    gameBackgrounded = true;
+    hideTrayIcon();
+    refocusLauncherAfterGame('volver al Home', { force: true });
+    notifyGameBackgrounded(true);
+    return { success: true };
+  });
+
+  // Reanudar: oculta WPS5 (según launcherPlayBehavior) y enfoca el juego.
+  ipcMain.handle('resume-game', async () => {
+    if (!gameSessionManager.hasActiveSession() || !activeGameInfo) {
+      gameBackgrounded = false;
+      return { success: false, error: 'no-active-session' };
+    }
+    gameBackgrounded = false;
+    notifyGameBackgrounded(false);
+    suspendLauncherForGame('reanudar juego');
+    setTimeout(focusGameWindow, 150);
+    return { success: true };
+  });
+
   ipcMain.handle('hide-overlay', async () => {
     hideOverlayWindow();
     return { success: true };
@@ -6312,6 +6432,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('show-main-window-to-switch-game', async () => {
     hideOverlayWindow();
+    gameBackgrounded = false;
     if (activeGameInfo) {
       gameSessionManager.markClosing();
       if (activeGameInfo.nativePid) {
@@ -6452,6 +6573,25 @@ app.whenReady().then(async () => {
   });
 
   createWindow();
+
+  // Cargar configuración de overlay del usuario guardado (persistencia entre reinicios).
+  // Si no hay usuario con configuración, se mantienen los valores por defecto (enabled=true, combo=SELECT_START).
+  try {
+    const dbData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    const users = dbData.users || [];
+    const savedUser = users.find((u) => u && u.settings && typeof u.settings.overlayEnabled === 'boolean');
+    if (savedUser) {
+      overlayEnabled = savedUser.settings.overlayEnabled;
+      if (savedUser.settings.overlayCombo) {
+        overlayCombo = savedUser.settings.overlayCombo;
+      }
+      console.log(`[Overlay] Config cargada del usuario "${savedUser.id || '?'}": enabled=${overlayEnabled}, combo=${overlayCombo}`);
+    } else {
+      console.log('[Overlay] Sin usuario guardado con configuración de overlay, usando valores por defecto');
+    }
+  } catch (err) {
+    console.warn('[Overlay] No se pudo cargar configuración desde db:', err.message);
+  }
 
   // Inicializar overlay en arranque si está habilitado
   if (overlayEnabled) {

@@ -119,6 +119,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('overlay-shown', listener);
     return () => ipcRenderer.removeListener('overlay-shown', listener);
   },
+
+  returnToHome: () => ipcRenderer.invoke('return-to-home'),
+  resumeGame: () => ipcRenderer.invoke('resume-game'),
+  getActiveGameSession: () => ipcRenderer.invoke('get-active-game-session'),
+  onGameBackgrounded: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('game-backgrounded', listener);
+    return () => ipcRenderer.removeListener('game-backgrounded', listener);
+  },
   // ── Trofeos en tiempo real ────────────────────────────────────────────────
   // El main process notifica al renderer cuando detecta un logro desbloqueado
   // durante la sesión de juego. El renderer reproduce el sonido.

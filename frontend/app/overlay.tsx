@@ -37,7 +37,8 @@ interface ActiveGameInfo {
     source?: 'steam' | 'epic' | 'native';
 }
 
-type GameMenuAction = 'switch' | 'close';
+type GameMenuAction = 'resume' | 'home' | 'close';
+const POPUP_ACTIONS: GameMenuAction[] = ['resume', 'home', 'close'];
 
 // ── Nav items that mirror FloatingSystemNav exactly ──────────────────────────
 // Index 0 = Home, Index 1 = Game icon (switcher slot), Index 2..N = rest
@@ -226,18 +227,18 @@ export default function OverlayScreen() {
         }
     }, [isFriendsOpen, isNotificationsOpen, isMusicOpen, isDownloadsOpen]);
 
-    const handleSwitchGame = useCallback(async () => {
+    const handleReturnHome = useCallback(async () => {
+        if (isBusy) return;
         setIsBusy(true);
         soundService.playActivation?.();
         try {
-            if (Platform.OS === 'web' && (window as any).electronAPI?.showMainWindowToSwitchGame) {
-                await (window as any).electronAPI.showMainWindowToSwitchGame();
-            }
+            await (window as any).electronAPI?.returnToHome?.();
         } finally {
             setIsBusy(false);
             setGameMenuOpen(false);
+            setConfirmingClose(false);
         }
-    }, []);
+    }, [isBusy]);
 
     const handleCloseGame = useCallback(async () => {
         if (!activeGame) return;
@@ -266,17 +267,18 @@ export default function OverlayScreen() {
 
     const handleMenuAction = useCallback((action: GameMenuAction) => {
         if (isBusy) return;
-        if (action === 'switch') {
-            void handleSwitchGame();
-        } else if (action === 'close') {
-            if (confirmingClose) {
-                void handleCloseGame();
-            } else {
-                soundService.playNavigation();
-                setConfirmingClose(true);
-            }
+        if (action === 'resume') {
+            setGameMenuOpen(false);
+            hideOverlay();
+        } else if (action === 'home') {
+            void handleReturnHome();
+        } else if (confirmingClose) {
+            void handleCloseGame();
+        } else {
+            soundService.playNavigation();
+            setConfirmingClose(true);
         }
-    }, [isBusy, confirmingClose, handleSwitchGame, handleCloseGame]);
+    }, [isBusy, confirmingClose, hideOverlay, handleReturnHome, handleCloseGame]);
 
     // ── Keyboard / gamepad navigation ──────────────────────────────────────
     useEffect(() => {
@@ -336,14 +338,10 @@ export default function OverlayScreen() {
                     setConfirmingClose(false);
                 } else if (e.key === 'ArrowDown') {
                     soundService.playNavigation();
-                    setFocusedPopupIndex(prev => Math.min(1, prev + 1));
+                    setFocusedPopupIndex(prev => Math.min(POPUP_ACTIONS.length - 1, prev + 1));
                     setConfirmingClose(false);
                 } else if (e.key === 'Enter' || e.key === ' ') {
-                    if (focusedPopupIndex === 0) {
-                        handleMenuAction('switch');
-                    } else if (focusedPopupIndex === 1) {
-                        handleMenuAction('close');
-                    }
+                    handleMenuAction(POPUP_ACTIONS[focusedPopupIndex]);
                 }
                 return;
             }
@@ -358,7 +356,7 @@ export default function OverlayScreen() {
             } else if (e.key === 'Enter' || e.key === ' ') {
                 // Activate the focused nav item
                 if (focusedNavIndex === 0) {
-                    hideOverlay();
+                    void handleReturnHome();
                 } else if (focusedNavIndex === GAME_ICON_INDEX) {
                     handleGameIconPress();
                 } else if ([2, 3, 4, 5].includes(focusedNavIndex)) {
@@ -382,6 +380,7 @@ export default function OverlayScreen() {
         handleGameIconPress,
         handleMenuAction,
         handleNavIconActivate,
+        handleReturnHome,
     ]);
 
     // ── Transparent background ─────────────────────────────────────────────
@@ -446,20 +445,20 @@ export default function OverlayScreen() {
                         exiting={FadeOut.duration(140)}
                         style={styles.gameMenuPopup}
                     >
-                        {/* Switch game */}
-                        <TouchableOpacity
-                            activeOpacity={0.75}
-                            disabled={isBusy}
-                            onPress={() => handleMenuAction('switch')}
-                            style={[styles.gameMenuRow, focusedPopupIndex === 0 && styles.gameMenuRowFocused]}
-                        >
-                            <View style={styles.gameMenuIconWrap}>
-                                <Ionicons name="swap-horizontal" size={18} color="#FFF" />
-                            </View>
-                            <Text style={styles.gameMenuLabel}>{t('overlay.switch')}</Text>
+                        <TouchableOpacity activeOpacity={0.75} disabled={isBusy}
+                            onPress={() => handleMenuAction('resume')}
+                            style={[styles.gameMenuRow, focusedPopupIndex === 0 && styles.gameMenuRowFocused]}>
+                            <View style={styles.gameMenuIconWrap}><Ionicons name="play" size={18} color="#FFF" /></View>
+                            <Text style={styles.gameMenuLabel}>{t('overlay.resume')}</Text>
                         </TouchableOpacity>
+                        <View style={styles.gameMenuDivider} />
 
-                        {/* Divider */}
+                        <TouchableOpacity activeOpacity={0.75} disabled={isBusy}
+                            onPress={() => handleMenuAction('home')}
+                            style={[styles.gameMenuRow, focusedPopupIndex === 1 && styles.gameMenuRowFocused]}>
+                            <View style={styles.gameMenuIconWrap}><Ionicons name="home" size={18} color="#FFF" /></View>
+                            <Text style={styles.gameMenuLabel}>{t('overlay.backToHome')}</Text>
+                        </TouchableOpacity>
                         <View style={styles.gameMenuDivider} />
 
                         {/* Close game */}
@@ -467,7 +466,7 @@ export default function OverlayScreen() {
                             activeOpacity={0.75}
                             disabled={isBusy}
                             onPress={() => handleMenuAction('close')}
-                            style={[styles.gameMenuRow, focusedPopupIndex === 1 && styles.gameMenuRowFocused]}
+                            style={[styles.gameMenuRow, focusedPopupIndex === 2 && styles.gameMenuRowFocused]}
                         >
                             <View style={[styles.gameMenuIconWrap, styles.gameMenuIconDanger]}>
                                 <Ionicons name="close-circle-outline" size={18} color="#FFF" />
@@ -484,7 +483,7 @@ export default function OverlayScreen() {
                     <TouchableOpacity
                         activeOpacity={0.7}
                         style={styles.iconButton}
-                        onPress={hideOverlay}
+                        onPress={() => void handleReturnHome()}
                     >
                         {focusedNavIndex === 0 ? (
                             <RadarFocusWrapper id="overlay-home" isFocused size={58} innerSize={0}>
@@ -502,7 +501,7 @@ export default function OverlayScreen() {
                         )}
                         {focusedNavIndex === 0 && (
                             <View style={styles.tooltip}>
-                                <Text style={styles.tooltipText}>{t('overlay.resume')}</Text>
+                                <Text style={styles.tooltipText}>{t('overlay.backToHome')}</Text>
                             </View>
                         )}
                     </TouchableOpacity>
