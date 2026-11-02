@@ -1487,9 +1487,17 @@ function setWindowsTaskbarVisible(visible) {
     if ($secondary -ne [IntPtr]::Zero) { [Win32Functions.Win32ShowWindow]::ShowWindow($secondary, ${showCmd}) | Out-Null }
   `.trim();
 
+  // Escribimos el script a un archivo temporal y lo ejecutamos con -File para
+  // evitar problemas de escaping de comillas al usar -Command.
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const tmpFile = path.join(os.tmpdir(), `wps5-taskbar-${showCmd}.ps1`);
   try {
-    exec(`powershell -NoProfile -WindowStyle Hidden -Command "${psScript.replace(/"/g, '\\"')}"`, (err) => {
+    fs.writeFileSync(tmpFile, psScript, 'utf8');
+    exec(`powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "${tmpFile}"`, (err) => {
       if (err) console.warn('[Overlay] No se pudo cambiar visibilidad de la taskbar:', err.message);
+      try { fs.unlinkSync(tmpFile); } catch (_) { }
     });
   } catch (err) {
     console.warn('[Overlay] Error ejecutando PowerShell para la taskbar:', err.message);
@@ -1540,6 +1548,9 @@ function showOverlay() {
 
 function hideOverlayWindow() {
   if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  // Quitar alwaysOnTop antes de ocultar para que no retenga el foco
+  // del SO y permita que el juego recupere el foco real.
+  try { overlayWindow.setAlwaysOnTop(false); } catch (_) { }
   overlayWindow.setIgnoreMouseEvents(true, { forward: true });
   overlayWindow.hide();
   showWindowsTaskbar();
@@ -1567,6 +1578,15 @@ function toggleOverlay() {
   if (isOverlayVisible()) {
     console.log('[Overlay] toggle -> ocultando overlay');
     hideOverlayWindow();
+    // Al cerrar el overlay desde dentro del juego, devolvemos el foco al
+    // juego para que sus controles funcionen. Nota: con un mando PS4 nativo
+    // (sin DS4Windows/Steam Input), el launcher pierde el foco y no puede
+    // detectar el combo del mando hasta que hagas clic en el launcher o uses
+    // Alt+Tab. Usa F10/Alt+F12 para abrir el overlay sin depender del foco.
+    gameBackgrounded = false;
+    if (activeGameInfo) {
+      focusGameWindow();
+    }
   } else {
     console.log('[Overlay] toggle -> mostrando overlay');
     showOverlay();
@@ -6424,6 +6444,15 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('hide-overlay', async () => {
     hideOverlayWindow();
+    // Al cerrar el overlay desde dentro del juego, devolvemos el foco al
+    // juego para que sus controles funcionen. Nota: con un mando PS4 nativo
+    // (sin DS4Windows/Steam Input), el launcher pierde el foco y no puede
+    // detectar el combo del mando hasta que hagas clic en el launcher o uses
+    // Alt+Tab. Usa F10/Alt+F12 para abrir el overlay sin depender del foco.
+    gameBackgrounded = false;
+    if (activeGameInfo) {
+      focusGameWindow();
+    }
     return { success: true };
   });
 
