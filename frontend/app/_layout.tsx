@@ -345,6 +345,73 @@ function RootLayoutInner() {
     };
   }, [isOverlayMode, showSplash, hasBootVideo]);
 
+  // ── Detección de combo de mando para abrir/cerrar overlay (Gamepad API) ──
+  // Complementa a xinput-watcher.exe (XInput) para que funcione también con
+  // mandos PlayStation (DS4/DualSense) conectados nativamente a Windows.
+  // Usa setInterval (no requestAnimationFrame) para seguir funcionando aunque
+  // la ventana esté en segundo plano u oculta mientras hay un juego activo.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || typeof navigator === 'undefined') return;
+    if (!activeUser || isOverlayMode) return;
+
+    const OVERLAY_COMBO_BUTTON_INDICES: Record<string, number[]> = {
+      SELECT_START: [8, 9],
+      L3_R3: [10, 11],
+      L1_R1: [4, 5],
+      L2_R2_START: [6, 7, 9],
+    };
+
+    const parseOverlayCombo = (combo: string): number[] | null => {
+      if (combo in OVERLAY_COMBO_BUTTON_INDICES) {
+        return OVERLAY_COMBO_BUTTON_INDICES[combo];
+      }
+      if (combo.startsWith('RAW:')) {
+        const indices = combo.substring(4).split(',').map(Number).filter((n) => !isNaN(n));
+        return indices.length > 0 ? indices : null;
+      }
+      return null;
+    };
+
+    const combo = (activeUser.settings as any)?.overlayCombo || 'SELECT_START';
+    const buttonIndices = parseOverlayCombo(combo);
+    if (!buttonIndices || buttonIndices.length === 0) return;
+
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let lastToggleTime = 0;
+    let comboReleased = true; // evita disparar en bucle mientras se mantienen los botones
+
+    const poll = () => {
+      const pads = navigator.getGamepads?.() ?? [];
+      for (let i = 0; i < pads.length; i++) {
+        const pad = pads[i];
+        if (!pad) continue;
+
+        const allPressed = buttonIndices.every((idx) => Boolean(pad.buttons[idx]?.pressed));
+        if (allPressed) {
+          if (comboReleased) {
+            const now = Date.now();
+            if (now - lastToggleTime > 600) {
+              lastToggleTime = now;
+              (window as any).electronAPI?.toggleOverlay?.();
+            }
+            comboReleased = false;
+          }
+          return;
+        }
+      }
+      // Ningún mando tiene el combo completo presionado: se puede volver a disparar
+      comboReleased = true;
+    };
+
+    // Poll a 30 Hz (~33 ms): suficiente para detectar pulsaciones de combo y
+    // sigue funcionando aunque la ventana esté en background u oculta.
+    intervalId = setInterval(poll, 33);
+
+    return () => {
+      if (intervalId !== null) clearInterval(intervalId);
+    };
+  }, [activeUser, isOverlayMode]);
+
   useEffect(() => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.openExternalUrl) return;
 

@@ -6398,6 +6398,11 @@ app.whenReady().then(async () => {
     return { success: true };
   });
 
+  ipcMain.handle('toggle-overlay', async () => {
+    toggleOverlay();
+    return { success: true };
+  });
+
   // ── IPC: Notificación de trofeo manual (desde el renderer al cerrar el juego) ──
   ipcMain.handle('show-trophy-notification', async (_event, achievement, gameInfo) => {
     try {
