@@ -6375,8 +6375,37 @@ app.whenReady().then(async () => {
     hideOverlayWindow();
     gameBackgrounded = true;
     hideTrayIcon();
-    refocusLauncherAfterGame('volver al Home', { force: true });
+
+    // Reanudar tareas de fondo y notificar al renderer
+    try { mainWindow.webContents.setBackgroundThrottling(false); } catch (_) { }
+    try { mainWindow.webContents.send('launcher-suspended', false); } catch (_) { }
+    resumeBackgroundTasksAfterGame();
     notifyGameBackgrounded(true);
+
+    // Función de enfoque agresivo: no forcemos fullscreen (entra en conflicto
+    // con el juego en fullscreen exclusivo). Solo mostrar, alwaysOnTop toggle y focus.
+    const forceFocusLauncher = () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.show();
+      if (process.platform === 'win32') {
+        mainWindow.setAlwaysOnTop(true);
+        mainWindow.setAlwaysOnTop(false);
+      }
+      mainWindow.focus();
+      console.log('[Return-to-Home] Enfoque de launcher forzado');
+    };
+
+    // Intento inmediato + reintentos progresivos: el juego puede retener el
+    // foco de Windows durante varios cientos de ms tras soltar el overlay.
+    forceFocusLauncher();
+    setTimeout(forceFocusLauncher, 150);
+    setTimeout(forceFocusLauncher, 400);
+    setTimeout(forceFocusLauncher, 800);
+    setTimeout(forceFocusLauncher, 1500);
+    setTimeout(forceFocusLauncher, 2500);
+
     return { success: true };
   });
 
