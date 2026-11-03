@@ -920,6 +920,17 @@ const es = {
   'notifications.noSteamAvatars': 'No se encontraron avatares de Steam.',
   'notifications.steamAvatarsDesc': 'Configura una carpeta en Ajustes → Accesibilidad → Avatares, o añade imágenes a la carpeta predeterminada.',
 
+  // ── Notificaciones estilo consola (overlay en juego) ──────────────────
+  'consoleNotif.friendPlayingTitle': 'Amigo jugando',
+  'consoleNotif.friendPlaying': '{name} comenzó a jugar {game}',
+  'consoleNotif.downloadCompletedTitle': 'Descarga completada',
+  'consoleNotif.downloadCompleted': '{game} se ha descargado',
+  'consoleNotif.gameUpdatedTitle': 'Juego actualizado',
+  'consoleNotif.gameUpdated': '{game} se ha actualizado',
+  'consoleNotif.achievementUnlockedTitle': 'Logro desbloqueado',
+  'consoleNotif.achievementUnlocked': '{achievement} en {game}',
+  'consoleNotif.systemTitle': 'Sistema',
+
   'toast.loggedPS5': 'Iniciaste sesión en tu WPS5',
   'toast.controllerDisconnected': 'Control desconectado',
   'toast.controllerConnected': 'Control conectado',
@@ -1964,6 +1975,17 @@ const en: Record<TranslationKey, string> = {
   'notifications.noSteamAvatars': 'No Steam avatars found.',
   'notifications.steamAvatarsDesc': 'Set a folder in Settings → Accessibility → Avatars, or add images to the default folder.',
 
+  // ── Console-style notifications (in-game overlay) ─────────────────────
+  'consoleNotif.friendPlayingTitle': 'Friend playing',
+  'consoleNotif.friendPlaying': '{name} started playing {game}',
+  'consoleNotif.downloadCompletedTitle': 'Download completed',
+  'consoleNotif.downloadCompleted': '{game} has been downloaded',
+  'consoleNotif.gameUpdatedTitle': 'Game updated',
+  'consoleNotif.gameUpdated': '{game} has been updated',
+  'consoleNotif.achievementUnlockedTitle': 'Achievement unlocked',
+  'consoleNotif.achievementUnlocked': '{achievement} in {game}',
+  'consoleNotif.systemTitle': 'System',
+
   'toast.loggedPS5': 'Logged in to your PS5.',
   'toast.controllerDisconnected': 'Controller disconnected',
   'toast.controllerConnected': 'Controller connected',
@@ -3003,6 +3025,17 @@ const pt: Record<TranslationKey, string> = {
   'notifications.friendProfile': 'Não foi possível abrir o perfil de Steam do seu amigo.',
   'notifications.noSteamAvatars': 'Não foram encontrados avatares do Steam.',
   'notifications.steamAvatarsDesc': 'Defina uma pasta em Configurações → Acessibilidade → Avatares, ou adicione imagens à pasta padrão.',
+
+  // ── Notificações estilo console (overlay durante o jogo) ──────────────
+  'consoleNotif.friendPlayingTitle': 'Amigo jogando',
+  'consoleNotif.friendPlaying': '{name} começou a jogar {game}',
+  'consoleNotif.downloadCompletedTitle': 'Download concluído',
+  'consoleNotif.downloadCompleted': '{game} foi baixado',
+  'consoleNotif.gameUpdatedTitle': 'Jogo atualizado',
+  'consoleNotif.gameUpdated': '{game} foi atualizado',
+  'consoleNotif.achievementUnlockedTitle': 'Conquista desbloqueada',
+  'consoleNotif.achievementUnlocked': '{achievement} em {game}',
+  'consoleNotif.systemTitle': 'Sistema',
 
   'toast.loggedPS5': 'Iniciou sessão na sua WPS5',
   'toast.controllerDisconnected': 'Controle desconectado',

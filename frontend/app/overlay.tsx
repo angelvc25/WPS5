@@ -28,6 +28,8 @@ import MusicExpandedCard from '@/components/MusicExpandedCard';
 import FriendsExpandedCard from '@/components/FriendsExpandedCard';
 import NotificationsExpandedCard from '@/components/NotificationsExpandedCard';
 import DownloadsExpandedCard from '@/components/DownloadsExpandedCard';
+import ConsoleNotificationsHost from '@/components/ConsoleNotificationsHost';
+import { useConsoleNotifications } from '@/hooks/useConsoleNotifications';
 
 interface ActiveGameInfo {
     id: string;
@@ -72,6 +74,13 @@ export default function OverlayScreen() {
     const [isFriendsOpen, setIsFriendsOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isDownloadsOpen, setIsDownloadsOpen] = useState(false);
+
+    // Notificaciones estilo consola mientras se juega: amigo jugando,
+    // descarga completada, juego actualizado, logro desbloqueado.
+    useConsoleNotifications({
+        activeAppId: activeGame?.id ?? null,
+        watchAchievementsEnabled: true,
+    });
 
     // Ancla para posicionar NotificationsExpandedCard justo encima del icono
     // de campana (mismo patrón que FloatingSystemNav.tsx).
@@ -435,6 +444,9 @@ export default function OverlayScreen() {
                 anchorTop={notificationsAnchor.top}
             />
             <DownloadsExpandedCard isOpen={isDownloadsOpen} onClose={handleCloseDownloads} />
+
+            {/* Notificaciones estilo consola (esquina superior del overlay) */}
+            <ConsoleNotificationsHost />
 
             {/* The nav bar — matches FloatingSystemNav exactly */}
             <Animated.View style={[styles.menuContainer, menuStyle]}>

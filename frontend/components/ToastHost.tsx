@@ -114,7 +114,12 @@ export default function ToastHost() {
   }, []);
 
   useEffect(() => {
-    return toastService.subscribe(show);
+    return toastService.subscribe((payload) => {
+      // Las notificaciones de consola (overlay en juego) se renderizan
+      // por separado en ConsoleNotificationsHost; no las mostramos aquí.
+      if (payload.options?.consoleType) return;
+      show(payload);
+    });
   }, [show]);
 
   if (toasts.length === 0) return null;

@@ -6,6 +6,13 @@ export interface ToastFriendRequestAction {
   displayName: string;
 }
 
+export type ConsoleNotificationType =
+  | 'friend-playing'
+  | 'download-completed'
+  | 'game-updated'
+  | 'achievement-unlocked'
+  | 'system';
+
 export interface ToastOptions {
   duration?: number;
   icon?: any;
@@ -13,6 +20,17 @@ export interface ToastOptions {
   coverImage?: any;
   saveToHistory?: boolean;
   action?: ToastFriendRequestAction;
+  // ── Notificación de consola (overlay en juego) ─────────────────────────
+  /** Tipo de notificación de consola. Si se omite, no se renderiza como consola. */
+  consoleType?: ConsoleNotificationType;
+  /** Título mostrado en la notificación de consola (usa t() del hook llamante). */
+  consoleTitle?: string;
+  /** Glyph de Ionicons como fallback cuando no hay icono. */
+  glyphName?: string;
+  /** Color de acento. */
+  accentColor?: string;
+  /** Datos extra (appId, steamid, achievement, etc.). */
+  consoleData?: any;
 }
 
 export interface ToastHistoryItem {
