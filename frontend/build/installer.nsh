@@ -31,16 +31,77 @@
 !define MUI_WELCOMEPAGE_TITLE_3LINES
 !define MUI_FINISHPAGE_TITLE_3LINES
 
-; ── Dependencias de customCheckAppRunning ──────────────────────────────────
-; customCheckAppRunning reutiliza las macros IS_POWERSHELL_AVAILABLE y
-; _CHECK_APP_RUNNING que provee electron-builder
-; (allowOnlyOneInstallerInstance.nsh). Esas macros usan getProcessInfo.nsh y
-; la variable global $pid, pero electron-builder solo las incluye/declara de
-; forma automatica cuando NO se define customCheckAppRunning. Como aqui si la
-; definimos, las proveemos nosotros. Es necesario en ambos builds: el
-; instalador y el desinstalador llaman a CHECK_APP_RUNNING.
-!include "getProcessInfo.nsh"
-Var pid
+; ── Cierre forzado de WPS5 y sus procesos auxiliares ───────────────────────
+; Causa del error "No se puede cerrar WPS5":
+;  - El filtro anterior '/FI "USERNAME eq %USERNAME%"' de taskkill exige el
+;    formato DOMINIO\usuario; con solo el nombre no coincide con ningun
+;    proceso, asi que NO mataba nada (y el 2>NUL ocultaba el mensaje).
+;  - Faltaba /T: los procesos hijos (backend de la tienda, GPU/renderer,
+;    etc.) quedaban vivos.
+;  - xinput-watcher.exe y windows-media-sessions-backend.exe son procesos
+;    auxiliares que bloquean archivos de la carpeta de instalacion si la app
+;    se cierra de forma abrupta.
+; Se hacen dos pasadas con espera para cubrir procesos que tardan en morir.
+!macro WPS5KillAppProcesses
+  nsExec::Exec 'taskkill /F /T /IM "WPS5.exe"'
+  Pop $R1
+  nsExec::Exec 'taskkill /F /T /IM "FifthStation UI.exe"'
+  Pop $R1
+  nsExec::Exec 'taskkill /F /IM "xinput-watcher.exe"'
+  Pop $R1
+  nsExec::Exec 'taskkill /F /IM "windows-media-sessions-backend.exe"'
+  Pop $R1
+  Sleep 1500
+  nsExec::Exec 'taskkill /F /T /IM "WPS5.exe"'
+  Pop $R1
+  nsExec::Exec 'taskkill /F /T /IM "FifthStation UI.exe"'
+  Pop $R1
+  Sleep 1000
+!macroend
+
+; ── Limpieza propia de la version anterior ─────────────────────────────────
+; Por que: el mensaje "No se puede cerrar WPS5 ... Reintentar" de
+; electron-builder tambien sale cuando el DESINSTALADOR DE LA VERSION VIEJA
+; termina con un codigo distinto de 0 (se ejecuta en modo silencioso /S), aunque
+; no haya ningun proceso abierto. Ese desinstalador ya esta en el equipo del
+; usuario y no se puede modificar. Para no depender de el, antes de que
+; electron-builder lo busque:
+;   1) se borra la carpeta de la instalacion previa (solo si contiene
+;      WPS5.exe o FifthStation UI.exe, para no tocar carpetas ajenas), y
+;   2) se elimina su entrada de desinstalacion del registro, de modo que
+;      electron-builder no lo invoque.
+; Los datos de usuario (AppData\FifhtStation) no se tocan. Esto se hace aqui
+; (inicio de la instalacion real) y no en customInit para no borrar nada si el
+; usuario cancela el asistente antes de instalar.
+; Solo se declara en el instalador: en la pasada del desinstalador no se usa y
+; NSIS lanzaria "warning 6001" (que electron-builder trata como error).
+!ifndef BUILD_UNINSTALLER
+  Var WPS5OldInstDir
+!endif
+
+!macro WPS5PreCleanOldInstall
+  ${If} $WPS5OldInstDir != ""
+    ${If} ${FileExists} "$WPS5OldInstDir\WPS5.exe"
+    ${OrIf} ${FileExists} "$WPS5OldInstDir\FifthStation UI.exe"
+      RMDir /r "$WPS5OldInstDir"
+    ${EndIf}
+  ${EndIf}
+
+  ${If} $INSTDIR != "$WPS5OldInstDir"
+    ${If} ${FileExists} "$INSTDIR\WPS5.exe"
+    ${OrIf} ${FileExists} "$INSTDIR\FifthStation UI.exe"
+      RMDir /r "$INSTDIR"
+    ${EndIf}
+  ${EndIf}
+
+  DeleteRegKey HKCU "${UNINSTALL_REGISTRY_KEY}"
+  DeleteRegKey HKLM "${UNINSTALL_REGISTRY_KEY}"
+  !ifdef UNINSTALL_REGISTRY_KEY_2
+    DeleteRegKey HKCU "${UNINSTALL_REGISTRY_KEY_2}"
+    DeleteRegKey HKLM "${UNINSTALL_REGISTRY_KEY_2}"
+  !endif
+  ClearErrors
+!macroend
 
 ; ── Marca de cabecera ──────────────────────────────────────────────────────
 ; Sobreescribe el BrandingText por defecto de electron-builder
@@ -132,6 +193,22 @@ Var pid
       ${EndIf}
     ${EndIf}
   ${EndIf}
+
+  ; ── Cerrar procesos previos antes de instalar (customInit) ────────────────
+  ; Se ejecuta SIEMPRE (sin depender de que exista el .exe en $INSTDIR) y
+  ; antes de que corra el desinstalador de la version vieja, para que ese
+  ; desinstalador no encuentre WPS5.exe abierto y muestre
+  ; "No se puede cerrar WPS5".
+  !insertmacro WPS5KillAppProcesses
+
+  ; Recordar la carpeta de la instalacion previa para la limpieza posterior
+  ; (WPS5PreCleanOldInstall); $R9 se pisa mas adelante, la variable no.
+  StrCpy $WPS5OldInstDir "$R9"
+!macroend
+
+; ── Cierre en el desinstalador ─────────────────────────────────────────────
+!macro customUnInit
+  !insertmacro WPS5KillAppProcesses
 !macroend
 
 ; ── Limpieza de restos heredados de FifthStation UI ────────────────────────
@@ -142,24 +219,25 @@ Var pid
   Delete "$INSTDIR\Uninstall FifthStation UI.exe"
 !macroend
 
-; ── Cierre de la app si sigue en ejecucion ─────────────────────────────────
-; Reutiliza los helpers de electron-builder para WPS5.exe y anade el cierre de
-; la app heredada FifthStation UI.exe, que _CHECK_APP_RUNNING no detecta (solo
-; busca APP_EXECUTABLE_FILENAME = WPS5.exe).
+; ── Cierre automático de la app si sigue en ejecucion ──────────────────────
+; Al actualizar sobre una version previa, si WPS5.exe (o el legado
+; FifthStation UI.exe) sigue abierto, el instalador lo termina automaticamente
+; para poder sobrescribir los archivos. Usa taskkill directo (sin verificar
+; primero con tasklist) para evitar dependencias de $CmdPath/$FindPath que a
+; veces no estan definidas en el contexto del instalador. Si el proceso no
+; existe, taskkill falla silenciosamente y se continúa igual.
+; El instalador (WPS5-Setup-*.exe) no coincide con IMAGENAME eq WPS5.exe,
+; por lo que nunca se auto-detecta ni se mata a si mismo.
 !macro customCheckAppRunning
-  !insertmacro IS_POWERSHELL_AVAILABLE
-  !insertmacro _CHECK_APP_RUNNING
+  ; customInit ya intento cerrar todo; aqui se reintenta por si la app
+  ; (o un proceso auxiliar) fue relanzada entre medias.
+  !insertmacro WPS5KillAppProcesses
 
-  nsExec::Exec `"$CmdPath" /C tasklist /FI "USERNAME eq %USERNAME%" /FI "IMAGENAME eq FifthStation UI.exe" /FO CSV | "$FindPath" "FifthStation UI.exe"`
-  Pop $R0
-  ${If} $R0 == 0
-    MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "FifthStation UI sigue en ejecucion. Cieralo para continuar la actualizacion." /SD IDOK IDOK wps5StopLegacy
-    Quit
-    wps5StopLegacy:
-    nsExec::Exec `"$CmdPath" /C taskkill /IM "FifthStation UI.exe" /FI "USERNAME eq %USERNAME%"`
-    Pop $R0
-    Sleep 800
-  ${EndIf}
+  ; Solo en el instalador (no en el desinstalador): eliminar la version
+  ; anterior nosotros mismos para no depender de su desinstalador.
+  !ifndef BUILD_UNINSTALLER
+    !insertmacro WPS5PreCleanOldInstall
+  !endif
 !macroend
 
 ; ── Funciones auxiliares (solo instalador) ─────────────────────────────────
