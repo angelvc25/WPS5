@@ -38,7 +38,6 @@ type ProfileEditSection =
   | 'name'
   | 'onlineId'
   | 'picture'
-  | 'avatar'
   | 'cover'
   | 'about'
   | 'languages';
@@ -47,7 +46,6 @@ const PROFILE_EDIT_SECTIONS: ProfileEditSection[] = [
   'name',
   'onlineId',
   'picture',
-  'avatar',
   'cover',
   'about',
   'languages',
@@ -326,6 +324,16 @@ const createProfileStyles = (s: (px: number) => number) =>
       fontSize: s(24),
       fontFamily: 'SSTBold',
     },
+    actionBtnSecondaryFocused: {
+      backgroundColor: 'rgba(255, 255, 255, 0.14)',
+      borderColor: 'rgba(255, 255, 255, 0.45)',
+    },
+    actionBtnSecondaryTextFocused: {
+      color: '#FFFFFF',
+    },
+    avatarPickerThumbFocused: {
+      borderColor: '#FFFFFF',
+    },
   });
 
 const PROFILE_RECENT_LIMIT = 3;
@@ -469,6 +477,9 @@ export default function UserProfileView({
   const [friendsGrid, setFriendsGrid] = useState<FriendsGridInfo>({ count: 0, columns: 1, usernames: [] });
 
   const [profileEditSection, setProfileEditSection] = useState<ProfileEditSection>('name');
+  // Navegación con mando en la sección de "Profile Picture"
+  const [pictureFocusArea, setPictureFocusArea] = useState<'buttons' | 'thumb'>('buttons');
+  const [pictureButtonIndex, setPictureButtonIndex] = useState(0);
   // Foco dentro del contenido del perfil: sección (índice en profileSections)
   // e item dentro de esa sección (fila en listas verticales, columna en la
   // biblioteca horizontal).
@@ -1016,7 +1027,6 @@ export default function UserProfileView({
     name: t('profile.name'),
     onlineId: t('profile.onlineId'),
     picture: t('profile.profilePicture'),
-    avatar: t('profile.avatar'),
     cover: t('profile.coverImage'),
     about: t('profile.about'),
     languages: t('profile.languages'),
@@ -1024,6 +1034,10 @@ export default function UserProfileView({
 
   const openProfileEditSection = (section: ProfileEditSection) => {
     setProfileEditSection(section);
+    if (section === 'picture') {
+      setPictureFocusArea('buttons');
+      setPictureButtonIndex(0);
+    }
     setProfileScreen('detail');
   };
 
@@ -1078,6 +1092,73 @@ export default function UserProfileView({
       }
 
       if (profileScreen === 'detail') {
+        if (profileEditSection === 'picture') {
+          const maxBtnIdx = activeUser?.settings?.steamId ? 2 : 1;
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (pictureFocusArea === 'buttons') {
+              setPictureButtonIndex((prev) => {
+                const next = Math.max(0, prev - 1);
+                if (next !== prev) soundService.playNavigation();
+                return next;
+              });
+            }
+            return;
+          }
+
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (pictureFocusArea === 'buttons') {
+              setPictureButtonIndex((prev) => {
+                const next = Math.min(maxBtnIdx, prev + 1);
+                if (next !== prev) soundService.playNavigation();
+                return next;
+              });
+            }
+            return;
+          }
+
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (pictureFocusArea !== 'thumb') {
+              setPictureFocusArea('thumb');
+              soundService.playNavigation();
+            }
+            return;
+          }
+
+          if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (pictureFocusArea === 'thumb') {
+              setPictureFocusArea('buttons');
+              soundService.playNavigation();
+            }
+            return;
+          }
+
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            soundService.playActivation?.();
+            if (pictureFocusArea === 'thumb') {
+              handleSelectAvatar();
+            } else {
+              if (pictureButtonIndex === 0) {
+                onClose();
+                onOpenAvatarModal?.();
+              } else if (pictureButtonIndex === 1) {
+                handleSelectAvatar();
+              } else if (pictureButtonIndex === 2 && activeUser?.settings?.steamId) {
+                onToggleSteamAvatar?.();
+              }
+            }
+            return;
+          }
+        }
         // Los inputs se manejan solos; no hay navegación por teclado aquí.
         return;
       }
@@ -1921,76 +2002,102 @@ export default function UserProfileView({
                 </View>
               )}
 
-              {profileEditSection === 'picture' && (
-                <View style={styles.profileDetailBlock}>
-                  <Text style={styles.editListLabel}>{t('profile.profilePicture')}</Text>
-                  <View style={styles.profilePictureRow}>
-                    <TouchableOpacity style={styles.avatarPickerThumb} onPress={handleSelectAvatar}>
-                      {userAvatarUri ? (
-                        <Image source={resolveImageSource(userAvatarUri)} style={styles.avatarPickerImg} />
-                      ) : (
-                        <Ionicons name="person" size={s(32)} color="#FFF" />
-                      )}
-                      <View style={styles.avatarEditOverlay}>
-                        <Ionicons name="camera" size={s(16)} color="#FFF" />
-                      </View>
-                    </TouchableOpacity>
-                    <View style={{ gap: 10, flex: 1 }}>
+              {profileEditSection === 'picture' && (() => {
+                const isThumbFocused = pictureFocusArea === 'thumb';
+                const isBtn0Focused = pictureFocusArea === 'buttons' && pictureButtonIndex === 0;
+                const isBtn1Focused = pictureFocusArea === 'buttons' && pictureButtonIndex === 1;
+                const isBtn2Focused = pictureFocusArea === 'buttons' && pictureButtonIndex === 2;
+                const hasSteamAvatar = Boolean(activeUser?.settings?.steamId);
+
+                return (
+                  <View style={styles.profileDetailBlock}>
+                    <Text style={styles.editListLabel}>{t('profile.profilePicture')}</Text>
+                    <View style={styles.profilePictureRow}>
                       <TouchableOpacity
-                        style={[styles.actionBtnSecondary, styles.actionBtnStretch]}
-                        onPress={() => {
-                          onClose();
-                          onOpenAvatarModal?.();
-                        }}
+                        style={[
+                          styles.avatarPickerThumb,
+                          { overflow: 'visible' },
+                          isThumbFocused && styles.avatarPickerThumbFocused,
+                        ]}
+                        activeOpacity={0.8}
+                        onPress={handleSelectAvatar}
+                        {...(Platform.OS === 'web' ? { onMouseEnter: () => setPictureFocusArea('thumb') } : {}) as any}
                       >
-                        <Ionicons name="person-circle-outline" size={s(18)} color="#FFF" />
-                        <Text style={styles.actionBtnSecondaryText}>{t('settings.chooseAvatar')}</Text>
+                        {isThumbFocused && (
+                          <SpinningBorderSearch size={s(80)} spread={3} borderRadius={s(32)} />
+                        )}
+                        <View style={{ width: '100%', height: '100%', borderRadius: s(32), overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+                          {userAvatarUri ? (
+                            <Image source={resolveImageSource(userAvatarUri)} style={styles.avatarPickerImg} />
+                          ) : (
+                            <Ionicons name="person" size={s(32)} color="#FFF" />
+                          )}
+                          <View style={styles.avatarEditOverlay}>
+                            <Ionicons name="camera" size={s(16)} color="#FFF" />
+                          </View>
+                        </View>
                       </TouchableOpacity>
-                      <TouchableOpacity style={[styles.actionBtnSecondary, styles.actionBtnStretch]} onPress={handleSelectAvatar}>
-                        <Ionicons name="image-outline" size={s(18)} color="#FFF" />
-                        <Text style={styles.actionBtnSecondaryText}>{t('settings.profilePhoto')}</Text>
-                      </TouchableOpacity>
-                      {!!activeUser?.settings?.steamId && (
+                      <View style={{ gap: 10, flex: 1 }}>
                         <TouchableOpacity
                           style={[
                             styles.actionBtnSecondary,
                             styles.actionBtnStretch,
-                            activeUser?.settings?.useSteamAvatar && { borderColor: '#1DB954' },
+                            isBtn0Focused && styles.actionBtnSecondaryFocused,
                           ]}
-                          onPress={() => onToggleSteamAvatar?.()}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            onClose();
+                            onOpenAvatarModal?.();
+                          }}
+                          {...(Platform.OS === 'web' ? { onMouseEnter: () => { setPictureFocusArea('buttons'); setPictureButtonIndex(0); } } : {}) as any}
                         >
-                          <Ionicons name="logo-steam" size={s(18)} color="#FFF" />
-                          <Text style={styles.actionBtnSecondaryText}>
-                            {t('settings.useSteamAvatar')}
-                            {activeUser?.settings?.useSteamAvatar ? ' ✓' : ''}
+                          {isBtn0Focused && <SpinningBorderSearch size={s(180)} spread={2} borderRadius={1} />}
+                          <Ionicons name="person-circle-outline" size={s(18)} color="#FFF" />
+                          <Text style={[styles.actionBtnSecondaryText, isBtn0Focused && styles.actionBtnSecondaryTextFocused]}>
+                            {t('settings.chooseAvatar')}
                           </Text>
                         </TouchableOpacity>
-                      )}
+                        <TouchableOpacity
+                          style={[
+                            styles.actionBtnSecondary,
+                            styles.actionBtnStretch,
+                            isBtn1Focused && styles.actionBtnSecondaryFocused,
+                          ]}
+                          activeOpacity={0.8}
+                          onPress={handleSelectAvatar}
+                          {...(Platform.OS === 'web' ? { onMouseEnter: () => { setPictureFocusArea('buttons'); setPictureButtonIndex(1); } } : {}) as any}
+                        >
+                          {isBtn1Focused && <SpinningBorderSearch size={s(180)} spread={2} borderRadius={1} />}
+                          <Ionicons name="image-outline" size={s(18)} color="#FFF" />
+                          <Text style={[styles.actionBtnSecondaryText, isBtn1Focused && styles.actionBtnSecondaryTextFocused]}>
+                            {t('settings.profilePhoto')}
+                          </Text>
+                        </TouchableOpacity>
+                        {hasSteamAvatar && (
+                          <TouchableOpacity
+                            style={[
+                              styles.actionBtnSecondary,
+                              styles.actionBtnStretch,
+                              activeUser?.settings?.useSteamAvatar && { borderColor: '#1DB954' },
+                              isBtn2Focused && styles.actionBtnSecondaryFocused,
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => onToggleSteamAvatar?.()}
+                            {...(Platform.OS === 'web' ? { onMouseEnter: () => { setPictureFocusArea('buttons'); setPictureButtonIndex(2); } } : {}) as any}
+                          >
+                            {isBtn2Focused && <SpinningBorderSearch size={s(180)} spread={2} borderRadius={1} />}
+                            <Ionicons name="logo-steam" size={s(18)} color="#FFF" />
+                            <Text style={[styles.actionBtnSecondaryText, isBtn2Focused && styles.actionBtnSecondaryTextFocused]}>
+                              {t('settings.useSteamAvatar')}
+                              {activeUser?.settings?.useSteamAvatar ? ' ✓' : ''}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   </View>
-                </View>
-              )}
-
-              {profileEditSection === 'avatar' && (
-                <View style={styles.profileDetailBlock}>
-                  <Text style={styles.editListLabel}>
-                    {t('profile.avatar')} & {t('settings.profileColor')}
-                  </Text>
-                  <View style={styles.colorPickerRow}>
-                    {['#FF3B30', '#00D4FF', '#FFCC00', '#4CD964', '#AF52DE', '#FF9500'].map((color) => (
-                      <TouchableOpacity
-                        key={color}
-                        style={[
-                          styles.colorCircle,
-                          { backgroundColor: color },
-                          activeUser?.color === color && styles.colorCircleActive,
-                        ]}
-                        onPress={() => updateUser({ color })}
-                      />
-                    ))}
-                  </View>
-                </View>
-              )}
+                );
+              })()}
 
               {profileEditSection === 'cover' && (
                 <View style={styles.profileDetailBlock}>
