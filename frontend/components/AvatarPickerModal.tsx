@@ -211,6 +211,7 @@ const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
   const [resolvedAvatarFolder, setResolvedAvatarFolder] = useState<string | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
   const focusIndexRef = useRef(focusIndex);
   const avatarsRef = useRef(avatars);
   const lastNavSoundRef = useRef(0);
@@ -218,7 +219,7 @@ const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
   const scale = useMemo(() => Math.min(windowWidth / 1920, windowHeight / 1080), [windowWidth, windowHeight]);
   const s = (v: number) => Math.round(v * scale);
 
-  const columns = windowWidth >= 1400 ? 6 : windowWidth >= 900 ? 4 : 2;
+  const columns = windowWidth >= 1400 ? 7 : windowWidth >= 1000 ? 5 : windowWidth >= 700 ? 4 : 2;
   const gap = s(48);
   const tileSize = Math.min(s(190), (windowWidth - s(100) * 2 - gap * (columns - 1)) / columns);
   const tileStrideX = tileSize + gap;
@@ -267,17 +268,28 @@ const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
   useEffect(() => {
     if (visible) {
       setFocusIndex(0);
+      focusIndexRef.current = 0;
+      scrollYRef.current = 0;
+      scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
       loadAvatars();
     }
   }, [visible, loadAvatars]);
 
   const scrollToFocusedTile = useCallback((index: number) => {
     const row = Math.floor(index / columns);
-    const col = index % columns;
-    const targetX = Math.max(0, col * tileStrideX - s(40));
-    const targetY = Math.max(0, row * tileStrideY - s(40));
-    scrollRef.current?.scrollTo({ x: targetX, y: targetY, animated: true });
-  }, [columns, tileStrideX, tileStrideY, s]);
+    const itemTop = row * tileStrideY;
+    const itemBottom = itemTop + tileSize;
+    const viewportHeight = windowHeight - s(240);
+    const currentScrollY = scrollYRef.current;
+
+    if (itemTop < currentScrollY + s(20)) {
+      const targetY = Math.max(0, itemTop - s(20));
+      scrollRef.current?.scrollTo({ y: targetY, animated: true });
+    } else if (itemBottom > currentScrollY + viewportHeight - s(40)) {
+      const targetY = itemBottom - viewportHeight + s(40);
+      scrollRef.current?.scrollTo({ y: targetY, animated: true });
+    }
+  }, [columns, tileStrideY, tileSize, windowHeight, s]);
 
   useEffect(() => {
     if (!visible || avatars.length === 0) return;
@@ -310,37 +322,38 @@ const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
       const currentAvatars = avatarsRef.current;
       if (currentAvatars.length === 0) return;
 
+      const total = currentAvatars.length;
+      const prev = focusIndexRef.current;
+      let next = prev;
+
       if (e.key === 'ArrowRight') {
-        playNavSound();
-        setFocusIndex(prev => {
-          const next = Math.min(prev + 1, currentAvatars.length - 1);
-          focusIndexRef.current = next;
-          return next;
-        });
+        if (prev < total - 1) {
+          next = prev + 1;
+        }
       } else if (e.key === 'ArrowLeft') {
-        playNavSound();
-        setFocusIndex(prev => {
-          const next = Math.max(prev - 1, 0);
-          focusIndexRef.current = next;
-          return next;
-        });
+        if (prev > 0) {
+          next = prev - 1;
+        }
       } else if (e.key === 'ArrowDown') {
-        playNavSound();
-        setFocusIndex(prev => {
-          const next = Math.min(prev + columns, currentAvatars.length - 1);
-          focusIndexRef.current = next;
-          return next;
-        });
+        const lastRow = Math.floor((total - 1) / columns);
+        const currentRow = Math.floor(prev / columns);
+        if (currentRow < lastRow) {
+          next = Math.min(prev + columns, total - 1);
+        }
       } else if (e.key === 'ArrowUp') {
-        playNavSound();
-        setFocusIndex(prev => {
-          const next = Math.max(prev - columns, 0);
-          focusIndexRef.current = next;
-          return next;
-        });
+        if (prev >= columns) {
+          next = prev - columns;
+        }
       } else if (e.key === 'Enter' || e.key === ' ') {
         soundService.playActivation();
         selectFocusedAvatar();
+        return;
+      }
+
+      if (next !== prev) {
+        playNavSound();
+        focusIndexRef.current = next;
+        setFocusIndex(next);
       }
     };
 
@@ -368,6 +381,8 @@ const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
       flexWrap: 'wrap',
       gap: gap,
       paddingTop: s(8),
+      width: columns * tileSize + (columns - 1) * gap,
+      maxWidth: '100%',
     },
     emptyState: {
       flex: 1,
@@ -430,7 +445,7 @@ const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
       fontSize: s(14),
       fontFamily: 'SSTLight',
     },
-  }), [s, gap]);
+  }), [s, gap, columns, tileSize]);
 
   return (
     <Modal
@@ -466,6 +481,10 @@ const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: s(80) }}
               keyboardShouldPersistTaps="handled"
+              onScroll={(e) => {
+                scrollYRef.current = e.nativeEvent.contentOffset.y;
+              }}
+              scrollEventThrottle={16}
             >
               <View style={uiStyles.grid}>
                 {avatars.map((img, idx) => (
@@ -476,8 +495,14 @@ const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                     isSelected={currentAvatarUri === img.uri}
                     shouldLoad={true}
                     tileSize={tileSize}
-                    onFocus={() => setFocusIndex(idx)}
-                    onMouseEnter={() => setFocusIndex(idx)}
+                    onFocus={() => {
+                      focusIndexRef.current = idx;
+                      setFocusIndex(idx);
+                    }}
+                    onMouseEnter={() => {
+                      focusIndexRef.current = idx;
+                      setFocusIndex(idx);
+                    }}
                     onPress={() => {
                       onSelectAvatar(img.uri);
                       onClose();
