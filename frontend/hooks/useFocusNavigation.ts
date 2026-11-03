@@ -1182,7 +1182,20 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
         if (fa === 'main_carousel') {
           const item = o.currentData[ai];
           if (item) {
-            if (item.id === 'more_library' || item.id === '1' || item.id === '5') return;
+            if (item.id === 'more_library') {
+              setFocusArea('library_grid');
+              setLibraryTabsFocused(true);
+              setLibraryFilterFocused(false);
+              setLibraryGridFocusIndex(0);
+              return;
+            }
+            if (item.id === '1') {
+              setFocusArea('welcome_widgets');
+              const firstVisible = o.row1Visible[0] ?? o.row2Visible[0] ?? 0;
+              setFocusIndex(firstVisible);
+              return;
+            }
+            if (item.id === '5') return;
             if (item.isFolder || item.isGrid) { o.setFavoritesVisible(true); return; }
             if (item.isLastPlayed) {
               if (o.lastPlayedGame && o.lastPlayedGame.id !== '1' && o.lastPlayedGame.id !== '5') {
