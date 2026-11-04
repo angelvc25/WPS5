@@ -166,7 +166,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
     if (visible) {
       galleryContentAnim.value = 0;
       galleryContentAnim.value = withTiming(1, {
-        duration: 260,
+        duration: 560,
         easing: Easing.bezier(0.16, 1, 0.3, 1),
       });
     }

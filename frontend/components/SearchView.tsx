@@ -809,7 +809,7 @@ const SearchView: React.FC<SearchViewProps> = ({
     if (visible) {
       searchContentAnim.value = 0;
       searchContentAnim.value = withTiming(1, {
-        duration: 260,
+        duration: 560,
         easing: Easing.bezier(0.16, 1, 0.3, 1),
       });
     }

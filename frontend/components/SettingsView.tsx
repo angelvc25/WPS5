@@ -1304,7 +1304,7 @@ export default function SettingsView({
       setRenderMounted(true);
       elementsAnim.value = 0;
       elementsAnim.value = withTiming(1, {
-        duration: 260,
+        duration: 560,
         easing: Easing.bezier(0.16, 1, 0.3, 1),
       });
     } else if (renderMounted) {
@@ -3254,100 +3254,100 @@ export default function SettingsView({
       {/* Main Container with Subtle Scale Pop-Up */}
       <Animated.View style={[{ flex: 1 }, settingsElementsStyle]}>
         <View style={styles.settingsBody}>
-        {currentScreen === 'main' && renderMainScreen()}
-        {currentScreen === 'guide' && renderGuideScreen()}
-        {currentScreen === 'accessibility' && renderAccessibilityScreen()}
-        {currentScreen === 'users_and_accounts' && (
-          <UserProfileView
-            visible={visible}
-            activeUser={activeUser}
-            updateUser={updateUser}
-            allUsers={allUsers}
-            onSwitchUser={onSwitchUser}
-            libraryGames={libraryGames}
-            language={language}
-            changeLanguage={changeLanguage}
-            onClose={onClose}
-            onOpenAvatarModal={onOpenAvatarModal}
-            onToggleSteamAvatar={onToggleSteamAvatar}
-            onGamePress={onGamePress}
-            onRequestBack={handleBack}
-            onOpenOnlineAuth={() => navigateToScreen('online_auth')}
-            s={s}
-            styles={styles}
-          />
-        )}
-        {currentScreen === 'emulation' && (
-          <EmulationView
-            activeUser={activeUser}
-            updateUser={updateUser}
-            libraryGames={libraryGames}
-            onBack={handleBack}
-            onGamesImported={onGamesImported}
-          />
-        )}
-        {currentScreen === 'online_auth' && (
-          <OnlineAuthView
-            activeUser={activeUser}
-            updateUser={updateUser}
-            libraryGames={libraryGames}
-            onBack={handleBack}
-          />
-        )}
-        {currentScreen === 'system' && renderSystemScreen()}
-        {currentScreen === 'themes' && (
-          <View style={styles.contentWrapper}>
-            {/* ThemeSettingsView dibuja su propio encabezado y gestiona su navegación (menú → lista/preview, acento, audio). */}
-            <ThemeSettingsView
-              gamepadConnected={gamepadConnected}
-              focused={true}
-              onExit={handleBack}
-              bleed={{ top: s(56), horizontal: s(72), bottom: s(60) }}
+          {currentScreen === 'main' && renderMainScreen()}
+          {currentScreen === 'guide' && renderGuideScreen()}
+          {currentScreen === 'accessibility' && renderAccessibilityScreen()}
+          {currentScreen === 'users_and_accounts' && (
+            <UserProfileView
+              visible={visible}
+              activeUser={activeUser}
+              updateUser={updateUser}
+              allUsers={allUsers}
+              onSwitchUser={onSwitchUser}
+              libraryGames={libraryGames}
+              language={language}
+              changeLanguage={changeLanguage}
+              onClose={onClose}
+              onOpenAvatarModal={onOpenAvatarModal}
+              onToggleSteamAvatar={onToggleSteamAvatar}
+              onGamePress={onGamePress}
+              onRequestBack={handleBack}
+              onOpenOnlineAuth={() => navigateToScreen('online_auth')}
+              s={s}
+              styles={styles}
             />
-          </View>
-        )}
-      </View>
+          )}
+          {currentScreen === 'emulation' && (
+            <EmulationView
+              activeUser={activeUser}
+              updateUser={updateUser}
+              libraryGames={libraryGames}
+              onBack={handleBack}
+              onGamesImported={onGamesImported}
+            />
+          )}
+          {currentScreen === 'online_auth' && (
+            <OnlineAuthView
+              activeUser={activeUser}
+              updateUser={updateUser}
+              libraryGames={libraryGames}
+              onBack={handleBack}
+            />
+          )}
+          {currentScreen === 'system' && renderSystemScreen()}
+          {currentScreen === 'themes' && (
+            <View style={styles.contentWrapper}>
+              {/* ThemeSettingsView dibuja su propio encabezado y gestiona su navegación (menú → lista/preview, acento, audio). */}
+              <ThemeSettingsView
+                gamepadConnected={gamepadConnected}
+                focused={true}
+                onExit={handleBack}
+                bleed={{ top: s(56), horizontal: s(72), bottom: s(60) }}
+              />
+            </View>
+          )}
+        </View>
 
-      {/* Control Prompt Bar at Bottom */}
-      {currentScreen === 'accessibility' && accessibilityLeftIndex === 8 && (
-        <View style={styles.bottomControlBarContainer2}>
+        {/* Control Prompt Bar at Bottom */}
+        {currentScreen === 'accessibility' && accessibilityLeftIndex === 8 && (
+          <View style={styles.bottomControlBarContainer2}>
+            <View style={[styles.bottomControlBar, {}]}>
+              <PSIcon
+                char={PSIcons.r1}
+                size={s(26)}
+                color={'#fff'}
+              />
+              <Text style={styles.bottomBarText}>/</Text>
+              <PSIcon
+                char={PSIcons.l1}
+                size={s(26)}
+                color={'#fff'}
+              />
+              <Text style={styles.bottomBarText}>{t('search.changeTabs')}</Text>
+            </View>
+          </View>
+        )
+        }
+
+
+
+        {/* Control Prompt Bar at Bottom */}
+        <View style={styles.bottomControlBarContainer}>
           <View style={[styles.bottomControlBar, {}]}>
             <PSIcon
-              char={PSIcons.r1}
+              char={PSIcons.cross}
               size={s(26)}
               color={'#fff'}
             />
-            <Text style={styles.bottomBarText}>/</Text>
+            <Text style={styles.bottomBarText}>{t('common.select')}</Text>
             <PSIcon
-              char={PSIcons.l1}
+              char={PSIcons.circle}
               size={s(26)}
               color={'#fff'}
             />
-            <Text style={styles.bottomBarText}>{t('search.changeTabs')}</Text>
+            <Text style={styles.bottomBarText}>{t('common.back')}</Text>
           </View>
         </View>
-      )
-      }
-
-
-
-      {/* Control Prompt Bar at Bottom */}
-      <View style={styles.bottomControlBarContainer}>
-        <View style={[styles.bottomControlBar, {}]}>
-          <PSIcon
-            char={PSIcons.cross}
-            size={s(26)}
-            color={'#fff'}
-          />
-          <Text style={styles.bottomBarText}>{t('common.select')}</Text>
-          <PSIcon
-            char={PSIcons.circle}
-            size={s(26)}
-            color={'#fff'}
-          />
-          <Text style={styles.bottomBarText}>{t('common.back')}</Text>
-        </View>
-      </View>
       </Animated.View>
 
       <VirtualKeyboard

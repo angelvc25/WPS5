@@ -526,7 +526,7 @@ export default function ConsoleHome() {
   useEffect(() => {
     if (!isAnyFullViewOpen) {
       homeTransitionAnim.value = withTiming(1, {
-        duration: 260,
+        duration: 560,
         easing: Easing.bezier(0.16, 1, 0.3, 1),
       });
     }
@@ -2763,389 +2763,389 @@ export default function ConsoleHome() {
         ]}
         pointerEvents={isAnyFullViewOpen ? 'none' : 'auto'}
       >
-      {/* MINI HEADER FOR GAME PANEL FOCUS */}
-      <Animated.View style={[styles.miniHeader, topBarMiniStyle]} pointerEvents="none">
-        {focusArea === 'library_grid' ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image source={require('@/assets/images/Libreria.jpeg')} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} />
-            <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{t('library.title')}</Text>
-          </View>
-        ) : (focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar') ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image source={currentData[activeIndex]?.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} contentFit="cover" />
-            <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{t('home.welcome')}</Text>
-          </View>
-        ) : (canPlay && activeItem && (
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} />
-            <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
-          </View>
-        ))}
-      </Animated.View>
+        {/* MINI HEADER FOR GAME PANEL FOCUS */}
+        <Animated.View style={[styles.miniHeader, topBarMiniStyle]} pointerEvents="none">
+          {focusArea === 'library_grid' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Image source={require('@/assets/images/Libreria.jpeg')} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} />
+              <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{t('library.title')}</Text>
+            </View>
+          ) : (focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar') ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Image source={currentData[activeIndex]?.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} contentFit="cover" />
+              <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{t('home.welcome')}</Text>
+            </View>
+          ) : (canPlay && activeItem && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Image source={activeItem.isLastPlayed ? (lastPlayedGame?.image ?? activeItem.image) : activeItem.image} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, opacity: 0 }} />
+              <Text style={{ color: '#FFF', fontSize: 25, fontWeight: '200', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }}>{displayTitle}</Text>
+            </View>
+          ))}
+        </Animated.View>
 
-      {/* MINI TOOLBAR â€” visible when welcome widgets are focused (PS5 style) */}
-      <Animated.View style={[styles.miniHeaderToolbar, topBarMiniStyle, presentationToolbarStyle]}>
-        {focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar' ? (
-          <View style={styles.miniToolbarRow}>
-            {[
-              { id: 'edit', icon: 'create-outline' as const, type: 'ion' as const },
-              { id: 'grid', icon: require('@/assets/images/gamesGrid2.png'), type: 'img' as const },
-              { id: 'background', icon: require('@/assets/images/cambioFondo.png'), type: 'img' as const },
-              { id: 'settings', icon: require('@/assets/images/settings.png'), type: 'img' as const },
-            ].map((item, idx) => (
-              <RadarFocusWrapper
-                key={item.id}
-                id={`wtoolbar-${item.id}`}
-                isFocused={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx}
-                size={52}
-                innerSize={40}
-                borderRadius="50%"
-              >
-                <TouchableOpacity
-                  style={[
-                    styles.headerIconBtn,
-                    focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx && styles.headerIconBtnFocused,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setFocusArea('welcome_toolbar');
-                    setToolbarFocusIndex(idx);
-                    if (idx === 0) {
-                      setIsWidgetEditOpen(prev => !prev);
-                      setWidgetEditFocusIndex(0);
-                    } else if (idx === 2) setHomeBgModalVisible(true);
-                    else if (idx === 3) openWelcomeSettings();
-                  }}
+        {/* MINI TOOLBAR â€” visible when welcome widgets are focused (PS5 style) */}
+        <Animated.View style={[styles.miniHeaderToolbar, topBarMiniStyle, presentationToolbarStyle]}>
+          {focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar' ? (
+            <View style={styles.miniToolbarRow}>
+              {[
+                { id: 'edit', icon: 'create-outline' as const, type: 'ion' as const },
+                { id: 'grid', icon: require('@/assets/images/gamesGrid2.png'), type: 'img' as const },
+                { id: 'background', icon: require('@/assets/images/cambioFondo.png'), type: 'img' as const },
+                { id: 'settings', icon: require('@/assets/images/settings.png'), type: 'img' as const },
+              ].map((item, idx) => (
+                <RadarFocusWrapper
+                  key={item.id}
+                  id={`wtoolbar-${item.id}`}
+                  isFocused={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx}
+                  size={52}
+                  innerSize={40}
+                  borderRadius="50%"
                 >
-                  {item.type === 'ion' ? (
-                    <Ionicons
-                      name={item.icon}
-                      size={30}
-                      color={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx ? '#000' : '#FFF'}
+                  <TouchableOpacity
+                    style={[
+                      styles.headerIconBtn,
+                      focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx && styles.headerIconBtnFocused,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setFocusArea('welcome_toolbar');
+                      setToolbarFocusIndex(idx);
+                      if (idx === 0) {
+                        setIsWidgetEditOpen(prev => !prev);
+                        setWidgetEditFocusIndex(0);
+                      } else if (idx === 2) setHomeBgModalVisible(true);
+                      else if (idx === 3) openWelcomeSettings();
+                    }}
+                  >
+                    {item.type === 'ion' ? (
+                      <Ionicons
+                        name={item.icon}
+                        size={30}
+                        color={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx ? '#000' : '#FFF'}
+                      />
+                    ) : (
+                      <Image
+                        source={item.icon}
+                        style={{ width: 30, height: 30, resizeMode: 'contain' }}
+                        tintColor={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx ? '#000' : '#FFF'}
+                      />
+                    )}
+                  </TouchableOpacity>
+                </RadarFocusWrapper>
+              ))}
+            </View>
+          ) : null}
+        </Animated.View>
+
+        {/* === HEADER (PS5 style) â€” fixed on top === */}
+        <Animated.View style={[styles.header, headerStyle, presentationHeaderStyle]}>
+          {/* Left: Navigation Tabs */}
+          <View style={styles.headerLeft}>
+            {/* <ControlPrompt btn="L" label="" inputMode={inputMode} /> */}
+            {TABS.map((tab, idx) => (
+              <View key={tab.id} style={styles.tabTouchable}>
+                {focusArea === 'header_tabs' && focusIndex === idx && <AnimatedSpinningBorderTabs size={100} />}
+                <TouchableOpacity
+                  id={`tab-${tab.id.toLowerCase()}`}
+                  onPress={(e) => {
+                    (e.currentTarget as any)?.blur?.();
+                    setActiveTab(tab.id);
+                    const targetIdx = tab.id === 'Games' ? 1 : 0;
+                    setActiveIndex(targetIdx);
+                    setFocusArea('main_carousel');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.navItem,
+                    activeTab === tab.id && styles.navItemActive,
+                    (focusArea === 'header_tabs' && focusIndex === idx) && styles.tabFocused
+                  ]}>
+                    {t(tab.labelKey)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            {/* <ControlPrompt btn="R" label="" inputMode={inputMode} /> */}
+          </View>
+
+          {/* Right: Icons + Avatar + Clock */}
+          <View style={styles.headerRight}>
+
+            {/* Search Icon â€” RadarFocusWrapper */}
+            <RadarFocusWrapper id="hdr-search" isFocused={focusArea === 'header_avatar' && focusIndex === 0} size={52} innerSize={40} borderRadius="50%">
+              <TouchableOpacity
+                style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 0 && styles.headerIconBtnFocused]}
+                activeOpacity={0.7}
+                onPress={() => { setFocusArea('header_avatar'); setFocusIndex(0); openSearch(); }}
+              >
+                {/* <Ionicons name="search" size={22} color="rgba(255,255,255,0.85)" /> */}
+                <Image
+                  source={require('@/assets/images/PS5_SearchIcon.png')}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    resizeMode: 'contain',
+                  }}
+                  tintColor={
+                    focusArea === 'header_avatar' && focusIndex === 0
+                      ? '#000'
+                      : '#FFF'
+                  }
+                />
+              </TouchableOpacity>
+            </RadarFocusWrapper>
+
+            {/* Settings Icon â€” RadarFocusWrapper */}
+            <RadarFocusWrapper id="hdr-settings" isFocused={focusArea === 'header_avatar' && focusIndex === 1} size={52} innerSize={40} borderRadius="50%">
+              <TouchableOpacity
+                style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 1 && styles.headerIconBtnFocused]}
+                activeOpacity={0.7}
+                onPress={() => { setUserModalVisible(false); openSettings(); }}
+              >
+                {/* <Ionicons name="settings-sharp" size={30} color="#fff" /> */}
+                <Image
+                  source={require('@/assets/images/settings.png')}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    resizeMode: 'contain',
+                  }}
+                  tintColor={
+                    focusArea === 'header_avatar' && focusIndex === 1
+                      ? '#000'
+                      : '#FFF'
+                  }
+                />
+              </TouchableOpacity>
+            </RadarFocusWrapper>
+
+            {/* Avatar / Profile â€” RadarFocusWrapper */}
+            <View style={{ position: 'relative' }}>
+              <RadarFocusWrapper id="hdr-avatar" isFocused={focusArea === 'header_avatar' && focusIndex === 2} size={52} innerSize={36} borderRadius="50%">
+                <TouchableOpacity
+                  id="avatar-btn"
+                  onPress={() => {
+                    setIsProfileMenuOpen(true);
+                    setProfileMenuFocusIndex(0);
+                    soundService.playNavigation();
+                  }}
+                  style={styles.avatarContainer}
+                  activeOpacity={0.75}
+                >
+                  {activeUser?.avatar ? (
+                    <Image
+                      source={{ uri: (activeUser?.settings?.useSteamAvatar && activeUser?.steamAvatarUrl) ? activeUser.steamAvatarUrl : ((activeUser as any).avatarBase64 || activeUser.avatar) }}
+                      style={styles.avatar}
+                      contentFit="cover"
                     />
                   ) : (
-                    <Image
-                      source={item.icon}
-                      style={{ width: 30, height: 30, resizeMode: 'contain' }}
-                      tintColor={focusArea === 'welcome_toolbar' && toolbarFocusIndex === idx ? '#000' : '#FFF'}
-                    />
+                    <View style={styles.defaultAvatarHeader}>
+                      {/* <Ionicons name="person" size={18} color="#FFF" /> */}
+                      <Image
+                        source={require('@/assets/images/ProfilePicture.png')}
+                        style={{
+                          width: 35,
+                          height: 35,
+                          resizeMode: 'contain',
+                        }}
+                      />
+                    </View>
                   )}
                 </TouchableOpacity>
               </RadarFocusWrapper>
-            ))}
-          </View>
-        ) : null}
-      </Animated.View>
-
-      {/* === HEADER (PS5 style) â€” fixed on top === */}
-      <Animated.View style={[styles.header, headerStyle, presentationHeaderStyle]}>
-        {/* Left: Navigation Tabs */}
-        <View style={styles.headerLeft}>
-          {/* <ControlPrompt btn="L" label="" inputMode={inputMode} /> */}
-          {TABS.map((tab, idx) => (
-            <View key={tab.id} style={styles.tabTouchable}>
-              {focusArea === 'header_tabs' && focusIndex === idx && <AnimatedSpinningBorderTabs size={100} />}
-              <TouchableOpacity
-                id={`tab-${tab.id.toLowerCase()}`}
-                onPress={(e) => {
-                  (e.currentTarget as any)?.blur?.();
-                  setActiveTab(tab.id);
-                  const targetIdx = tab.id === 'Games' ? 1 : 0;
-                  setActiveIndex(targetIdx);
-                  setFocusArea('main_carousel');
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.navItem,
-                  activeTab === tab.id && styles.navItemActive,
-                  (focusArea === 'header_tabs' && focusIndex === idx) && styles.tabFocused
-                ]}>
-                  {t(tab.labelKey)}
-                </Text>
-              </TouchableOpacity>
+              {/* Status dot â€” posicionado sobre la esquina inferior-derecha del avatar (36px), dentro del wrapper de 52px, offset = (52-36)/2 = 8px */}
+              <View style={[
+                styles.activeStatusDot,
+                { backgroundColor: isOnline ? '#4CD964' : '#8E8E93', bottom: 7, right: 7 }
+              ]} />
             </View>
-          ))}
-          {/* <ControlPrompt btn="R" label="" inputMode={inputMode} /> */}
-        </View>
 
-        {/* Right: Icons + Avatar + Clock */}
-        <View style={styles.headerRight}>
-
-          {/* Search Icon â€” RadarFocusWrapper */}
-          <RadarFocusWrapper id="hdr-search" isFocused={focusArea === 'header_avatar' && focusIndex === 0} size={52} innerSize={40} borderRadius="50%">
-            <TouchableOpacity
-              style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 0 && styles.headerIconBtnFocused]}
-              activeOpacity={0.7}
-              onPress={() => { setFocusArea('header_avatar'); setFocusIndex(0); openSearch(); }}
-            >
-              {/* <Ionicons name="search" size={22} color="rgba(255,255,255,0.85)" /> */}
-              <Image
-                source={require('@/assets/images/PS5_SearchIcon.png')}
-                style={{
-                  width: 24,
-                  height: 24,
-                  resizeMode: 'contain',
-                }}
-                tintColor={
-                  focusArea === 'header_avatar' && focusIndex === 0
-                    ? '#000'
-                    : '#FFF'
-                }
-              />
-            </TouchableOpacity>
-          </RadarFocusWrapper>
-
-          {/* Settings Icon â€” RadarFocusWrapper */}
-          <RadarFocusWrapper id="hdr-settings" isFocused={focusArea === 'header_avatar' && focusIndex === 1} size={52} innerSize={40} borderRadius="50%">
-            <TouchableOpacity
-              style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 1 && styles.headerIconBtnFocused]}
-              activeOpacity={0.7}
-              onPress={() => { setUserModalVisible(false); openSettings(); }}
-            >
-              {/* <Ionicons name="settings-sharp" size={30} color="#fff" /> */}
-              <Image
-                source={require('@/assets/images/settings.png')}
-                style={{
-                  width: 24,
-                  height: 24,
-                  resizeMode: 'contain',
-                }}
-                tintColor={
-                  focusArea === 'header_avatar' && focusIndex === 1
-                    ? '#000'
-                    : '#FFF'
-                }
-              />
-            </TouchableOpacity>
-          </RadarFocusWrapper>
-
-          {/* Avatar / Profile â€” RadarFocusWrapper */}
-          <View style={{ position: 'relative' }}>
-            <RadarFocusWrapper id="hdr-avatar" isFocused={focusArea === 'header_avatar' && focusIndex === 2} size={52} innerSize={36} borderRadius="50%">
-              <TouchableOpacity
-                id="avatar-btn"
-                onPress={() => {
-                  setIsProfileMenuOpen(true);
-                  setProfileMenuFocusIndex(0);
-                  soundService.playNavigation();
-                }}
-                style={styles.avatarContainer}
-                activeOpacity={0.75}
-              >
-                {activeUser?.avatar ? (
-                  <Image
-                    source={{ uri: (activeUser?.settings?.useSteamAvatar && activeUser?.steamAvatarUrl) ? activeUser.steamAvatarUrl : ((activeUser as any).avatarBase64 || activeUser.avatar) }}
-                    style={styles.avatar}
-                    contentFit="cover"
-                  />
-                ) : (
-                  <View style={styles.defaultAvatarHeader}>
-                    {/* <Ionicons name="person" size={18} color="#FFF" /> */}
-                    <Image
-                      source={require('@/assets/images/ProfilePicture.png')}
-                      style={{
-                        width: 35,
-                        height: 35,
-                        resizeMode: 'contain',
-                      }}
-                    />
-                  </View>
-                )}
-              </TouchableOpacity>
-            </RadarFocusWrapper>
-            {/* Status dot â€” posicionado sobre la esquina inferior-derecha del avatar (36px), dentro del wrapper de 52px, offset = (52-36)/2 = 8px */}
-            <View style={[
-              styles.activeStatusDot,
-              { backgroundColor: isOnline ? '#4CD964' : '#8E8E93', bottom: 7, right: 7 }
-            ]} />
+            <ClockText style={styles.timeText2} />
           </View>
-
-          <ClockText style={styles.timeText2} />
-        </View>
-      </Animated.View>
-
-      {/* Presentation mode clock â€” shown when UI is hidden */}
-      {isPresentationMode && (
-        <Animated.View style={styles.presentationClock} entering={FadeIn.duration(600)}>
-          <ClockText style={styles.timeText2} />
-        </Animated.View>
-      )}
-
-      {/* === MAIN SCROLLABLE CONTENT === */}
-      <Animated.ScrollView
-        ref={mainScrollRef}
-        scrollEnabled={!isWelcomeSettingsVisible && !isWidgetEditOpen} // <--- Deshabilita el scroll del fondo cuando la configuraciÃ³n o ediciÃ³n estÃ¡ abierta
-        style={[styles.mainContent, animatedTabContentStyle]}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={mainScrollContentStyle}
-        scrollEventThrottle={16}
-      >
-        {/* CAROUSEL ROW */}
-        <Animated.View ref={carouselSectionRef} style={[styles.carouselSection, carouselStyle, presentationCarouselStyle]}>
-          <ConsoleCarousel
-            currentData={currentData}
-            downloadsByAppId={downloadsByAppId}
-            activeIndex={activeIndex}
-            carouselKey={carouselKey}
-            lastPlayedGame={lastPlayedGame}
-            focusArea={focusArea}
-            isContextMenuOpen={isContextMenuOpen}
-            activeCardRef={activeCardRef}
-            activeCardReady={activeCardReady}
-            scrollRef={scrollRef}
-            handleAppPress={handleAppPress}
-            openContextMenu={openContextMenu}
-            setIsContextMenuOpen={setIsContextMenuOpen}
-            CARD_SIZE={CARD_SIZE}
-            ITEM_WIDTH={ITEM_WIDTH}
-            LEFT_PADDING={LEFT_PADDING}
-            RIGHT_PADDING={RIGHT_PADDING}
-            media={media}
-            games={games}
-            collapseAnim={collapseAnim}
-            isLaunching={isLaunching}
-          />
         </Animated.View>
 
-        {/* LIBRARY GRID SECTION */}
-        {isLibraryFocused && (
-          <LibraryGrid
-            ref={libraryGridRef}
-            games={displayedLibraryGames}
-            activeTab={libraryTab}
-            onTabChange={(tab) => { setLibraryTab(tab); setLibraryGridFocusIndex(0); setLibraryTabsFocused(false); setLibraryFilterFocused(false); }}
-            isLoading={loadingSteam}
-            isFocused={focusArea === 'library_grid'}
-            gridActive={focusArea === 'library_grid' && !libraryTabsFocused && !libraryFilterFocused}
-            tabsFocused={focusArea === 'library_grid' && libraryTabsFocused}
-            filterButtonFocused={focusArea === 'library_grid' && libraryFilterFocused}
-            onFilterPanelVisibilityChange={setIsLibraryFilterPanelOpen}
-            focusedIndex={libraryGridFocusIndex}
-            onItemPress={(index, game) => {
-              if (game.id === 'media_gallery') {
-                setMediaGalleryVisible(true);
-                return;
-              }
-              setSelectedItem(game);
-              setDetailVisible(true);
-            }}
-            onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}
-            installedSteamAppIds={installedSteamAppIds}
-            onVisibleGamesChange={setVisibleLibraryGames}
-            onRefresh={(updatedGame) => {
-              if (updatedGame) mergeGameIntoState(updatedGame);
-              else loadApps();
-            }}
-            onLaunch={(id, path) => {
-              const game = displayedLibraryGames.find(g => g.id === id) || (selectedItem?.id === id ? selectedItem : null);
-              if (game) handleLaunchApp(game);
-              else handleLaunchApp({ id, path } as any);
-            }}
-          />
+        {/* Presentation mode clock â€” shown when UI is hidden */}
+        {isPresentationMode && (
+          <Animated.View style={styles.presentationClock} entering={FadeIn.duration(600)}>
+            <ClockText style={styles.timeText2} />
+          </Animated.View>
         )}
 
-        {/* GAME INFO PANEL (bottom-left, PS5 style) */}
-        {!isLibraryFocused && uiReady && (
-          activeItem?.id === '1' ? (
-            !launcherSettled ? null : (
-              <Animated.View
-                key={animClockReady ? 'welcome-intro' : 'welcome-pre'}
-                style={[styles.welcomePanel, welcomePanelLayout, !animClockReady && { opacity: 0 }]}
-                entering={animClockReady ? FadeInDown.duration(500).delay(150) : undefined}
-              >
-                <Animated.View style={[gameInfoPanelStyle, presentationWidgetsStyle]}>
-                  <Animated.View style={widgetContainerStyle}>
-                    <WelcomeWidgets
-                      ref={welcomeWidgetsRef}
-                      focusArea={focusArea}
-                      focusIndex={focusIndex}
-                      setFocusArea={setFocusArea}
-                      setFocusIndex={setFocusIndex}
-                      setHomeBgModalVisible={setHomeBgModalVisible}
-                      setAddModalVisible={setAddModalVisible}
-                      setRandomSelectorVisible={setRandomSelectorVisible}
-                      gamepadInfo={gamepadInfo}
-                      storageInfo={storageInfo}
-                      lastPlayedGame={lastPlayedGame}
-                      activeUser={activeUser}
-                      handleLaunchApp={handleLaunchApp}
-                      windowWidth={windowWidth}
-                      windowHeight={windowHeight}
-                      widgetContainerStyle={widgetContainerStyle}
-                      widgetContainerStyle2={widgetContainerStyle2}
-                      wviewStyle={wviewStyle}
-                      widgetVisibility={widgetVisibility}
-                      widgetOrder={widgetOrder}
-                      widgetSizes={widgetSizes}
-                      isMoveMode={isWidgetMoveMode}
-                      movingWidgetId={movingWidgetId}
-                      editingWidgetId={editingWidgetId}
-                      storeSource={(activeUser?.settings?.storeSource as StoreSource) || 'ps5'}
-                      externalStoreOffers={storeOffers}
-                    />
-                  </Animated.View>
-                </Animated.View>
-              </Animated.View>
-            )
-          ) : activeItem?.id === '5' ? (
-            <StoreFrontPanel
-              windowWidth={windowWidth}
-              windowHeight={windowHeight}
-              gameInfoPanelStyle={gameInfoPanelStyle}
-              focusArea={focusArea}
-              gamePanelFocusIndex={gamePanelFocusIndex}
-              offers={storeOffers}
-              loading={storeLoading}
-            />
-          ) : (
-            <GameInfoPanel
-              activeItem={activeItem}
+        {/* === MAIN SCROLLABLE CONTENT === */}
+        <Animated.ScrollView
+          ref={mainScrollRef}
+          scrollEnabled={!isWelcomeSettingsVisible && !isWidgetEditOpen} // <--- Deshabilita el scroll del fondo cuando la configuraciÃ³n o ediciÃ³n estÃ¡ abierta
+          style={[styles.mainContent, animatedTabContentStyle]}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={mainScrollContentStyle}
+          scrollEventThrottle={16}
+        >
+          {/* CAROUSEL ROW */}
+          <Animated.View ref={carouselSectionRef} style={[styles.carouselSection, carouselStyle, presentationCarouselStyle]}>
+            <ConsoleCarousel
+              currentData={currentData}
+              downloadsByAppId={downloadsByAppId}
               activeIndex={activeIndex}
+              carouselKey={carouselKey}
               lastPlayedGame={lastPlayedGame}
               focusArea={focusArea}
-              gamePanelFocusIndex={gamePanelFocusIndex}
-              setGamePanelFocusIndex={setGamePanelFocusIndex}
-              setFocusArea={setFocusArea}
-              handleLaunchApp={handleLaunchApp}
-              setSelectedItem={setSelectedItem}
-              setDetailVisible={setDetailVisible}
-              onOpenConfig={(target) => {
-                setSelectedItem(target);
-                setDetailInitialEditMode(true);
+              isContextMenuOpen={isContextMenuOpen}
+              activeCardRef={activeCardRef}
+              activeCardReady={activeCardReady}
+              scrollRef={scrollRef}
+              handleAppPress={handleAppPress}
+              openContextMenu={openContextMenu}
+              setIsContextMenuOpen={setIsContextMenuOpen}
+              CARD_SIZE={CARD_SIZE}
+              ITEM_WIDTH={ITEM_WIDTH}
+              LEFT_PADDING={LEFT_PADDING}
+              RIGHT_PADDING={RIGHT_PADDING}
+              media={media}
+              games={games}
+              collapseAnim={collapseAnim}
+              isLaunching={isLaunching}
+            />
+          </Animated.View>
+
+          {/* LIBRARY GRID SECTION */}
+          {isLibraryFocused && (
+            <LibraryGrid
+              ref={libraryGridRef}
+              games={displayedLibraryGames}
+              activeTab={libraryTab}
+              onTabChange={(tab) => { setLibraryTab(tab); setLibraryGridFocusIndex(0); setLibraryTabsFocused(false); setLibraryFilterFocused(false); }}
+              isLoading={loadingSteam}
+              isFocused={focusArea === 'library_grid'}
+              gridActive={focusArea === 'library_grid' && !libraryTabsFocused && !libraryFilterFocused}
+              tabsFocused={focusArea === 'library_grid' && libraryTabsFocused}
+              filterButtonFocused={focusArea === 'library_grid' && libraryFilterFocused}
+              onFilterPanelVisibilityChange={setIsLibraryFilterPanelOpen}
+              focusedIndex={libraryGridFocusIndex}
+              onItemPress={(index, game) => {
+                if (game.id === 'media_gallery') {
+                  setMediaGalleryVisible(true);
+                  return;
+                }
+                setSelectedItem(game);
                 setDetailVisible(true);
               }}
-              onOpenTrophies={() => {
-                const target = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
-                setTrophiesItem(target ?? null);
-                setTrophiesVisible(true);
-              }}
-              steamMedia={steamMedia}
-              mediaLoading={mediaLoading}
-              setSelectedMediaIndex={setSelectedMediaIndex}
-              steamNews={steamNews}
-              newsLoading={newsLoading}
-              activeUser={activeUser}
-              windowWidth={windowWidth}
-              windowHeight={windowHeight}
-              gameInfoPanelStyle={gameInfoPanelStyle}
-              activeDownload={activeDownload}
-              onAchievementCountChange={setAchievementCount}
-              spacerStyle={spacerStyle}
-              infoCardsStyle={infoCardsStyle}
-              topPanelStyle={topPanelStyle}
+              onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}
               installedSteamAppIds={installedSteamAppIds}
+              onVisibleGamesChange={setVisibleLibraryGames}
+              onRefresh={(updatedGame) => {
+                if (updatedGame) mergeGameIntoState(updatedGame);
+                else loadApps();
+              }}
+              onLaunch={(id, path) => {
+                const game = displayedLibraryGames.find(g => g.id === id) || (selectedItem?.id === id ? selectedItem : null);
+                if (game) handleLaunchApp(game);
+                else handleLaunchApp({ id, path } as any);
+              }}
             />
-          )
-        )}
-      </Animated.ScrollView>
+          )}
 
-      <ThemeCharacterOverlay
-        theme={visualTheme}
-        visible={showThemeForeground}
-        bleed={BG_SLIDE_PX}
-        clipBottom={clipForegroundToCarousel ? (carouselClipBottom ?? CARD_SIZE + 80 + Math.round(windowHeight * 0.12)) : null}
-      />
+          {/* GAME INFO PANEL (bottom-left, PS5 style) */}
+          {!isLibraryFocused && uiReady && (
+            activeItem?.id === '1' ? (
+              !launcherSettled ? null : (
+                <Animated.View
+                  key={animClockReady ? 'welcome-intro' : 'welcome-pre'}
+                  style={[styles.welcomePanel, welcomePanelLayout, !animClockReady && { opacity: 0 }]}
+                  entering={animClockReady ? FadeInDown.duration(500).delay(150) : undefined}
+                >
+                  <Animated.View style={[gameInfoPanelStyle, presentationWidgetsStyle]}>
+                    <Animated.View style={widgetContainerStyle}>
+                      <WelcomeWidgets
+                        ref={welcomeWidgetsRef}
+                        focusArea={focusArea}
+                        focusIndex={focusIndex}
+                        setFocusArea={setFocusArea}
+                        setFocusIndex={setFocusIndex}
+                        setHomeBgModalVisible={setHomeBgModalVisible}
+                        setAddModalVisible={setAddModalVisible}
+                        setRandomSelectorVisible={setRandomSelectorVisible}
+                        gamepadInfo={gamepadInfo}
+                        storageInfo={storageInfo}
+                        lastPlayedGame={lastPlayedGame}
+                        activeUser={activeUser}
+                        handleLaunchApp={handleLaunchApp}
+                        windowWidth={windowWidth}
+                        windowHeight={windowHeight}
+                        widgetContainerStyle={widgetContainerStyle}
+                        widgetContainerStyle2={widgetContainerStyle2}
+                        wviewStyle={wviewStyle}
+                        widgetVisibility={widgetVisibility}
+                        widgetOrder={widgetOrder}
+                        widgetSizes={widgetSizes}
+                        isMoveMode={isWidgetMoveMode}
+                        movingWidgetId={movingWidgetId}
+                        editingWidgetId={editingWidgetId}
+                        storeSource={(activeUser?.settings?.storeSource as StoreSource) || 'ps5'}
+                        externalStoreOffers={storeOffers}
+                      />
+                    </Animated.View>
+                  </Animated.View>
+                </Animated.View>
+              )
+            ) : activeItem?.id === '5' ? (
+              <StoreFrontPanel
+                windowWidth={windowWidth}
+                windowHeight={windowHeight}
+                gameInfoPanelStyle={gameInfoPanelStyle}
+                focusArea={focusArea}
+                gamePanelFocusIndex={gamePanelFocusIndex}
+                offers={storeOffers}
+                loading={storeLoading}
+              />
+            ) : (
+              <GameInfoPanel
+                activeItem={activeItem}
+                activeIndex={activeIndex}
+                lastPlayedGame={lastPlayedGame}
+                focusArea={focusArea}
+                gamePanelFocusIndex={gamePanelFocusIndex}
+                setGamePanelFocusIndex={setGamePanelFocusIndex}
+                setFocusArea={setFocusArea}
+                handleLaunchApp={handleLaunchApp}
+                setSelectedItem={setSelectedItem}
+                setDetailVisible={setDetailVisible}
+                onOpenConfig={(target) => {
+                  setSelectedItem(target);
+                  setDetailInitialEditMode(true);
+                  setDetailVisible(true);
+                }}
+                onOpenTrophies={() => {
+                  const target = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
+                  setTrophiesItem(target ?? null);
+                  setTrophiesVisible(true);
+                }}
+                steamMedia={steamMedia}
+                mediaLoading={mediaLoading}
+                setSelectedMediaIndex={setSelectedMediaIndex}
+                steamNews={steamNews}
+                newsLoading={newsLoading}
+                activeUser={activeUser}
+                windowWidth={windowWidth}
+                windowHeight={windowHeight}
+                gameInfoPanelStyle={gameInfoPanelStyle}
+                activeDownload={activeDownload}
+                onAchievementCountChange={setAchievementCount}
+                spacerStyle={spacerStyle}
+                infoCardsStyle={infoCardsStyle}
+                topPanelStyle={topPanelStyle}
+                installedSteamAppIds={installedSteamAppIds}
+              />
+            )
+          )}
+        </Animated.ScrollView>
+
+        <ThemeCharacterOverlay
+          theme={visualTheme}
+          visible={showThemeForeground}
+          bleed={BG_SLIDE_PX}
+          clipBottom={clipForegroundToCarousel ? (carouselClipBottom ?? CARD_SIZE + 80 + Math.round(windowHeight * 0.12)) : null}
+        />
       </Animated.View>
 
       {/* WPS5 UI EXPANSION COMPONENTS */}

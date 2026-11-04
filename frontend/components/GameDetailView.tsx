@@ -143,7 +143,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
     if (isVisible) {
       detailContentAnim.value = 0;
       detailContentAnim.value = withTiming(1, {
-        duration: 260,
+        duration: 560,
         easing: Easing.bezier(0.16, 1, 0.3, 1),
       });
     }
@@ -1960,85 +1960,85 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
 
           {/* MAIN ELEMENTS: with subtle scale pop-up */}
           <Animated.View style={[StyleSheet.absoluteFill, detailContentAnimatedStyle]} pointerEvents="box-none">
-          {/* TOP LEFT: game cover + title (replaces back/escape button) */}
-          <View style={styles.topHeader}>
-            {(editData.image || item.image) && (
-              <Image
-                recyclingKey={item.id}
-                source={resolveEditSource(editData.image) ?? item.image}
-                style={styles.topHeaderImage}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                transition={{ effect: 'cross-dissolve', duration: 250 }}
-              />
+            {/* TOP LEFT: game cover + title (replaces back/escape button) */}
+            <View style={styles.topHeader}>
+              {(editData.image || item.image) && (
+                <Image
+                  recyclingKey={item.id}
+                  source={resolveEditSource(editData.image) ?? item.image}
+                  style={styles.topHeaderImage}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={{ effect: 'cross-dissolve', duration: 250 }}
+                />
+              )}
+              <Text style={styles.topHeaderTitle} numberOfLines={1}>{editData.title || item.title}</Text>
+            </View>
+
+            {/* DARK OVERLAY — se oscurece al enfocar cards */}
+            {Platform.OS === 'web' && (
+              <Animated.View style={[{
+                position: 'absolute', inset: 0, zIndex: 2,
+                backgroundColor: '#000',
+                pointerEvents: 'none',
+              } as any, darkOverlayStyle]} />
             )}
-            <Text style={styles.topHeaderTitle} numberOfLines={1}>{editData.title || item.title}</Text>
-          </View>
 
-          {/* DARK OVERLAY — se oscurece al enfocar cards */}
-          {Platform.OS === 'web' && (
-            <Animated.View style={[{
-              position: 'absolute', inset: 0, zIndex: 2,
-              backgroundColor: '#000',
-              pointerEvents: 'none',
-            } as any, darkOverlayStyle]} />
-          )}
-
-          {/* BOTTOM INFO PANEL — scrollable */}
-          <ScrollView
-            ref={bottomScrollRef}
-            style={styles.ps5BottomPanel}
-            contentContainerStyle={{ paddingBottom: 80 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <Animated.View style={scrollPaddingStyle}>
-              <GameInfoPanel
-                activeItem={{
-                  ...item,
-                  ...editData,
-                  image: resolveEditSource(editData.image) ?? item.image,
-                  logo: resolveEditSource(editData.logo) ?? item.logo,
-                  backgroundImage: resolveEditSource(editData.backgroundImage) ?? item.backgroundImage,
-                } as ConsoleItem}
-                activeIndex={0}
-                lastPlayedGame={null}
-                focusArea="game_panel"
-                gamePanelFocusIndex={focusIndex}
-                setGamePanelFocusIndex={setFocusIndex}
-                setFocusArea={() => { }}
-                handleLaunchApp={async () => {
-                  const launchPath = resolveSteamLaunchPath({ ...item, ...editData } as ConsoleItem, installedSteamAppIds);
-                  if (launchPath) {
-                    if (onLaunch) onLaunch(item.id, launchPath, editData.launchArgs ?? item.launchArgs);
-                    else if (Platform.OS === 'web' && (window as any).electronAPI)
-                      (window as any).electronAPI.launchApp(item.id, launchPath, editData.launchArgs ?? item.launchArgs);
-                  } else {
-                    setActiveTab('path');
-                    setEditModalVisible(true);
-                  }
-                }}
-                setSelectedItem={() => { }}
-                setDetailVisible={setEditModalVisible}
-                onOpenConfig={() => setEditModalVisible(true)}
-                steamMedia={steamMedia}
-                mediaLoading={mediaLoading}
-                setSelectedMediaIndex={setSelectedMediaIndex}
-                steamNews={steamNews}
-                newsLoading={newsLoading}
-                activeUser={activeUser}
-                windowWidth={windowWidth}
-                windowHeight={windowHeight}
-                gameInfoPanelStyle={{}}
-                spacerStyle={{}}
-                infoCardsStyle={infoCardsStyle}
-                topPanelStyle={topPanelStyle}
-                installedSteamAppIds={installedSteamAppIds}
-                onAchievementCountChange={setAchievementCount}
-                onOpenMediaGallery={onOpenMediaGallery}
-                onOpenTrophies={onOpenTrophies}
-              />
-            </Animated.View>
-          </ScrollView>
+            {/* BOTTOM INFO PANEL — scrollable */}
+            <ScrollView
+              ref={bottomScrollRef}
+              style={styles.ps5BottomPanel}
+              contentContainerStyle={{ paddingBottom: 80 }}
+              showsVerticalScrollIndicator={false}
+            >
+              <Animated.View style={scrollPaddingStyle}>
+                <GameInfoPanel
+                  activeItem={{
+                    ...item,
+                    ...editData,
+                    image: resolveEditSource(editData.image) ?? item.image,
+                    logo: resolveEditSource(editData.logo) ?? item.logo,
+                    backgroundImage: resolveEditSource(editData.backgroundImage) ?? item.backgroundImage,
+                  } as ConsoleItem}
+                  activeIndex={0}
+                  lastPlayedGame={null}
+                  focusArea="game_panel"
+                  gamePanelFocusIndex={focusIndex}
+                  setGamePanelFocusIndex={setFocusIndex}
+                  setFocusArea={() => { }}
+                  handleLaunchApp={async () => {
+                    const launchPath = resolveSteamLaunchPath({ ...item, ...editData } as ConsoleItem, installedSteamAppIds);
+                    if (launchPath) {
+                      if (onLaunch) onLaunch(item.id, launchPath, editData.launchArgs ?? item.launchArgs);
+                      else if (Platform.OS === 'web' && (window as any).electronAPI)
+                        (window as any).electronAPI.launchApp(item.id, launchPath, editData.launchArgs ?? item.launchArgs);
+                    } else {
+                      setActiveTab('path');
+                      setEditModalVisible(true);
+                    }
+                  }}
+                  setSelectedItem={() => { }}
+                  setDetailVisible={setEditModalVisible}
+                  onOpenConfig={() => setEditModalVisible(true)}
+                  steamMedia={steamMedia}
+                  mediaLoading={mediaLoading}
+                  setSelectedMediaIndex={setSelectedMediaIndex}
+                  steamNews={steamNews}
+                  newsLoading={newsLoading}
+                  activeUser={activeUser}
+                  windowWidth={windowWidth}
+                  windowHeight={windowHeight}
+                  gameInfoPanelStyle={{}}
+                  spacerStyle={{}}
+                  infoCardsStyle={infoCardsStyle}
+                  topPanelStyle={topPanelStyle}
+                  installedSteamAppIds={installedSteamAppIds}
+                  onAchievementCountChange={setAchievementCount}
+                  onOpenMediaGallery={onOpenMediaGallery}
+                  onOpenTrophies={onOpenTrophies}
+                />
+              </Animated.View>
+            </ScrollView>
           </Animated.View>
 
           {isLaunching && item && (

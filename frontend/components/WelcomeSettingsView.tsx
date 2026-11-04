@@ -28,7 +28,7 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
     if (visible) {
       welcomeContentAnim.value = 0;
       welcomeContentAnim.value = withTiming(1, {
-        duration: 260,
+        duration: 560,
         easing: Easing.bezier(0.16, 1, 0.3, 1),
       });
     }
