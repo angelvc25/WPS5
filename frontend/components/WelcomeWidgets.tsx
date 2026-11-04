@@ -172,6 +172,12 @@ const moveArrowStyles = StyleSheet.create({
   },
 });
 
+// Caché a nivel de módulo para los amigos de Steam.
+// Persiste aunque WelcomeWidgets se desmonte y monte al navegar entre la tarjeta de Bienvenida y los juegos en el carrusel.
+const globalFriendsGameCache = new Map<string, string>(); // steamid -> gameextrainfo
+let globalFriendsInitializedForSteamId: string | null = null;
+let globalCachedFriends: SteamFriend[] = [];
+
 export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsProps>(({
   focusArea,
   focusIndex,
@@ -400,40 +406,66 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     : 0;
 
   // --- Amigos de Steam ---
-  const [friends, setFriends] = useState<SteamFriend[]>([]);
-  const [loadingFriends, setLoadingFriends] = useState(false);
   const steamId = activeUser?.settings?.steamId;
+  const [friends, setFriends] = useState<SteamFriend[]>(() => {
+    return globalFriendsInitializedForSteamId === steamId ? globalCachedFriends : [];
+  });
+  const [loadingFriends, setLoadingFriends] = useState(false);
 
   const FRIENDS_REFRESH_MS = 30000; // refresca cada 30s para no saturar memoria/red
-  const prevFriendsRef = useRef<Map<string, SteamFriend>>(new Map()); // Nuevo ref para recordar el estado anterior de cada amigo
 
   useEffect(() => {
-    if (!steamId) { setFriends([]); return; }
+    if (!steamId) {
+      setFriends([]);
+      globalFriendsGameCache.clear();
+      globalFriendsInitializedForSteamId = null;
+      globalCachedFriends = [];
+      return;
+    }
+
+    if (globalFriendsInitializedForSteamId && globalFriendsInitializedForSteamId !== steamId) {
+      globalFriendsGameCache.clear();
+      globalFriendsInitializedForSteamId = null;
+      globalCachedFriends = [];
+      setFriends([]);
+    }
+
     const GLOBAL_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
 
     let cancelled = false;
     const load = (showLoading: boolean) => {
-      if (showLoading) setLoadingFriends(true);
+      if (showLoading && globalCachedFriends.length === 0) setLoadingFriends(true);
       fetchSteamFriends(GLOBAL_STEAM_API_KEY, steamId)
         .then((data) => {
           if (cancelled) return;
 
-          const prevMap = prevFriendsRef.current;
-          data.forEach((friend) => {
-            const prev = prevMap.get(friend.steamid);
-            const wasPlaying = prev?.gameextrainfo;
-            const nowPlaying = friend.gameextrainfo;
-            // Solo notifica si antes NO jugaba (o jugaba otra cosa) y ahora sí
-            if (nowPlaying && nowPlaying !== wasPlaying) {
-              toastService.show(t('notifiactions.friendPlaying', { friendName: friend.personaname, gameName: nowPlaying }), {
-                icon: require('@/assets/images/amigos.png'),
-                source: 'steam',
+          if (data && data.length > 0) {
+            const isFirstRun = globalFriendsInitializedForSteamId !== steamId;
+
+            // Solo notificamos cambios de juego en comprobaciones posteriores (no en la carga inicial
+            // ni cada vez que se vuelve a montar el widget al pasar por la tarjeta de bienvenida)
+            if (!isFirstRun) {
+              data.forEach((friend) => {
+                const wasPlaying = globalFriendsGameCache.get(friend.steamid);
+                const nowPlaying = friend.gameextrainfo;
+                // Solo notifica si ya teníamos registro del amigo, antes NO jugaba (o jugaba otra cosa) y ahora sí
+                if (nowPlaying && wasPlaying !== undefined && wasPlaying !== nowPlaying) {
+                  toastService.show(t('notifiactions.friendPlaying', { friendName: friend.personaname, gameName: nowPlaying }), {
+                    icon: require('@/assets/images/amigos.png'),
+                    source: 'steam',
+                  });
+                }
               });
             }
-          });
-          prevMap.clear();
-          data.forEach((f) => prevMap.set(f.steamid, f));
 
+            // Actualizamos la caché con el juego actual de cada amigo
+            data.forEach((f) => {
+              globalFriendsGameCache.set(f.steamid, f.gameextrainfo || '');
+            });
+            globalFriendsInitializedForSteamId = steamId;
+          }
+
+          globalCachedFriends = data;
           setFriends(data);
         })
         .finally(() => { if (!cancelled && showLoading) setLoadingFriends(false); });

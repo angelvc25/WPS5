@@ -18,6 +18,10 @@ function buildFetchUrl(url: string) {
   return needsProxy ? `${CORS_PROXY}${encodeURIComponent(url)}` : url;
 }
 
+/** Opciones de fetch que evitan que Electron/Chromium devuelva respuestas cacheadas
+ *  con estado de presencia desactualizado (todos "desconectados"). */
+const FRESH_FETCH: RequestInit = { cache: 'no-store' };
+
 /**
  * Obtiene la lista de amigos de Steam del usuario junto con su estado
  * (online/offline/jugando) usando GetFriendList + GetPlayerSummaries.
@@ -26,7 +30,7 @@ function buildFetchUrl(url: string) {
 export const fetchSteamFriends = async (apiKey: string, steamId: string): Promise<SteamFriend[]> => {
   try {
     const listUrl = `http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key=${apiKey}&steamid=${steamId}&relationship=friend`;
-    const listRes = await fetch(buildFetchUrl(listUrl));
+    const listRes = await fetch(buildFetchUrl(listUrl), FRESH_FETCH);
     if (!listRes.ok) return [];
     const listData = await listRes.json();
     const ids: string[] = (listData?.friendslist?.friends || []).map((f: any) => f.steamid);
@@ -39,7 +43,7 @@ export const fetchSteamFriends = async (apiKey: string, steamId: string): Promis
     const results: SteamFriend[] = [];
     for (const chunk of chunks) {
       const summariesUrl = `http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${apiKey}&steamids=${chunk.join(',')}`;
-      const res = await fetch(buildFetchUrl(summariesUrl));
+      const res = await fetch(buildFetchUrl(summariesUrl), FRESH_FETCH);
       if (!res.ok) continue;
       const data = await res.json();
       const players = data?.response?.players || [];
