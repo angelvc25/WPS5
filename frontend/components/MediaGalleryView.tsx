@@ -12,7 +12,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Image } from 'expo-image';
-import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, Extrapolation, FadeIn, FadeOut, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -160,6 +160,31 @@ const loadPersisted = <T,>(key: string, fallback: T): T => {
 };
 
 const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, capturePath, wallpaperPath }) => {
+  const galleryContentAnim = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      galleryContentAnim.value = 0;
+      galleryContentAnim.value = withTiming(1, {
+        duration: 260,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+      });
+    }
+  }, [visible]);
+
+  const galleryContentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: galleryContentAnim.value,
+    transform: [
+      {
+        scale: interpolate(
+          galleryContentAnim.value,
+          [0, 1],
+          [0.96, 1],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { t } = useTranslation();
 
@@ -845,7 +870,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
             espacio vacío) — deben ir en un contenedor con flexDirection: 'row' para que
             el panel aparezca al lado en vez de debajo (React Native usa 'column' por
             defecto). */}
-        <View style={rootStyles.mainRow}>
+        <Animated.View style={[rootStyles.mainRow, galleryContentAnimatedStyle]}>
           <Animated.View style={[rootStyles.content, uiStyles.content]} entering={FadeIn.delay(60).duration(240)}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12), marginBottom: s(8) }}>
               {activeTab === 'albums' && openAlbumIndex !== null && (
@@ -998,7 +1023,7 @@ const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({ visible, onClose, c
               ))}
             </Animated.View>
           )}
-        </View>
+        </Animated.View>
 
         {/* Lightbox */}
         {lightboxVisible && lightboxImage && (

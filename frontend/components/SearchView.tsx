@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { Easing, Extrapolation, FadeIn, FadeOut, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { soundService } from '@/services/soundService';
 import { StoreOffer } from '@/services/storeService';
@@ -803,6 +803,32 @@ const SearchView: React.FC<SearchViewProps> = ({
     footerText: { color: 'rgba(255,255,255,0.55)', fontSize: s(13), fontFamily: 'SSTLight' },
   }), [s, windowWidth, windowHeight]);
 
+  const searchContentAnim = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      searchContentAnim.value = 0;
+      searchContentAnim.value = withTiming(1, {
+        duration: 260,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+      });
+    }
+  }, [visible]);
+
+  const searchContentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: searchContentAnim.value,
+    transform: [
+      {
+        scale: interpolate(
+          searchContentAnim.value,
+          [0, 1],
+          [0.96, 1],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
+
   if (!visible) return null;
 
   const sectionLabel = query.trim()
@@ -827,7 +853,7 @@ const SearchView: React.FC<SearchViewProps> = ({
         {/* <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11, 12, 16, 0.85)' }} pointerEvents="none" />
         <View style={ui.spotlight} pointerEvents="none" /> */}
 
-        <View style={ui.content}>
+        <Animated.View style={[ui.content, searchContentAnimatedStyle]}>
           <View style={ui.tabsRow}>
             {TABS.map((tab, idx) => {
               const isActive = activeTab === tab.id;
@@ -966,7 +992,7 @@ const SearchView: React.FC<SearchViewProps> = ({
               </View>
             </>
           ) : null}
-        </View>
+        </Animated.View>
 
         <View style={ui.footer}>
           <PSIcon

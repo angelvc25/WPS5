@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { Easing, Extrapolation, FadeIn, FadeOut, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import SpinningBorderSearch from './SpinningBorderSearch';
@@ -22,6 +22,31 @@ interface WelcomeSettingsViewProps {
 type SubView = 'main' | 'presentation' | 'slides';
 
 export default function WelcomeSettingsView({ visible, onClose, presentationEnabled, inactivityTime, onSettingsChange, selectedAlbumName, onOpenAlbumPicker, onSlidesSettingsChange, isAlbumPickerOpen }: WelcomeSettingsViewProps) {
+  const welcomeContentAnim = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      welcomeContentAnim.value = 0;
+      welcomeContentAnim.value = withTiming(1, {
+        duration: 260,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+      });
+    }
+  }, [visible]);
+
+  const welcomeContentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: welcomeContentAnim.value,
+    transform: [
+      {
+        scale: interpolate(
+          welcomeContentAnim.value,
+          [0, 1],
+          [0.96, 1],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
   const { t } = useTranslation();
 
   const INACTIVITY_OPTIONS = useMemo(() => [
@@ -450,11 +475,11 @@ export default function WelcomeSettingsView({ visible, onClose, presentationEnab
     >
       <Animated.View style={[styles.root, isAlbumPickerOpen && { backgroundColor: 'transparent' }]} entering={FadeIn.duration(220)} exiting={FadeOut.duration(180)}>
         {!isAlbumPickerOpen && <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />}
-        <View style={styles.content}>
+        <Animated.View style={[styles.content, welcomeContentAnimatedStyle]}>
           {currentView === 'main' && renderMainMenu()}
           {currentView === 'presentation' && renderPresentationView()}
           {currentView === 'slides' && renderSlidesView()}
-        </View>
+        </Animated.View>
       </Animated.View>
     </Modal>
   );

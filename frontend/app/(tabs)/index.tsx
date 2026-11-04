@@ -28,7 +28,7 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import Animated, { cancelAnimation, Easing, FadeIn, FadeInDown, FadeOut, interpolate, measure, runOnJS, useAnimatedRef, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, Extrapolation, FadeIn, FadeInDown, FadeOut, interpolate, measure, runOnJS, useAnimatedRef, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 
 // WPS5 UI Expansion Components
 import DeleteConfirmView from '@/components/DeleteConfirmView';
@@ -447,6 +447,7 @@ export default function ConsoleHome() {
 
 
   const [settingsInitialScreen, setSettingsInitialScreen] = useState<SettingsScreenType>('main');
+
   const [settingsTab, setSettingsTab] = useState<'profile' | 'home' | 'sync' | 'support'>('profile');
   // Lectura sÃ­ncrona: si se cargara en un efecto tras montar, el fondo cambiarÃ­a
   // justo durante el arranque y dispararÃ­a una transiciÃ³n innecesaria.
@@ -509,6 +510,117 @@ export default function ConsoleHome() {
   const [detailInitialEditMode, setDetailInitialEditMode] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<ConsoleItem | null>(null);
   const [uiReady, setUiReady] = useState(false);
+
+  // ─── Subtle scale transition between views ──────────────────
+  const homeTransitionAnim = useSharedValue(1);
+
+  const isAnyFullViewOpen =
+    isSettingsVisible ||
+    isSearchVisible ||
+    isDetailVisible ||
+    isFavoritesVisible ||
+    isMediaGalleryVisible ||
+    isTrophiesVisible ||
+    isWelcomeSettingsVisible;
+
+  useEffect(() => {
+    if (!isAnyFullViewOpen) {
+      homeTransitionAnim.value = withTiming(1, {
+        duration: 260,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+      });
+    }
+  }, [isAnyFullViewOpen]);
+
+  const homeElementsAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: homeTransitionAnim.value,
+      transform: [
+        {
+          scale: interpolate(
+            homeTransitionAnim.value,
+            [0, 1],
+            [0.96, 1],
+            Extrapolation.CLAMP
+          ),
+        },
+      ],
+    };
+  });
+
+  const openSettings = useCallback((initialScreen: SettingsScreenType = 'main') => {
+    setSettingsInitialScreen(initialScreen);
+    homeTransitionAnim.value = withTiming(0, {
+      duration: 160,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+    });
+    setTimeout(() => {
+      setSettingsVisible(true);
+    }, 140);
+  }, []);
+
+  const openSearch = useCallback(() => {
+    homeTransitionAnim.value = withTiming(0, {
+      duration: 160,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+    });
+    setTimeout(() => {
+      setSearchVisible(true);
+    }, 140);
+  }, []);
+
+  const openDetail = useCallback((item?: ConsoleItem, editMode: boolean = false) => {
+    if (item) setSelectedItem(item);
+    setDetailInitialEditMode(editMode);
+    homeTransitionAnim.value = withTiming(0, {
+      duration: 160,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+    });
+    setTimeout(() => {
+      setDetailVisible(true);
+    }, 140);
+  }, []);
+
+  const openMediaGallery = useCallback(() => {
+    homeTransitionAnim.value = withTiming(0, {
+      duration: 160,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+    });
+    setTimeout(() => {
+      setMediaGalleryVisible(true);
+    }, 140);
+  }, []);
+
+  const openFavorites = useCallback(() => {
+    homeTransitionAnim.value = withTiming(0, {
+      duration: 160,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+    });
+    setTimeout(() => {
+      setFavoritesVisible(true);
+    }, 140);
+  }, []);
+
+  const openTrophies = useCallback((item?: ConsoleItem) => {
+    if (item) setTrophiesItem(item);
+    homeTransitionAnim.value = withTiming(0, {
+      duration: 160,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+    });
+    setTimeout(() => {
+      setTrophiesVisible(true);
+    }, 140);
+  }, []);
+
+  const openWelcomeSettings = useCallback(() => {
+    homeTransitionAnim.value = withTiming(0, {
+      duration: 160,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+    });
+    setTimeout(() => {
+      setWelcomeSettingsVisible(true);
+    }, 140);
+  }, []);
 
   // libraryTab: se declara aquÃ­ para pasarlo a useSteamSync, useLibrary y useFocusNavigation
   const [libraryTab, setLibraryTab] = useState<'installed' | 'collection'>('installed');
@@ -729,16 +841,31 @@ export default function ConsoleHome() {
     handleProfileMenuAction: (idx: number) => _handleProfileMenuActionRef.current(idx),
     handleSystemNavAction: (idx: number) => _handleSystemNavActionRef.current(idx),
     setAddModalVisible,
-    setFavoritesVisible,
+    setFavoritesVisible: (v: boolean) => {
+      if (v) openFavorites();
+      else setFavoritesVisible(false);
+    },
     setRandomSelectorVisible,
     setHomeBgModalVisible,
-    setWelcomeSettingsVisible,
-    setDetailVisible,
+    setWelcomeSettingsVisible: (v: boolean) => {
+      if (v) openWelcomeSettings();
+      else setWelcomeSettingsVisible(false);
+    },
+    setDetailVisible: (v: boolean) => {
+      if (v) openDetail();
+      else setDetailVisible(false);
+    },
     setDetailInitialEditMode,
     setSelectedItem,
-    setSearchVisible,
+    setSearchVisible: (v: boolean) => {
+      if (v) openSearch();
+      else setSearchVisible(false);
+    },
     setUserModalVisible,
-    setSettingsVisible,
+    setSettingsVisible: (v: boolean) => {
+      if (v) openSettings();
+      else setSettingsVisible(false);
+    },
     setIsProfileMenuOpen,
     setProfileMenuFocusIndex,
     setIsContextMenuOpen,
@@ -749,7 +876,11 @@ export default function ConsoleHome() {
     setSystemNavCardExpanded,
     setInputMode,
     setSelectedMediaIndex,
-    setTrophiesVisible,
+    setTrophiesVisible: (action: React.SetStateAction<boolean>) => {
+      const nextVal = typeof action === 'function' ? action(isTrophiesVisible) : action;
+      if (nextVal) openTrophies();
+      else setTrophiesVisible(false);
+    },
     saveWidgetOrder,
     saveWidgetVisibility,
     setWidgetVisibility,
@@ -2624,6 +2755,14 @@ export default function ConsoleHome() {
         </View>
       )}
 
+      {/* === HOME UI ELEMENTS WRAPPER (Contracts subtly on view transition, backgrounds stay fixed) === */}
+      <Animated.View
+        style={[
+          styles.homeElementsContainer,
+          homeElementsAnimatedStyle,
+        ]}
+        pointerEvents={isAnyFullViewOpen ? 'none' : 'auto'}
+      >
       {/* MINI HEADER FOR GAME PANEL FOCUS */}
       <Animated.View style={[styles.miniHeader, topBarMiniStyle]} pointerEvents="none">
         {focusArea === 'library_grid' ? (
@@ -2675,7 +2814,7 @@ export default function ConsoleHome() {
                       setIsWidgetEditOpen(prev => !prev);
                       setWidgetEditFocusIndex(0);
                     } else if (idx === 2) setHomeBgModalVisible(true);
-                    else if (idx === 3) setWelcomeSettingsVisible(true);
+                    else if (idx === 3) openWelcomeSettings();
                   }}
                 >
                   {item.type === 'ion' ? (
@@ -2738,7 +2877,7 @@ export default function ConsoleHome() {
             <TouchableOpacity
               style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 0 && styles.headerIconBtnFocused]}
               activeOpacity={0.7}
-              onPress={() => { setFocusArea('header_avatar'); setFocusIndex(0); setSearchVisible(true); }}
+              onPress={() => { setFocusArea('header_avatar'); setFocusIndex(0); openSearch(); }}
             >
               {/* <Ionicons name="search" size={22} color="rgba(255,255,255,0.85)" /> */}
               <Image
@@ -2762,7 +2901,7 @@ export default function ConsoleHome() {
             <TouchableOpacity
               style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 1 && styles.headerIconBtnFocused]}
               activeOpacity={0.7}
-              onPress={() => { setUserModalVisible(false); setSettingsVisible(true); }}
+              onPress={() => { setUserModalVisible(false); openSettings(); }}
             >
               {/* <Ionicons name="settings-sharp" size={30} color="#fff" /> */}
               <Image
@@ -3007,6 +3146,7 @@ export default function ConsoleHome() {
         bleed={BG_SLIDE_PX}
         clipBottom={clipForegroundToCarousel ? (carouselClipBottom ?? CARD_SIZE + 80 + Math.round(windowHeight * 0.12)) : null}
       />
+      </Animated.View>
 
       {/* WPS5 UI EXPANSION COMPONENTS */}
       <ErrorBoundary
@@ -3417,7 +3557,7 @@ export default function ConsoleHome() {
                 </View>
               </View>
               <View style={styles.powerButtonsContainer}>
-                <TouchableOpacity style={[styles.powerButton, modalSelectedIndex === 0 && styles.powerButtonActive, modalSelectedIndex === 0 && styles.buttonFocused]} activeOpacity={0.8} onPress={() => { setModalSelectedIndex(0); setUserModalVisible(false); setSettingsVisible(true); }}>
+                <TouchableOpacity style={[styles.powerButton, modalSelectedIndex === 0 && styles.powerButtonActive, modalSelectedIndex === 0 && styles.buttonFocused]} activeOpacity={0.8} onPress={() => { setModalSelectedIndex(0); setUserModalVisible(false); openSettings(); }}>
                   <Ionicons name="settings-outline" size={48} color={modalSelectedIndex === 0 ? styles.powerIconActive.color : styles.powerIcon.color} />
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.powerButton, modalSelectedIndex === 1 && styles.powerButtonActive, modalSelectedIndex === 1 && styles.buttonFocused]} activeOpacity={0.8} onPress={() => setModalSelectedIndex(1)}>
@@ -3556,6 +3696,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0D1117',
+  },
+  homeElementsContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    zIndex: 2,
   },
 
   // === OVERLAY GRADIENTS ===

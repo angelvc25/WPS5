@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from './AppVideo';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, FadeIn, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, FadeIn, Easing, Extrapolation } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import YoutubePlayer from './YoutubePlayer';
 import ControlPrompt from './ControlPrompt';
@@ -137,6 +137,31 @@ const DetailLightboxImage = React.memo(({
 DetailLightboxImage.displayName = 'DetailLightboxImage';
 
 const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClose, onLaunch, onRefresh, isLaunching, inputMode, installedSteamAppIds = null, onOpenMediaGallery, onOpenTrophies, gamepadConnected = false, initialEditMode = false }) => {
+  const detailContentAnim = useSharedValue(0);
+
+  useEffect(() => {
+    if (isVisible) {
+      detailContentAnim.value = 0;
+      detailContentAnim.value = withTiming(1, {
+        duration: 260,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+      });
+    }
+  }, [isVisible]);
+
+  const detailContentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: detailContentAnim.value,
+    transform: [
+      {
+        scale: interpolate(
+          detailContentAnim.value,
+          [0, 1],
+          [0.96, 1],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [editData, setEditData] = useState<Partial<ConsoleItem>>({});
@@ -1933,6 +1958,8 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             } as any} />
           )}
 
+          {/* MAIN ELEMENTS: with subtle scale pop-up */}
+          <Animated.View style={[StyleSheet.absoluteFill, detailContentAnimatedStyle]} pointerEvents="box-none">
           {/* TOP LEFT: game cover + title (replaces back/escape button) */}
           <View style={styles.topHeader}>
             {(editData.image || item.image) && (
@@ -2012,6 +2039,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
               />
             </Animated.View>
           </ScrollView>
+          </Animated.View>
 
           {isLaunching && item && (
             <Animated.View

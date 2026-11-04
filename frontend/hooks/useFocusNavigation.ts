@@ -142,7 +142,7 @@ export interface UseFocusNavigationOptions {
   setSystemNavCardExpanded: (v: boolean) => void;
   setInputMode: (mode: 'keyboard' | 'gamepad') => void;
   setSelectedMediaIndex: React.Dispatch<React.SetStateAction<number | null>>;
-  setTrophiesVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  setTrophiesVisible: ((v: boolean) => void) | React.Dispatch<React.SetStateAction<boolean>>;
   saveWidgetOrder: typeof saveWidgetOrder;
   saveWidgetVisibility: typeof saveWidgetVisibility;
   setWidgetVisibility: React.Dispatch<React.SetStateAction<WidgetVisibility>>;

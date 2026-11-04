@@ -18,7 +18,7 @@ import {
   View,
   useWindowDimensions
 } from 'react-native';
-import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, Extrapolation, FadeIn, FadeOut, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { toastService } from '../services/toastService';
 import { syncProfileMediaToOnline } from '../services/onlineAccountService';
 import {
@@ -1296,7 +1296,52 @@ export default function SettingsView({
     onClose,
   ]);
 
-  if (!visible) return null;
+  const [renderMounted, setRenderMounted] = useState(visible);
+  const elementsAnim = useSharedValue(visible ? 1 : 0);
+
+  useEffect(() => {
+    if (visible) {
+      setRenderMounted(true);
+      elementsAnim.value = 0;
+      elementsAnim.value = withTiming(1, {
+        duration: 260,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+      });
+    } else if (renderMounted) {
+      elementsAnim.value = withTiming(
+        0,
+        {
+          duration: 160,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+        },
+        (finished) => {
+          if (finished) {
+            runOnJS(setRenderMounted)(false);
+          }
+        }
+      );
+    }
+  }, [visible]);
+
+  const settingsRootStyle = useAnimatedStyle(() => ({
+    opacity: elementsAnim.value,
+  }));
+
+  const settingsElementsStyle = useAnimatedStyle(() => ({
+    opacity: elementsAnim.value,
+    transform: [
+      {
+        scale: interpolate(
+          elementsAnim.value,
+          [0, 1],
+          [0.96, 1],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
+
+  if (!renderMounted && !visible) return null;
 
   // Active user avatar URL
   const userAvatarUri =
@@ -3191,9 +3236,7 @@ export default function SettingsView({
 
   return (
     <Animated.View
-      style={styles.fullScreenContainer}
-      entering={FadeIn.duration(250)}
-      exiting={FadeOut.duration(200)}
+      style={[styles.fullScreenContainer, settingsRootStyle]}
     >
       {/* Background Video */}
       <BackgroundVideo
@@ -3208,8 +3251,9 @@ export default function SettingsView({
       {/* Dark Ambient Overlay */}
       <View style={styles.darkOverlay} />
 
-      {/* Main Container */}
-      <View style={styles.settingsBody}>
+      {/* Main Container with Subtle Scale Pop-Up */}
+      <Animated.View style={[{ flex: 1 }, settingsElementsStyle]}>
+        <View style={styles.settingsBody}>
         {currentScreen === 'main' && renderMainScreen()}
         {currentScreen === 'guide' && renderGuideScreen()}
         {currentScreen === 'accessibility' && renderAccessibilityScreen()}
@@ -3304,6 +3348,7 @@ export default function SettingsView({
           <Text style={styles.bottomBarText}>{t('common.back')}</Text>
         </View>
       </View>
+      </Animated.View>
 
       <VirtualKeyboard
         visible={showSplashVK && gamepadConnected}
