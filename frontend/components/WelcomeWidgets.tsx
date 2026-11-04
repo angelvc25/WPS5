@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
 import { fetchStoreOffers, StoreOffer } from '../services/storeService';
+import { fetchSteamStoreOffers } from '../services/steamSpecialsService';
 import { fetchSteamFriends, SteamFriend } from '../services/steamFriendsService';
 import { openWebLink } from '../services/linkService';
 import { buildSteamRunUrl } from '../services/steamLaunchService';
@@ -77,6 +78,10 @@ interface WelcomeWidgetsProps {
   /** Id del widget que se está editando en WidgetEditPanel (con foco). Si viene definido y está
    *  visible en el grid, el resto de widgets se atenúan para resaltarlo. null = sin atenuar. */
   editingWidgetId?: string | null;
+  /** Ofertas de tienda ya resueltas desde index.tsx (respeta storeSource del usuario). */
+  externalStoreOffers?: StoreOffer[];
+  /** Fuente de la tienda configurada en ajustes ('ps5' | 'steam'). */
+  storeSource?: 'ps5' | 'steam';
 }
 
 /** Si es true, los widgets ampliados crecen HACIA ARRIBA (la base del grid no se mueve, como en PS5).
@@ -202,6 +207,8 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   isMoveMode = false,
   movingWidgetId = null,
   editingWidgetId = null,
+  externalStoreOffers,
+  storeSource = 'ps5',
 }: WelcomeWidgetsProps, ref) => {
   const isWidgetVisible = (id: string) => widgetVisibility?.[id] !== false;
   const activeOrder = widgetOrder && widgetOrder.length === 10 ? widgetOrder : DEFAULT_WIDGET_IDS;
@@ -239,7 +246,10 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   }, [focusIndex, focusedColumn, focusArea, windowWidth, windowHeight]);
 
   const [realNews, setRealNews] = useState<SteamNewsItem[]>([]);
-  const [storeOffers, setStoreOffers] = useState<StoreOffer[]>([]);
+  // Usa las ofertas externas pasadas desde index.tsx (que ya respetan storeSource del usuario).
+  // Si no vienen externas (backward compat), carga PS5 Store como fallback.
+  const [internalStoreOffers, setInternalStoreOffers] = useState<StoreOffer[]>([]);
+  const storeOffers = externalStoreOffers && externalStoreOffers.length > 0 ? externalStoreOffers : internalStoreOffers;
   const [activeOfferIndex, setActiveOfferIndex] = useState(0);
 
   // --- Mandos conectados (todos los que reporta la Gamepad API) ---
@@ -341,13 +351,16 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     });
   }, [language]);
 
+  // Solo carga internamente si no vienen ofertas externas (fallback para uso sin index.tsx)
   useEffect(() => {
-    fetchStoreOffers().then(data => {
+    if (externalStoreOffers && externalStoreOffers.length > 0) return;
+    const loader = storeSource === 'steam' ? fetchSteamStoreOffers() : fetchStoreOffers();
+    loader.then(data => {
       if (data && data.length > 0) {
-        setStoreOffers(data);
+        setInternalStoreOffers(data);
       }
     });
-  }, []);
+  }, [externalStoreOffers, storeSource]);
 
   // --- Trofeos de la cuenta con sesión iniciada ---
   const [userTrophies, setUserTrophies] = useState<TrophyGameSummary[]>([]);
@@ -526,7 +539,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     return () => clearInterval(timer);
   }, [storeOffers.length]);
 
-  const activeOffer = storeOffers[activeOfferIndex] || null;
+  const activeOffer = storeOffers[activeOfferIndex] || storeOffers[0] || null;
 
   const styles = useMemo(() => {
     const scaleW = windowWidth / 1920;
@@ -773,8 +786,12 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
     return (
       <View key={`store-${getSize('store')}`} style={[{ flex: 1, justifyContent: 'space-between', zIndex: 10, position: 'relative' }, expandedIn]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Image source={require('@/assets/images/PlaystationStore_copi.png')} style={{ width: 18, height: 18, resizeMode: 'cover' }} />
-          <Text style={styles.widgetTitle}>{t('widgets.store')}</Text>
+          {storeSource === 'steam' ? (
+            <Image source={require('@/assets/images/SteamStore.png')} style={{ width: 18, height: 18, resizeMode: 'contain' }} />
+          ) : (
+            <Image source={require('@/assets/images/PlaystationStore_copi.png')} style={{ width: 18, height: 18, resizeMode: 'cover' }} />
+          )}
+          <Text style={styles.widgetTitle}>{storeSource === 'steam' ? 'Steam Store' : t('widgets.store')}</Text>
         </View>
         <View>
           <Text style={{ color: '#FFF', fontSize: s(15), fontFamily: 'SSTLight' }} numberOfLines={1}>
@@ -1477,7 +1494,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
             onPress={() => {
               setFocusArea('welcome_widgets');
               setFocusIndex(slotIndex);
-              Linking.openURL(activeOffer?.url || 'https://store.playstation.com');
+              Linking.openURL(activeOffer?.url || (storeSource === 'steam' ? 'https://store.steampowered.com' : 'https://store.playstation.com'));
             }}
           >
             <View style={[styles.welcomeWidgetCard, cardSizeStyle(id), isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
@@ -1485,35 +1502,36 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
               {focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved) && (
                 <WidgetFocusBorder cardH={metrics.cardH} />
               )}
-              {/* Background Image when NOT focused/hovered */}
-              {!(focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && (
-                <>
-                  <Image
-                    source={{ uri: activeOffer?.image || 'https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      borderRadius: 12,
-                    }}
-                    contentFit="cover"
-                    transition={300}
-                  />
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      borderRadius: 10,
-                      backgroundColor: 'rgba(13, 16, 21, 0.45)',
-                    }}
-                  />
-                </>
-              )}
+              {/* Background Image - always visible; overlay opacity adapts on focus */}
+              <Image
+                source={{ uri: activeOffer?.backgroundImage || activeOffer?.image || 'https://clan.akamai.steamstatic.com/images/34133273/15c8c42be7ab69aa6a47a2dcf73a945383e0a07f.jpg' }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: 12,
+                  zIndex: 0,
+                }}
+                contentFit="cover"
+                transition={300}
+              />
+              {/* Dark overlay - lighter when focused so the image stays visible */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: 10,
+                  backgroundColor: (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved))
+                    ? 'rgba(13, 16, 21, 0.20)'
+                    : 'rgba(13, 16, 21, 0.45)',
+                  zIndex: 1,
+                } as any}
+              />
               {getSize('store') > 0 && Platform.OS === 'web' && (
                 <div
                   style={{
@@ -1529,9 +1547,13 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
               {getSize('store') === 0 ? (
                 <>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                    {storeSource === 'steam' ? (
+                    <Image source={require('@/assets/images/SteamStore.png')} style={{ width: 18, height: 18, resizeMode: 'contain' }} />
+                  ) : (
                     <Image source={require('@/assets/images/PlaystationStore_copi.png')} style={{ width: 18, height: 18, resizeMode: 'cover' }} />
+                  )}
                     <View>
-                      <Text style={styles.widgetTitle}>{t('widgets.store')}</Text>
+                      <Text style={styles.widgetTitle}>{storeSource === 'steam' ? 'Steam Store' : t('widgets.store')}</Text>
                       <Text style={styles.widgetSubtitle} numberOfLines={1}>
                         {activeOffer ? activeOffer.title : t('widgets.latestOffers')}
                       </Text>

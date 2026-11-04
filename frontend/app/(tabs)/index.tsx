@@ -2942,6 +2942,8 @@ export default function ConsoleHome() {
                       isMoveMode={isWidgetMoveMode}
                       movingWidgetId={movingWidgetId}
                       editingWidgetId={editingWidgetId}
+                      storeSource={(activeUser?.settings?.storeSource as StoreSource) || 'ps5'}
+                      externalStoreOffers={storeOffers}
                     />
                   </Animated.View>
                 </Animated.View>
