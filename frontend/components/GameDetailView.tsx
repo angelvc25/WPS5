@@ -1953,7 +1953,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           {Platform.OS === 'web' && (
             <div style={{
               position: 'absolute', inset: 0, zIndex: 1,
-              background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.0) 65%)',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 10%, rgba(0,0,0,0.0) 25%)',
               pointerEvents: 'none',
             } as any} />
           )}
