@@ -368,6 +368,37 @@ export default function SettingsView({
     });
   };
 
+  // ── Configuración de Trofeos y Logros (Steam / RetroAchievements / Externos) ──
+  const [trophyConfig, setTrophyConfig] = useState({
+    position: 'topright',
+    durationMs: 6000,
+    scale: 100,
+    soundEnabled: true,
+  });
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && (window as any).electronAPI?.getTrophyNotificationConfig) {
+      (window as any).electronAPI.getTrophyNotificationConfig().then((cfg: any) => {
+        if (cfg) setTrophyConfig(cfg);
+      }).catch(() => {});
+    }
+  }, []);
+
+  const updateTrophyConfig = (partial: any) => {
+    const next = { ...trophyConfig, ...partial };
+    setTrophyConfig(next);
+    if (Platform.OS === 'web' && (window as any).electronAPI?.setTrophyNotificationConfig) {
+      (window as any).electronAPI.setTrophyNotificationConfig(next).catch(() => {});
+    }
+  };
+
+  const testTrophy = (rarity: string) => {
+    soundService.playTrophy?.(rarity).catch(() => {});
+    if (Platform.OS === 'web' && (window as any).electronAPI?.testTrophyNotification) {
+      (window as any).electronAPI.testTrophyNotification(rarity).catch(() => {});
+    }
+  };
+
   // Lista de "Descargados" filtrada por el buscador y ordenada según el
   // mismo selector de orden que se usa para los resultados de la API.
   const filteredDownloadedSplashItems = useMemo(() => {
@@ -442,7 +473,7 @@ export default function SettingsView({
   // y cambian los filtros. Se debounce el texto de búsqueda para no
   // disparar una petición por cada tecla.
   useEffect(() => {
-    if (currentScreen !== 'accessibility' || accessibilityLeftIndex !== 8) return;
+    if (currentScreen !== 'accessibility' || accessibilityLeftIndex !== 9) return;
     // "Descargados" es un filtro 100% local (historial en localStorage),
     // no dispara ninguna búsqueda contra SteamDeckRepo.
     if (splashType === 'downloaded') {
@@ -491,7 +522,7 @@ export default function SettingsView({
 
   // Reinicia el foco de mando al entrar a la sección Splash Videos.
   useEffect(() => {
-    if (accessibilityLeftIndex === 8) {
+    if (accessibilityLeftIndex === 9) {
       setSplashFocusZone('filters');
       setSplashFilterIndex(0);
       setSplashGridFlatIndex(0);
@@ -514,25 +545,28 @@ export default function SettingsView({
   // que el ScrollView no la sigue solo (el foco es lógico, no de teclado
   // real del navegador).
   useEffect(() => {
-    if (accessibilityLeftIndex !== 8 || splashFocusZone !== 'grid') return;
-    const node = splashCardRefs.current[splashGridFlatIndex];
-    if (node && typeof node.scrollIntoView === 'function') {
-      node.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    if (accessibilityLeftIndex !== 9 || splashFocusZone !== 'grid') return;
+    const node: any = splashCardRefs.current[splashGridFlatIndex];
+    const targetNode = node?.scrollIntoView ? node : node?._touchableNode;
+    if (targetNode && typeof targetNode.scrollIntoView === 'function') {
+      targetNode.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
   }, [accessibilityLeftIndex, splashFocusZone, splashGridFlatIndex, displayedSplashItems]);
 
   // Scroll automático a la zona de filtros o pager cuando el foco cambia entre zonas.
   useEffect(() => {
-    if (accessibilityLeftIndex !== 8) return;
+    if (accessibilityLeftIndex !== 9) return;
     if (splashFocusZone === 'filters') {
-      const node = splashFiltersRef.current;
-      if (node && typeof node.scrollIntoView === 'function') {
-        node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const node: any = splashFiltersRef.current;
+      const targetNode = node?.scrollIntoView ? node : node?._touchableNode;
+      if (targetNode && typeof targetNode.scrollIntoView === 'function') {
+        targetNode.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     } else if (splashFocusZone === 'pager') {
-      const node = splashPagerRef.current;
-      if (node && typeof node.scrollIntoView === 'function') {
-        node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const node: any = splashPagerRef.current;
+      const targetNode = node?.scrollIntoView ? node : node?._touchableNode;
+      if (targetNode && typeof targetNode.scrollIntoView === 'function') {
+        targetNode.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     }
   }, [accessibilityLeftIndex, splashFocusZone]);
@@ -673,7 +707,8 @@ export default function SettingsView({
     if (accessibilityLeftIndex === 5) return 7; // Smart Sync: 8 campos
     if (accessibilityLeftIndex === 6) return 1; // Panel del juego: 2 toggles
     if (accessibilityLeftIndex === 7) return 2; // Overlay: 0=toggle, 1=presets, 2=capturar custom
-    if (accessibilityLeftIndex === 8) return 0; // Splash Videos: navegación por mouse/touch en la grilla
+    if (accessibilityLeftIndex === 8) return 4; // Trofeos y Notificaciones (0=Sonido, 1=Posición, 2=Tiempo, 3=Escala, 4=Probar)
+    if (accessibilityLeftIndex === 9) return 0; // Splash Videos: navegación por mouse/touch en la grilla
     return 0;
   };
 
@@ -888,6 +923,28 @@ export default function SettingsView({
     }
 
     if (accessibilityLeftIndex === 8) {
+      // Trofeos y Notificaciones
+      if (subFocusIndex === 0) {
+        updateTrophyConfig({ soundEnabled: !trophyConfig.soundEnabled });
+      } else if (subFocusIndex === 1) {
+        const positions = ['topright', 'topcenter', 'topleft', 'bottomright', 'bottomcenter', 'bottomleft'];
+        const idx = positions.indexOf(trophyConfig.position);
+        updateTrophyConfig({ position: positions[(idx + 1) % positions.length] });
+      } else if (subFocusIndex === 2) {
+        const durations = [4000, 6000, 8000, 10000];
+        const idx = durations.indexOf(trophyConfig.durationMs);
+        updateTrophyConfig({ durationMs: durations[(idx + 1) % durations.length] });
+      } else if (subFocusIndex === 3) {
+        const scales = [80, 100, 120, 140];
+        const idx = scales.indexOf(trophyConfig.scale);
+        updateTrophyConfig({ scale: scales[(idx + 1) % scales.length] });
+      } else if (subFocusIndex === 4) {
+        testTrophy('gold');
+      }
+      return;
+    }
+
+    if (accessibilityLeftIndex === 9) {
       // Splash Videos — la búsqueda, filtros y tarjetas se manejan con
       // mouse/touch directamente (onPress de cada control).
       return;
@@ -1007,10 +1064,34 @@ export default function SettingsView({
           else if (mainFocusIndex === 5) navigateToScreen('system');
         }
       } else if (currentScreen === 'accessibility') {
+        // L1 / R1 (Q / E / PageUp / PageDown): Cambiar página de resultados (Paginación de la grilla de videos)
+        if (accessibilityLeftIndex === 9) {
+          const isQ = e.key === 'q' || e.key === 'Q' || e.key === 'PageUp';
+          const isE = e.key === 'e' || e.key === 'E' || e.key === 'PageDown';
+          if (isQ || isE) {
+            e.preventDefault();
+            if (isShowingDownloadedSplash) return;
+            if (isQ) {
+              if (splashPage > 1) {
+                setSplashPage((p) => Math.max(1, p - 1));
+                setSplashGridFlatIndex(0);
+                soundService.playNavigation();
+              }
+            } else {
+              if (splashPage < splashTotalPages) {
+                setSplashPage((p) => Math.min(splashTotalPages, p + 1));
+                setSplashGridFlatIndex(0);
+                soundService.playNavigation();
+              }
+            }
+            return;
+          }
+        }
+
         if (accessibilityFocusArea === 'left') {
           if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 8));
+            setAccessibilityLeftIndex((prev) => Math.min(prev + 1, 9));
             setSubFocusIndex(0);
             setSubColumnIndex(0);
             soundService.playNavigation();
@@ -1027,35 +1108,10 @@ export default function SettingsView({
             setSubColumnIndex(0);
             soundService.playNavigation();
           }
-        } else if (accessibilityLeftIndex === 8) {
-          // Splash Videos: navegación en zonas (filtros -> grilla -> paginación)
+        } else if (accessibilityLeftIndex === 9) {
+          // Splash Videos: navegación en zonas (buscador -> filtros [tipo + orden] -> grilla -> pager)
           const cols = Math.max(1, splashGridCols);
           const maxFlat = Math.max(0, displayedSplashItems.length - 1);
-
-          // L1/R1 (mapeados a Q/E) pasan de página en los resultados,
-          // igual que los botones "Anterior"/"Siguiente" de la paginación,
-          // sin importar en qué zona esté el foco (filtros, grilla o
-          // paginación). No aplica al filtro "Descargados" (no pagina).
-          if (e.key === 'q' || e.key === 'e') {
-            e.preventDefault();
-            if (isShowingDownloadedSplash) return;
-            if (e.key === 'q') {
-              if (splashPage > 1) {
-                setSplashFocusZone('pager');
-                setSplashPagerIndex(0);
-                setSplashPage((p) => Math.max(1, p - 1));
-                soundService.playNavigation();
-              }
-            } else {
-              if (splashPage < splashTotalPages) {
-                setSplashFocusZone('pager');
-                setSplashPagerIndex(1);
-                setSplashPage((p) => Math.min(splashTotalPages, p + 1));
-                soundService.playNavigation();
-              }
-            }
-            return;
-          }
 
           if (showSplashVK) return;
 
@@ -1074,70 +1130,126 @@ export default function SettingsView({
               setAccessibilityFocusArea('left');
               soundService.playNavigation();
             } else if (splashFocusZone === 'filters') {
-              if (splashFilterIndex === 0) {
-                setAccessibilityFocusArea('left');
+              if (splashFilterIndex < 4) {
+                // Fila 1 (Tipo: 0..3)
+                if (splashFilterIndex === 0) {
+                  setAccessibilityFocusArea('left');
+                } else {
+                  setSplashFilterIndex((prev) => prev - 1);
+                }
               } else {
-                setSplashFilterIndex((prev) => Math.max(0, prev - 1));
+                // Fila 2 (Orden: 4..8)
+                if (splashFilterIndex === 4) {
+                  setAccessibilityFocusArea('left');
+                } else {
+                  setSplashFilterIndex((prev) => prev - 1);
+                }
               }
               soundService.playNavigation();
             } else if (splashFocusZone === 'grid') {
-              setSplashGridFlatIndex((prev) => Math.max(0, prev - 1));
+              if (splashGridFlatIndex % cols === 0) {
+                setAccessibilityFocusArea('left');
+              } else {
+                setSplashGridFlatIndex((prev) => Math.max(0, prev - 1));
+              }
               soundService.playNavigation();
             } else if (splashFocusZone === 'pager') {
-              setSplashPagerIndex(0);
+              if (splashPagerIndex === 0) {
+                setAccessibilityFocusArea('left');
+              } else {
+                setSplashPagerIndex(0);
+              }
               soundService.playNavigation();
             }
           } else if (e.key === 'ArrowRight') {
             e.preventDefault();
-            if (splashFocusZone === 'filters') {
-              setSplashFilterIndex((prev) => Math.min(SPLASH_FILTER_ITEMS.length - 1, prev + 1));
+            if (splashFocusZone === 'search') {
               soundService.playNavigation();
+            } else if (splashFocusZone === 'filters') {
+              if (splashFilterIndex < 4) {
+                if (splashFilterIndex < 3) {
+                  setSplashFilterIndex((prev) => prev + 1);
+                  soundService.playNavigation();
+                }
+              } else {
+                if (splashFilterIndex < 8) {
+                  setSplashFilterIndex((prev) => prev + 1);
+                  soundService.playNavigation();
+                }
+              }
             } else if (splashFocusZone === 'grid') {
-              setSplashGridFlatIndex((prev) => Math.min(maxFlat, prev + 1));
-              soundService.playNavigation();
+              if (splashGridFlatIndex < maxFlat) {
+                setSplashGridFlatIndex((prev) => prev + 1);
+                soundService.playNavigation();
+              }
             } else if (splashFocusZone === 'pager') {
-              setSplashPagerIndex(1);
-              soundService.playNavigation();
+              if (splashPagerIndex === 0) {
+                setSplashPagerIndex(1);
+                soundService.playNavigation();
+              }
             }
           } else if (e.key === 'ArrowDown') {
             e.preventDefault();
             if (splashFocusZone === 'search') {
               setSplashFocusZone('filters');
+              const typeIdx = SPLASH_TYPE_FILTERS.findIndex((f) => f.id === splashType);
+              setSplashFilterIndex(typeIdx >= 0 ? typeIdx : 0);
               soundService.playNavigation();
             } else if (splashFocusZone === 'filters') {
-              if (displayedSplashItems.length > 0) {
-                setSplashFocusZone('grid');
-                setSplashGridFlatIndex(0);
+              if (splashFilterIndex < 4) {
+                // De Fila 1 (Tipo) bajar a Fila 2 (Orden)
+                const targetCol = Math.min(4, splashFilterIndex);
+                setSplashFilterIndex(4 + targetCol);
+                soundService.playNavigation();
+              } else {
+                // De Fila 2 (Orden) bajar a Grilla
+                if (displayedSplashItems.length > 0) {
+                  setSplashFocusZone('grid');
+                  const col = splashFilterIndex - 4;
+                  setSplashGridFlatIndex(Math.min(cols - 1, Math.min(maxFlat, col)));
+                  soundService.playNavigation();
+                }
               }
-              soundService.playNavigation();
             } else if (splashFocusZone === 'grid') {
               const next = splashGridFlatIndex + cols;
-              if (next > maxFlat) {
-                if (!isShowingDownloadedSplash && splashTotalPages > 1) {
-                  setSplashFocusZone('pager');
-                }
-              } else {
+              if (next <= maxFlat) {
                 setSplashGridFlatIndex(next);
+                soundService.playNavigation();
+              } else if (!isShowingDownloadedSplash && splashTotalPages > 1) {
+                setSplashFocusZone('pager');
+                setSplashPagerIndex(0);
+                soundService.playNavigation();
               }
-              soundService.playNavigation();
             }
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            if (splashFocusZone === 'filters') {
-              setSplashFocusZone('search');
-              soundService.playNavigation();
-            } else if (splashFocusZone === 'grid') {
-              const prev = splashGridFlatIndex - cols;
-              if (prev < 0) {
-                setSplashFocusZone('filters');
-              } else {
-                setSplashGridFlatIndex(prev);
-              }
-              soundService.playNavigation();
-            } else if (splashFocusZone === 'pager') {
+            if (splashFocusZone === 'pager') {
               setSplashFocusZone('grid');
               setSplashGridFlatIndex(maxFlat);
               soundService.playNavigation();
+            } else if (splashFocusZone === 'grid') {
+              const prev = splashGridFlatIndex - cols;
+              if (prev >= 0) {
+                setSplashGridFlatIndex(prev);
+                soundService.playNavigation();
+              } else {
+                // De primera fila de Grilla subir a Fila 2 de Filtros (Orden)
+                setSplashFocusZone('filters');
+                const col = splashGridFlatIndex % cols;
+                setSplashFilterIndex(Math.min(8, 4 + col));
+                soundService.playNavigation();
+              }
+            } else if (splashFocusZone === 'filters') {
+              if (splashFilterIndex >= 4) {
+                // De Fila 2 (Orden) subir a Fila 1 (Tipo)
+                const col = splashFilterIndex - 4;
+                setSplashFilterIndex(Math.min(3, col));
+                soundService.playNavigation();
+              } else {
+                // De Fila 1 (Tipo) subir al Buscador
+                setSplashFocusZone('search');
+                soundService.playNavigation();
+              }
             }
           } else if (e.key === 'Enter') {
             e.preventDefault();
@@ -1145,8 +1257,13 @@ export default function SettingsView({
               setShowSplashVK(true);
             } else if (splashFocusZone === 'filters') {
               const item = SPLASH_FILTER_ITEMS[splashFilterIndex];
-              if (item?.kind === 'type') setSplashType(item.id as SplashFilterType);
-              else if (item?.kind === 'sort') setSplashSort(item.id as SteamDeckRepoSort);
+              if (item?.kind === 'type') {
+                setSplashType(item.id as SplashFilterType);
+                setSplashGridFlatIndex(0);
+              } else if (item?.kind === 'sort') {
+                setSplashSort(item.id as SteamDeckRepoSort);
+                setSplashGridFlatIndex(0);
+              }
             } else if (splashFocusZone === 'grid') {
               const post = displayedSplashItems[splashGridFlatIndex];
               if (post) openSplashPreview(post);
@@ -1540,6 +1657,7 @@ export default function SettingsView({
       { id: 'sync', title: t('settings.smartSync') },
       { id: 'gamepanel', title: t('settings.gamePanel') },
       { id: 'overlay', title: t('settings.overlay') },
+      { id: 'trophies', title: 'Trofeos y Notificaciones' },
       { id: 'splash', title: t('settings.steamDeckRepo') },
     ];
 
@@ -2262,6 +2380,201 @@ export default function SettingsView({
             })()}
 
             {accessibilityLeftIndex === 8 && (() => {
+              const isRightFocused = accessibilityFocusArea === 'right';
+
+              const TROPHY_POSITIONS = [
+                { id: 'topright', label: 'Superior Der (PS5)' },
+                { id: 'topcenter', label: 'Superior Centro' },
+                { id: 'topleft', label: 'Superior Izq' },
+                { id: 'bottomright', label: 'Inferior Der' },
+                { id: 'bottomcenter', label: 'Inferior Centro' },
+                { id: 'bottomleft', label: 'Inferior Izq' },
+              ];
+
+              const TROPHY_DURATIONS = [
+                { ms: 4000, label: '4s' },
+                { ms: 6000, label: '6s (Normal)' },
+                { ms: 8000, label: '8s' },
+                { ms: 10000, label: '10s' },
+              ];
+
+              const TROPHY_SCALES = [
+                { scale: 80, label: '80%' },
+                { scale: 100, label: '100%' },
+                { scale: 120, label: '120%' },
+                { scale: 140, label: '140%' },
+              ];
+
+              return (
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
+                  <Text style={styles.rightSectionTitle}>Trofeos y Notificaciones (Estilo PS5)</Text>
+                  <Text style={[styles.pathDesc, { marginBottom: 16 }]}>
+                    Personaliza la apariencia, posición y efectos sonoros de las notificaciones de trofeos para Steam, RetroAchievements y juegos externos.
+                  </Text>
+
+                  {/* Fila 0: Sonidos de Trofeo */}
+                  <View
+                    style={[
+                      styles.toggleRowSection,
+                      isRightFocused && subFocusIndex === 0 && styles.rightItemFocused,
+                    ]}
+                  >
+                    {isRightFocused && subFocusIndex === 0 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
+                    <View style={{ flex: 1, paddingRight: 20 }}>
+                      <Text style={styles.toggleRowTitle}>Efectos de Sonido de Trofeo</Text>
+                      <Text style={styles.toggleRowDesc}>Reproduce el tono auténtico de trofeo de PS5 al desbloquear logros.</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.psSwitch, trophyConfig.soundEnabled && styles.psSwitchActive]}
+                      onPress={() => updateTrophyConfig({ soundEnabled: !trophyConfig.soundEnabled })}
+                    >
+                      <View
+                        style={[
+                          styles.psSwitchThumb,
+                          trophyConfig.soundEnabled && styles.psSwitchThumbActive,
+                        ]}
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Fila 1: Posición */}
+                  <View
+                    style={[
+                      styles.toggleRowSection,
+                      { alignItems: 'flex-start' },
+                      isRightFocused && subFocusIndex === 1 && styles.rightItemFocused,
+                    ]}
+                  >
+                    {isRightFocused && subFocusIndex === 1 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
+                    <View style={{ flex: 1, paddingRight: 20 }}>
+                      <Text style={styles.toggleRowTitle}>Posición en Pantalla</Text>
+                      <Text style={styles.toggleRowDesc}>Ubicación donde aparecerá la tarjeta flotante sobre el juego.</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: 440, justifyContent: 'flex-end' }}>
+                      {TROPHY_POSITIONS.map((opt) => {
+                        const isActive = trophyConfig.position === opt.id;
+                        return (
+                          <TouchableOpacity
+                            key={opt.id}
+                            style={[styles.platformBtn, isActive && styles.platformBtnActive]}
+                            onPress={() => updateTrophyConfig({ position: opt.id })}
+                          >
+                            <Text style={[styles.platformBtnText, isActive && styles.platformBtnTextActive]}>
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Fila 2: Duración */}
+                  <View
+                    style={[
+                      styles.toggleRowSection,
+                      { alignItems: 'flex-start' },
+                      isRightFocused && subFocusIndex === 2 && styles.rightItemFocused,
+                    ]}
+                  >
+                    {isRightFocused && subFocusIndex === 2 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
+                    <View style={{ flex: 1, paddingRight: 20 }}>
+                      <Text style={styles.toggleRowTitle}>Tiempo en Pantalla</Text>
+                      <Text style={styles.toggleRowDesc}>Duración antes de descartarse automáticamente.</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: 380, justifyContent: 'flex-end' }}>
+                      {TROPHY_DURATIONS.map((opt) => {
+                        const isActive = trophyConfig.durationMs === opt.ms;
+                        return (
+                          <TouchableOpacity
+                            key={opt.ms}
+                            style={[styles.platformBtn, isActive && styles.platformBtnActive]}
+                            onPress={() => updateTrophyConfig({ durationMs: opt.ms })}
+                          >
+                            <Text style={[styles.platformBtnText, isActive && styles.platformBtnTextActive]}>
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Fila 3: Escala */}
+                  <View
+                    style={[
+                      styles.toggleRowSection,
+                      { alignItems: 'flex-start' },
+                      isRightFocused && subFocusIndex === 3 && styles.rightItemFocused,
+                    ]}
+                  >
+                    {isRightFocused && subFocusIndex === 3 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
+                    <View style={{ flex: 1, paddingRight: 20 }}>
+                      <Text style={styles.toggleRowTitle}>Tamaño de la Notificación</Text>
+                      <Text style={styles.toggleRowDesc}>Escala general de la tarjeta flotante.</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: 380, justifyContent: 'flex-end' }}>
+                      {TROPHY_SCALES.map((opt) => {
+                        const isActive = (trophyConfig.scale || 100) === opt.scale;
+                        return (
+                          <TouchableOpacity
+                            key={opt.scale}
+                            style={[styles.platformBtn, isActive && styles.platformBtnActive]}
+                            onPress={() => updateTrophyConfig({ scale: opt.scale })}
+                          >
+                            <Text style={[styles.platformBtnText, isActive && styles.platformBtnTextActive]}>
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Fila 4: Probar Notificación */}
+                  <View
+                    style={[
+                      styles.toggleRowSection,
+                      { alignItems: 'center' },
+                      isRightFocused && subFocusIndex === 4 && styles.rightItemFocused,
+                    ]}
+                  >
+                    {isRightFocused && subFocusIndex === 4 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
+                    <View style={{ flex: 1, paddingRight: 20 }}>
+                      <Text style={styles.toggleRowTitle}>Probar Notificación</Text>
+                      <Text style={styles.toggleRowDesc}>Lanza una notificación de demostración con sonido y animación reales.</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        style={[styles.platformBtn, { borderColor: '#cd7f32' }]}
+                        onPress={() => testTrophy('bronze')}
+                      >
+                        <Text style={[styles.platformBtnText, { color: '#cd7f32' }]}>Bronce</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.platformBtn, { borderColor: '#c0c5cc' }]}
+                        onPress={() => testTrophy('silver')}
+                      >
+                        <Text style={[styles.platformBtnText, { color: '#c0c5cc' }]}>Plata</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.platformBtn, { borderColor: '#e5b842', backgroundColor: 'rgba(229,184,66,0.15)' }]}
+                        onPress={() => testTrophy('gold')}
+                      >
+                        <Text style={[styles.platformBtnText, { color: '#e5b842' }]}>Oro</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.platformBtn, { borderColor: '#00c8ff', backgroundColor: 'rgba(0,200,255,0.15)' }]}
+                        onPress={() => testTrophy('platinum')}
+                      >
+                        <Text style={[styles.platformBtnText, { color: '#00c8ff' }]}>Platino</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </ScrollView>
+              );
+            })()}
+
+            {accessibilityLeftIndex === 9 && (() => {
               const currentBoot = (activeUser?.settings as any)?.bootVideoPath;
               const currentSuspend = (activeUser?.settings as any)?.suspendVideoPath;
               const isRightFocused = accessibilityFocusArea === 'right';
@@ -3309,7 +3622,7 @@ export default function SettingsView({
         </View>
 
         {/* Control Prompt Bar at Bottom */}
-        {currentScreen === 'accessibility' && accessibilityLeftIndex === 8 && (
+        {currentScreen === 'accessibility' && accessibilityLeftIndex === 9 && (
           <View style={styles.bottomControlBarContainer2}>
             <View style={[styles.bottomControlBar, {}]}>
               <PSIcon
@@ -3323,7 +3636,7 @@ export default function SettingsView({
                 size={s(26)}
                 color={'#fff'}
               />
-              <Text style={styles.bottomBarText}>{t('search.changeTabs')}</Text>
+              <Text style={styles.bottomBarText}>Cambiar página</Text>
             </View>
           </View>
         )

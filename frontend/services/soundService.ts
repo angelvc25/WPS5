@@ -23,6 +23,8 @@ class SoundService {
   private contextMenuSound: AudioPlayer | null = null;
   private exitMenuSound: AudioPlayer | null = null;
   private notificationSound: AudioPlayer | null = null;
+  private trophySound: AudioPlayer | null = null;
+  private platinumTrophySound: AudioPlayer | null = null;
   private isMuted: boolean = false;
   private isInitialized: boolean = false; // Candado para evitar duplicados
   private soundPackId: string = DEFAULT_SOUND_PACK_ID;
@@ -80,6 +82,11 @@ class SoundService {
 
       const notificationSound = createAudioPlayer(pick('notification', require('@/assets/sounds/notification.mp3')));
       this.notificationSound = notificationSound;
+
+      try {
+        this.trophySound = createAudioPlayer(require('@/assets/sounds/Trophy Toas.mp3'));
+        this.platinumTrophySound = createAudioPlayer(require('@/assets/sounds/Platinum Trophy Toast.mp3'));
+      } catch (_) { }
 
       this.applyVolumes();
 
@@ -155,6 +162,19 @@ class SoundService {
   async playNotification() {
     if (this.isMuted || !this.notificationSound) return;
     try { await this.replay(this.notificationSound); } catch (e) { }
+  }
+
+  async playTrophy(rarity?: string) {
+    if (this.isMuted) return;
+    try {
+      if (rarity === 'platinum' && this.platinumTrophySound) {
+        await this.replay(this.platinumTrophySound);
+      } else if (this.trophySound) {
+        await this.replay(this.trophySound);
+      } else if (this.notificationSound) {
+        await this.replay(this.notificationSound);
+      }
+    } catch (_) { }
   }
 
   // Ahora es una función asíncrona que cambia el estado real del audio en reproducción
@@ -241,6 +261,8 @@ class SoundService {
         this.contextMenuSound,
         this.exitMenuSound,
         this.notificationSound,
+        this.trophySound,
+        this.platinumTrophySound,
       ].forEach((s) => {
         if (s) s.volume = ui;
       });
@@ -253,7 +275,7 @@ class SoundService {
   // Opcional: método para liberar memoria si el componente global se desmonta
   async unloadAll() {
     try {
-      [this.backgroundSound, this.navigationSound, this.activationSound, this.startHomeSound, this.tabSound, this.backSound, this.contextMenuSound, this.exitMenuSound, this.notificationSound].forEach(sound => sound?.remove());
+      [this.backgroundSound, this.navigationSound, this.activationSound, this.startHomeSound, this.tabSound, this.backSound, this.contextMenuSound, this.exitMenuSound, this.notificationSound, this.trophySound, this.platinumTrophySound].forEach(sound => sound?.remove());
 
       this.isInitialized = false;
     } catch (e) { }

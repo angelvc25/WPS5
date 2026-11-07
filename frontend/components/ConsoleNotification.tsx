@@ -111,11 +111,15 @@ export default function ConsoleNotification({
             translateX.value = withTiming(0, { duration: 350 });
         }, enterDelay);
         autoDismiss();
-        soundService.playNotification?.().catch(() => { });
+        if (type === 'achievement-unlocked') {
+            soundService.playTrophy?.(notification.data?.rarity).catch(() => { });
+        } else {
+            soundService.playNotification?.().catch(() => { });
+        }
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
         };
-    }, [autoDismiss, index, opacity, translateX]);
+    }, [autoDismiss, index, opacity, translateX, type, notification.data?.rarity]);
 
     if (dismissed) return null;
 
@@ -173,6 +177,17 @@ export default function ConsoleNotification({
                         </View>
                     </View>
 
+                    {/* Logo de trofeo PS5 si es un logro */}
+                    {type === 'achievement-unlocked' && (
+                        <View style={styles.ps5TrophyBadge}>
+                            <Image
+                                source={require('@/assets/trophies/logo-trophy.png')}
+                                style={styles.ps5TrophyLogo}
+                                contentFit="contain"
+                            />
+                        </View>
+                    )}
+
                     {/* Botón cerrar (X) */}
                     <TouchableOpacity
                         activeOpacity={0.7}
@@ -201,8 +216,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: 'rgba(18, 21, 26, 0.92)',
         borderRadius: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        //borderWidth: 1,
+        //borderColor: 'rgba(255, 255, 255, 0.08)',
         paddingHorizontal: 12,
         paddingVertical: 12,
         minHeight: 64,
@@ -257,5 +272,16 @@ const styles = StyleSheet.create({
         color: 'rgba(255, 255, 255, 0.8)',
         lineHeight: 17,
         flex: 1,
+    },
+    ps5TrophyBadge: {
+        width: 32,
+        height: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
+    },
+    ps5TrophyLogo: {
+        width: 24,
+        height: 24,
     },
 });

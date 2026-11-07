@@ -142,6 +142,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setActiveSteamCredentials: (creds) => ipcRenderer.invoke('set-active-steam-credentials', creds),
   // Muestra una notificación de trofeo desde el renderer (p.ej. al cerrar el juego).
   showTrophyNotification: (achievement, gameInfo) => ipcRenderer.invoke('show-trophy-notification', achievement, gameInfo),
+  // ── Configuración y Test de Notificaciones de Trofeos estilo PS5 ─────────
+  getTrophyNotificationConfig: () => ipcRenderer.invoke('ach-notifier:get-config'),
+  setTrophyNotificationConfig: (cfg) => ipcRenderer.invoke('ach-notifier:set-config', cfg),
+  testTrophyNotification: (rarity) => ipcRenderer.invoke('ach-notifier:test-trophy', rarity),
+  getTrophyThemes: () => ipcRenderer.invoke('ach-notifier:get-themes'),
+  importTrophyTheme: () => ipcRenderer.invoke('ach-notifier:import-theme'),
+  exportTrophyTheme: () => ipcRenderer.invoke('ach-notifier:export-theme'),
+  pickTrophyAssetFile: (type) => ipcRenderer.invoke('ach-notifier:pick-file', type),
+  resetTrophyConfig: () => ipcRenderer.invoke('ach-notifier:reset-config'),
   // ── Splash Videos (SteamDeckRepo) ─────────────────────────────────────────
   // Descarga un video de boot/suspend desde SteamDeckRepo y lo guarda en
   // userData/WConsole/splash/{boot|suspend}.webm. Devuelve

@@ -309,6 +309,19 @@ export function useConsoleNotifications({
         };
     }, [activeAppId, steamUserId, steamApiKey, pollIntervalMs, t]);
 
+    // ── Escucha de trofeos de Electron: solo sincronizar sonido/historial si la ventana nativa está activa ──
+    useEffect(() => {
+        if (Platform.OS !== 'web' || !(window as any).electronAPI?.onTrophyUnlocked) return;
+        const removeListener = (window as any).electronAPI.onTrophyUnlocked((data: any) => {
+            const ach = data?.achievement;
+            if (!ach) return;
+            // La notificación flotante con el estilo de PS5 la dibuja la ventana nativa de Electron.
+            // Aquí solo reproducimos sonido si no estuviese en la ventana nativa.
+        });
+
+        return removeListener;
+    }, [t]);
+
     // ── Arranque de los watchers ───────────────────────────────────────────
     // Cada watcher gestiona su propio interval interno; este efecto solo los
     // inicializa una vez al montar y los limpia al desmontar.
