@@ -31,6 +31,9 @@ function persistLanguage(lang: Language) {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
     }
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.setAppLanguage) {
+      (window as any).electronAPI.setAppLanguage(lang);
+    }
   } catch {
     // ignore
   }
@@ -51,6 +54,12 @@ const LanguageContext = createContext<LanguageContextValue>({
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(loadLanguage);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.setAppLanguage) {
+      (window as any).electronAPI.setAppLanguage(language);
+    }
+  }, [language]);
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);

@@ -122,6 +122,7 @@ class AchievementNotifierService {
     this.trophyAssetsDir = null;
     this.userThemesDir = null;
     this.loadedThemeData = null;
+    this.currentLanguage = 'es';
   }
 
   init(mainWindow, options = {}) {
@@ -193,9 +194,14 @@ class AchievementNotifierService {
       return this.config;
     });
 
-    ipcMain.handle('ach-notifier:test-trophy', (_event, rarity = 'platinum') => {
-      this.showTestTrophy(rarity);
+    ipcMain.handle('ach-notifier:test-trophy', (_event, rarity = 'platinum', lang = null) => {
+      if (lang) this.currentLanguage = lang;
+      this.showTestTrophy(rarity, lang);
       return { success: true };
+    });
+
+    ipcMain.on('ach-notifier:set-language', (_event, lang) => {
+      if (lang) this.currentLanguage = lang;
     });
 
     ipcMain.handle('ach-notifier:get-themes', () => this.getThemesList());
@@ -394,21 +400,21 @@ class AchievementNotifierService {
       };
 
       const soundRel = copyAsset(this.config.customSoundFile, 'sound') ||
-                       copyAsset(path.join(__dirname, '..', '..', 'assets', 'sounds', 'Trophy Toas.mp3'), 'sound') ||
-                       'assets/Trophy Toas.mp3';
+        copyAsset(path.join(__dirname, '..', '..', 'assets', 'sounds', 'Trophy Toas.mp3'), 'sound') ||
+        'assets/Trophy Toas.mp3';
 
       const logoRel = copyAsset(this.config.rightLogo, 'logo') ||
-                      copyAsset(path.join(imagesDir, 'IntroLogo.png'), 'logo') ||
-                      'assets/IntroLogo.png';
+        copyAsset(path.join(imagesDir, 'IntroLogo.png'), 'logo') ||
+        'assets/IntroLogo.png';
 
       const bronzeRel = copyAsset(this.config.bronzeIcon, 'bronze') ||
-                        copyAsset(path.join(imagesDir, 'bronce.png'), 'bronze');
+        copyAsset(path.join(imagesDir, 'bronce.png'), 'bronze');
       const silverRel = copyAsset(this.config.silverIcon, 'silver') ||
-                        copyAsset(path.join(imagesDir, 'plata.png'), 'silver');
+        copyAsset(path.join(imagesDir, 'plata.png'), 'silver');
       const goldRel = copyAsset(this.config.goldIcon, 'gold') ||
-                      copyAsset(path.join(imagesDir, 'oro.png'), 'gold');
+        copyAsset(path.join(imagesDir, 'oro.png'), 'gold');
       const platRel = copyAsset(this.config.platinumIcon, 'platinum') ||
-                      copyAsset(path.join(imagesDir, 'platino.png'), 'platinum');
+        copyAsset(path.join(imagesDir, 'platino.png'), 'platinum');
 
       const fullUserTheme = {
         id: 1,
@@ -494,41 +500,42 @@ class AchievementNotifierService {
     this.processQueue();
   }
 
-  showTestTrophy(rarity = 'platinum') {
-    // Texto y configuración idénticos a los de SAN en la imagen 2
-    let category = '100% Completado';
-    let title = '¡Has desbloqueado todos los logros!';
-    let desc = 'Has obtenido todos los trofeos del juego';
+  async getLanguage() {
+    if (this.currentLanguage) return this.currentLanguage;
+    try {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        const stored = await this.mainWindow.webContents.executeJavaScript('localStorage.getItem("wps5_language")');
+        if (stored) {
+          this.currentLanguage = stored;
+          return stored;
+        }
+      }
+    } catch (_) { }
+    return 'es';
+  }
 
-    if (rarity === 'gold') {
-      category = 'Trofeo de Oro Desbloqueado';
-      title = 'Maestro Legendario';
-      desc = 'Superaste todos los desafíos al máximo nivel';
-    } else if (rarity === 'silver') {
-      category = 'Trofeo de Plata Desbloqueado';
-      title = 'Combatiente Experto';
-      desc = 'Dominaste todas las técnicas especiales';
-    } else if (rarity === 'bronze') {
-      category = 'Trofeo de Bronce Desbloqueado';
-      title = 'Primeros Pasos';
-      desc = 'Completaste la misión introductoria';
-    }
+  showTestTrophy(rarity = 'platinum', lang = null) {
+    const currentLang = lang || this.currentLanguage || 'es';
+    const TEST_TITLES = {
+      es: 'Primeros Pasos',
+      en: 'First Steps',
+      pt: 'Primeiros Passos',
+    };
+    const title = TEST_TITLES[currentLang] || TEST_TITLES.es;
 
     this.enqueueTrophy({
       apiName: `test_${rarity}`,
       name: title,
-      category,
-      description: desc,
       rarity: rarity,
-      icon: null, // usará gameicon.png tal como en la imagen 2 de SAN
+      icon: null,
     }, {
       title: 'GAME ICON',
     }, {
-      isTest: true, // Flag para evitar emitir evento duplicado al frontend
+      isTest: true,
     });
   }
 
-  processQueue() {
+  async processQueue() {
     if (this.isShowingNotification || this.trophyQueue.length === 0) return;
     this.isShowingNotification = true;
 
@@ -548,7 +555,7 @@ class AchievementNotifierService {
     // Base SAN: 320px x 52px
     const scaleFactor = (this.config.scale || 100) / 100;
     const baseW = 350;
-    const baseH = 56;
+    const baseH = 64;
     const W = Math.round(baseW * scaleFactor);
     const H = Math.round(baseH * scaleFactor);
     const margin = Math.round(20 * scaleFactor);
@@ -656,9 +663,9 @@ class AchievementNotifierService {
       }
       if (!psLogoUri) {
         psLogoUri = this.fileToDataUri(defaultIntroLogo) ||
-                    this.fileToDataUri(path.join(trophiesDir, 'sanlogo.svg')) ||
-                    this.fileToDataUri(path.join(trophiesDir, 'sanlogo.png')) ||
-                    this.fileToDataUri(path.join(trophiesDir, 'logo-trophy.png'));
+          this.fileToDataUri(path.join(trophiesDir, 'sanlogo.svg')) ||
+          this.fileToDataUri(path.join(trophiesDir, 'sanlogo.png')) ||
+          this.fileToDataUri(path.join(trophiesDir, 'logo-trophy.png'));
       }
       const logoScale = (this.config.rightLogoScale || custom.logoscale || 100) / 100;
       const logoSize = Math.max(14, Math.round(24 * logoScale));
@@ -730,13 +737,33 @@ class AchievementNotifierService {
         iconSrc = this.fileToDataUri(gameInfo.image);
       }
 
-      const categoryText = achievement.category ||
-        (rarity === 'platinum' ? '100% Completado' :
-         rarity === 'gold' ? 'Trofeo de Oro Desbloqueado' :
-         rarity === 'silver' ? 'Trofeo de Plata Desbloqueado' :
-         'Trofeo de Bronce Desbloqueado');
+      const TROPHY_TEXTS = {
+        es: {
+          bronze: 'Trofeo de bronce ganado',
+          silver: 'Trofeo de plata ganado',
+          gold: 'Trofeo de oro ganado',
+          platinum: 'Trofeo de platino ganado',
+        },
+        en: {
+          bronze: 'Bronze Trophy Earned',
+          silver: 'Silver Trophy Earned',
+          gold: 'Gold Trophy Earned',
+          platinum: 'Platinum Trophy Earned',
+        },
+        pt: {
+          bronze: 'Troféu de bronze ganho',
+          silver: 'Troféu de prata ganho',
+          gold: 'Troféu de ouro ganho',
+          platinum: 'Troféu de platina ganho',
+        },
+      };
 
-      const titleText = achievement.name || '¡Has desbloqueado todos los logros!';
+      const currentLang = await this.getLanguage();
+      const langTexts = TROPHY_TEXTS[currentLang] || TROPHY_TEXTS.es;
+      const trophyEarnedText = langTexts[rarity] || langTexts.bronze;
+
+      const titleText = achievement.name || 'Logro desbloqueado';
+      const descText = trophyEarnedText;
       const displayMs = this.config.durationMs || 6000;
       const exitMs = 300;
 
@@ -754,8 +781,9 @@ class AchievementNotifierService {
 
       const trophySize = Math.round(17 * s);
       const trophyGap = Math.round(6 * s);
-      const categoryFontSize = Math.max(9, Math.round(12 * s * fontScale));
-      const titleFontSize = Math.max(10, Math.round(13.5 * s * fontScale));
+      // Fuentes compactas (como SAN): título pequeño y descripción aún más pequeña
+      const titleFontSize = Math.max(9, Math.round(12 * s * fontScale * 10) / 10);
+      const descFontSize = Math.max(8, Math.round(11 * s * fontScale * 10) / 10);
       const textGap = Math.max(1, Math.round(3 * s));
 
       const logoWrapperSize = Math.round(36 * s);
@@ -868,23 +896,25 @@ class AchievementNotifierService {
     object-fit: contain;
     flex-shrink: 0;
   }
-  .category-text {
-    font-size: ${categoryFontSize}px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.78);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    letter-spacing: 0.2px;
-  }
   .title-text {
     font-size: ${titleFontSize}px;
-    font-weight: 500;
-    color: #ffffff;
+    font-weight: 600;
+    color: ${fontColorVal};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1.2;
+  }
+  .desc-text {
+    font-size: ${descFontSize}px;
+    font-weight: 400;
+    color: ${descFontColorVal};
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
   }
 
   /* Logo derecho (PlayStation) estático con aro de pulsación */
@@ -963,9 +993,9 @@ class AchievementNotifierService {
     <div class="text-content">
       <div class="top-row">
         ${trophySvgUri ? `<img src="${trophySvgUri}" class="trophy-svg-icon"/>` : ''}
-        <span class="category-text">${categoryText}</span>
+        <span class="title-text">${titleText}</span>
       </div>
-      <div class="title-text">${titleText}</div>
+      ${descText ? `<div class="desc-text">${descText}</div>` : ''}
     </div>
     <div class="logo-wrapper">
       <div class="logo-ring"></div>
@@ -1241,8 +1271,8 @@ class AchievementNotifierService {
           const lines = chunk.split('\n');
           for (const line of lines) {
             const match = line.match(/Awarding achievement\s+(\d+)/i) ||
-                          line.match(/Awarded achievement\s+(\d+)/i) ||
-                          line.match(/Achievement\s+(\d+)\s+unlocked/i);
+              line.match(/Awarded achievement\s+(\d+)/i) ||
+              line.match(/Achievement\s+(\d+)\s+unlocked/i);
 
             if (match) {
               const achId = match[1];

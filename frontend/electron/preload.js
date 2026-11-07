@@ -145,7 +145,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Configuración y Test de Notificaciones de Trofeos estilo PS5 ─────────
   getTrophyNotificationConfig: () => ipcRenderer.invoke('ach-notifier:get-config'),
   setTrophyNotificationConfig: (cfg) => ipcRenderer.invoke('ach-notifier:set-config', cfg),
-  testTrophyNotification: (rarity) => ipcRenderer.invoke('ach-notifier:test-trophy', rarity),
+  testTrophyNotification: (rarity, lang) => ipcRenderer.invoke('ach-notifier:test-trophy', rarity, lang),
+  setAppLanguage: (lang) => ipcRenderer.send('ach-notifier:set-language', lang),
   getTrophyThemes: () => ipcRenderer.invoke('ach-notifier:get-themes'),
   importTrophyTheme: () => ipcRenderer.invoke('ach-notifier:import-theme'),
   exportTrophyTheme: () => ipcRenderer.invoke('ach-notifier:export-theme'),

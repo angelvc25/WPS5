@@ -395,7 +395,7 @@ export default function SettingsView({
   const testTrophy = (rarity: string) => {
     soundService.playTrophy?.(rarity).catch(() => {});
     if (Platform.OS === 'web' && (window as any).electronAPI?.testTrophyNotification) {
-      (window as any).electronAPI.testTrophyNotification(rarity).catch(() => {});
+      (window as any).electronAPI.testTrophyNotification(rarity, language).catch(() => {});
     }
   };
 
