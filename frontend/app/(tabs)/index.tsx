@@ -1,4 +1,4 @@
-﻿import { ResizeMode, Video } from '@/components/AppVideo';
+import { ResizeMode, Video } from '@/components/AppVideo';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import ClockText from '@/components/ClockText';
 import FavoritesView from '@/components/FavoritesView';
@@ -569,9 +569,11 @@ export default function ConsoleHome() {
     }, 140);
   }, []);
 
-  const openDetail = useCallback((item?: ConsoleItem, editMode: boolean = false) => {
+  const openDetail = useCallback((item?: ConsoleItem, editMode?: boolean) => {
     if (item) setSelectedItem(item);
-    setDetailInitialEditMode(editMode);
+    if (editMode !== undefined) {
+      setDetailInitialEditMode(editMode);
+    }
     homeTransitionAnim.value = withTiming(0, {
       duration: 160,
       easing: Easing.bezier(0.4, 0, 0.2, 1),
@@ -721,6 +723,8 @@ export default function ConsoleHome() {
 
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
+  const [contextMenuSource, setContextMenuSource] = useState<'carousel' | 'library'>('carousel');
+  const [contextMenuTargetItem, setContextMenuTargetItem] = useState<ConsoleItem | null>(null);
   const activeCardRef = useAnimatedRef<View>();
   const [contextMenuCoords, setContextMenuCoords] = useState({ top: 250, left: 335 });
   const [isLibraryDetailVisible, setIsLibraryDetailVisible] = useState(false);
@@ -752,6 +756,7 @@ export default function ConsoleHome() {
   // optionsRef.current (actualizada en cada render), basta con wrappers estables.
   const _handleLaunchAppRef = useRef<UseFocusNavigationOptions['handleLaunchApp']>(() => { });
   const _openContextMenuRef = useRef<UseFocusNavigationOptions['openContextMenu']>(() => { });
+  const _openLibraryContextMenuRef = useRef<(item: ConsoleItem, index?: number) => void>(() => { });
   const _handleContextMenuActionRef = useRef<UseFocusNavigationOptions['handleContextMenuAction']>(() => { });
   const _handleProfileMenuActionRef = useRef<UseFocusNavigationOptions['handleProfileMenuAction']>(() => { });
   const _handleSystemNavActionRef = useRef<UseFocusNavigationOptions['handleSystemNavAction']>(() => { });
@@ -831,10 +836,12 @@ export default function ConsoleHome() {
     systemNavMaxCardIndex,
     profileMenuFocusIndex,
     contextMenuFocusIndex,
+    contextMenuMode: contextMenuSource,
     modalSelectedIndex,
     setActiveTab,
     handleLaunchApp: (item: ConsoleItem) => _handleLaunchAppRef.current(item),
     openContextMenu: () => _openContextMenuRef.current(),
+    openLibraryContextMenu: (item, idx) => _openLibraryContextMenuRef.current(item, idx),
     handleContextMenuAction: (idx: number) => _handleContextMenuActionRef.current(idx),
     handleToggleFavorite: () => _handleToggleFavoriteRef.current(),
     handleTogglePin: () => _handleTogglePinRef.current(),
@@ -1371,6 +1378,9 @@ export default function ConsoleHome() {
     const item = currentData[activeIndex];
     if (!item || item.id === 'more_library' || item.id === '1' || item.id === '5' || item.isLastPlayed) return;
 
+    setContextMenuSource('carousel');
+    setContextMenuTargetItem(item);
+
     if (activeCardRef.current) {
       activeCardRef.current.measureInWindow((x, y, width, height) => {
         setContextMenuCoords({
@@ -1392,18 +1402,73 @@ export default function ConsoleHome() {
     }
   };
 
-  const handleContextMenuAction = async (idx: number) => {
+  const openLibraryContextMenu = (
+    item: ConsoleItem,
+    index?: number,
+    cardRect?: { left: number; top: number; width: number; height: number }
+  ) => {
+    if (!item || item.id === 'media_gallery') return;
+
+    setContextMenuSource('library');
+    setContextMenuTargetItem(item);
+    if (typeof index === 'number') {
+      setLibraryGridFocusIndex(index);
+    }
+
+    const MENU_WIDTH = 320;
+    const MENU_HEIGHT = 190;
+    const GAP = 8; // separación entre la tarjeta y el menú
+
+    // Función común para calcular left/top dado el rect de la tarjeta
+    const positionFromRect = (rect: { left: number; top: number; width: number; height: number }) => {
+      let left: number;
+      // Si cabe a la derecha de la tarjeta, posicionar allí; si no, a la izquierda
+      if (rect.left + rect.width + GAP + MENU_WIDTH <= windowWidth - 10) {
+        left = rect.left + rect.width + GAP;
+      } else {
+        left = Math.max(10, rect.left - MENU_WIDTH - GAP);
+      }
+      // Alinear verticalmente con la parte superior de la tarjeta, ajustando si se sale de pantalla
+      const top = Math.max(10, Math.min(rect.top, windowHeight - MENU_HEIGHT - 20));
+      return { left, top };
+    };
+
+    if (cardRect) {
+      // Clic derecho: recibimos el rect real de la tarjeta
+      const { left, top } = positionFromRect(cardRect);
+      setContextMenuCoords({ left, top });
+      setIsContextMenuOpen(true);
+      setContextMenuFocusIndex(0);
+      soundService.playContextMenu();
+      return;
+    }
+
+    // Teclado / Mando: medir la tarjeta enfocada
+    libraryGridRef.current?.getActiveCardCoords((coords) => {
+      const { left, top } = positionFromRect(coords);
+      setContextMenuCoords({ left, top });
+      setIsContextMenuOpen(true);
+      setContextMenuFocusIndex(0);
+      soundService.playContextMenu();
+    });
+  };
+
+  const handleContextMenuAction = async (idx: number | string) => {
     setIsContextMenuOpen(false);
-    const item = currentData[activeIndex];
+    const item = contextMenuSource === 'library' ? contextMenuTargetItem : currentData[activeIndex];
     if (!item) return;
 
-    if (idx === 0) {
+    if (idx === 'manage' || (idx === 0 && contextMenuSource !== 'library')) {
       // Editar Datos
       setSelectedItem(item);
       setDetailInitialEditMode(true);
       setDetailVisible(true);
-    } else if (idx === 1) {
-      // UbicaciÃ³n
+    } else if (
+      idx === 'location' ||
+      (idx === 1 && contextMenuSource !== 'library') ||
+      (idx === 1 && contextMenuSource === 'library')
+    ) {
+      // Ubicación
       if (Platform.OS === 'web' && (window as any).electronAPI) {
         if (item.path) {
           const result = await (window as any).electronAPI.openGameLocation(item.path);
@@ -1415,7 +1480,11 @@ export default function ConsoleHome() {
           toastService.show(t('toast.noPath'));
         }
       }
-    } else if (idx === 2) {
+    } else if (
+      idx === 'delete' ||
+      (idx === 2 && contextMenuSource !== 'library') ||
+      (idx === 0 && contextMenuSource === 'library')
+    ) {
       // Eliminar juego
       setDeleteConfirmItem(item);
     }
@@ -2088,14 +2157,14 @@ export default function ConsoleHome() {
   };
 
   const handleToggleFavorite = async () => {
-    const item = currentData[activeIndex];
+    const item = contextMenuSource === 'library' ? contextMenuTargetItem : currentData[activeIndex];
     if (!item) return;
     const newFav = !item.isFavorite;
 
     const isSteamOrEpicId = item.id?.toString().startsWith('steam_') || item.id?.toString().startsWith('epic_') || item.id?.toString().startsWith('xbox_');
 
     if (isSteamTrackedGame(item)) {
-      // Steam: la fuente de verdad es `steamGames` + su cachÃ© en localStorage.
+      // Steam: la fuente de verdad es `steamGames` + su caché en localStorage.
       // Hay que persistirla, o el favorito se pierde al recargar/cambiar de usuario.
       setSteamGames(prev => {
         const updated = prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g);
@@ -2106,7 +2175,7 @@ export default function ConsoleHome() {
         }
         return updated;
       });
-      // Si el usuario editÃ³ este juego, existe un registro en `games` que pisa
+      // Si el usuario editó este juego, existe un registro en `games` que pisa
       // a `steamGames` en `displayedLibraryGames`: mantenerlo sincronizado.
       setGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
     } else if (item.id?.toString().startsWith('epic_')) {
@@ -2127,8 +2196,12 @@ export default function ConsoleHome() {
       setGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
     }
 
+    if (contextMenuTargetItem && contextMenuTargetItem.id === item.id) {
+      setContextMenuTargetItem(prev => (prev ? { ...prev, isFavorite: newFav } : prev));
+    }
+
     // Para Steam/Epic NO escribimos en games.json (evita registros "fantasma"
-    // sin tÃ­tulo/portada, igual que en markGameAsLastPlayed).
+    // sin título/portada, igual que en markGameAsLastPlayed).
     if (!isSteamOrEpicId && Platform.OS === 'web' && (window as any).electronAPI?.updateApp) {
       await (window as any).electronAPI.updateApp({ id: item.id, isFavorite: newFav });
     }
@@ -2138,6 +2211,7 @@ export default function ConsoleHome() {
   // Actualizar refs de callbacks para useFocusNavigation (rompe la dependencia circular)
   _handleLaunchAppRef.current = handleLaunchApp;
   _openContextMenuRef.current = openContextMenu;
+  _openLibraryContextMenuRef.current = openLibraryContextMenu;
   _handleContextMenuActionRef.current = handleContextMenuAction;
   _handleProfileMenuActionRef.current = handleProfileMenuAction;
   _handleSystemNavActionRef.current = handleSystemNavAction;
@@ -2747,10 +2821,16 @@ export default function ConsoleHome() {
           <GameContextMenu
             focusedIndex={contextMenuFocusIndex}
             onPressItem={handleContextMenuAction}
-            isPinned={!!currentData[activeIndex]?.isPinned}
+            isPinned={contextMenuSource === 'carousel' ? !!currentData[activeIndex]?.isPinned : false}
             onTogglePin={handleTogglePin}
-            isFavorite={!!currentData[activeIndex]?.isFavorite}
+            isFavorite={
+              contextMenuSource === 'library'
+                ? !!contextMenuTargetItem?.isFavorite
+                : !!currentData[activeIndex]?.isFavorite
+            }
             onToggleFavorite={handleToggleFavorite}
+            mode={contextMenuSource === 'library' ? 'library' : 'carousel'}
+            leftOffset={contextMenuSource === 'library' ? 0 : undefined}
           />
         </View>
       )}
@@ -3031,6 +3111,7 @@ export default function ConsoleHome() {
                 setDetailVisible(true);
               }}
               onDetailVisibilityChange={(visible) => setIsLibraryDetailVisible(visible)}
+              onOpenContextMenu={(index, game, cardRect) => openLibraryContextMenu(game, index, cardRect)}
               installedSteamAppIds={installedSteamAppIds}
               onVisibleGamesChange={setVisibleLibraryGames}
               onRefresh={(updatedGame) => {
@@ -3111,9 +3192,7 @@ export default function ConsoleHome() {
                 setSelectedItem={setSelectedItem}
                 setDetailVisible={setDetailVisible}
                 onOpenConfig={(target) => {
-                  setSelectedItem(target);
-                  setDetailInitialEditMode(true);
-                  setDetailVisible(true);
+                  openDetail(target, true);
                 }}
                 onOpenTrophies={() => {
                   const target = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;

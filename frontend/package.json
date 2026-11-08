@@ -97,12 +97,36 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "assets/trophies",
+        "to": "assets/trophies",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "assets/images",
+        "to": "assets/images",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "assets/sounds",
+        "to": "assets/sounds",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "files": [
       "electron/**/*",
       "package.json",
       "assets/icons/**/*",
+      "assets/trophies/**/*",
+      "assets/images/**/*",
+      "assets/sounds/**/*",
       "node_modules/windows-media-sessions/**/*",
       "node_modules/win-media-control/**/*",
       "node_modules/node-hid/**/*"

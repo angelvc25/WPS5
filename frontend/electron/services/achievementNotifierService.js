@@ -109,6 +109,33 @@ const DEFAULT_CONFIG = {
   platinumIcon: null, // null = assets/images/platino.png
 };
 
+/**
+ * Resuelve rutas de assets tanto en desarrollo como en la build empaquetada (asar o extraResources).
+ */
+function resolveAssetPath(...segments) {
+  const rel = path.join(...segments);
+  const candidates = [
+    // 1. Relativo a __dirname (dev: frontend/assets/... | prod en asar: app.asar/assets/...)
+    path.join(__dirname, '..', '..', rel),
+    // 2. Usando app.getAppPath() si app está disponible
+    typeof app !== 'undefined' && app.getAppPath ? path.join(app.getAppPath(), rel) : null,
+    // 3. En process.resourcesPath (si está empaquetado en extraResources)
+    process.resourcesPath ? path.join(process.resourcesPath, rel) : null,
+    // 4. En asar unpacked
+    process.resourcesPath ? path.join(process.resourcesPath, 'app.asar.unpacked', rel) : null,
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    } catch (_) { }
+  }
+
+  return candidates[0];
+}
+
 class AchievementNotifierService {
   constructor() {
     this.mainWindow = null;
@@ -129,8 +156,7 @@ class AchievementNotifierService {
     this.mainWindow = mainWindow;
     this.steamPath = options.steamPath || null;
 
-    const appDir = path.join(__dirname, '..');
-    this.trophyAssetsDir = path.join(appDir, '..', 'assets', 'trophies');
+    this.trophyAssetsDir = resolveAssetPath('assets', 'trophies');
 
     const userData = app.getPath('userData');
     this.configFilePath = path.join(userData, 'achievement_notifier_config.json');
@@ -386,13 +412,14 @@ class AchievementNotifierService {
       const assetsDir = path.join(tempDir, 'assets');
       fs.mkdirSync(assetsDir, { recursive: true });
 
-      const imagesDir = path.join(__dirname, '..', '..', 'assets', 'images');
+      const imagesDir = resolveAssetPath('assets', 'images');
+      const soundsDir = resolveAssetPath('assets', 'sounds');
       const copyAsset = (sourcePath, targetName) => {
         try {
           if (sourcePath && fs.existsSync(sourcePath)) {
             const ext = path.extname(sourcePath) || '.png';
             const dest = path.join(assetsDir, `${targetName}${ext}`);
-            fs.copyFileSync(sourcePath, dest);
+            fs.writeFileSync(dest, fs.readFileSync(sourcePath));
             return `assets/${targetName}${ext}`;
           }
         } catch (_) { }
@@ -400,7 +427,7 @@ class AchievementNotifierService {
       };
 
       const soundRel = copyAsset(this.config.customSoundFile, 'sound') ||
-        copyAsset(path.join(__dirname, '..', '..', 'assets', 'sounds', 'Trophy Toas.mp3'), 'sound') ||
+        copyAsset(path.join(soundsDir, 'Trophy Toas.mp3'), 'sound') ||
         'assets/Trophy Toas.mp3';
 
       const logoRel = copyAsset(this.config.rightLogo, 'logo') ||
@@ -478,16 +505,31 @@ class AchievementNotifierService {
 
   fileToDataUri(filePath, defaultMime = 'image/png') {
     try {
-      if (!filePath || !fs.existsSync(filePath)) return null;
-      const ext = path.extname(filePath).toLowerCase();
+      if (!filePath) return null;
+      if (typeof filePath === 'string' && (filePath.startsWith('data:') || filePath.startsWith('http://') || filePath.startsWith('https://'))) {
+        return filePath;
+      }
+
+      let targetPath = filePath;
+      if (!fs.existsSync(targetPath)) {
+        const resolved = resolveAssetPath(filePath.replace(/^[\\/]+/, ''));
+        if (fs.existsSync(resolved)) {
+          targetPath = resolved;
+        } else {
+          return null;
+        }
+      }
+
+      const ext = path.extname(targetPath).toLowerCase();
       let mime = defaultMime;
       if (ext === '.jpg' || ext === '.jpeg') mime = 'image/jpeg';
       else if (ext === '.svg') mime = 'image/svg+xml';
       else if (ext === '.png') mime = 'image/png';
       else if (ext === '.mp3') mime = 'audio/mpeg';
       else if (ext === '.wav') mime = 'audio/wav';
+      else if (ext === '.ogg') mime = 'audio/ogg';
 
-      const base64 = fs.readFileSync(filePath).toString('base64');
+      const base64 = fs.readFileSync(targetPath).toString('base64');
       return `data:${mime};base64,${base64}`;
     } catch (_) {
       return null;
@@ -607,8 +649,9 @@ class AchievementNotifierService {
       this.trophyWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
       // Directorios de assets
-      const trophiesDir = this.trophyAssetsDir;
-      const imagesDir = path.join(__dirname, '..', '..', 'assets', 'images');
+      const trophiesDir = this.trophyAssetsDir || resolveAssetPath('assets', 'trophies');
+      const imagesDir = resolveAssetPath('assets', 'images');
+      const soundsDir = resolveAssetPath('assets', 'sounds');
       const defaultIntroLogo = path.join(imagesDir, 'IntroLogo.png');
       const defaultBronze = path.join(imagesDir, 'bronce.png');
       const defaultSilver = path.join(imagesDir, 'plata.png');
@@ -719,8 +762,8 @@ class AchievementNotifierService {
         }
         if (!soundUri) {
           const soundFile = rarity === 'platinum'
-            ? path.join(__dirname, '..', '..', 'assets', 'sounds', 'Platinum Trophy Toast.mp3')
-            : path.join(__dirname, '..', '..', 'assets', 'sounds', 'Trophy Toas.mp3');
+            ? path.join(soundsDir, 'Platinum Trophy Toast.mp3')
+            : path.join(soundsDir, 'Trophy Toas.mp3');
 
           if (fs.existsSync(soundFile)) {
             soundUri = this.fileToDataUri(soundFile, 'audio/mpeg');

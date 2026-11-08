@@ -116,11 +116,13 @@ export interface UseFocusNavigationOptions {
   setActiveTab: React.Dispatch<React.SetStateAction<string>>;
   handleLaunchApp: (item: ConsoleItem) => void;
   openContextMenu: () => void;
+  openLibraryContextMenu?: (item: ConsoleItem, index: number) => void;
   handleContextMenuAction: (index: number) => void;
   handleToggleFavorite: () => void;
   handleTogglePin: () => void;
   handleProfileMenuAction: (index: number) => void;
   handleSystemNavAction: (index: number) => void;
+  contextMenuMode?: 'carousel' | 'library';
   setAddModalVisible: (v: boolean) => void;
   setFavoritesVisible: (v: boolean) => void;
   setRandomSelectorVisible: (v: boolean) => void;
@@ -480,18 +482,27 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
           o.setIsContextMenuOpen(false);
           soundService.playBack();
         } else if (e.key === 'ArrowDown') {
-          o.setContextMenuFocusIndex(prev => Math.min(prev + 1, 4));
+          const maxIdx = o.contextMenuMode === 'library' ? 2 : 4;
+          o.setContextMenuFocusIndex(prev => Math.min(prev + 1, maxIdx));
           soundService.playNavigation();
         } else if (e.key === 'ArrowUp') {
           o.setContextMenuFocusIndex(prev => Math.max(prev - 1, 0));
           soundService.playNavigation();
         } else if (e.key === 'Enter') {
-          if (o.contextMenuFocusIndex === 3) {
-            o.handleToggleFavorite();
-          } else if (o.contextMenuFocusIndex === 4) {
-            o.handleTogglePin();
+          if (o.contextMenuMode === 'library') {
+            if (o.contextMenuFocusIndex === 2) {
+              o.handleToggleFavorite();
+            } else {
+              o.handleContextMenuAction(o.contextMenuFocusIndex);
+            }
           } else {
-            o.handleContextMenuAction(o.contextMenuFocusIndex);
+            if (o.contextMenuFocusIndex === 3) {
+              o.handleToggleFavorite();
+            } else if (o.contextMenuFocusIndex === 4) {
+              o.handleTogglePin();
+            } else {
+              o.handleContextMenuAction(o.contextMenuFocusIndex);
+            }
           }
           soundService.playActivation();
         }
@@ -566,6 +577,21 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
           const item = o.currentData[ai];
           if (item && item.id !== 'more_library') {
             o.openContextMenu();
+          }
+        } else if (fa === 'game_panel') {
+          const item = o.currentData[ai];
+          if (item && item.id !== 'more_library' && item.id !== '1' && item.id !== '5') {
+            const target = item.isLastPlayed ? o.lastPlayedGame : item;
+            if (target) {
+              o.setSelectedItem(target);
+              o.setDetailInitialEditMode?.(true);
+              o.setDetailVisible(true);
+            }
+          }
+        } else if (fa === 'library_grid' && !ltf && !lff) {
+          const item = vlg[lgfi];
+          if (item && item.id !== 'media_gallery') {
+            o.openLibraryContextMenu?.(item, lgfi);
           }
         }
         return;

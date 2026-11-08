@@ -48,6 +48,9 @@ interface LibraryGridProps {
   // (teclado/mando), o el juego abierto no coincidirá con la tarjeta
   // resaltada cuando haya un filtro activo.
   onVisibleGamesChange?: (games: ConsoleItem[]) => void;
+  // Callback para abrir el menú contextual en un juego de la biblioteca.
+  // cardRect: bounding rect de la tarjeta (para posicionar el menú al lado).
+  onOpenContextMenu?: (index: number, game: ConsoleItem, cardRect?: { left: number; top: number; width: number; height: number }) => void;
 }
 
 // Métodos expuestos para que el componente padre (dueño del estado de foco
@@ -69,6 +72,8 @@ export interface LibraryGridHandle {
   // Cierra el detalle interno del juego.
   closeDetail: () => void;
   isDetailOpen: () => boolean;
+  // Obtiene las coordenadas en ventana de la tarjeta enfocada
+  getActiveCardCoords: (callback: (coords: { left: number; top: number; width: number; height: number }) => void) => void;
 }
 
 const COLUMNS = 5;
@@ -356,10 +361,14 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   filterButtonFocused = false,
   onFilterPanelVisibilityChange,
   onVisibleGamesChange,
+  onOpenContextMenu,
 }: LibraryGridProps, ref) {
   const { t } = useTranslation();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [selectedGame, setSelectedGame] = useState<ConsoleItem | null>(null);
+
+  // Ref de la tarjeta actualmente enfocada para medir su posición en pantalla
+  const focusedCardRef = useRef<any>(null);
 
   // Ref + posición medida del botón de filtro, usados para anclar el panel
   // (renderizado en un Modal) justo debajo del botón, sin quedar tapado
@@ -639,6 +648,26 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
       onDetailVisibilityChange?.(false);
     },
     isDetailOpen: () => selectedGame !== null,
+    getActiveCardCoords: (callback: (coords: { left: number; top: number; width: number; height: number }) => void) => {
+      const node: any = focusedCardRef.current;
+      // Web: getBoundingClientRect es lo más fiable (coordenadas de ventana)
+      const domRect = typeof node?.getBoundingClientRect === 'function' ? node.getBoundingClientRect() : null;
+      if (domRect && domRect.width > 0 && domRect.height > 0) {
+        callback({ left: domRect.left, top: domRect.top, width: domRect.width, height: domRect.height });
+        return;
+      }
+      if (node?.measureInWindow) {
+        node.measureInWindow((x: number, y: number, width: number, height: number) => {
+          if (width > 0 && height > 0) {
+            callback({ left: x, top: y, width, height });
+          } else {
+            callback({ left: 300, top: 250, width: cardWidth, height: cardHeight });
+          }
+        });
+      } else {
+        callback({ left: 300, top: 250, width: cardWidth, height: cardHeight });
+      }
+    },
   }));
 
   // 3. Ordenar los juegos basados en el estado actual
@@ -701,10 +730,10 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
         const source: 'steam' | 'local' | 'epic' | 'xbox' = isSteamGame(game)
           ? 'steam'
           : isEpicGame(game)
-          ? 'epic'
-          : isXboxGame(game)
-          ? 'xbox'
-          : 'local';
+            ? 'epic'
+            : isXboxGame(game)
+              ? 'xbox'
+              : 'local';
         if (!selectedSources.has(source)) return false;
       }
 
@@ -1158,177 +1187,370 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                           entering={FadeInDown.delay(staggerDelay).duration(360)}
                           style={styles.gameCardAnimationWrapper}
                         >
-                          <TouchableOpacity
-                            activeOpacity={0.8}
-                            onPress={() => handleItemPress(index, game)}
-                            style={[
-                              styles.gameCardWrapper,
-                              isItemFocused && styles.gameCardWrapperFocused,
-                            ]}
-                          >
-                            {isItemFocused && <SpinningBorder />}
+                          {/* Web: div wrapper to capture right-click context menu */}
+                          {Platform.OS === 'web' ? (
+                            <div
+                              onContextMenu={(e: any) => {
+                                if (game.id === 'media_gallery') return;
+                                e?.preventDefault?.();
+                                // OJO: este div usa `display: contents`, por lo que NO tiene caja
+                                // propia y su getBoundingClientRect() devuelve todo en 0
+                                // (→ el menú salía en la esquina). Medimos la tarjeta real (hijo).
+                                const cardEl = e.currentTarget?.firstElementChild as HTMLElement | null;
+                                const rect = cardEl?.getBoundingClientRect?.();
+                                onOpenContextMenu?.(index, game, rect && rect.width > 0 && rect.height > 0
+                                  ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+                                  : undefined);
+                              }}
+                              style={{ position: 'relative', display: 'contents' }}
+                            >
+                              <TouchableOpacity
+                                ref={isItemFocused ? focusedCardRef : undefined}
+                                activeOpacity={0.8}
+                                onPress={() => handleItemPress(index, game)}
+                                style={[
+                                  styles.gameCardWrapper,
+                                  isItemFocused && styles.gameCardWrapperFocused,
+                                ]}
+                              >
+                                {isItemFocused && <SpinningBorder />}
 
-                            <CardSurface
-                              focused={isItemFocused}
+                                <CardSurface
+                                  focused={isItemFocused}
+                                  style={[
+                                    styles.gameCard,
+                                    isItemFocused && styles.gameCardFocused,
+                                  ]}
+                                >
+                                  <View style={styles.imageContainer}>
+                                    {game.id === 'media_gallery' ? (
+                                      <View style={[styles.gameImage, { backgroundColor: '#0d0d0fff', justifyContent: 'center', alignItems: 'center' }]}>
+                                        <Image
+                                          source={game.image}
+                                          style={{ width: '70%', height: '70%' }}
+                                          contentFit="contain"
+                                        />
+                                      </View>
+                                    ) : game.image ? (
+                                      <Image source={game.image} style={styles.gameImage} contentFit="cover" />
+                                    ) : (
+                                      <View style={styles.placeholderImage}>
+                                        <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
+                                      </View>
+                                    )}
+
+                                    {!isInstalled && (
+                                      <View style={styles.notInstalledDarken} pointerEvents="none" />
+                                    )}
+
+                                    {!isInstalled && (
+                                      <View style={styles.installBadge} pointerEvents="none">
+                                        <RNImage
+                                          source={require('@/assets/images/install.png')}
+                                          style={styles.installBadgeIcon}
+                                          resizeMode="contain"
+                                        />
+                                      </View>
+                                    )}
+
+                                    {isItemFocused && (
+                                      <View style={styles.focusedOverlay}>
+                                        <View style={styles.gradientOverlay} />
+
+                                        <View style={styles.gameInfoContainer}>
+                                          {game.id !== 'media_gallery' && (() => {
+                                            const steamGame = isSteamGame(game);
+                                            const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
+                                            const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
+                                            const isRetro =
+                                              platformId === 'Retro' ||
+                                              Boolean((game as any).retroSystem) ||
+                                              isRetroPlatform(platformId);
+                                            const isPS3 = platformId === 'PS3';
+                                            const isPS5 =
+                                              !isRetro &&
+                                              (platformId === 'PS5' ||
+                                                platformId === 'PS1' ||
+                                                platformId === 'PS2' ||
+                                                platformId === 'PS4' ||
+                                                platformId === 'PC');
+                                            const isXbox = platformId === 'Xbox';
+                                            const isSwitch = platformId === 'Switch';
+                                            const badgeLabel = isRetro
+                                              ? ((game as any).retroSystem?.trim() || platformId)
+                                              : platformId;
+
+                                            const isEpicGame = platformId === 'Epic';
+                                            const isSteam = steamGame || platformId === 'Steam';
+                                            const platformBgColor = isEpicGame ? '#000000' : steamGame ? 'rgba(2, 15, 36, 1)' : isPS3 ? 'rgba(0, 0, 0, 1)' : isXbox ? 'rgba(88, 151, 69, 1)' : isSwitch ? 'rgba(255, 40, 40, 1)' : isRetro ? 'rgba(175, 202, 21, 1)' : 'white';
+
+                                            return (
+                                              <View style={[styles.platformRow, { backgroundColor: platformBgColor }]}>
+                                                {steamGame ? (
+                                                  <Image
+                                                    source={require('@/assets/images/SteamBadge.png')}
+                                                    style={styles.platformBadgeImage}
+                                                    contentFit="contain"
+                                                  />
+                                                ) : isEpicGame ? (
+                                                  <Image
+                                                    source={require('@/assets/images/EpicBadge.png')}
+                                                    style={styles.platformBadgeImage}
+                                                    contentFit="contain"
+                                                  />
+                                                ) : isPS3 ? (
+                                                  <Text
+                                                    style={{
+                                                      color: '#ffffffff',
+                                                      fontFamily: 'SSTBadge',
+                                                      fontSize: 13,
+                                                      alignItems: 'center',
+                                                      justifyContent: 'center',
+                                                    }}
+                                                  >
+                                                    {' '}{badgeLabel}
+                                                  </Text>
+                                                ) : isSwitch ? (
+                                                  <Image
+                                                    source={require('@/assets/images/SwitchBadge.png')}
+                                                    style={styles.platformBadgeImage}
+                                                    contentFit="contain"
+                                                  />
+                                                ) : isXbox ? (
+                                                  <Image
+                                                    source={require('@/assets/images/XboxBadgeWhite.png')}
+                                                    style={styles.platformBadgeImage}
+                                                    contentFit="contain"
+                                                  />
+                                                ) : isPS5 ? (
+                                                  <Text
+                                                    style={{
+                                                      color: '#000000',
+                                                      fontFamily: 'SSTBadge',
+                                                      fontSize: 13,
+                                                      alignItems: 'center',
+                                                      justifyContent: 'center',
+                                                    }}
+                                                  >
+                                                    {' '}{badgeLabel}
+                                                  </Text>
+                                                ) : isRetro ? (
+                                                  <View style={[styles.platformRow2, { backgroundColor: 'transparent' }]}>
+                                                    <Image
+                                                      source={require('@/assets/images/retroBadge.png')}
+                                                      style={styles.platformBadgeImage3}
+                                                      contentFit="contain"
+                                                    />
+                                                    <Text style={[styles.platformBadgeText, { fontFamily: 'SSTMediumIt', fontSize: 14, color: 'white' }]}>
+                                                      {badgeLabel}
+                                                    </Text>
+                                                  </View>
+                                                ) : (
+                                                  <Text
+                                                    style={{
+                                                      color: '#000000',
+                                                      fontFamily: 'SSTMediumIt',
+                                                      fontSize: 14,
+                                                      alignItems: 'center',
+                                                      justifyContent: 'center',
+                                                    }}
+                                                  >
+                                                    {' '}{badgeLabel}
+                                                  </Text>
+                                                )}
+                                              </View>
+                                            );
+                                          })()}
+
+                                          <SlidingGameTitle
+                                            title={game.title || 'Juego'}
+                                            focused={isItemFocused}
+                                          />
+                                        </View>
+                                      </View>
+                                    )}
+
+                                    {gridActive && !isItemFocused && (
+                                      <View style={styles.unfocusedOverlay} />
+                                    )}
+                                  </View>
+                                </CardSurface>
+                              </TouchableOpacity>
+                            </div>
+                          ) : (
+                            <TouchableOpacity
+                              ref={isItemFocused ? focusedCardRef : undefined}
+                              activeOpacity={0.8}
+                              onPress={() => handleItemPress(index, game)}
                               style={[
-                                styles.gameCard,
-                                isItemFocused && styles.gameCardFocused,
+                                styles.gameCardWrapper,
+                                isItemFocused && styles.gameCardWrapperFocused,
                               ]}
                             >
-                              <View style={styles.imageContainer}>
-                                {game.id === 'media_gallery' ? (
-                                  <View style={[styles.gameImage, { backgroundColor: '#0d0d0fff', justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Image
-                                      source={game.image}
-                                      style={{ width: '70%', height: '70%' }}
-                                      contentFit="contain"
-                                    />
-                                  </View>
-                                ) : game.image ? (
-                                  <Image source={game.image} style={styles.gameImage} contentFit="cover" />
-                                ) : (
-                                  <View style={styles.placeholderImage}>
-                                    <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
-                                  </View>
-                                )}
+                              {isItemFocused && <SpinningBorder />}
 
-                                {!isInstalled && (
-                                  <View style={styles.notInstalledDarken} pointerEvents="none" />
-                                )}
-
-                                {!isInstalled && (
-                                  <View style={styles.installBadge} pointerEvents="none">
-                                    <RNImage
-                                      source={require('@/assets/images/install.png')}
-                                      style={styles.installBadgeIcon}
-                                      resizeMode="contain"
-                                    />
-                                  </View>
-                                )}
-
-                                {isItemFocused && (
-                                  <View style={styles.focusedOverlay}>
-                                    <View style={styles.gradientOverlay} />
-
-                                    <View style={styles.gameInfoContainer}>
-                                      {game.id !== 'media_gallery' && (() => {
-                                        const steamGame = isSteamGame(game);
-                                        const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
-                                        const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
-                                        const isRetro =
-                                          platformId === 'Retro' ||
-                                          Boolean((game as any).retroSystem) ||
-                                          isRetroPlatform(platformId);
-                                        const isPS3 = platformId === 'PS3';
-                                        const isPS5 =
-                                          !isRetro &&
-                                          (platformId === 'PS5' ||
-                                            platformId === 'PS1' ||
-                                            platformId === 'PS2' ||
-                                            platformId === 'PS4' ||
-                                            platformId === 'PC');
-                                        const isXbox = platformId === 'Xbox';
-                                        const isSwitch = platformId === 'Switch';
-                                        const badgeLabel = isRetro
-                                          ? ((game as any).retroSystem?.trim() || platformId)
-                                          : platformId;
-
-                                        const isEpicGame = platformId === 'Epic';
-                                        const isSteam = steamGame || platformId === 'Steam';
-                                        const platformBgColor = isEpicGame ? '#000000' : steamGame ? 'rgba(2, 15, 36, 1)' : isPS3 ? 'rgba(0, 0, 0, 1)' : isXbox ? 'rgba(88, 151, 69, 1)' : isSwitch ? 'rgba(255, 40, 40, 1)' : isRetro ? 'rgba(175, 202, 21, 1)' : 'white';
-
-                                        return (
-                                          <View style={[styles.platformRow, { backgroundColor: platformBgColor }]}>
-                                            {steamGame ? (
-                                              <Image
-                                                source={require('@/assets/images/SteamBadge.png')}
-                                                style={styles.platformBadgeImage}
-                                                contentFit="contain"
-                                              />
-                                            ) : isEpicGame ? (
-                                              <Image
-                                                source={require('@/assets/images/EpicBadge.png')}
-                                                style={styles.platformBadgeImage}
-                                                contentFit="contain"
-                                              />
-                                            ) : isPS3 ? (
-                                              <Text
-                                                style={{
-                                                  color: '#ffffffff',
-                                                  fontFamily: 'SSTBadge',
-                                                  fontSize: 13,
-                                                  alignItems: 'center',
-                                                  justifyContent: 'center',
-                                                }}
-                                              >
-                                                {' '}{badgeLabel}
-                                              </Text>
-                                            ) : isSwitch ? (
-                                              <Image
-                                                source={require('@/assets/images/SwitchBadge.png')}
-                                                style={styles.platformBadgeImage}
-                                                contentFit="contain"
-                                              />
-                                            ) : isXbox ? (
-                                              <Image
-                                                source={require('@/assets/images/XboxBadgeWhite.png')}
-                                                style={styles.platformBadgeImage}
-                                                contentFit="contain"
-                                              />
-                                            ) : isPS5 ? (
-                                              <Text
-                                                style={{
-                                                  color: '#000000',
-                                                  fontFamily: 'SSTBadge',
-                                                  fontSize: 13,
-                                                  alignItems: 'center',
-                                                  justifyContent: 'center',
-                                                }}
-                                              >
-                                                {' '}{badgeLabel}
-                                              </Text>
-                                            ) : isRetro ? (
-                                              <View style={[styles.platformRow2, { backgroundColor: 'transparent' }]}>
-                                                <Image
-                                                  source={require('@/assets/images/retroBadge.png')}
-                                                  style={styles.platformBadgeImage3}
-                                                  contentFit="contain"
-                                                />
-                                                <Text style={[styles.platformBadgeText, { fontFamily: 'SSTMediumIt', fontSize: 14, color: 'white' }]}>
-                                                  {badgeLabel}
-                                                </Text>
-                                              </View>
-                                            ) : (
-                                              <Text
-                                                style={{
-                                                  color: '#000000',
-                                                  fontFamily: 'SSTMediumIt',
-                                                  fontSize: 14,
-                                                  alignItems: 'center',
-                                                  justifyContent: 'center',
-                                                }}
-                                              >
-                                                {' '}{badgeLabel}
-                                              </Text>
-                                            )}
-                                          </View>
-                                        );
-                                      })()}
-
-                                      <SlidingGameTitle
-                                        title={game.title || 'Juego'}
-                                        focused={isItemFocused}
+                              <CardSurface
+                                focused={isItemFocused}
+                                style={[
+                                  styles.gameCard,
+                                  isItemFocused && styles.gameCardFocused,
+                                ]}
+                              >
+                                <View style={styles.imageContainer}>
+                                  {game.id === 'media_gallery' ? (
+                                    <View style={[styles.gameImage, { backgroundColor: '#0d0d0fff', justifyContent: 'center', alignItems: 'center' }]}>
+                                      <Image
+                                        source={game.image}
+                                        style={{ width: '70%', height: '70%' }}
+                                        contentFit="contain"
                                       />
                                     </View>
-                                  </View>
-                                )}
+                                  ) : game.image ? (
+                                    <Image source={game.image} style={styles.gameImage} contentFit="cover" />
+                                  ) : (
+                                    <View style={styles.placeholderImage}>
+                                      <MaterialCommunityIcons name="controller-classic" size={48} color="rgba(255,255,255,0.2)" />
+                                    </View>
+                                  )}
 
-                                {gridActive && !isItemFocused && (
-                                  <View style={styles.unfocusedOverlay} />
-                                )}
-                              </View>
-                            </CardSurface>
-                          </TouchableOpacity>
+                                  {!isInstalled && (
+                                    <View style={styles.notInstalledDarken} pointerEvents="none" />
+                                  )}
+
+                                  {!isInstalled && (
+                                    <View style={styles.installBadge} pointerEvents="none">
+                                      <RNImage
+                                        source={require('@/assets/images/install.png')}
+                                        style={styles.installBadgeIcon}
+                                        resizeMode="contain"
+                                      />
+                                    </View>
+                                  )}
+
+                                  {isItemFocused && (
+                                    <View style={styles.focusedOverlay}>
+                                      <View style={styles.gradientOverlay} />
+
+                                      <View style={styles.gameInfoContainer}>
+                                        {game.id !== 'media_gallery' && (() => {
+                                          const steamGame = isSteamGame(game);
+                                          const platformId = game.platform || (steamGame ? 'Steam' : 'PC');
+                                          const iconName = PLATFORM_ICONS[platformId] || 'controller-classic';
+                                          const isRetro =
+                                            platformId === 'Retro' ||
+                                            Boolean((game as any).retroSystem) ||
+                                            isRetroPlatform(platformId);
+                                          const isPS3 = platformId === 'PS3';
+                                          const isPS5 =
+                                            !isRetro &&
+                                            (platformId === 'PS5' ||
+                                              platformId === 'PS1' ||
+                                              platformId === 'PS2' ||
+                                              platformId === 'PS4' ||
+                                              platformId === 'PC');
+                                          const isXbox = platformId === 'Xbox';
+                                          const isSwitch = platformId === 'Switch';
+                                          const badgeLabel = isRetro
+                                            ? ((game as any).retroSystem?.trim() || platformId)
+                                            : platformId;
+
+                                          const isEpicGame = platformId === 'Epic';
+                                          const isSteam = steamGame || platformId === 'Steam';
+                                          const platformBgColor = isEpicGame ? '#000000' : steamGame ? 'rgba(2, 15, 36, 1)' : isPS3 ? 'rgba(0, 0, 0, 1)' : isXbox ? 'rgba(88, 151, 69, 1)' : isSwitch ? 'rgba(255, 40, 40, 1)' : isRetro ? 'rgba(175, 202, 21, 1)' : 'white';
+
+                                          return (
+                                            <View style={[styles.platformRow, { backgroundColor: platformBgColor }]}>
+                                              {steamGame ? (
+                                                <Image
+                                                  source={require('@/assets/images/SteamBadge.png')}
+                                                  style={styles.platformBadgeImage}
+                                                  contentFit="contain"
+                                                />
+                                              ) : isEpicGame ? (
+                                                <Image
+                                                  source={require('@/assets/images/EpicBadge.png')}
+                                                  style={styles.platformBadgeImage}
+                                                  contentFit="contain"
+                                                />
+                                              ) : isPS3 ? (
+                                                <Text
+                                                  style={{
+                                                    color: '#ffffffff',
+                                                    fontFamily: 'SSTBadge',
+                                                    fontSize: 13,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                  }}
+                                                >
+                                                  {' '}{badgeLabel}
+                                                </Text>
+                                              ) : isSwitch ? (
+                                                <Image
+                                                  source={require('@/assets/images/SwitchBadge.png')}
+                                                  style={styles.platformBadgeImage}
+                                                  contentFit="contain"
+                                                />
+                                              ) : isXbox ? (
+                                                <Image
+                                                  source={require('@/assets/images/XboxBadgeWhite.png')}
+                                                  style={styles.platformBadgeImage}
+                                                  contentFit="contain"
+                                                />
+                                              ) : isPS5 ? (
+                                                <Text
+                                                  style={{
+                                                    color: '#000000',
+                                                    fontFamily: 'SSTBadge',
+                                                    fontSize: 13,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                  }}
+                                                >
+                                                  {' '}{badgeLabel}
+                                                </Text>
+                                              ) : isRetro ? (
+                                                <View style={[styles.platformRow2, { backgroundColor: 'transparent' }]}>
+                                                  <Image
+                                                    source={require('@/assets/images/retroBadge.png')}
+                                                    style={styles.platformBadgeImage3}
+                                                    contentFit="contain"
+                                                  />
+                                                  <Text style={[styles.platformBadgeText, { fontFamily: 'SSTMediumIt', fontSize: 14, color: 'white' }]}>
+                                                    {badgeLabel}
+                                                  </Text>
+                                                </View>
+                                              ) : (
+                                                <Text
+                                                  style={{
+                                                    color: '#000000',
+                                                    fontFamily: 'SSTMediumIt',
+                                                    fontSize: 14,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                  }}
+                                                >
+                                                  {' '}{badgeLabel}
+                                                </Text>
+                                              )}
+                                            </View>
+                                          );
+                                        })()}
+
+                                        <SlidingGameTitle
+                                          title={game.title || 'Juego'}
+                                          focused={isItemFocused}
+                                        />
+                                      </View>
+                                    </View>
+                                  )}
+
+                                  {gridActive && !isItemFocused && (
+                                    <View style={styles.unfocusedOverlay} />
+                                  )}
+                                </View>
+                              </CardSurface>
+                            </TouchableOpacity>
+                          )}
                         </Animated.View>
                       );
                     });

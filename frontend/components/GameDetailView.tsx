@@ -1613,6 +1613,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
             const news = steamNews[focusIndex - 4];
             if (news?.url) Linking.openURL(news.url);
           }
+        } else if (e.key === 's' || e.key === 'S' || e.key === 'm' || e.key === 'M') {
+          soundService.playActivation?.();
+          setEditModalVisible(true);
         } else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
           onClose();
         }
