@@ -4,7 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
 import { useAnimClockReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useAchievementWatcher } from '../hooks/useAchievementWatcher';
@@ -401,14 +401,18 @@ export const GameInfoPanel = ({
   // Al marcar animReady se remonta para que las entering actuales corran
   // ya con el hilo estable, sin cambiar duraciones ni delays.
   const settled = useLauncherSettled();
-  const animReady = useAnimClockReady();
+
+  if (!settled) {
+    return null;
+  }
 
   return (
-    <Animated.View style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }, !animReady && { opacity: 0 }]}>
-      {settled ? (
-        <React.Fragment key={animReady ? 'intro' : 'pre'}>
-          <Animated.View style={spacerStyle}>
-            <Animated.View style={topPanelStyle}>
+    <Animated.View
+      style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }]}
+      entering={FadeIn.duration(400)}
+    >
+      <Animated.View style={spacerStyle}>
+        <Animated.View style={topPanelStyle}>
               {/* Logo or title — para isLastPlayed mostramos el encabezado estilo PS5 */}
               {activeItem?.isLastPlayed ? (
                 <Animated.View key={`continue-${activeIndex}`} entering={FadeInDown.duration(400)}>
@@ -1885,8 +1889,6 @@ export const GameInfoPanel = ({
               isFocused={focusArea === 'game_panel' && gamePanelFocusIndex === 300}
             />
           )}
-        </React.Fragment>
-      ) : null}
     </Animated.View>
   );
 };

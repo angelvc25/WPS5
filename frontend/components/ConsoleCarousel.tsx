@@ -523,9 +523,7 @@ const ConsoleCarouselComponent = ({
   //   (se comprime de scale 1.15 -> 1 y reaparece opacity 0 -> 1 dando la impresión que el spinning encierra el juego).
   // Arranque: hasta que el launcher se asienta, el borde cambia sin animar.
   const launcherSettled = useLauncherSettled();
-  const launcherSettledRef = React.useRef(launcherSettled);
-  launcherSettledRef.current = launcherSettled;
-  const anim = (to: number, cfg?: any) => (launcherSettledRef.current ? withTiming(to, cfg) : to);
+  const anim = (to: number, cfg?: any) => withTiming(to, cfg);
 
   const isCarouselFocused = focusArea === 'main_carousel';
   const spinningBorderOpacity = useSharedValue(isCarouselFocused && !isLaunching && !isContextMenuOpen ? 1 : 0);

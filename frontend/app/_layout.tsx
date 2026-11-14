@@ -248,13 +248,13 @@ function RootLayoutInner() {
       clearTimeout(safety);
       setTimeout(() => {
         setHomeReady(true);
-        // La capa de selección hace FadeOut de 450 ms: revelamos al terminar
-        revealTimer = setTimeout(markLauncherRevealed, 480);
+        // La capa de selección hace FadeOut de 450 ms: revelamos cuando esté casi lista
+        revealTimer = setTimeout(markLauncherRevealed, 350);
         setTimeout(() => { /* toast de bienvenida, igual que antes */ }, 500);
-      }, 900);
+      }, 100);
     };
     window.addEventListener('wps5-home-ready', done, { once: true });
-    const safety = setTimeout(done, 8000);
+    const safety = setTimeout(done, 2500);
     return () => {
       window.removeEventListener('wps5-home-ready', done);
       clearTimeout(safety);

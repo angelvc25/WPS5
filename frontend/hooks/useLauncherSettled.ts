@@ -2,37 +2,16 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 /**
- * - splashDone (= "revealed"): Home ya es visible (la capa de selección de usuario se retiró).
- * - settled: tras revelar, el hilo JS lleva ~12 frames seguidos estables
- *   (o pasó el tope de seguridad). Hasta entonces no se anima.
- * - introDone: ~1800 ms después de introReady. Ahí sí se dispara el trabajo
- *   pesado (Steam, noticias, sync online, etc.).
- * - animReady: segunda espera, DESPUÉS de settled. El notify de settled
- *   dispara el pre-montaje de paneles; si las entering arrancan en ese
- *   mismo tick, Reanimated (web) usa timestamps y las da por terminadas.
- *   animReady espera a que el reloj vuelva a estar estable.
- * - introReady: tercera espera, DESPUÉS de animReady. El remount de
- *   GameInfoPanel / widgets dispara otro hitch; las intros del carrusel
- *   (withTiming) esperan a que ese commit ya se haya pintado.
+ * Gestión del ciclo de vida y animación del arranque del Launcher.
+ *
+ * - revealed: Home ya es visible (la capa de selección de usuario se retiró).
+ * - settled: El layout base está listo y la UI debe renderizarse.
+ * - animReady: Los paneles están listos para animar su entrada.
+ * - introReady: Las animaciones de entrada del carrusel y paneles arrancan de inmediato.
+ * - introDone: Se activa tras completarse las animaciones de entrada (~1200 ms).
+ *   En este punto arranca el trabajo pesado de red/sync (Steam, noticias, sync online, updates)
+ *   sin competir por CPU/GPU con las animaciones iniciales.
  */
-const MIN_SETTLE_MS = 600;
-const SETTLE_MAX_MS = 4000;
-const STABLE_FRAMES = 12;
-const FRAME_BUDGET_MS = 25;
-
-const ANIM_MIN_MS = 280;
-const ANIM_MAX_MS = 2500;
-const ANIM_STABLE_FRAMES = 16;
-
-const INTRO_MIN_MS = 80;
-const INTRO_MAX_MS = 1500;
-const INTRO_STABLE_FRAMES = 8;
-
-const AFTER_PAINT_STABLE = 2;
-const AFTER_PAINT_MAX_MS = 1200;
-
-/** Margen tras introReady: stagger (~250+600) + 700 ms de animación de entrada. */
-const INTRO_DONE_AFTER_MS = 1800;
 
 let revealed = false;
 let settled = false;
@@ -42,79 +21,6 @@ let introDone = false;
 let generation = 0;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
-
-function waitForStableFrames(
-  gen: number,
-  minMs: number,
-  maxMs: number,
-  stableNeeded: number,
-  onDone: () => void,
-) {
-  const start = performance.now();
-  let last = 0;
-  let stable = 0;
-
-  const tick = (ts: number) => {
-    if (gen !== generation) return;
-    if (last === 0) {
-      last = ts;
-      requestAnimationFrame(tick);
-      return;
-    }
-    const delta = ts - last;
-    last = ts;
-    stable = delta <= FRAME_BUDGET_MS ? stable + 1 : 0;
-    const elapsed = ts - start;
-    if ((stable >= stableNeeded && elapsed >= minMs) || elapsed > maxMs) {
-      if (elapsed > maxMs && stable < stableNeeded) {
-        console.warn('[launcher-clock] TIMEOUT sin estabilizar', { minMs, maxMs, stable });
-      }
-      onDone();
-      return;
-    }
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
-
-function markIntroReady(gen: number) {
-  if (gen !== generation || introReady) return;
-  introReady = true;
-  notify();
-  setTimeout(() => {
-    if (gen !== generation) return;
-    introDone = true;
-    notify();
-  }, INTRO_DONE_AFTER_MS);
-}
-
-function beginIntroClock(gen: number) {
-  if (Platform.OS !== 'web' || typeof requestAnimationFrame === 'undefined') {
-    markIntroReady(gen);
-    return;
-  }
-  waitForStableFrames(gen, INTRO_MIN_MS, INTRO_MAX_MS, INTRO_STABLE_FRAMES, () => {
-    markIntroReady(gen);
-  });
-}
-
-function markAnimReady(gen: number) {
-  if (gen !== generation || animReady) return;
-  animReady = true;
-  notify();
-  // El remount con entering de paneles/widgets corre en este commit.
-  beginIntroClock(gen);
-}
-
-function beginAnimClock(gen: number) {
-  if (Platform.OS !== 'web' || typeof requestAnimationFrame === 'undefined') {
-    markAnimReady(gen);
-    return;
-  }
-  waitForStableFrames(gen, ANIM_MIN_MS, ANIM_MAX_MS, ANIM_STABLE_FRAMES, () => {
-    markAnimReady(gen);
-  });
-}
 
 /** Llamar cuando se vuelve a la pantalla de selección de usuario. */
 export function resetLauncherSettled() {
@@ -127,11 +33,12 @@ export function resetLauncherSettled() {
   notify();
 }
 
-/** Llamar cuando la capa de selección de usuario terminó de desaparecer. */
+/** Llamar cuando la capa de selección de usuario terminó de desaparecer o Home es visible. */
 export function markLauncherRevealed() {
   if (revealed) return;
   revealed = true;
-  notify();
+  generation++;
+  const gen = generation;
 
   if (Platform.OS !== 'web' || typeof requestAnimationFrame === 'undefined') {
     settled = true;
@@ -142,21 +49,29 @@ export function markLauncherRevealed() {
     return;
   }
 
-  const gen = generation;
-  waitForStableFrames(gen, MIN_SETTLE_MS, SETTLE_MAX_MS, STABLE_FRAMES, () => {
-    if (gen !== generation || settled) return;
+  // Dejar 1 frame para asegurar que el DOM está pintado, y luego activar
+  // de inmediato settled, animReady e introReady para que el carrusel,
+  // GameInfoPanel y los fondos arranquen sus animaciones sin demoras ni bloqueos.
+  requestAnimationFrame(() => {
+    if (gen !== generation) return;
     settled = true;
+    animReady = true;
+    introReady = true;
     notify();
-    // El trabajo que escucha `settled` (caché de Steam, pre-montaje) corre
-    // en este commit. Esperamos a que el hilo se recupere antes de entering.
-    beginAnimClock(gen);
+
+    // introDone se activa tras el margen de entrada (~1200ms) para que el trabajo
+    // pesado (Steam sync, noticias, checking updates) arranque cuando la UI ya se presentó.
+    setTimeout(() => {
+      if (gen !== generation) return;
+      introDone = true;
+      notify();
+    }, 1200);
   });
 }
 
 /**
- * Ejecuta `fn` tras 2 frames de pintura estables. Evita que withTiming tome
- * como t0 el momento del commit de React (si el siguiente RAF llega tarde,
- * Reanimated en web salta al final de la animación).
+ * Ejecuta `fn` tras 2 frames de pintura (doble rAF). Evita que withTiming tome
+ * como t0 el momento previo al commit de React sin demoras arbitrarias.
  */
 export function afterPaint(fn: () => void): () => void {
   if (typeof requestAnimationFrame === 'undefined') {
@@ -164,31 +79,15 @@ export function afterPaint(fn: () => void): () => void {
     return () => {};
   }
   let cancelled = false;
-  let id = 0;
-  let last = 0;
-  let stable = 0;
-  const start = performance.now();
-
-  const tick = (ts: number) => {
+  requestAnimationFrame(() => {
     if (cancelled) return;
-    if (last === 0) {
-      last = ts;
-      id = requestAnimationFrame(tick);
-      return;
-    }
-    const delta = ts - last;
-    last = ts;
-    stable = delta <= FRAME_BUDGET_MS ? stable + 1 : 0;
-    if (stable >= AFTER_PAINT_STABLE || ts - start > AFTER_PAINT_MAX_MS) {
+    requestAnimationFrame(() => {
+      if (cancelled) return;
       fn();
-      return;
-    }
-    id = requestAnimationFrame(tick);
-  };
-  id = requestAnimationFrame(tick);
+    });
+  });
   return () => {
     cancelled = true;
-    cancelAnimationFrame(id);
   };
 }
 
