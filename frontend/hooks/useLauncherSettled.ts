@@ -24,6 +24,7 @@ const notify = () => listeners.forEach((l) => l());
 
 /** Llamar cuando se vuelve a la pantalla de selección de usuario. */
 export function resetLauncherSettled() {
+  console.log('[LauncherSettled] resetLauncherSettled called');
   generation++;
   revealed = false;
   settled = false;
@@ -35,6 +36,7 @@ export function resetLauncherSettled() {
 
 /** Llamar cuando la capa de selección de usuario terminó de desaparecer o Home es visible. */
 export function markLauncherRevealed() {
+  console.log('[LauncherSettled] markLauncherRevealed called, revealed=', revealed, 'generation=', generation);
   revealed = true;
   generation++;
   const gen = generation;
@@ -52,11 +54,12 @@ export function markLauncherRevealed() {
   // de inmediato settled, animReady e introReady para que el carrusel,
   // GameInfoPanel y los fondos arranquen sus animaciones sin demoras ni bloqueos.
   requestAnimationFrame(() => {
-    if (gen !== generation) return;
+    if (gen !== generation) { console.log('[LauncherSettled] rAF skipped, gen mismatch', gen, '!=', generation); return; }
     settled = true;
     animReady = true;
     introReady = true;
     notify();
+    console.log('[LauncherSettled] settled=true, animReady=true, introReady=true');
 
     // introDone se activa tras el margen de entrada (~1200ms) para que el trabajo
     // pesado (Steam sync, noticias, checking updates) arranque cuando la UI ya se presentó.
