@@ -4545,7 +4545,7 @@ app.whenReady().then(async () => {
       enableOverlayHotkey();
       startGamepadOverlayListener();
 
-      child.once('spawn', () => {
+      child.once('spawn', async () => {
         gameSessionManager.markRunning({ nativePid: child.pid });
         console.log(`[GameSession] ${appRecord?.title || targetExe}: RUNNING (PID ${child.pid})`);
 

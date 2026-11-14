@@ -1180,6 +1180,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         try { detailAudioRef.current.remove(); } catch (_) { }
         detailAudioRef.current = null;
         detailAudioPathRef.current = null;
+        soundService.setCurrentGameAudio(null);
       }
       return;
     }
@@ -1206,13 +1207,14 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         if (!mounted) return;
         const player = createAudioPlayer(uri);
         player.loop = true;
-        player.volume = 0.8;
+        player.volume = soundService.getGameVolume();
         const p = player.play() as any;
         if (p && typeof p.catch === 'function') {
           p.catch(() => { });
         }
         if (!mounted) { try { player.remove(); } catch (_) { } return; }
         detailAudioRef.current = player;
+        soundService.setCurrentGameAudio(player);
       } catch (err) {
         console.warn('[GameDetailView] No se pudo reproducir focusAudio:', err);
         if (mounted && !isLaunching) soundService.playBackground();
@@ -1227,6 +1229,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
         try { detailAudioRef.current.remove(); } catch (_) { }
         detailAudioRef.current = null;
         detailAudioPathRef.current = null;
+        soundService.setCurrentGameAudio(null);
       }
       if (!isLaunching) soundService.playBackground();
     };

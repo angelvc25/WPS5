@@ -741,6 +741,7 @@ export default function ConsoleHome() {
   const [isNotificationsCardOpen, setIsNotificationsCardOpen] = useState(false);
   const [isMusicCardOpen, setIsMusicCardOpen] = useState(false);
   const [isDownloadsCardOpen, setIsDownloadsCardOpen] = useState(false);
+  const [isSoundCardOpen, setIsSoundCardOpen] = useState(false);
 
   // Declaraciones anticipadas necesarias por useFocusNavigation antes de su llamada
   const [inputMode, setInputMode] = useState<'keyboard' | 'gamepad'>('keyboard');
@@ -1326,6 +1327,7 @@ export default function ConsoleHome() {
     }
     const sound = focusAudioSoundRef.current;
     focusAudioSoundRef.current = null;
+    soundService.setCurrentGameAudio(null);
     if (sound) {
       try { sound.remove(); } catch (_) { }
     }
@@ -1355,7 +1357,7 @@ export default function ConsoleHome() {
           : `local-file:///${audioPath.replace(/\\/g, '/')}`;
         const sound = createAudioPlayer(uri);
         sound.loop = true;
-        sound.volume = 0.8;
+        sound.volume = soundService.getGameVolume();
         const playPromise = sound.play() as any;
         if (playPromise && typeof playPromise.catch === 'function') {
           playPromise.catch(() => { });
@@ -1365,6 +1367,7 @@ export default function ConsoleHome() {
           return;
         }
         focusAudioSoundRef.current = sound;
+        soundService.setCurrentGameAudio(sound);
       } catch (error) {
         console.warn('No se pudo reproducir el audio de foco:', error);
         if (!isLaunchingRef.current) await soundService.playBackground();
@@ -1506,8 +1509,12 @@ export default function ConsoleHome() {
       setIsMusicCardOpen(true);
       soundService.playActivation?.();
     } else if (idx === 5) {
-      // Descargas â€“ abrir card de descargas expandida
+      // Descargas – abrir card de descargas expandida
       setIsDownloadsCardOpen(true);
+      soundService.playActivation?.();
+    } else if (idx === 6) {
+      // Sonido – abrir card de sonido expandida
+      setIsSoundCardOpen(true);
       soundService.playActivation?.();
     } else if (idx === 9) {
       // Perfil (Cambiar usuario)
@@ -3301,6 +3308,8 @@ export default function ConsoleHome() {
         onMusicOpenChange={setIsMusicCardOpen}
         isDownloadsOpen={isDownloadsCardOpen}
         onDownloadsOpenChange={setIsDownloadsCardOpen}
+        isSoundOpen={isSoundCardOpen}
+        onSoundOpenChange={setIsSoundCardOpen}
       />
 
       <FavoritesView

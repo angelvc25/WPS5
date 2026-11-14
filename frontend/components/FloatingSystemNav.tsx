@@ -8,6 +8,7 @@ import FriendsExpandedCard from './FriendsExpandedCard';
 import NotificationsExpandedCard from './NotificationsExpandedCard';
 import MusicExpandedCard from './MusicExpandedCard';
 import DownloadsExpandedCard from './DownloadsExpandedCard';
+import SoundExpandedCard from './SoundExpandedCard';
 import RadarFocusWrapper from './RadarFocusWrapper';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { TranslationKey } from '@/i18n/translations';
@@ -53,6 +54,8 @@ interface FloatingSystemNavProps {
   onMusicOpenChange?: (open: boolean) => void;
   isDownloadsOpen?: boolean;
   onDownloadsOpenChange?: (open: boolean) => void;
+  isSoundOpen?: boolean;
+  onSoundOpenChange?: (open: boolean) => void;
 }
 
 export default function FloatingSystemNav({
@@ -75,6 +78,8 @@ export default function FloatingSystemNav({
   onMusicOpenChange,
   isDownloadsOpen: controlledDownloadsOpen,
   onDownloadsOpenChange,
+  isSoundOpen: controlledSoundOpen,
+  onSoundOpenChange,
 }: FloatingSystemNavProps) {
   const { t } = useTranslation();
   const opacity = useSharedValue(0);
@@ -85,6 +90,9 @@ export default function FloatingSystemNav({
 
   const notificationsBtnRef = useRef<any>(null);
   const [notificationsAnchor, setNotificationsAnchor] = useState({ top: 0, left: 0 });
+
+  const soundBtnRef = useRef<any>(null);
+  const [soundAnchor, setSoundAnchor] = useState({ top: 0, left: 0 });
 
   // Game Base – Friends expanded card (controlado por padre si se provee, sino local)
   const [internalFriendsOpen, setInternalFriendsOpen] = useState(false);
@@ -122,6 +130,15 @@ export default function FloatingSystemNav({
     else setInternalDownloadsOpen(next);
   };
 
+  // NUEVO — estado de la card de sonido
+  const [internalSoundOpen, setInternalSoundOpen] = useState(false);
+  const isSoundOpen = controlledSoundOpen !== undefined ? controlledSoundOpen : internalSoundOpen;
+  const setIsSoundOpen = (v: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? (v as any)(isSoundOpen) : v;
+    if (onSoundOpenChange) onSoundOpenChange(next);
+    else setInternalSoundOpen(next);
+  };
+
   // cerrar popups si se cierra el nav
   useEffect(() => {
     if (!isFocused) {
@@ -129,6 +146,7 @@ export default function FloatingSystemNav({
       setIsNotificationsOpen(false);
       setIsMusicOpen(false);
       setIsDownloadsOpen(false);
+      setIsSoundOpen(false);
     }
   }, [isFocused]);
 
@@ -140,10 +158,20 @@ export default function FloatingSystemNav({
     }
   }, [isNotificationsOpen]);
 
+  useEffect(() => {
+    if (isSoundOpen) {
+      soundBtnRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+        setSoundAnchor({ top: y, left: x + width / 2 });
+      });
+    }
+  }, [isSoundOpen]);
+
   const handlePressItem = (index: number) => {
     if (index === 2) {
       if (isFriendsOpen) setIsFriendsOpen(false);
       if (isMusicOpen) setIsMusicOpen(false);
+      if (isDownloadsOpen) setIsDownloadsOpen(false);
+      if (isSoundOpen) setIsSoundOpen(false);
       if (!isNotificationsOpen) {
         setIsNotificationsOpen(true);
         soundService.playActivation?.();
@@ -155,6 +183,8 @@ export default function FloatingSystemNav({
     if (index === 3) {
       if (isNotificationsOpen) setIsNotificationsOpen(false);
       if (isMusicOpen) setIsMusicOpen(false);
+      if (isDownloadsOpen) setIsDownloadsOpen(false);
+      if (isSoundOpen) setIsSoundOpen(false);
       if (!isFriendsOpen) {
         setIsFriendsOpen(true);
         soundService.playActivation?.();
@@ -167,6 +197,7 @@ export default function FloatingSystemNav({
       if (isNotificationsOpen) setIsNotificationsOpen(false);
       if (isFriendsOpen) setIsFriendsOpen(false);
       if (isDownloadsOpen) setIsDownloadsOpen(false);
+      if (isSoundOpen) setIsSoundOpen(false);
       if (!isMusicOpen) {
         setIsMusicOpen(true);
         soundService.playActivation?.();
@@ -179,8 +210,22 @@ export default function FloatingSystemNav({
       if (isNotificationsOpen) setIsNotificationsOpen(false);
       if (isFriendsOpen) setIsFriendsOpen(false);
       if (isMusicOpen) setIsMusicOpen(false);
+      if (isSoundOpen) setIsSoundOpen(false);
       if (!isDownloadsOpen) {
         setIsDownloadsOpen(true);
+        soundService.playActivation?.();
+      } else {
+        soundService.playNavigation();
+      }
+      return;
+    }
+    if (index === 6) {
+      if (isNotificationsOpen) setIsNotificationsOpen(false);
+      if (isFriendsOpen) setIsFriendsOpen(false);
+      if (isMusicOpen) setIsMusicOpen(false);
+      if (isDownloadsOpen) setIsDownloadsOpen(false);
+      if (!isSoundOpen) {
+        setIsSoundOpen(true);
         soundService.playActivation?.();
       } else {
         soundService.playNavigation();
@@ -191,6 +236,7 @@ export default function FloatingSystemNav({
     if (isNotificationsOpen) setIsNotificationsOpen(false);
     if (isMusicOpen) setIsMusicOpen(false);
     if (isDownloadsOpen) setIsDownloadsOpen(false);
+    if (isSoundOpen) setIsSoundOpen(false);
     onPressItem(index);
   };
 
@@ -211,6 +257,11 @@ export default function FloatingSystemNav({
 
   const handleCloseDownloads = () => {
     setIsDownloadsOpen(false);
+    soundService.playBack?.();
+  };
+
+  const handleCloseSound = () => {
+    setIsSoundOpen(false);
     soundService.playBack?.();
   };
 
@@ -259,7 +310,7 @@ export default function FloatingSystemNav({
           (la card tiene su propio backdrop). */}
       <Animated.View
         style={[StyleSheet.absoluteFill, { opacity: 0 }]}
-        pointerEvents={isFocused && !isCardExpanded && !isFriendsOpen && !isNotificationsOpen && !isMusicOpen && !isDownloadsOpen ? 'auto' : 'none'}
+        pointerEvents={isFocused && !isCardExpanded && !isFriendsOpen && !isNotificationsOpen && !isMusicOpen && !isDownloadsOpen && !isSoundOpen ? 'auto' : 'none'}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
@@ -274,9 +325,15 @@ export default function FloatingSystemNav({
       />
       <MusicExpandedCard isOpen={isMusicOpen} onClose={handleCloseMusic} />
       <DownloadsExpandedCard isOpen={isDownloadsOpen} onClose={handleCloseDownloads} />
+      <SoundExpandedCard
+        isOpen={isSoundOpen}
+        onClose={handleCloseSound}
+        anchorLeft={soundAnchor.left}
+        anchorTop={soundAnchor.top}
+      />
 
       <Animated.View style={[styles.menuContainer, menuStyle, { zIndex: 2 }]}>
-        {isFocused && !isFriendsOpen && !isNotificationsOpen && !isMusicOpen && !isDownloadsOpen && (
+        {isFocused && !isFriendsOpen && !isNotificationsOpen && !isMusicOpen && !isDownloadsOpen && !isSoundOpen && (
           <ControlCenterCards
             isFocusedLayer={isFocused && navLevel === 1}
             focusedIndex={cardIndex}
@@ -296,11 +353,12 @@ export default function FloatingSystemNav({
             const isNotificationsActive = isNotificationsOpen && index === 2;
             const isMusicActive = isMusicOpen && index === 4;
             const isDownloadsActive = isDownloadsOpen && index === 5;
-            const showActiveRing = isActive || isFriendsActive || isNotificationsActive || isMusicActive || isDownloadsActive;
+            const isSoundActive = isSoundOpen && index === 6;
+            const showActiveRing = isActive || isFriendsActive || isNotificationsActive || isMusicActive || isDownloadsActive || isSoundActive;
             return (
               <TouchableOpacity
                 key={index}
-                ref={index === 2 ? notificationsBtnRef : undefined}
+                ref={index === 2 ? notificationsBtnRef : index === 6 ? soundBtnRef : undefined}
                 activeOpacity={0.7}
                 onPress={() => handlePressItem(index)}
                 style={styles.iconButton}

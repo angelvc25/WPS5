@@ -33,6 +33,33 @@ class SoundService {
   private customAudio: Partial<Record<SoundName, SoundSource>> = {};
   private customMusic: SoundSource | undefined = undefined;
 
+  // Controles de volumen dedicados (Persistidos en localStorage)
+  private launcherVolume: number = 1.0; // Sonido de ambiente, interfaz (0.0 - 1.0)
+  private gameVolume: number = 0.8;     // Música de juegos al enfocarlos (0.0 - 1.0)
+  private currentGameAudioPlayer: AudioPlayer | null = null;
+  private volumeListeners: Set<(v: { launcherVolume: number; gameVolume: number }) => void> = new Set();
+
+  constructor() {
+    this.loadSavedVolumes();
+  }
+
+  private loadSavedVolumes() {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const savedLauncher = window.localStorage.getItem('wps5_launcher_volume');
+        if (savedLauncher !== null) {
+          const val = parseFloat(savedLauncher);
+          if (!isNaN(val)) this.launcherVolume = Math.max(0, Math.min(1, val));
+        }
+        const savedGame = window.localStorage.getItem('wps5_game_volume');
+        if (savedGame !== null) {
+          const val = parseFloat(savedGame);
+          if (!isNaN(val)) this.gameVolume = Math.max(0, Math.min(1, val));
+        }
+      }
+    } catch (_) {}
+  }
+
   async init() {
     // Evita cargar los sonidos múltiples veces si init() se vuelve a llamar
     if (this.isInitialized) return;
@@ -48,7 +75,7 @@ class SoundService {
       if (bgSource) {
         const bgSound = createAudioPlayer(bgSource);
         bgSound.loop = true;
-        bgSound.volume = pack.backgroundVolume;
+        bgSound.volume = Math.max(0, Math.min(1, pack.backgroundVolume * this.launcherVolume));
         bgSound.muted = this.isMuted;
         this.backgroundSound = bgSound;
       } else {
@@ -249,9 +276,71 @@ class SoundService {
     await this.applySoundTheme({ audio: {}, music: undefined });
   }
 
+  getLauncherVolume(): number {
+    return this.launcherVolume;
+  }
+
+  setLauncherVolume(volume: number) {
+    this.launcherVolume = Math.max(0, Math.min(1, volume));
+    this.applyVolumes();
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('wps5_launcher_volume', String(this.launcherVolume));
+      }
+    } catch (_) {}
+    this.notifyVolumeListeners();
+  }
+
+  getGameVolume(): number {
+    return this.gameVolume;
+  }
+
+  setGameVolume(volume: number) {
+    this.gameVolume = Math.max(0, Math.min(1, volume));
+    if (this.currentGameAudioPlayer) {
+      try {
+        this.currentGameAudioPlayer.volume = this.gameVolume;
+      } catch (_) {}
+    }
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('wps5_game_volume', String(this.gameVolume));
+      }
+    } catch (_) {}
+    this.notifyVolumeListeners();
+  }
+
+  setCurrentGameAudio(player: AudioPlayer | null) {
+    this.currentGameAudioPlayer = player;
+    if (player) {
+      try {
+        player.volume = this.gameVolume;
+      } catch (_) {}
+    }
+  }
+
+  getCurrentGameAudio(): AudioPlayer | null {
+    return this.currentGameAudioPlayer;
+  }
+
+  subscribeVolumes(listener: (v: { launcherVolume: number; gameVolume: number }) => void) {
+    this.volumeListeners.add(listener);
+    listener({ launcherVolume: this.launcherVolume, gameVolume: this.gameVolume });
+    return () => {
+      this.volumeListeners.delete(listener);
+    };
+  }
+
+  private notifyVolumeListeners() {
+    const data = { launcherVolume: this.launcherVolume, gameVolume: this.gameVolume };
+    this.volumeListeners.forEach((l) => {
+      try { l(data); } catch (_) {}
+    });
+  }
+
   private applyVolumes() {
     try {
-      const ui = this.uiVolume;
+      const ui = Math.max(0, Math.min(1, this.uiVolume * this.launcherVolume));
       [
         this.navigationSound,
         this.activationSound,
@@ -267,7 +356,8 @@ class SoundService {
         if (s) s.volume = ui;
       });
       if (this.backgroundSound) {
-        this.backgroundSound.volume = getSoundPack(this.soundPackId).backgroundVolume;
+        const bgVol = getSoundPack(this.soundPackId).backgroundVolume * this.launcherVolume;
+        this.backgroundSound.volume = Math.max(0, Math.min(1, bgVol));
       }
     } catch { /* noop */ }
   }
