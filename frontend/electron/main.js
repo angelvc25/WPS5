@@ -4001,6 +4001,7 @@ app.whenReady().then(async () => {
   }
 
   function formatExitCode(code) {
+    if (code === 2) return ' — archivo no encontrado (ERROR_FILE_NOT_FOUND): el exe o una dependencia no pudo localizarse en su PATH/CWD';
     if (code === 3221225477) return ' — acceso inválido a memoria (0xC0000005)';
     if (code === 3221225781) return ' — DLL no encontrada (0xC0000135)';
     if (code === 3221226505) return ' — stack buffer overrun (0xC0000409)';
@@ -4508,6 +4509,13 @@ app.whenReady().then(async () => {
         ? finalArgs.map(quoteWinArg)
         : finalArgs;
 
+      // windowsVerbatimArguments: solo activar cuando haya argumentos que ya
+      // vienen pre-entrecomillados (quoteWinArg los cita). Sin argumentos, o
+      // si el exe tiene espacios, Node con verbatimArguments=true omite las
+      // comillas alrededor del propio ejecutable y el proceso recibe argv[0]
+      // truncado en el primer espacio de la ruta.
+      const useVerbatim = process.platform === 'win32' && spawnArgs.length > 0 && !targetExe.includes(' ');
+
       console.log('Lanzando:', targetExe, spawnArgs);
       console.log('Directorio de trabajo:', gameCwd);
 
@@ -4523,14 +4531,59 @@ app.whenReady().then(async () => {
         return { success: false, error: nativeSession.error };
       }
 
+      // Detectar si el exe es un proceso de consola (CUI) inspeccionando el
+      // subsistema del PE header. Los procesos CUI necesitan su propia consola;
+      // si se les conectan pipes en lugar de una consola real, salen de inmediato.
+      let isConsoleApp = false;
+      try {
+        const exeBuffer = Buffer.alloc(0x40);
+        const fd = fs.openSync(targetExe, 'r');
+        fs.readSync(fd, exeBuffer, 0, 0x40, 0);
+        fs.closeSync(fd);
+        // Offset del PE header está en 0x3C (little-endian DWORD)
+        const peOffset = exeBuffer.readUInt32LE(0x3C);
+        const subSystemBuf = Buffer.alloc(2);
+        const fd2 = fs.openSync(targetExe, 'r');
+        // Subsistema está en PE+0x5C (IMAGE_OPTIONAL_HEADER.Subsystem)
+        fs.readSync(fd2, subSystemBuf, 0, 2, peOffset + 0x5C);
+        fs.closeSync(fd2);
+        const subsystem = subSystemBuf.readUInt16LE(0);
+        // 3 = IMAGE_SUBSYSTEM_WINDOWS_CUI (consola), 2 = GUI
+        isConsoleApp = subsystem === 3;
+        console.log(`[GameSession] Subsistema del exe: ${subsystem} (${isConsoleApp ? 'consola CUI' : 'GUI'})`);
+      } catch (peErr) {
+        console.warn('[GameSession] No se pudo leer el subsistema del PE header:', peErr.message);
+      }
+
       const child = spawn(targetExe, spawnArgs, {
         cwd: gameCwd,
         env: envForExternalApp(),
         detached: true,
-        stdio: 'ignore',
+        // Los procesos CUI necesitan una consola propia; usar pipes hace que
+        // salgan inmediatamente. Los procesos GUI pueden usar pipes para
+        // capturar output de diagnóstico en caso de fallo temprano.
+        stdio: isConsoleApp ? 'ignore' : ['ignore', 'pipe', 'pipe'],
+        // No ocultar la ventana: windowsHide suprime CREATE_NO_WINDOW pero en
+        // procesos CUI que luego crean una ventana gráfica (como TotK Recomp)
+        // puede impedir que esa ventana aparezca. Se deja visible siempre.
         windowsHide: false,
-        windowsVerbatimArguments: true,
+        windowsVerbatimArguments: useVerbatim,
       });
+
+      // Capturar stdout/stderr del proceso para diagnóstico de fallos de arranque.
+      // Solo se acumulan durante los primeros segundos; si el juego arranca bien
+      // estos buffers quedan vacíos y el impacto en rendimiento es nulo.
+      const earlyOutput = [];
+      const earlyOutputLimit = 4096;
+      let earlyOutputSize = 0;
+      const captureEarlyOutput = (chunk) => {
+        if (earlyOutputSize < earlyOutputLimit) {
+          earlyOutput.push(chunk.toString('utf8'));
+          earlyOutputSize += chunk.length;
+        }
+      };
+      child.stdout?.on('data', captureEarlyOutput);
+      child.stderr?.on('data', captureEarlyOutput);
 
       // ── NUEVO: registrar juego activo + habilitar overlay ──
       activeGameInfo = {
@@ -4607,21 +4660,101 @@ app.whenReady().then(async () => {
 
       child.on('close', async (code) => {
         console.log(`Proceso inicial finalizado (código: ${code})${formatExitCode(code)}`);
+        if (earlyOutput.length > 0) {
+          console.log('[GameSession] Output del proceso al cerrar:\n' + earlyOutput.join(''));
+        }
 
         // Algunos accesos directos/launchers terminan después de delegar el
         // arranque a otro .exe. Antes de restaurar WPS5 comprobamos si quedó
         // algún proceso vivo dentro de la carpeta del juego.
+        // Esperar 1.5 s para dar tiempo al proceso hijo a registrarse en el SO.
+        await new Promise(r => setTimeout(r, 1500));
+
         let descendantStillRunning = false;
         try {
           descendantStillRunning = await isProcessRunningUnderDir(gameCwd);
         } catch (_) { }
 
+        // Si la búsqueda por directorio no encontró nada, buscar procesos
+        // que tengan al wrapper como padre (cubre ports que spawnean el exe
+        // real fuera del directorio de instalación).
+        let trackedChildPid = null;
+        if (!descendantStillRunning && child.pid) {
+          try {
+            const parentPid = child.pid;
+            const psCmd = `(Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq ${parentPid} } | Select-Object -First 1 -ExpandProperty ProcessId)`;
+            const childPidResult = await new Promise((resolve) => {
+              exec(`powershell -NoProfile -Command "${psCmd}"`, { timeout: 5000 }, (err, stdout) => {
+                resolve(!err && stdout && stdout.trim().length > 0 ? stdout.trim() : null);
+              });
+            });
+            if (childPidResult) {
+              trackedChildPid = parseInt(childPidResult, 10);
+              console.log(`[GameSession] Proceso hijo detectado fuera del directorio (PID ${trackedChildPid}), supervisando por PID.`);
+              descendantStillRunning = true;
+            }
+          } catch (_) { }
+        }
+
+        // TotK Recomp (y otros ports CUI) se autoclona: el wrapper spawneado
+        // lanza un segundo proceso hijo con el mismo exe y luego queda en
+        // espera. Si el directorio sí tiene un proceso activo pero ese proceso
+        // es el propio wrapper (child.pid), buscar el hijo de ese wrapper.
+        if (descendantStillRunning && !trackedChildPid && child.pid) {
+          try {
+            const parentPid = child.pid;
+            const psCmd = `(Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq ${parentPid} } | Select-Object -First 1 -ExpandProperty ProcessId)`;
+            const childPidResult = await new Promise((resolve) => {
+              exec(`powershell -NoProfile -Command "${psCmd}"`, { timeout: 5000 }, (err, stdout) => {
+                resolve(!err && stdout && stdout.trim().length > 0 ? stdout.trim() : null);
+              });
+            });
+            if (childPidResult) {
+              trackedChildPid = parseInt(childPidResult, 10);
+              console.log(`[GameSession] Hijo del wrapper detectado (PID ${trackedChildPid}), vigilando ese PID como proceso real del juego.`);
+            }
+          } catch (_) { }
+        }
+
         if (descendantStillRunning) {
           console.log('[GameSession] El proceso inicial terminó, pero el juego sigue activo. Supervisando descendientes.');
+          const exeBaseName = path.basename(targetExe).replace(/'/g, "''");
           let consecutiveMisses = 0;
           const nativeWatcher = setInterval(async () => {
             try {
-              const running = await isProcessRunningUnderDir(gameCwd);
+              let running = false;
+
+              if (trackedChildPid) {
+                // Vigilar el PID concreto del proceso real del juego.
+                // Ignoramos al wrapper (child.pid) que puede quedar zombie.
+                const psCheck = `(Get-Process -Id ${trackedChildPid} -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Id)`;
+                running = await new Promise(r => {
+                  exec(`powershell -NoProfile -Command "${psCheck}"`, { timeout: 5000 }, (err, stdout) => {
+                    r(!err && stdout && stdout.trim().length > 0);
+                  });
+                });
+              }
+
+              if (!running) {
+                // Fallback: buscar por directorio Y por nombre del exe wrapper.
+                running = await isProcessRunningUnderDir(gameCwd);
+                // Si lo que encontramos en el directorio es solo el wrapper
+                // zombie (child.pid), no cuenta como "juego activo".
+                if (running && child.pid) {
+                  const escapedCwd = gameCwd.replace(/'/g, "''").replace(/\\/g, '\\\\');
+                  const psOnlyWrapper = `$p=Get-CimInstance Win32_Process|Where-Object{$_.ExecutablePath -like '${escapedCwd}*'};if(($p|Where-Object{$_.ProcessId -ne ${child.pid}})){'yes'}else{'no'}`;
+                  const onlyWrapperResult = await new Promise(r => {
+                    exec(`powershell -NoProfile -Command "${psOnlyWrapper}"`, { timeout: 5000 }, (err, stdout) => {
+                      r(!err && stdout ? stdout.trim() : 'yes');
+                    });
+                  });
+                  if (onlyWrapperResult === 'no') {
+                    running = false;
+                    console.log('[GameSession] Solo queda el wrapper zombie; considerando juego cerrado.');
+                  }
+                }
+              }
+
               if (running) {
                 consecutiveMisses = 0;
                 return;
@@ -4631,6 +4764,10 @@ app.whenReady().then(async () => {
                 clearInterval(nativeWatcher);
                 if (activeGameWatchers.get(id) === nativeWatcher) activeGameWatchers.delete(id);
                 console.log('[GameSession] No quedan procesos del juego; restaurando WPS5.');
+                // Matar el wrapper zombie si sigue vivo (patrón autoclone de ports CUI).
+                if (child.pid) {
+                  try { process.kill(child.pid); } catch (_) { }
+                }
                 gameSessionManager.finish('native-descendants-exited', { exitCode: code });
                 resumeLauncher();
               }
