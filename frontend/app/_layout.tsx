@@ -249,7 +249,6 @@ function RootLayoutInner() {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const handler = () => {
-      console.log('[Layout] wps5-home-ready received, doneRef.current=', doneRef.current ? 'set' : 'null');
       doneRef.current?.();
     };
     window.addEventListener('wps5-home-ready', handler);
@@ -265,7 +264,6 @@ function RootLayoutInner() {
       finished = true;
       doneRef.current = null;
       clearTimeout(safety);
-      console.log('[Layout] done() called → setHomeReady(true) → markLauncherRevealed in 350ms');
       setTimeout(() => {
         setHomeReady(true);
         // La capa de selección hace FadeOut de 450 ms: revelamos cuando esté casi lista
@@ -275,7 +273,6 @@ function RootLayoutInner() {
     };
     doneRef.current = done;
     const safety = setTimeout(done, 2500);
-    console.log('[Layout] activeUser set, waiting for wps5-home-ready, safety=2500ms, userId=', activeUser?.id);
     return () => {
       doneRef.current = null;
       clearTimeout(safety);
