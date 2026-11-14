@@ -120,6 +120,7 @@ This applies if you haven't set up your profile photo (avatar) folder.
 
 ### Code License
 This project is free software and is distributed under the **GNU AGPL-3.0** license. See the [LICENSE.md](LICENSE.md) file for more details on the terms of use, modification, and distribution.
+If you use, fork, or modify this code in your own project, please provide proper attribution and credit to **angelvc25** with a link back to this original repository.
 
 ### Disclaimer
 * **Independent Project:** **WPS5 Launcher** is an independent, non-profit project developed by fans. It is not affiliated with, associated with, authorized by, endorsed by, or officially connected in any way to Sony Interactive Entertainment Inc. or any of its subsidiaries or affiliates.
