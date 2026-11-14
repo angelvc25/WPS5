@@ -1,3 +1,4 @@
+import { markLauncherRevealed, resetLauncherSettled } from '@/hooks/useLauncherSettled';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Image } from 'expo-image';
@@ -5,7 +6,13 @@ import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, LogBox, Platform, StyleSheet, View } from 'react-native';
-import { markLauncherRevealed, resetLauncherSettled } from '@/hooks/useLauncherSettled';
+import Animated, {
+    FadeOut,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming
+} from 'react-native-reanimated';
 
 LogBox.ignoreLogs([
   '"shadow*" style props are deprecated. Use "boxShadow".',
@@ -27,20 +34,13 @@ if (Platform.OS === 'web' && typeof console !== 'undefined' && console.warn) {
     _warn.apply(console, args);
   };
 }
-import Animated, {
-  FadeOut,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming
-} from 'react-native-reanimated';
 
 import BackgroundVideo from '@/components/BackgroundVideo';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import FpsOverlay from '@/components/FpsOverlay';
 import GpuWarmup from '@/components/GpuWarmup';
 import ToastHost from '@/components/ToastHost';
 import UserSelectScreen, { UserProfile } from '@/components/UserSelectScreen';
-import ErrorBoundary from '@/components/ErrorBoundary';
 import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
 import { ThemeProvider as WPSThemeProvider } from '@/contexts/ThemeContext';
 import { UserContext } from '@/contexts/UserContext';
@@ -50,7 +50,6 @@ import { isLanguage } from '@/i18n/translations';
 import { openWebLink } from '@/services/linkService';
 import { setCurrentOnlineProfileId } from '@/services/onlineAccountService';
 import { soundService } from '@/services/soundService';
-import { toastService } from '@/services/toastService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import OverlayScreen from './overlay';
 
@@ -261,6 +260,40 @@ function RootLayoutInner() {
       clearTimeout(revealTimer);
     };
   }, [activeUser?.id]);
+
+  // ── Re-arm animations when the window regains focus ─────────────────────
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    let innerCleanup: (() => void) | undefined;
+    const handleFocus = () => {
+      if (innerCleanup) { innerCleanup(); innerCleanup = undefined; }
+      if (!activeUser) return;
+      setHomeReady(false);
+      resetLauncherSettled();
+      let finished = false;
+      let revealTimer: ReturnType<typeof setTimeout>;
+      let safety: ReturnType<typeof setTimeout>;
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(safety);
+        setHomeReady(true);
+        revealTimer = setTimeout(markLauncherRevealed, 350);
+      };
+      window.addEventListener('wps5-home-ready', done, { once: true });
+      safety = setTimeout(done, 2500);
+      innerCleanup = () => {
+        window.removeEventListener('wps5-home-ready', done);
+        clearTimeout(safety);
+        clearTimeout(revealTimer);
+      };
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      if (innerCleanup) innerCleanup();
+    };
+  }, [activeUser]);
 
   // Valores compartidos de Reanimated
   const splashOpacity = useSharedValue(1);
