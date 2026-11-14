@@ -1070,6 +1070,10 @@ class AchievementNotifierService {
         shown = true;
         if (this.trophyWindow && !this.trophyWindow.isDestroyed()) {
           this.trophyWindow.showInactive();
+          try {
+            this.trophyWindow.moveTop();
+            this.trophyWindow.setAlwaysOnTop(true, 'screen-saver');
+          } catch (_) { }
         }
       };
 
@@ -1348,55 +1352,45 @@ class AchievementNotifierService {
     this.stopWatcher(id);
 
     const achievementReader = require('../achievementReader.js');
-    const candidateFiles = [];
+    const apiKey = extraOpts.apiKey || this.steamApiKey || 'B1F361EA3C07B455DC8B0D06ED179B00';
+    const lang = this.currentLanguage || 'spanish';
 
-    if (appId) {
-      candidateFiles.push(path.join(process.env.APPDATA || '', 'Goldberg SteamEmu Saves', String(appId), 'achievements.json'));
-      candidateFiles.push(path.join(process.env.APPDATA || '', 'Steam', 'CODEX', String(appId), 'achievements.ini'));
-    }
-
-    if (installDir) {
-      candidateFiles.push(path.join(installDir, 'steam_settings', 'achievements.json'));
-      candidateFiles.push(path.join(installDir, 'achievements.json'));
-    }
-
-    let watchedFile = candidateFiles.find(p => fs.existsSync(p));
-    let lastMtime = watchedFile ? fs.statSync(watchedFile).mtimeMs : 0;
     let knownUnlockedNames = new Set();
+    let initialScanDone = false;
 
-    achievementReader.scanExternalAchievements(appId, null, 'spanish')
+    // Primer escaneo para registrar logros que YA estaban desbloqueados previamente
+    achievementReader.scanExternalAchievements(appId, apiKey, lang, extraOpts)
       .then((summary) => {
         if (summary && summary.achievements) {
           for (const a of summary.achievements) {
             if (a.achieved) knownUnlockedNames.add(a.apiName);
           }
         }
+        initialScanDone = true;
       })
-      .catch(() => { });
+      .catch(() => {
+        initialScanDone = true;
+      });
 
     const pollTimer = setInterval(async () => {
-      if (!watchedFile) {
-        watchedFile = candidateFiles.find(p => fs.existsSync(p));
-        if (watchedFile) lastMtime = fs.statSync(watchedFile).mtimeMs;
-        return;
-      }
-
       try {
-        const mtime = fs.statSync(watchedFile).mtimeMs;
-        if (mtime === lastMtime) return;
-        lastMtime = mtime;
-
-        const summary = await achievementReader.scanExternalAchievements(appId, null, 'spanish');
+        const summary = await achievementReader.scanExternalAchievements(appId, apiKey, lang, extraOpts);
         if (!summary || !summary.achievements) return;
 
         for (const ach of summary.achievements) {
-          if (ach.achieved && !knownUnlockedNames.has(ach.apiName)) {
-            knownUnlockedNames.add(ach.apiName);
-            this.enqueueTrophy(ach, gameInfo);
+          if (ach.achieved) {
+            if (!knownUnlockedNames.has(ach.apiName)) {
+              knownUnlockedNames.add(ach.apiName);
+              if (initialScanDone) {
+                console.log(`[AchievementNotifier] ¡Nuevo logro externo detectado en vivo!: ${ach.name} (${ach.apiName})`);
+                this.enqueueTrophy(ach, { ...gameInfo, id });
+              }
+            }
           }
         }
+        if (!initialScanDone) initialScanDone = true;
       } catch (_) { }
-    }, 1000);
+    }, 1500);
 
     this.activeWatchers.set(id, {
       type: 'external',

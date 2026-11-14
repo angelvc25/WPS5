@@ -95,19 +95,22 @@ export const toastService = {
     flushQueue();
 
     if (options?.saveToHistory !== false) {
-      const item: ToastHistoryItem = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        message,
-        icon: options?.icon,
-        source: options?.source,
-        coverImage: options?.coverImage,
-        timestamp: Date.now(),
-        action: options?.action,
-      };
-      history.unshift(item);
-      if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
-      historyListeners.forEach((fn) => fn([...history]));
+      this.recordHistory(message, options);
     }
+  },
+  recordHistory(message: string, options?: Omit<ToastOptions, 'saveToHistory'>) {
+    const item: ToastHistoryItem = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      message,
+      icon: options?.icon,
+      source: options?.source,
+      coverImage: options?.coverImage,
+      timestamp: Date.now(),
+      action: options?.action,
+    };
+    history.unshift(item);
+    if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
+    historyListeners.forEach((fn) => fn([...history]));
   },
   subscribe(fn: ToastListener) {
     listeners.add(fn);

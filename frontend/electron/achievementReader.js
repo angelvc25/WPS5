@@ -81,9 +81,13 @@ function normalizeSteamLang(lang) {
   return STEAM_LANG_VALID.has(v) ? v : 'english';
 }
 
+const DEFAULT_STEAM_API_KEY = process.env.EXPO_PUBLIC_STEAM_API_KEY || 'B1F361EA3C07B455DC8B0D06ED179B00';
+const _schemaCache = new Map();
+
 async function requestSteamSchema(appId, apiKey, steamLang) {
   try {
-    const url = `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v0002/?key=${apiKey}&appid=${appId}&l=${steamLang}&format=json`;
+    const key = apiKey || DEFAULT_STEAM_API_KEY;
+    const url = `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v0002/?key=${key}&appid=${appId}&l=${steamLang}&format=json`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();
@@ -102,9 +106,18 @@ async function requestSteamSchema(appId, apiKey, steamLang) {
  */
 async function fetchSteamSchema(appId, apiKey, lang = 'english') {
   const steamLang = normalizeSteamLang(lang);
-  const list = await requestSteamSchema(appId, apiKey, steamLang);
-  if (list.length > 0 || steamLang === 'english') return list;
-  return requestSteamSchema(appId, apiKey, 'english');
+  const cacheKey = `${appId}_${steamLang}`;
+  if (_schemaCache.has(cacheKey)) return _schemaCache.get(cacheKey);
+
+  let list = await requestSteamSchema(appId, apiKey, steamLang);
+  if ((!list || list.length === 0) && steamLang !== 'english') {
+    list = await requestSteamSchema(appId, apiKey, 'english');
+  }
+  const result = list || [];
+  if (result.length > 0) {
+    _schemaCache.set(cacheKey, result);
+  }
+  return result;
 }
 
 /**

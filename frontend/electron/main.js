@@ -4568,14 +4568,27 @@ app.whenReady().then(async () => {
               activeSteamCreds || {},
               gameMeta
             );
-          } else if (appRecord?.appId) {
-            achievementNotifierService.startExternalGameWatcher(
-              id,
-              appRecord.appId,
-              gameCwd,
-              {},
-              gameMeta
-            );
+          } else {
+            // Intentar detectar Steam AppID si no viene en el registro
+            const achievementReader = require('./achievementReader.js');
+            let detectedAppId = appRecord?.appId || null;
+            if (!detectedAppId && targetExe) {
+              try {
+                detectedAppId = await achievementReader.detectSteamAppIdFromExe(targetExe);
+              } catch (_) { }
+            }
+
+            if (detectedAppId) {
+              activeGameInfo.appId = detectedAppId;
+              console.log(`[AchievementNotifier] Watcher en vivo iniciado para ${gameMeta.title} (AppID: ${detectedAppId})`);
+              achievementNotifierService.startExternalGameWatcher(
+                id,
+                detectedAppId,
+                gameCwd,
+                { exePath: targetExe, apiKey: activeSteamCreds?.apiKey },
+                gameMeta
+              );
+            }
           }
         } catch (e) {
           console.warn('[AchievementNotifier] Error iniciando watcher para juego nativo:', e.message);

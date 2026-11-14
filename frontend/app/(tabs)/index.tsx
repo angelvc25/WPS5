@@ -1839,7 +1839,7 @@ export default function ConsoleHome() {
       const game = data?.gameInfo;
       if (ach) {
         const achTitle = ach.name || 'Logro desbloqueado';
-        const gameTitle = game?.title ? ` â€¢ ${game.title}` : '';
+        const gameTitle = game?.title ? ` • ${game.title}` : '';
         const desc = ach.description ? `\n${ach.description}` : '';
         toastService.show(`ðŸ† ${achTitle}${gameTitle}${desc}`, {
           duration: 6000,
