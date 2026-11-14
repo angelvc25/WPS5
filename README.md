@@ -116,6 +116,18 @@ This applies if you haven't set up your profile photo (avatar) folder.
 <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/6f48086d-635d-4c61-b4fb-ae8b3ec60494" />
 
 
+## License and Legal Notice
+
+### Code License
+This project is free software and is distributed under the **GNU GPLv3 / MIT** license. See the [LICENSE](LICENSE) file for more details on the terms of use, modification, and distribution.
+
+### Disclaimer
+* **Independent Project:** **WPS5 Launcher** is an independent, non-profit project developed by fans. It is not affiliated with, associated with, authorized by, endorsed by, or officially connected in any way to Sony Interactive Entertainment Inc. or any of its subsidiaries or affiliates.
+* **Trademarks:** “PlayStation,” “PS5,” and associated logos or visual elements are trademarks or registered trademarks of Sony Interactive Entertainment Inc. They are used solely for descriptive and illustrative purposes.
+* **User Content:** This software is solely a user interface (frontend). It does not include, distribute, or promote the illegal downloading of games, BIOS files, or copyrighted material. The user is solely responsible for using their own legal copies.
+
+
+
 
 
 
