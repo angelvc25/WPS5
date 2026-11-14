@@ -278,9 +278,16 @@ function RootLayoutInner() {
     };
   }, [activeUser?.id]);
 
-  // ── Re-arm animations when the window regains focus ─────────────────────
+  // ── Re-arm animations when window is shown after being hidden (systray/game) ──
+  // Solo se re-arma cuando Electron oculta y vuelve a mostrar la ventana
+  // (mainWindow.hide() → mainWindow.show()), no en minimizar/restaurar normal.
+  // Para eso usamos exclusivamente el IPC 'launcher-suspended' (false = visible de nuevo)
+  // y el evento 'wps5-window-show' si el main process lo emite.
+  // NO escuchamos 'window focus' porque dispara en cualquier alt-tab.
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (!(window as any).electronAPI?.onLauncherSuspended) return;
+
     let innerCleanup: (() => void) | undefined;
 
     const triggerRearm = () => {
@@ -300,29 +307,19 @@ function RootLayoutInner() {
         revealTimer = setTimeout(markLauncherRevealed, 350);
       };
       doneRef.current = done;
-      window.addEventListener('wps5-home-ready', done, { once: true });
       safety = setTimeout(done, 2500);
       innerCleanup = () => {
         doneRef.current = null;
-        window.removeEventListener('wps5-home-ready', done);
         clearTimeout(safety);
         clearTimeout(revealTimer);
       };
     };
 
-    // Cubre reapertura desde systray / minimizado
-    window.addEventListener('focus', triggerRearm);
-
-    // Cubre vuelta de un juego vía IPC de Electron
-    let removeElectronListener: (() => void) | undefined;
-    if ((window as any).electronAPI?.onLauncherSuspended) {
-      removeElectronListener = (window as any).electronAPI.onLauncherSuspended(
-        (suspended: boolean) => { if (!suspended) triggerRearm(); }
-      );
-    }
+    const removeElectronListener = (window as any).electronAPI.onLauncherSuspended(
+      (suspended: boolean) => { if (!suspended) triggerRearm(); }
+    );
 
     return () => {
-      window.removeEventListener('focus', triggerRearm);
       removeElectronListener?.();
       if (innerCleanup) innerCleanup();
     };
