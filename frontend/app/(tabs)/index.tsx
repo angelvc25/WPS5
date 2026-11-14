@@ -1,4 +1,4 @@
-import { ResizeMode, Video } from '@/components/AppVideo';
+﻿import { ResizeMode, Video } from '@/components/AppVideo';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import ClockText from '@/components/ClockText';
 import FavoritesView from '@/components/FavoritesView';
@@ -1238,7 +1238,7 @@ export default function ConsoleHome() {
       const latest = data[0];
       console.log(latest.version, latest.tipe, latest.link);
       console.log(data);
-      const currentVersion = '1.1.6';
+      const currentVersion = '1.1.7';
       const comparison = compareVersions(latest.version, currentVersion);
       if (comparison > 0) {
         toastService.show(`${t('settings.updateAvailable')}\n${latest.version}`, {

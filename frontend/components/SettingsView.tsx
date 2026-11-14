@@ -380,7 +380,7 @@ export default function SettingsView({
     if (Platform.OS === 'web' && (window as any).electronAPI?.getTrophyNotificationConfig) {
       (window as any).electronAPI.getTrophyNotificationConfig().then((cfg: any) => {
         if (cfg) setTrophyConfig(cfg);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, []);
 
@@ -388,14 +388,14 @@ export default function SettingsView({
     const next = { ...trophyConfig, ...partial };
     setTrophyConfig(next);
     if (Platform.OS === 'web' && (window as any).electronAPI?.setTrophyNotificationConfig) {
-      (window as any).electronAPI.setTrophyNotificationConfig(next).catch(() => {});
+      (window as any).electronAPI.setTrophyNotificationConfig(next).catch(() => { });
     }
   };
 
   const testTrophy = (rarity: string) => {
-    soundService.playTrophy?.(rarity).catch(() => {});
+    soundService.playTrophy?.(rarity).catch(() => { });
     if (Platform.OS === 'web' && (window as any).electronAPI?.testTrophyNotification) {
-      (window as any).electronAPI.testTrophyNotification(rarity, language).catch(() => {});
+      (window as any).electronAPI.testTrophyNotification(rarity, language).catch(() => { });
     }
   };
 
@@ -986,6 +986,25 @@ export default function SettingsView({
       }
     }
   };
+
+  // Cuando el modal de preview de splash está abierto, el elemento DOM
+  // enfocado (p.ej. el botón ✕ de cerrar) recibiría Enter en fase de target
+  // y dispararía su click nativo ANTES de que el handler de burbuja (abajo)
+  // pueda llamar a runSplashModalAction. Registramos un listener en fase de
+  // CAPTURA que llama a preventDefault() en Enter para cancelar ese click
+  // nativo, dejando que el handler de burbuja ejecute la acción correcta.
+  useEffect(() => {
+    if (!visible || !splashPreviewPost) return;
+
+    const preventNativeEnterOnSplashModal = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', preventNativeEnterOnSplashModal, true);
+    return () => window.removeEventListener('keydown', preventNativeEnterOnSplashModal, true);
+  }, [visible, splashPreviewPost]);
 
   // Keyboard navigation handler
   useEffect(() => {
@@ -3083,7 +3102,7 @@ export default function SettingsView({
                 <Text style={styles.rightSectionTitle}>{t('settings.systemSoftware')}</Text>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoRowLabel}>WPS5 Console OS</Text>
-                  <Text style={styles.infoRowValue}>Version 1.1.6 (Build 2026.11)</Text>
+                  <Text style={styles.infoRowValue}>Version 1.1.7 (Build 2026.11)</Text>
                 </View>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoRowLabel}>Environment</Text>
@@ -3114,7 +3133,7 @@ export default function SettingsView({
                         const latest = data[0];
                         console.log(latest.version, latest.tipe, latest.link);
                         console.log(data);
-                        const currentVersion = '1.1.6';
+                        const currentVersion = '1.1.7';
                         const comparison = compareVersions(latest.version, currentVersion);
                         if (comparison > 0) {
                           toastService.show(`${t('settings.updateAvailable')}\n${latest.version}`, {
