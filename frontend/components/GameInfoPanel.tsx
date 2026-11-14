@@ -402,9 +402,17 @@ export const GameInfoPanel = ({
   const settled = useLauncherSettled();
   const animReady = useAnimClockReady();
 
-  console.log('[GameInfoPanel] render settled=', settled, 'animReady=', animReady);
+  // paintReady: espera 2 frames desde que este componente se monta para que
+  // Reanimated tenga el hilo de UI listo antes de que FadeIn corra.
+  const [paintReady, setPaintReady] = React.useState(false);
+  React.useEffect(() => {
+    if (!settled) { setPaintReady(false); return; }
+    let r1: number, r2: number;
+    r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => setPaintReady(true)); });
+    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
+  }, [settled]);
 
-  if (!settled) {
+  if (!settled || !paintReady) {
     return null;
   }
 
