@@ -121,15 +121,13 @@ const renderPlatformBadge = (item: ConsoleItem, lastPlayedGame: ConsoleItem | nu
     <View style={[styles.platformBadge, { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 0 }]}>
       {steamGame ? (
         <Image
-          // source={require('@/assets/images/SteamBadge.png')}
-          source={"https://cdn2.steamgriddb.com/icon/21ca6d0cf2f25c4dbb35d8dc0b679c3f.png"}
+          source={require('@/assets/images/steam_simple_icon.png')}
           style={[styles.platformBadgeImage, { width: 40 }]}
           contentFit="contain"
         />
       ) : isEpicGame ? (
         <Image
-          // source={require('@/assets/images/EpicBadge.png')}
-          source={"https://cdn2.steamgriddb.com/logo/ef469da55386b89993b2b644f5ba5140.png"}
+          source={require('@/assets/images/epic_game_simple_icon.png')}
           style={[styles.platformBadgeImage, { width: 40 }]}
           contentFit="contain"
         />
@@ -148,7 +146,7 @@ const renderPlatformBadge = (item: ConsoleItem, lastPlayedGame: ConsoleItem | nu
       ) : isXbox ? (
         <View style={[styles.platformBadge, { backgroundColor: platformBgColor, padding: 0 }]}>
           <Image
-            source={"https://cdn2.steamgriddb.com/icon/986ad3ada4d93c1c474674751f941082.png"}
+            source={require('@/assets/images/xbox_simple_icon.png')}
             style={styles.platformBadgeImage2}
             contentFit="contain"
           />
@@ -156,7 +154,7 @@ const renderPlatformBadge = (item: ConsoleItem, lastPlayedGame: ConsoleItem | nu
       ) : isSwitch ? (
         <View style={[styles.platformBadge, { backgroundColor: platformBgColor, padding: 0 }]}>
           <Image
-            source={"https://cdn2.steamgriddb.com/icon/3b05af2c48dbaf6656fdf2d2f905b3b6.png"}
+            source={require('@/assets/images/swich_simple_icon.png')}
             style={styles.platformBadgeImage2}
             contentFit="contain"
           />
