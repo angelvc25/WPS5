@@ -98,8 +98,8 @@ interface UseLibraryOptions {
     language: string;
     uiReady: boolean;
     /** Pestaña activa de la librería — la gestiona index.tsx y la comparte con useSteamSync. */
-    libraryTab: 'installed' | 'collection';
-    setLibraryTab: React.Dispatch<React.SetStateAction<'installed' | 'collection'>>;
+    libraryTab: string;
+    setLibraryTab: React.Dispatch<React.SetStateAction<string>>;
     // Setters que mergeGameIntoState / syncGamePlaytime / markGameAsLastPlayed necesitan
     setSteamGames: React.Dispatch<React.SetStateAction<ConsoleItem[]>>;
     setEpicGames: React.Dispatch<React.SetStateAction<ConsoleItem[]>>;

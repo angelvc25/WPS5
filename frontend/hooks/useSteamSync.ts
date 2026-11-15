@@ -26,7 +26,7 @@ interface UseSteamSyncParams {
   t: TFunction;
   language: string;
   /** Pestaña activa de la librería ('installed' | 'collection'). Necesaria para refrescar installedSteamAppIds y la colección Steam bajo demanda. */
-  libraryTab: 'installed' | 'collection';
+  libraryTab: string;
 }
 
 interface UseSteamSyncResult {

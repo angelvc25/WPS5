@@ -90,7 +90,9 @@ export interface UseFocusNavigationOptions {
 
   // Datos de useLibrary
   currentData: ConsoleItem[];
-  libraryTab: 'installed' | 'collection';
+  libraryTab: string;
+  // Custom collections (for tab cycle)
+  collections?: Array<{ id: string; name: string }>;
 
   // Ref de tiempo de montaje (se calcula en index.tsx)
   mountTimeRef: React.MutableRefObject<number>;
@@ -153,7 +155,7 @@ export interface UseFocusNavigationOptions {
   setWidgetEditFocusIndex: React.Dispatch<React.SetStateAction<number>>;
   resizeWidget: (id: string, delta: 1 | -1) => void;
   resetInteraction: () => void;
-  setLibraryTab: React.Dispatch<React.SetStateAction<'installed' | 'collection'>>;
+  setLibraryTab: React.Dispatch<React.SetStateAction<string>>;
   setIsFriendsCardOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsNotificationsCardOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -482,7 +484,7 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
           o.setIsContextMenuOpen(false);
           soundService.playBack();
         } else if (e.key === 'ArrowDown') {
-          const maxIdx = o.contextMenuMode === 'library' ? 3 : 4;
+          const maxIdx = o.contextMenuMode === 'library' ? 4 : 4;
           o.setContextMenuFocusIndex(prev => Math.min(prev + 1, maxIdx));
           soundService.playNavigation();
         } else if (e.key === 'ArrowUp') {
@@ -490,9 +492,9 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
           soundService.playNavigation();
         } else if (e.key === 'Enter') {
           if (o.contextMenuMode === 'library') {
-            if (o.contextMenuFocusIndex === 2) {
+            if (o.contextMenuFocusIndex === 3) {
               o.handleToggleFavorite();
-            } else if (o.contextMenuFocusIndex === 3) {
+            } else if (o.contextMenuFocusIndex === 4) {
               o.handleTogglePin();
             } else {
               o.handleContextMenuAction(o.contextMenuFocusIndex);
@@ -773,7 +775,10 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
             if (lfft) setLibraryTabsFocused(true);
           } else if (ltf) {
             if (o.libraryTab !== 'collection') {
-              o.setLibraryTab('collection');
+              const tabCycle = ['installed', 'collection', ...(o.collections ?? []).map((c: { id: string }) => c.id)];
+              const idx = tabCycle.indexOf(o.libraryTab);
+              const nextTab = tabCycle[Math.min(idx + 1, tabCycle.length - 1)];
+              o.setLibraryTab(nextTab);
               setLibraryGridFocusIndex(0);
             }
           } else {
@@ -839,7 +844,10 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
             // Ya está en el extremo izquierdo
           } else if (ltf) {
             if (o.libraryTab !== 'installed') {
-              o.setLibraryTab('installed');
+              const tabCycle = ['installed', 'collection', ...(o.collections ?? []).map((c: { id: string }) => c.id)];
+              const idx = tabCycle.indexOf(o.libraryTab);
+              const nextTab = tabCycle[Math.max(idx - 1, 0)];
+              o.setLibraryTab(nextTab);
               setLibraryGridFocusIndex(0);
             } else {
               setLibraryTabsFocused(false);
@@ -1247,7 +1255,13 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
       if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
         if (fa === 'library_grid') {
           soundService.playTab();
-          o.setLibraryTab(prev => (prev === 'installed' ? 'collection' : 'installed'));
+          const tabCycle = ['installed', 'collection', ...(o.collections ?? []).map((c: { id: string }) => c.id)];
+          o.setLibraryTab(prev => {
+            const idx = tabCycle.indexOf(prev);
+            const direction = (e.key === 'q' || e.key === 'Q') ? -1 : 1;
+            const nextIdx = (idx + direction + tabCycle.length) % tabCycle.length;
+            return tabCycle[nextIdx];
+          });
           setLibraryGridFocusIndex(0);
           setLibraryTabsFocused(false);
           setLibraryFilterFocused(false);

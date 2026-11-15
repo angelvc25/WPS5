@@ -1077,6 +1077,14 @@ const es = {
   'settings.soundPackActive': 'Pack de sonidos activo',
   'splash.skipPrompt': 'Presiona un botón para skip',
 
+  'context.addToCollection': 'Añadir a la colección',
+  'context.createCollection': 'Crear colección',
+  'context.collections': 'Mis colecciones',
+  'context.collectionAdded': 'Juego añadido a "{name}"',
+  'context.backToMenu': 'Volver',
+  'context.collectionNamePlaceholder': 'Nombre de la colección',
+  'library.collection.empty': 'Esta colección está vacía.',
+
 
 } as const;
 
@@ -2141,6 +2149,14 @@ const en: Record<TranslationKey, string> = {
   'settings.soundPackActive': 'Active sound pack',
   'splash.skipPrompt': 'Press any button to skip',
 
+  'context.addToCollection': 'Add to collection',
+  'context.createCollection': 'Create collection',
+  'context.collections': 'My collections',
+  'context.collectionAdded': 'Game added to "{name}"',
+  'context.backToMenu': 'Back',
+  'context.collectionNamePlaceholder': 'Collection name',
+  'library.collection.empty': 'This collection is empty.',
+
 };
 
 const pt: Record<TranslationKey, string> = {
@@ -3204,6 +3220,14 @@ const pt: Record<TranslationKey, string> = {
   'settings.accentActive': 'Cor de acento ativa',
   'settings.soundPackActive': 'Pacote de sons ativo',
   'splash.skipPrompt': 'Pressione qualquer botão para pular',
+
+  'context.addToCollection': 'Adicionar à coleção',
+  'context.createCollection': 'Criar coleção',
+  'context.collections': 'Minhas coleções',
+  'context.collectionAdded': 'Jogo adicionado a "{name}"',
+  'context.backToMenu': 'Voltar',
+  'context.collectionNamePlaceholder': 'Nome da coleção',
+  'library.collection.empty': 'Esta coleção está vazia.',
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {

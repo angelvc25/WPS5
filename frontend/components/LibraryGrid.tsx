@@ -24,8 +24,8 @@ interface LibraryGridProps {
   isLaunching?: boolean;
   inputMode?: 'keyboard' | 'gamepad';
   onDetailVisibilityChange?: (isVisible: boolean) => void;
-  activeTab?: 'installed' | 'collection';
-  onTabChange?: (tab: 'installed' | 'collection') => void;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
   isLoading?: boolean;
   installedSteamAppIds?: Set<string> | null;
   // gridActive: true cuando el foco real está sobre las tarjetas del grid
@@ -51,6 +51,10 @@ interface LibraryGridProps {
   // Callback para abrir el menú contextual en un juego de la biblioteca.
   // cardRect: bounding rect de la tarjeta (para posicionar el menú al lado).
   onOpenContextMenu?: (index: number, game: ConsoleItem, cardRect?: { left: number; top: number; width: number; height: number }) => void;
+  // Custom user collections to show as extra tabs
+  collections?: Array<{ id: string; name: string }>;
+  // Game IDs for the currently active collection tab
+  collectionGameIds?: string[];
 }
 
 // Métodos expuestos para que el componente padre (dueño del estado de foco
@@ -362,6 +366,8 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   onFilterPanelVisibilityChange,
   onVisibleGamesChange,
   onOpenContextMenu,
+  collections = [],
+  collectionGameIds,
 }: LibraryGridProps, ref) {
   const { t } = useTranslation();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -687,6 +693,11 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   // 4. Filtrar los juegos basados en la pestaña activa, la plataforma y la fuente elegidas
   const filteredGames = useMemo(() => {
     return sortedGames.filter((game) => {
+      // For custom collection tabs (not 'installed' and not 'collection'), filter by collectionGameIds
+      if (activeTab !== 'installed' && activeTab !== 'collection') {
+        return (collectionGameIds ?? []).includes(game.id);
+      }
+
       if (activeTab === 'installed' && !isGameInstalled(game)) return false;
 
       // 1. Filtro por plataforma general (PC, PS1, PS2, Xbox, Switch, Steam, Retro, etc.)
@@ -749,6 +760,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     selectedSources,
     filterFavorites,
     installedSteamAppIds,
+    collectionGameIds,
   ]);
 
   // Avisa al padre cada vez que la lista visible (filtrada+ordenada)
@@ -1128,6 +1140,13 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                     <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>{t('library.collection')}</Text>
                   </View>
                 </TouchableOpacity>
+                {collections.map((col) => (
+                  <TouchableOpacity key={col.id} onPress={() => { setSortDirection('newest'); onTabChange?.(col.id); }}>
+                    <View style={[styles.tabPill, tabsFocused && activeTab === col.id && styles.tabPillFocused]}>
+                      <Text style={[styles.tabText, activeTab === col.id && styles.tabTextActive]}>{col.name}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
           </View>
@@ -1163,7 +1182,11 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
                 ) : (
                   <>
                     <MaterialCommunityIcons name="folder-outline" size={64} color="rgba(255,255,255,0.3)" />
-                    <Text style={styles.emptyText}>{t('library.empty')}</Text>
+                    <Text style={styles.emptyText}>
+                      {activeTab !== 'installed' && activeTab !== 'collection'
+                        ? t('library.collection.empty')
+                        : t('library.empty')}
+                    </Text>
                   </>
                 )}
               </View>

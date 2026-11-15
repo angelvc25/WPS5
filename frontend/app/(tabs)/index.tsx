@@ -51,6 +51,7 @@ import SettingsView, { SettingsScreenType } from '@/components/SettingsView';
 import StoreFrontPanel from '@/components/StoreFrontPanel';
 import ThemeCharacterOverlay from '@/components/ThemeCharacterOverlay';
 import TrophiesView from '@/components/TrophiesView';
+import VirtualKeyboard from '@/components/VirtualKeyboard';
 import WelcomeSettingsView from '@/components/WelcomeSettingsView';
 import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
 import WidgetEditPanel, {
@@ -67,6 +68,7 @@ import WidgetEditPanel, {
   WidgetVisibility
 } from '@/components/WidgetEditPanel';
 import { PLATFORMS } from '@/constants/platforms';
+import { useCollections } from '@/contexts/CollectionsContext';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useFocusNavigation, type UseFocusNavigationOptions } from '@/hooks/useFocusNavigation';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
@@ -90,7 +92,7 @@ const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Media', labelKey: 'tabs.media' },
 ];
 
-// â”€â”€â”€ Slideshow Overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Slideshow Overlay ----------------------------------------
 interface SlideshowOverlayProps {
   images: string[];
   currentIndex: number;
@@ -101,7 +103,7 @@ interface SlideshowOverlayProps {
 
 const SLIDE_MS = 900;
 
-// TransiciÃ³n de fondo del carrusel (estilo PS5): larga, suave y con desaceleraciÃ³n.
+// Transici�n de fondo del carrusel (estilo PS5): larga, suave y con desaceleraci�n.
 const BG_TRANSITION_MS = 750;
 // Deslizamiento (px) de las capas de fondo. Cada capa se extiende este mismo
 // margen por ambos lados para que al desplazarse no deje ver su borde.
@@ -200,7 +202,7 @@ export interface ConsoleItem {
   youtubeId?: string;
   type?: 'game' | 'media' | 'web';
   platform?: string;
-  /** Sistema retro especÃ­fico cuando platform === 'Retro'. Ej: "SNES", "Sega Genesis", "Arcade - MAME" */
+  /** Sistema retro espec�fico cuando platform === 'Retro'. Ej: "SNES", "Sega Genesis", "Arcade - MAME" */
   retroSystem?: string;
   isPinned?: boolean;
 }
@@ -264,6 +266,7 @@ HomeLightboxImage.displayName = 'HomeLightboxImage';
 export default function ConsoleHome() {
   const { activeUser, changeUser, updateUser } = useUser();
   const { visualTheme, setVisualTheme, foregroundOverWidgets, visualThemeOnlyHome } = useTheme();
+  const { collections, createCollection, addGameToCollection } = useCollections();
   // Zona del carrusel (borde inferior en px de pantalla): sirve para recortar el personaje cuando no debe cubrir los widgets.
   const carouselSectionRef = useRef<any>(null);
   const [carouselClipBottom, setCarouselClipBottom] = useState<number | null>(null);
@@ -273,11 +276,11 @@ export default function ConsoleHome() {
     setLanguage(lang);
     updateUser({ settings: { ...activeUser?.settings, language: lang } });
   };
-  // â”€â”€ Video de suspensiÃ³n al cerrar la app â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // -- Video de suspensi�n al cerrar la app ----------------------------------
   // Misma idea que el video de arranque en _layout.tsx: si el usuario activo
-  // configurÃ³ un video de suspensiÃ³n (Settings -> Splash Videos -> "Usar en
+  // configur� un video de suspensi�n (Settings -> Splash Videos -> "Usar en
   // Suspend"), lo reproducimos entero (con audio) antes de cerrar realmente
-  // la aplicaciÃ³n, en vez de matarla de golpe con electronAPI.closeApp().
+  // la aplicaci�n, en vez de matarla de golpe con electronAPI.closeApp().
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const shutdownFinishedRef = useRef(false);
   const suspendVideoPath = (activeUser?.settings as any)?.suspendVideoPath as string | undefined;
@@ -285,8 +288,8 @@ export default function ConsoleHome() {
   // Debe coincidir con `toLocalFileUri` en electron/main.js y en _layout.tsx.
   const toLocalFileUri = (filePath: string) => `local-file:///${filePath.replace(/\\/g, '/')}`;
 
-  // Video de suspensiÃ³n: el personalizado del usuario; si no tiene (o falla),
-  // el video por defecto empaquetado; si ese tambiÃ©n falla, se cierra directo.
+  // Video de suspensi�n: el personalizado del usuario; si no tiene (o falla),
+  // el video por defecto empaquetado; si ese tambi�n falla, se cierra directo.
   const [suspendCustomFailed, setSuspendCustomFailed] = useState(false);
   const [suspendDefaultFailed, setSuspendDefaultFailed] = useState(false);
   const suspendCustomActive = !!suspendVideoPath && !suspendCustomFailed;
@@ -303,21 +306,21 @@ export default function ConsoleHome() {
     }
   };
 
-  // Punto Ãºnico de salida: reemplaza las llamadas directas a
-  // electronAPI.closeApp() en los menÃºs de "Apagar"/"Salir". Si no hay video
-  // de suspensiÃ³n configurado, cierra directo (comportamiento anterior).
+  // Punto �nico de salida: reemplaza las llamadas directas a
+  // electronAPI.closeApp() en los men�s de "Apagar"/"Salir". Si no hay video
+  // de suspensi�n configurado, cierra directo (comportamiento anterior).
   const requestAppShutdown = () => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI) return;
     if (suspendCustomActive === false && suspendDefaultFailed) {
-      // Ni el video personalizado ni el de por defecto estÃ¡n disponibles.
+      // Ni el video personalizado ni el de por defecto est�n disponibles.
       (window as any).electronAPI.closeApp();
       return;
     }
     shutdownFinishedRef.current = false;
     setIsShuttingDown(true);
   };
-  // Red de seguridad: si el video de suspensiÃ³n nunca dispara "onEnd"
-  // (archivo corrupto, cÃ³dec no soportado, etc.), cerramos igual a los 20s.
+  // Red de seguridad: si el video de suspensi�n nunca dispara "onEnd"
+  // (archivo corrupto, c�dec no soportado, etc.), cerramos igual a los 20s.
   useEffect(() => {
     if (!isShuttingDown) return;
     const safetyTimer = setTimeout(finishShutdown, 20000);
@@ -358,10 +361,10 @@ export default function ConsoleHome() {
   const widgetScrollRef = useRef<ScrollView>(null);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
-  // Dimensiones en pÃ­xeles reales del lightbox de medios (16:9), calculadas a
+  // Dimensiones en p�xeles reales del lightbox de medios (16:9), calculadas a
   // partir del ancho de ventana. Coincide con styles.lightboxContent
   // ('82%', maxWidth 1060). YoutubePlayer (WebView por debajo) necesita
-  // height/width numÃ©ricos â€” no acepta '100%' como styles.lightboxVideo.
+  // height/width num�ricos � no acepta '100%' como styles.lightboxVideo.
   const lightboxPlayerWidth = Math.min(windowWidth * 0.82, 1060);
   const lightboxPlayerHeight = lightboxPlayerWidth * (9 / 16);
 
@@ -411,11 +414,11 @@ export default function ConsoleHome() {
   const [widgetOrder, setWidgetOrder] = useState<string[]>(() => loadWidgetOrder());
   const [widgetSizes, setWidgetSizes] = useState<WidgetSizes>(() => loadWidgetSizes());
 
-  // R1 (+1) amplÃ­a, L1 (-1) reduce. TamaÃ±os: 0 â†’ 1 â†’ 2 (mÃ¡ximo por widget en WIDGET_MAX_SIZE).
+  // R1 (+1) ampl�a, L1 (-1) reduce. Tama�os: 0 ? 1 ? 2 (m�ximo por widget en WIDGET_MAX_SIZE).
   const resizeWidget = useCallback((id: string, delta: 1 | -1) => {
     const current = widgetSizes[id] ?? 0;
     const next = clampWidgetSize(id, current + delta);
-    if (next === current) return; // ya estÃ¡ en el mÃ­nimo / mÃ¡ximo
+    if (next === current) return; // ya est� en el m�nimo / m�ximo
     const updated: WidgetSizes = { ...widgetSizes, [id]: next };
     setWidgetSizes(updated);
     saveWidgetSizes(updated);
@@ -447,8 +450,8 @@ export default function ConsoleHome() {
   const [settingsInitialScreen, setSettingsInitialScreen] = useState<SettingsScreenType>('main');
 
   const [settingsTab, setSettingsTab] = useState<'profile' | 'home' | 'sync' | 'support'>('profile');
-  // Lectura sÃ­ncrona: si se cargara en un efecto tras montar, el fondo cambiarÃ­a
-  // justo durante el arranque y dispararÃ­a una transiciÃ³n innecesaria.
+  // Lectura s�ncrona: si se cargara en un efecto tras montar, el fondo cambiar�a
+  // justo durante el arranque y disparar�a una transici�n innecesaria.
   const [homeBackground, setHomeBackground] = useState<any>(() => {
     if (Platform.OS !== 'web') return null;
     try {
@@ -466,7 +469,7 @@ export default function ConsoleHome() {
   const launchingItemRef = useRef<ConsoleItem | null>(null);
   launchingItemRef.current = launchingItem;
 
-  // â”€â”€â”€ Modo presentaciÃ³n (estados, refs y effects extraÃ­dos) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Modo presentaci�n (estados, refs y effects extra�dos) ----------------
   const {
     presentationEnabled,
     inactivityTime,
@@ -486,7 +489,7 @@ export default function ConsoleHome() {
   } = usePresentationMode({ isLaunching });
   const [isRandomSelectorVisible, setRandomSelectorVisible] = useState(false);
 
-  // Mantiene una copia sincrÃ³nica de isLaunching accesible desde callbacks
+  // Mantiene una copia sincr�nica de isLaunching accesible desde callbacks
   // async (ej. setTimeout) sin depender de closures potencialmente obsoletas.
   useEffect(() => {
     isLaunchingRef.current = isLaunching;
@@ -496,20 +499,20 @@ export default function ConsoleHome() {
   const libraryGridRef = useRef<LibraryGridHandle>(null);
   const welcomeWidgetsRef = useRef<WelcomeWidgetsHandle>(null);
 
-  // â”€â”€ useSteamSync: estados de Steam, Epic y Xbox â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // -- useSteamSync: estados de Steam, Epic y Xbox ---------------------------
   // Necesitamos declarar estos estados temporalmente para poder pasar los
   // setters a useLibrary. useSteamSync los retorna, pero useLibrary los
   // necesita para mergeGameIntoState / markGameAsLastPlayed.
-  // La declaraciÃ³n definitiva de games/gamesRef ocurre en useLibrary (ver abajo).
+  // La declaraci�n definitiva de games/gamesRef ocurre en useLibrary (ver abajo).
 
-  // â”€â”€ selectedItem y visibilidad del detalle (permanecen en index.tsx) â”€â”€â”€â”€â”€â”€
+  // -- selectedItem y visibilidad del detalle (permanecen en index.tsx) ------
   const [selectedItem, setSelectedItem] = useState<ConsoleItem | null>(null);
   const [isDetailVisible, setDetailVisible] = useState(false);
   const [detailInitialEditMode, setDetailInitialEditMode] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<ConsoleItem | null>(null);
   const [uiReady, setUiReady] = useState(false);
 
-  // ─── Subtle scale transition between views ──────────────────
+  // --- Subtle scale transition between views ------------------
   const homeTransitionAnim = useSharedValue(1);
 
   const isAnyFullViewOpen =
@@ -622,14 +625,14 @@ export default function ConsoleHome() {
     }, 140);
   }, []);
 
-  // libraryTab: se declara aquÃ­ para pasarlo a useSteamSync, useLibrary y useFocusNavigation
-  const [libraryTab, setLibraryTab] = useState<'installed' | 'collection'>('installed');
+  // libraryTab: se declara aqu� para pasarlo a useSteamSync, useLibrary y useFocusNavigation
+  const [libraryTab, setLibraryTab] = useState<string>('installed');
 
-  // â”€â”€ useSteamSync â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Nota: games no estÃ¡ disponible aÃºn (lo provee useLibrary mÃ¡s abajo), asÃ­
-  // que pasamos un array vacÃ­o inicialmente. useSteamSync lo usa para overrides
-  // y orphan installs, que pueden cargarse ligeramente mÃ¡s tarde sin problema.
-  // Se inicializa con array temporal; useLibrary proveerÃ¡ games real.
+  // -- useSteamSync ----------------------------------------------------------
+  // Nota: games no est� disponible a�n (lo provee useLibrary m�s abajo), as�
+  // que pasamos un array vac�o inicialmente. useSteamSync lo usa para overrides
+  // y orphan installs, que pueden cargarse ligeramente m�s tarde sin problema.
+  // Se inicializa con array temporal; useLibrary proveer� games real.
   const [_gamesForSteam, _setGamesForSteam] = useState<ConsoleItem[]>([]);
   const {
     steamGames,
@@ -653,7 +656,7 @@ export default function ConsoleHome() {
     getEffectiveSteamGames,
   } = useSteamSync({ activeUser, games: _gamesForSteam, t, language, libraryTab });
 
-  // â”€â”€ useLibrary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // -- useLibrary ------------------------------------------------------------
   const GAMES_LIMIT = 10;
   const {
     games,
@@ -715,13 +718,18 @@ export default function ConsoleHome() {
   const launchStartTimeRef = useRef<Record<string, number>>({});
   const sessionPlaytimeRef = useRef<Record<string, number>>({});
   const initialUnlockedRef = useRef<Record<string, number>>({});
-  // Trofeos ya notificados en tiempo real durante la sesiÃ³n actual del juego.
+  // Trofeos ya notificados en tiempo real durante la sesi�n actual del juego.
   // Al cerrar el juego usamos este contador para evitar duplicar el toast de conteo.
   const realtimeTrophiesNotifiedRef = useRef<Record<string, number>>({});
 
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuFocusIndex, setContextMenuFocusIndex] = useState(0);
   const [contextMenuSource, setContextMenuSource] = useState<'carousel' | 'library'>('carousel');
+  // Submenu state for collections
+  const [contextMenuSubmenuMode, setContextMenuSubmenuMode] = useState<'collections' | 'create' | null>(null);
+  const [contextMenuSubmenuFocusIndex, setContextMenuSubmenuFocusIndex] = useState(0);
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [isCollectionKeyboardVisible, setIsCollectionKeyboardVisible] = useState(false);
   const [contextMenuTargetItem, setContextMenuTargetItem] = useState<ConsoleItem | null>(null);
   const activeCardRef = useAnimatedRef<View>();
   const [contextMenuCoords, setContextMenuCoords] = useState({ top: 250, left: 335 });
@@ -745,12 +753,12 @@ export default function ConsoleHome() {
   const [inputMode, setInputMode] = useState<'keyboard' | 'gamepad'>('keyboard');
   const mountTimeRef = useRef(Date.now());
 
-  // â”€â”€â”€ Datos derivados de storeOffers que necesita useFocusNavigation â”€â”€â”€â”€â”€â”€â”€
+  // --- Datos derivados de storeOffers que necesita useFocusNavigation -------
   const storeDeals = useMemo(() => storeOffers.filter(o => o.type === 'offer'), [storeOffers]);
   const storeUpcoming = useMemo(() => storeOffers.filter(o => o.type === 'release'), [storeOffers]);
 
-  // â”€â”€â”€ Refs para romper dependencia circular con useFocusNavigation â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // handleLaunchApp y otros callbacks se definen mÃ¡s abajo pero usan valores
+  // --- Refs para romper dependencia circular con useFocusNavigation ---------
+  // handleLaunchApp y otros callbacks se definen m�s abajo pero usan valores
   // del hook (setActiveIndex, setFocusArea). Como el hook los lee siempre desde
   // optionsRef.current (actualizada en cada render), basta con wrappers estables.
   const _handleLaunchAppRef = useRef<UseFocusNavigationOptions['handleLaunchApp']>(() => { });
@@ -762,7 +770,7 @@ export default function ConsoleHome() {
   const _handleToggleFavoriteRef = useRef<UseFocusNavigationOptions['handleToggleFavorite']>(() => { });
   const _handleTogglePinRef = useRef<UseFocusNavigationOptions['handleTogglePin']>(() => { });
 
-  // â”€â”€â”€ useFocusNavigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- useFocusNavigation ---------------------------------------------------
   const {
     focusArea, setFocusArea,
     focusIndex, setFocusIndex,
@@ -901,9 +909,10 @@ export default function ConsoleHome() {
     windowWidth,
     windowHeight,
     ITEM_WIDTH,
+    collections,
   });
 
-  // Widget con foco en WidgetEditPanel (null si el panel estÃ¡ cerrado). WelcomeWidgets atenÃºa el resto.
+  // Widget con foco en WidgetEditPanel (null si el panel est� cerrado). WelcomeWidgets aten�a el resto.
   const editingWidgetId = isWidgetEditOpen ? (PANEL_WIDGETS[widgetEditFocusIndex]?.id ?? null) : null;
 
   // Background transition: un solo estado combinado para evitar re-renders en cascada
@@ -919,7 +928,7 @@ export default function ConsoleHome() {
   const infoCardsAnim = useSharedValue(1); // 1=visible, 0=hidden
   const deepSectionFocusAnim = useSharedValue(0); // 1=capturas/noticias, 0=trofeos o arriba
   // Overlay negro que cubre la splash de lanzamiento antes de abrir el juego.
-  // 0 = transparente (splash visible), 1 = negro total (juego lanzándose).
+  // 0 = transparente (splash visible), 1 = negro total (juego lanz?ndose).
   const launchFadeToBlack = useSharedValue(0);
   const launchFadeToBlackStyle = useAnimatedStyle(() => ({
     opacity: launchFadeToBlack.value,
@@ -975,8 +984,8 @@ export default function ConsoleHome() {
     return () => { remove?.(); };
   }, []);
 
-  // Evita que el efecto de cambio de pestaÃ±a corra en el primer render
-  // (desmontaba y volvÃ­a a montar todas las tarjetas del carrusel al arrancar).
+  // Evita que el efecto de cambio de pesta�a corra en el primer render
+  // (desmontaba y volv�a a montar todas las tarjetas del carrusel al arrancar).
   const firstTabRun = useRef(true);
   useEffect(() => {
     if (firstTabRun.current) { firstTabRun.current = false; return; }
@@ -1087,8 +1096,8 @@ export default function ConsoleHome() {
     const isWelcome = currentData[activeIndex]?.id === '1';
     const trophyHeight = 320;
     // Al navegar por capturas, trofeos o noticias conservamos la misma
-    // separaciÃ³n vertical que usa GameDetailView, sin aÃ±adir espacio cuando
-    // la ficha principal del juego estÃ¡ visible.
+    // separaci�n vertical que usa GameDetailView, sin a�adir espacio cuando
+    // la ficha principal del juego est� visible.
     const deepHeight = interpolate(deepSectionFocusAnim.value, [0, 1], [trophyHeight, 270]);
     const targetMinHeight = interpolate(
       lowerSectionFocusAnim.value,
@@ -1184,7 +1193,7 @@ export default function ConsoleHome() {
     display: welcomeWidgetsFocusAnim.value === 1 ? 'flex' : 'none',
   }));
 
-  // â”€â”€â”€ Presentation mode: hide/show animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Presentation mode: hide/show animations ---------------
   const presentationHeaderStyle = useAnimatedStyle(() => ({
     opacity: interpolate(presentationAnim.value, [0, 1], [1, 0]),
     transform: [{ translateY: interpolate(presentationAnim.value, [0, 1], [0, -80]) }],
@@ -1209,7 +1218,7 @@ export default function ConsoleHome() {
   }, []);
 
   const focusedCarouselItem = currentData[activeIndex];
-  // La tarjeta "Ãšltimo jugado" hereda la mÃºsica del juego que representa.
+  // La tarjeta "�ltimo jugado" hereda la m�sica del juego que representa.
   const focusedCarouselAudio = focusedCarouselItem?.isLastPlayed
     ? lastPlayedGame?.focusAudio
     : focusedCarouselItem?.focusAudio;
@@ -1273,14 +1282,14 @@ export default function ConsoleHome() {
     );
   }, [activeIndex, focusArea, currentData]);
 
-  // t() depende del idioma actual: se accede vÃ­a ref para que los toasts
+  // t() depende del idioma actual: se accede v�a ref para que los toasts
   // en segundo plano (p. ej. solicitudes de amistad) salgan traducidos.
   const tRef = useRef(t);
   tRef.current = t;
 
   useEffect(() => {
     loadApps();
-    // La mÃºsica de la interfaz espera al fin del splash/video de booteo
+    // La m�sica de la interfaz espera al fin del splash/video de booteo
     // (el _layout avisa con 'wps5-splash-done') para no pisar su audio.
     soundService.init();
     const startInterfaceAudio = () => {
@@ -1311,26 +1320,26 @@ export default function ConsoleHome() {
   useEffect(() => {
     if (!introDone) return;
     // Escalonar las tareas de inicio para que sus respuestas no lleguen
-    // todas juntas y provoquen un corte de scroll por re-renders en ráfaga.
+    // todas juntas y provoquen un corte de scroll por re-renders en r?faga.
     // initOnlineLibraryAutoSync solo registra suscriptores, no hace red.
     initOnlineLibraryAutoSync();
-    // fetchGamingNews: IPC + red — 1 s de margen tras introDone
+    // fetchGamingNews: IPC + red ? 1 s de margen tras introDone
     const t1 = setTimeout(() => fetchGamingNews().then(() => { }), 1000);
-    // initOnlineFriendWatcher: posible IPC — 2 s de margen
+    // initOnlineFriendWatcher: posible IPC ? 2 s de margen
     const t2 = setTimeout(() => initOnlineFriendWatcher((key, params) => tRef.current(key as any, params)), 2000);
-    // CheckUpdates: fetch de versión — 5 s de margen (antes: 3 s, coincidía con noticias/amigos)
+    // CheckUpdates: fetch de versi?n ? 5 s de margen (antes: 3 s, coincid?a con noticias/amigos)
     const t3 = setTimeout(CheckUpdates, 5000);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [introDone]);
 
-  // La mÃºsica temÃ¡tica solo se activa en Inicio y despuÃ©s de mantener el foco
-  // sobre un juego. AsÃ­ no se dispara durante una navegaciÃ³n rÃ¡pida del carrusel.
-  // TambiÃ©n se desactiva por completo mientras `isLaunching` es true (launcher
+  // La m�sica tem�tica solo se activa en Inicio y despu�s de mantener el foco
+  // sobre un juego. As� no se dispara durante una navegaci�n r�pida del carrusel.
+  // Tambi�n se desactiva por completo mientras `isLaunching` es true (launcher
   // suspendido con un juego en curso): de lo contrario, si el juego lanzado
-  // queda enfocado en el carrusel (ej. como "Ãºltimo jugado"), este efecto se
+  // queda enfocado en el carrusel (ej. como "�ltimo jugado"), este efecto se
   // dispara igual porque activeIndex/focusArea cambian al lanzar, y el
-  // setTimeout de 2.5s sigue corriendo aunque la ventana estÃ© oculta â€”
-  // haciendo sonar el tema del juego mientras ya estÃ¡s jugando.
+  // setTimeout de 2.5s sigue corriendo aunque la ventana est� oculta �
+  // haciendo sonar el tema del juego mientras ya est�s jugando.
   const stopFocusAudio = useCallback(async (resumeBackground: boolean) => {
     if (focusAudioDelayRef.current) {
       clearTimeout(focusAudioDelayRef.current);
@@ -1352,7 +1361,7 @@ export default function ConsoleHome() {
       focusArea === 'main_carousel' &&
       !!focusedCarouselAudio &&
       !isLaunching &&
-      !isDetailVisible; // No iniciar audio del carrusel mientras el detalle estÃ¡ abierto
+      !isDetailVisible; // No iniciar audio del carrusel mientras el detalle est� abierto
 
     void stopFocusAudio(!shouldPlayFocusAudio || !!focusAudioSoundRef.current);
     if (!shouldPlayFocusAudio) return;
@@ -1431,12 +1440,12 @@ export default function ConsoleHome() {
 
     const MENU_WIDTH = 320;
     const MENU_HEIGHT = 190;
-    const GAP = 8; // separación entre la tarjeta y el menú
+    const GAP = 8; // separaci?n entre la tarjeta y el men?
 
-    // Función común para calcular left/top dado el rect de la tarjeta
+    // Funci?n com?n para calcular left/top dado el rect de la tarjeta
     const positionFromRect = (rect: { left: number; top: number; width: number; height: number }) => {
       let left: number;
-      // Si cabe a la derecha de la tarjeta, posicionar allí; si no, a la izquierda
+      // Si cabe a la derecha de la tarjeta, posicionar all?; si no, a la izquierda
       if (rect.left + rect.width + GAP + MENU_WIDTH <= windowWidth - 10) {
         left = rect.left + rect.width + GAP;
       } else {
@@ -1468,7 +1477,15 @@ export default function ConsoleHome() {
   };
 
   const handleContextMenuAction = async (idx: number | string) => {
+    // 'addToCollection' opens submenu — don't close the menu
+    if (idx === 'addToCollection') {
+      setContextMenuSubmenuMode('collections');
+      setContextMenuSubmenuFocusIndex(0);
+      return;
+    }
+
     setIsContextMenuOpen(false);
+    setContextMenuSubmenuMode(null);
     const item = contextMenuSource === 'library' ? contextMenuTargetItem : currentData[activeIndex];
     if (!item) return;
 
@@ -1482,7 +1499,7 @@ export default function ConsoleHome() {
       (idx === 1 && contextMenuSource !== 'library') ||
       (idx === 1 && contextMenuSource === 'library')
     ) {
-      // Ubicación
+      // Ubicaci?n
       if (Platform.OS === 'web' && (window as any).electronAPI) {
         if (item.path) {
           const result = await (window as any).electronAPI.openGameLocation(item.path);
@@ -1512,30 +1529,30 @@ export default function ConsoleHome() {
       setIsNotificationsCardOpen(true);
       soundService.playActivation?.();
     } else if (idx === 3) {
-      // Game Base â€“ abrir card de amigos (responsive, scrollable, oscurece fondo)
+      // Game Base � abrir card de amigos (responsive, scrollable, oscurece fondo)
       setIsFriendsCardOpen(true);
       soundService.playActivation?.();
     } else if (idx === 4) {
-      // MÃºsica â€“ abrir card de mÃºsica expandida
+      // M�sica � abrir card de m�sica expandida
       setIsMusicCardOpen(true);
       soundService.playActivation?.();
     } else if (idx === 5) {
-      // Descargas – abrir card de descargas expandida
+      // Descargas ? abrir card de descargas expandida
       setIsDownloadsCardOpen(true);
       soundService.playActivation?.();
     } else if (idx === 6) {
-      // Sonido – abrir card de sonido expandida
+      // Sonido ? abrir card de sonido expandida
       setIsSoundCardOpen(true);
       soundService.playActivation?.();
     } else if (idx === 9) {
       // Perfil (Cambiar usuario)
       changeUser();
     } else if (idx === 10) {
-      // AlimentaciÃ³n (Apagar)
+      // Alimentaci�n (Apagar)
       requestAppShutdown();
     } else {
       // Placeholder para otras opciones
-      console.log('AcciÃ³n no implementada aÃºn para el Ã­ndice:', idx);
+      console.log('Acci�n no implementada a�n para el �ndice:', idx);
     }
   };
 
@@ -1548,10 +1565,10 @@ export default function ConsoleHome() {
     } else if (idx === 1) {
       const isLinked = !!(activeUser?.settings as any)?.onlineUserId;
       if (isLinked) {
-        // Perfil (Abre ConfiguraciÃ³n -> Perfil)
+        // Perfil (Abre Configuraci�n -> Perfil)
         setSettingsInitialScreen('users_and_accounts');
       } else {
-        // Iniciar sesiÃ³n (Abre pantalla de autenticaciÃ³n online con diseÃ±o manual PS5)
+        // Iniciar sesi�n (Abre pantalla de autenticaci�n online con dise�o manual PS5)
         setSettingsInitialScreen('online_auth');
       }
       setSettingsVisible(true);
@@ -1589,12 +1606,74 @@ export default function ConsoleHome() {
     },
     onStaleGamepad: () => {
       toastService.show(t('toast.controllerNotResponding'), {
-        duration: 5000, // un poco mÃ¡s largo, es un mensaje accionable, dale tiempo a leerlo
+        duration: 5000, // un poco m�s largo, es un mensaje accionable, dale tiempo a leerlo
         icon: require('@/assets/images/controller.png'),
         source: 'system',
       });
     },
   });
+
+  // ─── Submenu keyboard/gamepad navigation ─────────────────────────────────
+  // Handles navigation when context menu is open in submenu mode.
+  // This runs BEFORE useFocusNavigation's listener (capture phase) so we can
+  // intercept arrow keys while the submenu is active.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const handleSubmenuKey = (e: KeyboardEvent) => {
+      if (!isContextMenuOpen || !contextMenuSubmenuMode) return;
+
+      if (contextMenuSubmenuMode === 'collections') {
+        const totalRows = collections.length + 2; // back + collections + create
+        if (e.key === 'ArrowDown') {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          setContextMenuSubmenuFocusIndex(prev => Math.min(prev + 1, totalRows - 1));
+          soundService.playNavigation();
+        } else if (e.key === 'ArrowUp') {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          setContextMenuSubmenuFocusIndex(prev => Math.max(prev - 1, 0));
+          soundService.playNavigation();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          const idx = contextMenuSubmenuFocusIndex;
+          if (idx === 0) {
+            // back
+            setContextMenuSubmenuMode(null);
+          } else if (idx <= collections.length) {
+            // collection row
+            const col = collections[idx - 1];
+            if (col) {
+              addGameToCollection(col.id, contextMenuTargetItem?.id ?? '');
+              setIsContextMenuOpen(false);
+              setContextMenuSubmenuMode(null);
+            }
+          } else {
+            // create collection
+            setContextMenuSubmenuMode('create');
+            setIsCollectionKeyboardVisible(true);
+          }
+          soundService.playActivation();
+        } else if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+          e.stopImmediatePropagation();
+          setContextMenuSubmenuMode(null);
+          soundService.playBack();
+        }
+      } else if (contextMenuSubmenuMode === 'create') {
+        if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') {
+          e.stopImmediatePropagation();
+          setContextMenuSubmenuMode('collections');
+          setIsCollectionKeyboardVisible(false);
+          soundService.playBack();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleSubmenuKey, true);
+    return () => window.removeEventListener('keydown', handleSubmenuKey, true);
+  }, [isContextMenuOpen, contextMenuSubmenuMode, contextMenuSubmenuFocusIndex, collections, contextMenuTargetItem, addGameToCollection]);
 
   useEffect(() => {
     if (selectedItem) {
@@ -1648,7 +1727,7 @@ export default function ConsoleHome() {
     if (!playable) { setSteamNews([]); return; }
     if (activeUser?.settings?.showNews === false) { setSteamNews([]); setNewsLoading(false); return; }
     const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
-    if (!title || title === 'Ãšltimo Jugado') { setSteamNews([]); return; }
+    if (!title || title === '�ltimo Jugado') { setSteamNews([]); return; }
     let cancelled = false;
     const timer = setTimeout(() => {
       setNewsLoading(true);
@@ -1664,14 +1743,14 @@ export default function ConsoleHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [introDone, activeIndex, currentRenderedTab, lastPlayedGame?.id, language, activeUser?.settings?.showNews]);
 
-  // Obtener capturas y trÃ¡ilers cuando cambia el juego activo (con debounce)
+  // Obtener capturas y tr�ilers cuando cambia el juego activo (con debounce)
   useEffect(() => {
     if (!introDone) return;
     const item = currentData[activeIndex];
     const playable = item && !item.isFolder && !item.isGrid && item.id !== '1';
     if (!playable) { setSteamMedia([]); return; }
     const title = item.isLastPlayed ? (lastPlayedGame?.title || '') : (item.title || '');
-    if (!title || title === 'Ãšltimo Jugado') { setSteamMedia([]); return; }
+    if (!title || title === '�ltimo Jugado') { setSteamMedia([]); return; }
     let cancelled = false;
     const timer = setTimeout(async () => {
       setMediaLoading(true);
@@ -1784,9 +1863,9 @@ export default function ConsoleHome() {
     setLaunchingItem(targetItem);
     setIsLaunching(true);
 
-    // Función auxiliar: anima la splash a negro y luego ejecuta la acción de lanzamiento real.
+    // Funci?n auxiliar: anima la splash a negro y luego ejecuta la acci?n de lanzamiento real.
     // splashDuration: tiempo que la splash permanece visible antes del fade (ms).
-    // fadeDuration: duración del fade a negro (ms).
+    // fadeDuration: duraci?n del fade a negro (ms).
     const doFadeThenLaunch = (launchAction: () => void, splashDuration = 1400, fadeDuration = 700) => {
       setTimeout(() => {
         launchFadeToBlack.value = withTiming(1, {
@@ -1818,8 +1897,8 @@ export default function ConsoleHome() {
       return;
     }
     if (Platform.OS === 'web' && (window as any).electronAPI) {
-      // Cerrar cualquier detalle abierto (carrusel o librería) para que al
-      // volver del juego ningún modal ni flag atrape el teclado.
+      // Cerrar cualquier detalle abierto (carrusel o librer?a) para que al
+      // volver del juego ning?n modal ni flag atrape el teclado.
       setDetailVisible(false);
       libraryGridRef.current?.closeDetail();
       setIsLibraryDetailVisible(false);
@@ -1861,8 +1940,8 @@ export default function ConsoleHome() {
     }
   };
 
-  // Escuchar trofeos desbloqueados en tiempo real durante la sesiÃ³n de juego.
-  // El main process envÃ­a este evento cuando el poller detecta un logro nuevo.
+  // Escuchar trofeos desbloqueados en tiempo real durante la sesi�n de juego.
+  // El main process env�a este evento cuando el poller detecta un logro nuevo.
   // Reproducimos el sonido y mostramos el toast / guardamos en el historial de notificaciones.
   useEffect(() => {
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.onTrophyUnlocked) return;
@@ -1878,9 +1957,9 @@ export default function ConsoleHome() {
       const game = data?.gameInfo;
       if (ach) {
         const achTitle = ach.name || 'Logro desbloqueado';
-        const gameTitle = game?.title ? ` • ${game.title}` : '';
+        const gameTitle = game?.title ? ` ? ${game.title}` : '';
         const desc = ach.description ? `\n${ach.description}` : '';
-        toastService.show(`ðŸ† ${achTitle}${gameTitle}${desc}`, {
+        toastService.show(`?? ${achTitle}${gameTitle}${desc}`, {
           duration: 6000,
           source: 'trophies',
           icon: ach.icon ? { uri: ach.icon } : undefined,
@@ -1896,7 +1975,7 @@ export default function ConsoleHome() {
     };
   }, []);
 
-  // Escuchar suspensiÃ³n del launcher para pausar videos en el DOM y sonido mientras se juega
+  // Escuchar suspensi�n del launcher para pausar videos en el DOM y sonido mientras se juega
   useEffect(() => {
     if (Platform.OS === 'web' && (window as any).electronAPI?.onLauncherSuspended) {
       const removeListener = (window as any).electronAPI.onLauncherSuspended(async (suspended: boolean) => {
@@ -1907,7 +1986,7 @@ export default function ConsoleHome() {
             });
           }
           try { soundService.pauseBackground(); } catch (_) { }
-          // Silenciar la mÃºsica de fondo mientras el juego estÃ¡ en foco
+          // Silenciar la m�sica de fondo mientras el juego est� en foco
           try { await soundService.setBackgroundMuted(true); } catch (_) { }
           void stopFocusAudio(false);
           if (typeof (window as any).gc === 'function') {
@@ -1919,7 +1998,7 @@ export default function ConsoleHome() {
               try { v.play().catch(() => { }); } catch (_) { }
             });
           }
-          // Reactivar la mÃºsica de fondo al volver al Home
+          // Reactivar la m�sica de fondo al volver al Home
           try { await soundService.setBackgroundMuted(false); } catch (_) { }
           try { soundService.playBackground(); } catch (_) { }
         }
@@ -1930,7 +2009,7 @@ export default function ConsoleHome() {
     }
   }, [stopFocusAudio]);
 
-  // Escuchar actualizaciones de apps desde el proceso principal (ej. migraciÃ³n de imÃ¡genes a local para offline)
+  // Escuchar actualizaciones de apps desde el proceso principal (ej. migraci�n de im�genes a local para offline)
   useEffect(() => {
     if (Platform.OS === 'web' && (window as any).electronAPI?.onAppUpdated) {
       const removeListener = (window as any).electronAPI.onAppUpdated((updatedApp: any) => {
@@ -1954,8 +2033,8 @@ export default function ConsoleHome() {
           const elapsedMinutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
 
           // El item pudo haber sido excluido de "games" por loadApps() al
-          // convertirse en el Ãºltimo jugado (ver lÃ³gica de gamesWithoutLastPlayed),
-          // por eso tambiÃ©n buscamos en steamGames y en lastPlayedGame.
+          // convertirse en el �ltimo jugado (ver l�gica de gamesWithoutLastPlayed),
+          // por eso tambi�n buscamos en steamGames y en lastPlayedGame.
           const trackedItem =
             games.find(item => item.id === id) ||
             steamGames.find(item => item.id === id) ||
@@ -1986,7 +2065,7 @@ export default function ConsoleHome() {
                   const pendingDiff = diff - alreadyNotified;
 
                   if (pendingDiff > 0) {
-                    // Mostrar popup PS5 por cada logro nuevo no notificado aÃºn.
+                    // Mostrar popup PS5 por cada logro nuevo no notificado a�n.
                     // Usamos los datos completos del summary (con icon, rarity, etc.).
                     const newlyUnlocked = (summary.achievements || [])
                       .filter((a: any) => a.achieved)
@@ -2000,14 +2079,14 @@ export default function ConsoleHome() {
                         try {
                           await (window as any).electronAPI.showTrophyNotification(ach, gameInfo);
                         } catch (err) {
-                          console.warn('[Trophy] Error mostrando notificaciÃ³n desktop:', err);
+                          console.warn('[Trophy] Error mostrando notificaci�n desktop:', err);
                         }
                       }
                       soundService.playNotification?.();
                       const achTitle = ach.name || 'Logro desbloqueado';
-                      const gameTitle = trackedItem.title ? ` â€¢ ${trackedItem.title}` : '';
+                      const gameTitle = trackedItem.title ? ` � ${trackedItem.title}` : '';
                       const desc = ach.description ? `\n${ach.description}` : '';
-                      toastService.show(`ðŸ† ${achTitle}${gameTitle}${desc}`, {
+                      toastService.show(`?? ${achTitle}${gameTitle}${desc}`, {
                         duration: 6000,
                         source: 'trophies',
                         icon: ach.icon ? { uri: ach.icon } : undefined,
@@ -2041,7 +2120,7 @@ export default function ConsoleHome() {
                 .catch(() => { });
             }
           } else {
-            console.warn('[Playtime] No se encontrÃ³ el item para actualizar tiempo jugado:', id);
+            console.warn('[Playtime] No se encontr� el item para actualizar tiempo jugado:', id);
           }
 
           delete launchStartTimeRef.current[id];
@@ -2052,7 +2131,7 @@ export default function ConsoleHome() {
         setBackgroundedGame(null);
         setLaunchingItem(null);
         launchFadeToBlack.value = 0;
-        // Higiene al volver: ningÃºn modal ni flag debe atrapar el teclado.
+        // Higiene al volver: ning�n modal ni flag debe atrapar el teclado.
         setDetailVisible(false);
         libraryGridRef.current?.closeDetail();
         setIsLibraryDetailVisible(false);
@@ -2168,7 +2247,7 @@ export default function ConsoleHome() {
     if (!isCurrentlyUsingSteam && activeUser?.settings?.steamId) {
       avatarUrl = (await fetchSteamAvatar(GLOBAL_STEAM_API_KEY, activeUser.settings.steamId)) || avatarUrl;
     }
-    // Si se activÃ³, intentar subirla a la cuenta online (URL http visible).
+    // Si se activ�, intentar subirla a la cuenta online (URL http visible).
     if (!isCurrentlyUsingSteam) {
       syncProfileMediaToOnline({ ...activeUser, steamAvatarUrl: avatarUrl, settings: newSettings } as any).catch(() => { });
     }
@@ -2179,7 +2258,7 @@ export default function ConsoleHome() {
     if (!item) return;
     const newPinned = !item.isPinned;
 
-    // El Ã­tem enfocado puede venir de `games` (manuales) o de `steamGames`/`epicGames`/`xboxGames`
+    // El �tem enfocado puede venir de `games` (manuales) o de `steamGames`/`epicGames`/`xboxGames`
     if (isSteamTrackedGame(item)) {
       setSteamGames(prev => prev.map(g => g.id === item.id ? { ...g, isPinned: newPinned } : g));
     } else if (item.id?.toString().startsWith('epic_')) {
@@ -2204,7 +2283,7 @@ export default function ConsoleHome() {
     const isSteamOrEpicId = item.id?.toString().startsWith('steam_') || item.id?.toString().startsWith('epic_') || item.id?.toString().startsWith('xbox_');
 
     if (isSteamTrackedGame(item)) {
-      // Steam: la fuente de verdad es `steamGames` + su caché en localStorage.
+      // Steam: la fuente de verdad es `steamGames` + su cach? en localStorage.
       // Hay que persistirla, o el favorito se pierde al recargar/cambiar de usuario.
       setSteamGames(prev => {
         const updated = prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g);
@@ -2215,7 +2294,7 @@ export default function ConsoleHome() {
         }
         return updated;
       });
-      // Si el usuario editó este juego, existe un registro en `games` que pisa
+      // Si el usuario edit? este juego, existe un registro en `games` que pisa
       // a `steamGames` en `displayedLibraryGames`: mantenerlo sincronizado.
       setGames(prev => prev.map(g => g.id === item.id ? { ...g, isFavorite: newFav } : g));
     } else if (item.id?.toString().startsWith('epic_')) {
@@ -2241,7 +2320,7 @@ export default function ConsoleHome() {
     }
 
     // Para Steam/Epic NO escribimos en games.json (evita registros "fantasma"
-    // sin título/portada, igual que en markGameAsLastPlayed).
+    // sin t?tulo/portada, igual que en markGameAsLastPlayed).
     if (!isSteamOrEpicId && Platform.OS === 'web' && (window as any).electronAPI?.updateApp) {
       await (window as any).electronAPI.updateApp({ id: item.id, isFavorite: newFav });
     }
@@ -2258,7 +2337,7 @@ export default function ConsoleHome() {
   _handleToggleFavoriteRef.current = handleToggleFavorite;
   _handleTogglePinRef.current = handleTogglePin;
 
-  // Background del StoreFrontPanel: se computa sincrÃ³nicamente para evitar parpadeos
+  // Background del StoreFrontPanel: se computa sincr�nicamente para evitar parpadeos
   const storeFocusedBackground = useMemo(() => {
     if (currentData[activeIndex]?.id !== '5') return null;
     let focused: StoreOffer | undefined;
@@ -2316,8 +2395,8 @@ export default function ConsoleHome() {
   const wipeDirection = useSharedValue<1 | -1>(1);
   // 0 = capa A activa/entrante, 1 = capa B activa/entrante
   const activeLayerShared = useSharedValue<0 | 1>(0);
-  // El wipe con mask-image se repinta en el hilo principal cada frame. En frÃ­o
-  // el primer cambio de fondo va solo con opacity; el wipe se activa despuÃ©s.
+  // El wipe con mask-image se repinta en el hilo principal cada frame. En fr�o
+  // el primer cambio de fondo va solo con opacity; el wipe se activa despu�s.
   const bgWipeEnabled = useSharedValue(0);
   const bgAnimatedOnceRef = useRef(false);
 
@@ -2330,7 +2409,7 @@ export default function ConsoleHome() {
   // Track previous active index for spinning border transition
   React.useEffect(() => {
     if (activeIndex !== prevActiveIndexRef.current) {
-      // Calcular la direcciÃ³n del wipe ANTES de actualizar la ref.
+      // Calcular la direcci�n del wipe ANTES de actualizar la ref.
       // Se lee invertTransitionRef.current (siempre fresco) en lugar de la
       // closure de activeUser para evitar el problema de stale closure.
       const normalDirection = activeIndex > wipePrevIndexRef.current ? 1 : -1;
@@ -2345,7 +2424,7 @@ export default function ConsoleHome() {
   // "Sobre los widgets" desactivado: en la tarjeta de bienvenida el personaje se recorta a la zona del carrusel.
   const clipForegroundToCarousel = !foregroundOverWidgets && isWelcomeCard;
 
-  // Mide dÃ³nde empieza el carrusel en pantalla. Se hace en reposo (sin transform/colapso de por medio).
+  // Mide d�nde empieza el carrusel en pantalla. Se hace en reposo (sin transform/colapso de por medio).
   useEffect(() => {
     if (!clipForegroundToCarousel || !visualTheme?.foreground) return;
     if (focusArea === 'game_panel' || focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar') return;
@@ -2381,8 +2460,8 @@ export default function ConsoleHome() {
     focusArea !== 'welcome_widgets' &&
     focusArea !== 'welcome_toolbar';
 
-  // La direcciÃ³n del wipe se calcula en el useEffect de prevActiveIndexRef (arriba)
-  // para evitar la condiciÃ³n de carrera con prevActiveIndexRef.current.
+  // La direcci�n del wipe se calcula en el useEffect de prevActiveIndexRef (arriba)
+  // para evitar la condici�n de carrera con prevActiveIndexRef.current.
 
   // Reemplaza el useEffect actual de background transition:
   // Mantiene referencias para que el navegador no descarte lo ya decodificado (LRU map cache)
@@ -2428,13 +2507,13 @@ export default function ConsoleHome() {
     });
 
   // Ref actualizado en cada render: permite leer bgState en el efecto
-  // sin aÃ±adirlo como dependencia (evita el loop setBgState â†’ re-runs).
+  // sin a�adirlo como dependencia (evita el loop setBgState ? re-runs).
   const bgStateRef = useRef(bgState);
   bgStateRef.current = bgState;
 
-  // Durante el arranque el hilo JS estÃ¡ saturado (splash, carga de apps, Steam,
-  // fondos remotos): Reanimated en web anima con timestamps, asÃ­ que los frames
-  // se saltan y la transiciÃ³n parece instantÃ¡nea/entrecortada. Hasta que el
+  // Durante el arranque el hilo JS est� saturado (splash, carga de apps, Steam,
+  // fondos remotos): Reanimated en web anima con timestamps, as� que los frames
+  // se saltan y la transici�n parece instant�nea/entrecortada. Hasta que el
   // launcher se asiente, los cambios de fondo se aplican sin animar.
   // Estado compartido con el carrusel y las tarjetas (hooks/useLauncherSettled).
   const launcherSettled = useLauncherSettled();
@@ -2466,7 +2545,7 @@ export default function ConsoleHome() {
       cancelAnimation(fade);
       // Re-leer del ref: el estado puede haber cambiado en los 140ms de debounce
       const { bgA: a, bgB: b, activeLayer: layer } = bgStateRef.current;
-      // Arranque: reemplazar la imagen de la capa activa sin animaciÃ³n.
+      // Arranque: reemplazar la imagen de la capa activa sin animaci�n.
       if (!bgAnimReadyRef.current) {
         if (layer === 'A') {
           fade.value = 0;
@@ -2511,7 +2590,7 @@ export default function ConsoleHome() {
       }
     };
 
-    // Debounce: al pasar rÃ¡pido por varias tarjetas, solo se transiciona al fondo final
+    // Debounce: al pasar r�pido por varias tarjetas, solo se transiciona al fondo final
     const timer = setTimeout(async () => {
       const uri = getBgUri(currentBg);
       if (uri) await preloadDecoded(uri);
@@ -2526,9 +2605,9 @@ export default function ConsoleHome() {
 
   useEffect(() => { if (currentBg && !bgStateRef.current.bgA && !bgStateRef.current.bgB) setBgState(s => ({ ...s, bgA: currentBg })); }, []);
 
-  // Normaliza los sources del fondo: los strings remotos (hÃ©roes de Steam)
+  // Normaliza los sources del fondo: los strings remotos (h�roes de Steam)
   // pasan a { uri } con identidad estable para que expo-image no los
-  // re-resuelva en cada render, y ambas capas usan cachÃ© persistente sin
+  // re-resuelva en cada render, y ambas capas usan cach� persistente sin
   // fundido propio (el crossfade lo hace el Animated.View padre).
   const { bgA, bgB } = bgState;
   const bgASource = useMemo(() => (typeof bgA === 'string' ? { uri: bgA } : bgA), [bgA]);
@@ -2536,19 +2615,19 @@ export default function ConsoleHome() {
   const bgAKey = typeof bgA === 'string' ? bgA : (bgA?.uri ? String(bgA.uri) : undefined);
   const bgBKey = typeof bgB === 'string' ? bgB : (bgB?.uri ? String(bgB.uri) : undefined);
 
-  // Estilo de una capa de fondo. `p` es el progreso propio de la capa (0â†’1 si
-  // entra, 1â†’0 si sale); lo convertimos a `t` = progreso global de la transiciÃ³n.
-  //  - Entrante: aparece (opacity 0â†’1, completada al 65%) mientras se asienta
-  //    desde un zoom leve y un pequeÃ±o desplazamiento lateral.
+  // Estilo de una capa de fondo. `p` es el progreso propio de la capa (0?1 si
+  // entra, 1?0 si sale); lo convertimos a `t` = progreso global de la transici�n.
+  //  - Entrante: aparece (opacity 0?1, completada al 65%) mientras se asienta
+  //    desde un zoom leve y un peque�o desplazamiento lateral.
   //  - Saliente: se mantiene opaca y se desplaza/escala apenas, quedando
-  //    cubierta por la entrante. AsÃ­ nunca se ve el fondo oscuro "a travÃ©s"
-  //    de ambas capas semitransparentes (el bajÃ³n de brillo del crossfade clÃ¡sico).
-  // TransiciÃ³n: deslizamiento corto + revelado circular con degradado.
-  //  - dir = 1 (te mueves a la derecha): ambas imÃ¡genes se desplazan un poco
-  //    hacia la izquierda, y la nueva se funde dentro de un cÃ­rculo difuminado
+  //    cubierta por la entrante. As� nunca se ve el fondo oscuro "a trav�s"
+  //    de ambas capas semitransparentes (el baj�n de brillo del crossfade cl�sico).
+  // Transici�n: deslizamiento corto + revelado circular con degradado.
+  //  - dir = 1 (te mueves a la derecha): ambas im�genes se desplazan un poco
+  //    hacia la izquierda, y la nueva se funde dentro de un c�rculo difuminado
   //    que nace en el borde DERECHO y crece hacia la izquierda.
   //  - dir = -1: exactamente lo mismo, invertido.
-  // El cÃ­rculo es una mÃ¡scara radial (CSS mask-image, el launcher corre en
+  // El c�rculo es una m�scara radial (CSS mask-image, el launcher corre en
   // Electron/web) cuyo radio y borde suave se animan con el progreso `t`.
   const bgLayerStyle = (p: number, isIncoming: boolean, dir: number, W: number, H: number, useWipe: number) => {
     'worklet';
@@ -2589,8 +2668,8 @@ export default function ConsoleHome() {
     const maxR = Math.sqrt((W + SLIDE * 2) * (W + SLIDE * 2) + (H / 2) * (H / 2)) + feather;
     const R = t * maxR;
     const inner = Math.max(0, R - feather);
-    // La capa mide W + 2*SLIDE (sobresale SLIDE por cada lado), asÃ­ que los
-    // bordes de la pantalla estÃ¡n en x = SLIDE y x = SLIDE + W dentro de ella.
+    // La capa mide W + 2*SLIDE (sobresale SLIDE por cada lado), as� que los
+    // bordes de la pantalla est�n en x = SLIDE y x = SLIDE + W dentro de ella.
     const cx = dir === 1 ? SLIDE + W : SLIDE; // origen: borde derecho si vas a la derecha
     const mask = t >= 0.999
       ? 'none'
@@ -2618,7 +2697,7 @@ export default function ConsoleHome() {
   const activeItemForDownload = activeItem?.isLastPlayed ? lastPlayedGame : activeItem;
   const activeItemAppId = activeItemForDownload ? getSteamAppId(activeItemForDownload as any) : null;
   const activeDownload = activeItemAppId ? downloadsByAppId.get(activeItemAppId) ?? null : null;
-  const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : 'Ãšltimo Jugado') : activeItem?.title;
+  const displayTitle = activeItem?.isLastPlayed ? (lastPlayedGame ? lastPlayedGame.title : '�ltimo Jugado') : activeItem?.title;
   const displayLogo = activeItem?.isLastPlayed ? lastPlayedGame?.logo : activeItem?.logo;
   const displayDesc = activeItem?.isLastPlayed ? (lastPlayedGame?.description || '') : (activeItem?.description || '');
   const canPlay = activeItem && !activeItem.isFolder && !activeItem.isGrid && activeItem.id !== '1' && activeItem.id !== 'more_library';
@@ -2808,7 +2887,7 @@ export default function ConsoleHome() {
       <View style={[styles.gradientOverlay, isThemeActiveForCurrentCard && { opacity: 0.28 }]} pointerEvents="none" />
       <View style={[styles.gradientOverlayTop, isThemeActiveForCurrentCard && { opacity: 0.45 }]} pointerEvents="none" />
 
-      {/* === BOTTOM-TO-TOP GRADIENT â€” visible when welcome_widgets is focused === */}
+      {/* === BOTTOM-TO-TOP GRADIENT � visible when welcome_widgets is focused === */}
       {Platform.OS === 'web' && (
         <div
           style={{
@@ -2823,7 +2902,7 @@ export default function ConsoleHome() {
         />
       )}
 
-      {/* DARK OVERLAY â€” se oscurece al enfocar cards, capturas y noticias */}
+      {/* DARK OVERLAY � se oscurece al enfocar cards, capturas y noticias */}
       {Platform.OS === 'web' && (
         <Animated.View style={[{
           position: 'absolute', inset: 0, zIndex: 1,
@@ -2887,6 +2966,22 @@ export default function ConsoleHome() {
             onToggleFavorite={handleToggleFavorite}
             mode={contextMenuSource === 'library' ? 'library' : 'carousel'}
             leftOffset={contextMenuSource === 'library' ? 0 : undefined}
+            submenuMode={contextMenuSubmenuMode}
+            collections={collections}
+            onAddToCollection={(collectionId) => {
+              addGameToCollection(collectionId, contextMenuTargetItem?.id ?? '');
+              setIsContextMenuOpen(false);
+              setContextMenuSubmenuMode(null);
+            }}
+            onCreateCollection={() => {
+              setContextMenuSubmenuMode('create');
+              setIsCollectionKeyboardVisible(true);
+            }}
+            onBackFromSubmenu={() => {
+              setContextMenuSubmenuMode(null);
+            }}
+            submenuFocusIndex={contextMenuSubmenuFocusIndex}
+            newCollectionName={newCollectionName}
           />
         </View>
       )}
@@ -2919,7 +3014,7 @@ export default function ConsoleHome() {
           ))}
         </Animated.View>
 
-        {/* MINI TOOLBAR â€” visible when welcome widgets are focused (PS5 style) */}
+        {/* MINI TOOLBAR � visible when welcome widgets are focused (PS5 style) */}
         <Animated.View style={[styles.miniHeaderToolbar, topBarMiniStyle, presentationToolbarStyle]}>
           {focusArea === 'welcome_widgets' || focusArea === 'welcome_toolbar' ? (
             <View style={styles.miniToolbarRow}>
@@ -2973,7 +3068,7 @@ export default function ConsoleHome() {
           ) : null}
         </Animated.View>
 
-        {/* === HEADER (PS5 style) â€” fixed on top === */}
+        {/* === HEADER (PS5 style) � fixed on top === */}
         <Animated.View style={[styles.header, headerStyle, presentationHeaderStyle]}>
           {/* Left: Navigation Tabs */}
           <View style={styles.headerLeft}>
@@ -3008,7 +3103,7 @@ export default function ConsoleHome() {
           {/* Right: Icons + Avatar + Clock */}
           <View style={styles.headerRight}>
 
-            {/* Search Icon â€” RadarFocusWrapper */}
+            {/* Search Icon � RadarFocusWrapper */}
             <RadarFocusWrapper id="hdr-search" isFocused={focusArea === 'header_avatar' && focusIndex === 0} size={52} innerSize={40} borderRadius="50%">
               <TouchableOpacity
                 style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 0 && styles.headerIconBtnFocused]}
@@ -3032,7 +3127,7 @@ export default function ConsoleHome() {
               </TouchableOpacity>
             </RadarFocusWrapper>
 
-            {/* Settings Icon â€” RadarFocusWrapper */}
+            {/* Settings Icon � RadarFocusWrapper */}
             <RadarFocusWrapper id="hdr-settings" isFocused={focusArea === 'header_avatar' && focusIndex === 1} size={52} innerSize={40} borderRadius="50%">
               <TouchableOpacity
                 style={[styles.headerIconBtn, focusArea === 'header_avatar' && focusIndex === 1 && styles.headerIconBtnFocused]}
@@ -3056,7 +3151,7 @@ export default function ConsoleHome() {
               </TouchableOpacity>
             </RadarFocusWrapper>
 
-            {/* Avatar / Profile â€” RadarFocusWrapper */}
+            {/* Avatar / Profile � RadarFocusWrapper */}
             <View style={{ position: 'relative' }}>
               <RadarFocusWrapper id="hdr-avatar" isFocused={focusArea === 'header_avatar' && focusIndex === 2} size={52} innerSize={36} borderRadius="50%">
                 <TouchableOpacity
@@ -3090,7 +3185,7 @@ export default function ConsoleHome() {
                   )}
                 </TouchableOpacity>
               </RadarFocusWrapper>
-              {/* Status dot â€” posicionado sobre la esquina inferior-derecha del avatar (36px), dentro del wrapper de 52px, offset = (52-36)/2 = 8px */}
+              {/* Status dot � posicionado sobre la esquina inferior-derecha del avatar (36px), dentro del wrapper de 52px, offset = (52-36)/2 = 8px */}
               <View style={[
                 styles.activeStatusDot,
                 { backgroundColor: isOnline ? '#4CD964' : '#8E8E93', bottom: 7, right: 7 }
@@ -3101,7 +3196,7 @@ export default function ConsoleHome() {
           </View>
         </Animated.View>
 
-        {/* Presentation mode clock â€” shown when UI is hidden */}
+        {/* Presentation mode clock � shown when UI is hidden */}
         {isPresentationMode && (
           <Animated.View style={styles.presentationClock} entering={FadeIn.duration(600)}>
             <ClockText style={styles.timeText2} />
@@ -3111,7 +3206,7 @@ export default function ConsoleHome() {
         {/* === MAIN SCROLLABLE CONTENT === */}
         <Animated.ScrollView
           ref={mainScrollRef}
-          scrollEnabled={!isWelcomeSettingsVisible && !isWidgetEditOpen} // <--- Deshabilita el scroll del fondo cuando la configuraciÃ³n o ediciÃ³n estÃ¡ abierta
+          scrollEnabled={!isWelcomeSettingsVisible && !isWidgetEditOpen} // <--- Deshabilita el scroll del fondo cuando la configuraci�n o edici�n est� abierta
           style={[styles.mainContent, animatedTabContentStyle]}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={mainScrollContentStyle}
@@ -3179,6 +3274,12 @@ export default function ConsoleHome() {
                 if (game) handleLaunchApp(game);
                 else handleLaunchApp({ id, path } as any);
               }}
+              collections={collections}
+              collectionGameIds={
+                libraryTab !== 'installed' && libraryTab !== 'collection'
+                  ? (collections.find(c => c.id === libraryTab)?.gameIds ?? [])
+                  : undefined
+              }
             />
           )}
 
@@ -3328,6 +3429,27 @@ export default function ConsoleHome() {
         item={deleteConfirmItem ? { title: deleteConfirmItem.title, image: deleteConfirmItem.image } : null}
         onCancel={() => setDeleteConfirmItem(null)}
         onConfirm={handleConfirmDeleteGame}
+      />
+
+      {/* VirtualKeyboard for collection name input */}
+      <VirtualKeyboard
+        visible={isCollectionKeyboardVisible}
+        value={newCollectionName}
+        onChange={setNewCollectionName}
+        onClose={() => {
+          setIsCollectionKeyboardVisible(false);
+          setContextMenuSubmenuMode('collections');
+        }}
+        onConfirm={(name) => {
+          if (name.trim()) {
+            const c = createCollection(name.trim());
+            addGameToCollection(c.id, contextMenuTargetItem?.id ?? '');
+            setIsContextMenuOpen(false);
+            setContextMenuSubmenuMode(null);
+            setNewCollectionName('');
+            setIsCollectionKeyboardVisible(false);
+          }
+        }}
       />
 
       <FloatingSystemNav
@@ -3774,7 +3896,7 @@ export default function ConsoleHome() {
         )}
       </Modal>
 
-      {/* SHUTDOWN OVERLAY: reproduce el video de suspensiÃ³n configurado por
+      {/* SHUTDOWN OVERLAY: reproduce el video de suspensi�n configurado por
           el usuario (Settings -> Splash Videos) antes de cerrar la app. */}
       <Modal visible={isShuttingDown} transparent animationType="fade">
         <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }]}>
@@ -3791,7 +3913,7 @@ export default function ConsoleHome() {
               onError={() => {
                 if (suspendCustomActive) { setSuspendCustomFailed(true); return; }
                 setSuspendDefaultFailed(true);
-                finishShutdown(); // el de por defecto tambiÃ©n fallÃ³: cerrar sin esperar
+                finishShutdown(); // el de por defecto tambi�n fall�: cerrar sin esperar
               }}
             />
           ) : (
@@ -3935,7 +4057,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    // Sin fondo cuando no tiene focus â€” el RadarFocusWrapper maneja el efecto visual
+    // Sin fondo cuando no tiene focus � el RadarFocusWrapper maneja el efecto visual
   },
   headerIconBtnFocused: {
     backgroundColor: 'rgba(255, 255, 255, 1)',

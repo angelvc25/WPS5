@@ -88,6 +88,14 @@ interface GameContextMenuProps {
   mode?: 'carousel' | 'library';
   /** Offset horizontal de anclaje (en carrusel es BASE_LEFT_OFFSET) */
   leftOffset?: number;
+  // ─── Submenu props ────────────────────────────────────────────────────────
+  submenuMode?: 'collections' | 'create' | null;
+  collections?: Array<{ id: string; name: string }>;
+  onAddToCollection?: (collectionId: string) => void;
+  onCreateCollection?: (name: string) => void;
+  onBackFromSubmenu?: () => void;
+  submenuFocusIndex?: number;
+  newCollectionName?: string;
 }
 
 const BASE_MENU_WIDTH = 320;
@@ -108,21 +116,18 @@ export default function GameContextMenu({
   onToggleFavorite,
   mode = 'carousel',
   leftOffset,
+  submenuMode = null,
+  collections = [],
+  onAddToCollection,
+  onCreateCollection,
+  onBackFromSubmenu,
+  submenuFocusIndex = 0,
+  newCollectionName = '',
 }: GameContextMenuProps) {
   const { t } = useTranslation();
 
   const isLibraryMode = mode === 'library';
 
-  // Mismo patrón de escalado que UserSelectScreen.tsx: 1920x1080 como panel
-  // de referencia, min(anchoRatio, altoRatio) para no estirar en ultrawide.
-  //
-  // IMPORTANTE: este menú se ancla con `left: BASE_LEFT_OFFSET` respecto a
-  // la tarjeta/ícono que lo abre (ver dónde se invoca <GameContextMenu />).
-  // Si el elemento que lo posiciona (p.ej. la tarjeta activa del carrusel)
-  // usa este mismo factor de escala para su propio tamaño/posición, el
-  // anclaje seguirá alineado en cualquier resolución. Si el padre posiciona
-  // ese ancla con otra lógica, ajusta `left` en el punto de uso en vez de
-  // aquí, para no desincronizar los dos cálculos.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const scale = useMemo(
     () => Math.min(windowWidth / 1920, windowHeight / 1080),
@@ -134,13 +139,14 @@ export default function GameContextMenu({
   const ITEM_HEIGHT = s(BASE_ITEM_HEIGHT);
   const LEFT_OFFSET = leftOffset !== undefined ? s(leftOffset) : s(BASE_LEFT_OFFSET);
 
-  const favoriteIndex = isLibraryMode ? 2 : FAVORITE_INDEX;
-  const pinIndex = isLibraryMode ? 3 : PIN_INDEX;
+  const favoriteIndex = isLibraryMode ? 3 : FAVORITE_INDEX;
+  const pinIndex = isLibraryMode ? 4 : PIN_INDEX;
 
   const options = isLibraryMode
     ? [
         { id: 'delete', labelKey: 'context.delete' as TranslationKey },
         { id: 'location', labelKey: 'context.location' as TranslationKey },
+        { id: 'addToCollection', labelKey: 'context.addToCollection' as TranslationKey },
       ]
     : [
         { id: 'manage', labelKey: 'context.manage' as TranslationKey },
@@ -149,18 +155,24 @@ export default function GameContextMenu({
       ];
 
   // ─── Animated opacity per item for smooth focus glow transition ───────────
-  // Cubre los 5 índices: 0, 1, 2 (opciones normales), 3 (favorito), 4 (fijar)
+  // 10 entries to safely cover main menu items + submenu rows
   const glowAnims = useRef(
-    [0, 1, 2, 3, 4].map(i => new Animated.Value(i === focusedIndex ? 1 : 0))
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => new Animated.Value(i === focusedIndex ? 1 : 0))
   ).current;
+
+  // Submenu glow anims (separate set to handle submenu focus)
+  const submenuGlowAnims = useRef(
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => new Animated.Value(i === submenuFocusIndex ? 1 : 0))
+  ).current;
+
   const prevFocusRef = useRef(focusedIndex);
+  const prevSubmenuFocusRef = useRef(submenuFocusIndex);
 
   useEffect(() => {
     const prev = prevFocusRef.current;
     if (prev === focusedIndex) return;
     prevFocusRef.current = focusedIndex;
 
-    // Fade out old item
     if (glowAnims[prev]) {
       Animated.timing(glowAnims[prev], {
         toValue: 0,
@@ -168,8 +180,6 @@ export default function GameContextMenu({
         useNativeDriver: Platform.OS !== 'web',
       }).start();
     }
-
-    // Fade in new item
     if (glowAnims[focusedIndex]) {
       Animated.timing(glowAnims[focusedIndex], {
         toValue: 1,
@@ -178,6 +188,125 @@ export default function GameContextMenu({
       }).start();
     }
   }, [focusedIndex]);
+
+  useEffect(() => {
+    const prev = prevSubmenuFocusRef.current;
+    if (prev === submenuFocusIndex) return;
+    prevSubmenuFocusRef.current = submenuFocusIndex;
+
+    if (submenuGlowAnims[prev]) {
+      Animated.timing(submenuGlowAnims[prev], {
+        toValue: 0,
+        duration: GLOW_DURATION,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start();
+    }
+    if (submenuGlowAnims[submenuFocusIndex]) {
+      Animated.timing(submenuGlowAnims[submenuFocusIndex], {
+        toValue: 1,
+        duration: GLOW_DURATION,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start();
+    }
+  }, [submenuFocusIndex]);
+
+  // ─── Submenu: collections list ────────────────────────────────────────────
+  const renderCollectionsSubmenu = () => {
+    // Row 0: back
+    // Rows 1..N: collections
+    // Row N+1: create collection
+    const rows: Array<{ key: string; label: string; onPress: () => void }> = [
+      {
+        key: 'back',
+        label: t('context.backToMenu'),
+        onPress: () => onBackFromSubmenu?.(),
+      },
+      ...collections.map((col) => ({
+        key: col.id,
+        label: col.name,
+        onPress: () => onAddToCollection?.(col.id),
+      })),
+      {
+        key: 'create',
+        label: t('context.createCollection'),
+        onPress: () => onCreateCollection?.(''),
+      },
+    ];
+
+    return rows.map((row, idx) => {
+      const isFocused = idx === submenuFocusIndex;
+      return (
+        <TouchableOpacity
+          key={row.key}
+          activeOpacity={0.8}
+          onPress={row.onPress}
+          style={[
+            styles.item,
+            { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
+            isFocused && styles.itemFocused,
+          ]}
+        >
+          <Animated.View
+            style={[styles.focusGlow, { opacity: submenuGlowAnims[idx], borderRadius: s(3) }]}
+            pointerEvents="none"
+          />
+          {isFocused && <ShimmerOverlay />}
+          <Text
+            style={[
+              styles.label,
+              { fontSize: s(13) },
+              isFocused && styles.labelFocused,
+            ]}
+          >
+            {row.label}
+          </Text>
+        </TouchableOpacity>
+      );
+    });
+  };
+
+  // ─── Submenu: create mode ──────────────────────────────────────────────────
+  const renderCreateSubmenu = () => {
+    return (
+      <>
+        {/* Back row */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => onBackFromSubmenu?.()}
+          style={[
+            styles.item,
+            { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
+            submenuFocusIndex === 0 && styles.itemFocused,
+          ]}
+        >
+          <Animated.View
+            style={[styles.focusGlow, { opacity: submenuGlowAnims[0], borderRadius: s(3) }]}
+            pointerEvents="none"
+          />
+          {submenuFocusIndex === 0 && <ShimmerOverlay />}
+          <Text style={[styles.label, { fontSize: s(13) }, submenuFocusIndex === 0 && styles.labelFocused]}>
+            {t('context.backToMenu')}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Name input display */}
+        <View
+          style={[
+            styles.item,
+            { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
+            styles.itemFocused,
+          ]}
+        >
+          <Text
+            style={[styles.label, { fontSize: s(13), color: '#e8ffff' }]}
+            numberOfLines={1}
+          >
+            {newCollectionName || t('context.collectionNamePlaceholder')}
+          </Text>
+        </View>
+      </>
+    );
+  };
 
   return (
     <View style={[styles.absoluteWrapper, { left: LEFT_OFFSET, width: MENU_WIDTH }]}>
@@ -198,7 +327,6 @@ export default function GameContextMenu({
             style={{
               position: 'absolute',
               inset: 0,
-
               background: `
               linear-gradient(
                 45deg,
@@ -208,114 +336,121 @@ export default function GameContextMenu({
                 rgba(0,0,0,0.00) 100%
               )
       `,
-
               pointerEvents: 'none',
               zIndex: 1,
             }}
           />
         )}
 
-        {options.map((opt, idx) => {
-          const isFocused = idx === focusedIndex;
+        {/* ─── Submenu: collections ──────────────────────────────────────── */}
+        {submenuMode === 'collections' && renderCollectionsSubmenu()}
 
-          return (
+        {/* ─── Submenu: create ──────────────────────────────────────────── */}
+        {submenuMode === 'create' && renderCreateSubmenu()}
+
+        {/* ─── Main menu ───────────────────────────────────────────────── */}
+        {!submenuMode && (
+          <>
+            {options.map((opt, idx) => {
+              const isFocused = idx === focusedIndex;
+
+              return (
+                <TouchableOpacity
+                  key={opt.id ?? idx}
+                  activeOpacity={0.8}
+                  onPress={() => onPressItem(opt.id ?? idx)}
+                  style={[
+                    styles.item,
+                    { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
+                    isFocused && styles.itemFocused,
+                  ]}
+                >
+                  <Animated.View
+                    style={[styles.focusGlow, { opacity: glowAnims[idx], borderRadius: s(3) }]}
+                    pointerEvents="none"
+                  />
+                  {isFocused && <ShimmerOverlay />}
+                  <Text
+                    style={[
+                      styles.label,
+                      { fontSize: s(13) },
+                      isFocused && styles.labelFocused,
+                    ]}
+                  >
+                    {t(opt.labelKey)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Separador antes de los toggles */}
+            <View style={[styles.divider, { marginVertical: s(4), marginHorizontal: s(4) }]} />
+
+            {/* ─── FAVORITO (switch) ───────────────────────────────────── */}
             <TouchableOpacity
-              key={opt.id ?? idx}
               activeOpacity={0.8}
-              onPress={() => onPressItem(opt.id ?? idx)}
+              onPress={onToggleFavorite}
               style={[
                 styles.item,
+                styles.pinItem,
                 { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
-                isFocused && styles.itemFocused,
+                focusedIndex === favoriteIndex && styles.itemFocused,
               ]}
             >
-              {/* Animated glow focus — fades between items */}
               <Animated.View
-                style={[styles.focusGlow, { opacity: glowAnims[idx], borderRadius: s(3) }]}
+                style={[styles.focusGlow, { opacity: glowAnims[favoriteIndex], borderRadius: s(3) }]}
                 pointerEvents="none"
               />
-              {isFocused && <ShimmerOverlay />}
-
+              {focusedIndex === favoriteIndex && <ShimmerOverlay />}
 
               <Text
                 style={[
                   styles.label,
                   { fontSize: s(13) },
-                  isFocused && styles.labelFocused,
+                  focusedIndex === favoriteIndex && styles.labelFocused,
                 ]}
               >
-                {t(opt.labelKey)}
+                {isFavorite ? t('context.unfavorite') : t('context.favorite')}
               </Text>
+
+              <View style={[styles.toggleTrack, { width: s(40), height: s(22), borderRadius: s(11), padding: s(2) }, isFavorite && styles.toggleTrackActive]}>
+                <View style={[styles.toggleThumb, { width: s(18), height: s(18), borderRadius: s(9) }, isFavorite && [styles.toggleThumbActive, { transform: [{ translateX: s(18) }] }]]} />
+              </View>
             </TouchableOpacity>
-          );
-        })}
 
-        {/* Separador antes de los toggles */}
-        <View style={[styles.divider, { marginVertical: s(4), marginHorizontal: s(4) }]} />
+            {/* ─── FIJAR JUEGO (switch) ────────────────────────────────── */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={onTogglePin}
+              style={[
+                styles.item,
+                styles.pinItem,
+                { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
+                focusedIndex === pinIndex && styles.itemFocused,
+              ]}
+            >
+              <Animated.View
+                style={[styles.focusGlow, { opacity: glowAnims[pinIndex], borderRadius: s(3) }]}
+                pointerEvents="none"
+              />
+              {focusedIndex === pinIndex && <ShimmerOverlay />}
 
-        {/* ─── FAVORITO (switch) ─────────────────────────────────────────── */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={onToggleFavorite}
-          style={[
-            styles.item,
-            styles.pinItem,
-            { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
-            focusedIndex === favoriteIndex && styles.itemFocused,
-          ]}
-        >
-          <Animated.View
-            style={[styles.focusGlow, { opacity: glowAnims[favoriteIndex], borderRadius: s(3) }]}
-            pointerEvents="none"
-          />
-          {focusedIndex === favoriteIndex && <ShimmerOverlay />}
+              <Text
+                style={[
+                  styles.label,
+                  { fontSize: s(13) },
+                  focusedIndex === pinIndex && styles.labelFocused,
+                ]}
+              >
+                {t('context.pinToHome')}
+              </Text>
 
-          <Text
-            style={[
-              styles.label,
-              { fontSize: s(13) },
-              focusedIndex === favoriteIndex && styles.labelFocused,
-            ]}
-          >
-            {isFavorite ? t('context.unfavorite') : t('context.favorite')}
-          </Text>
-
-          <View style={[styles.toggleTrack, { width: s(40), height: s(22), borderRadius: s(11), padding: s(2) }, isFavorite && styles.toggleTrackActive]}>
-            <View style={[styles.toggleThumb, { width: s(18), height: s(18), borderRadius: s(9) }, isFavorite && [styles.toggleThumbActive, { transform: [{ translateX: s(18) }] }]]} />
-          </View>
-        </TouchableOpacity>
-
-        {/* ─── FIJAR JUEGO (switch) ─────────────────────────────────────── */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={onTogglePin}
-          style={[
-            styles.item,
-            styles.pinItem,
-            { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
-            focusedIndex === pinIndex && styles.itemFocused,
-          ]}
-        >
-          <Animated.View
-            style={[styles.focusGlow, { opacity: glowAnims[pinIndex], borderRadius: s(3) }]}
-            pointerEvents="none"
-          />
-          {focusedIndex === pinIndex && <ShimmerOverlay />}
-
-          <Text
-            style={[
-              styles.label,
-              { fontSize: s(13) },
-              focusedIndex === pinIndex && styles.labelFocused,
-            ]}
-          >
-            {t('context.pinToHome')}
-          </Text>
-
-          <View style={[styles.toggleTrack, { width: s(40), height: s(22), borderRadius: s(11), padding: s(2) }, isPinned && styles.toggleTrackActive]}>
-            <View style={[styles.toggleThumb, { width: s(18), height: s(18), borderRadius: s(9) }, isPinned && [styles.toggleThumbActive, { transform: [{ translateX: s(18) }] }]]} />
-          </View>
-        </TouchableOpacity>
+              <View style={[styles.toggleTrack, { width: s(40), height: s(22), borderRadius: s(11), padding: s(2) }, isPinned && styles.toggleTrackActive]}>
+                <View style={[styles.toggleThumb, { width: s(18), height: s(18), borderRadius: s(9) }, isPinned && [styles.toggleThumbActive, { transform: [{ translateX: s(18) }] }]]} />
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );
@@ -336,8 +471,6 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     overflow: 'hidden',
     position: 'relative',
-    //borderWidth: 1,
-    //borderColor: 'rgba(255,255,255,0.1)',
     backgroundColor: 'rgba(23, 23, 30, 1)',
     padding: 6,
     marginLeft: 15,
@@ -376,8 +509,6 @@ const styles = StyleSheet.create({
   },
 
   itemFocused: {
-    //backgroundColor: 'rgba(120,255,255,0.05)',
-
     borderWidth: 1,
     borderColor: 'rgba(120,255,255,0.35)',
 
