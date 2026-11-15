@@ -1,4 +1,4 @@
-/**
+﻿/**
  * useFocusNavigation — gestiona todo el foco del teclado/mando en index.tsx.
  *
  * Patrón idéntico a useGamepadInput: el listener 'keydown' se registra UNA SOLA
@@ -1221,6 +1221,8 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
             o.setRandomSelectorVisible(true);
           } else if (currentWidgetId === 'change_bg') {
             o.setHomeBgModalVisible(true);
+          } else if (currentWidgetId === 'trophies') {
+            o.setTrophiesVisible(true);
           }
           return;
         }
