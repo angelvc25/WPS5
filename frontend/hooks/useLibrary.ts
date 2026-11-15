@@ -244,13 +244,17 @@ export function useLibrary({
     // ── Efecto: wps5-home-ready (necesita uiReady + appsLoaded) ──────────────
     useEffect(() => {
         if (!uiReady || !appsLoaded || readySentRef.current) return;
+        console.log('[useLibrary] wps5-home-ready effect running, uiReady=', uiReady, 'appsLoaded=', appsLoaded, 'readyEpoch=', readyEpoch);
         readySentRef.current = true;
 
         // Disparar 'wps5-home-ready' solo cuando el fondo del carrusel activo
         // esté decodificado por el navegador, evitando el flash negro al entrar.
         // Si el fondo es un require() local (objeto con 'uri' o number) lo
         // resolvemos a string; si tarda más de 2s, disparamos igual (seguridad).
-        const dispatchReady = () => window.dispatchEvent(new Event('wps5-home-ready'));
+        const dispatchReady = () => {
+            console.log('[useLibrary] dispatching wps5-home-ready');
+            window.dispatchEvent(new Event('wps5-home-ready'));
+        };
 
         // Resolver URI de la imagen de fondo actual
         // Intentar con el homeBackground del usuario (la imagen más probable de
