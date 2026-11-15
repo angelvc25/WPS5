@@ -359,7 +359,9 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
           return h > 0 && Math.abs(w / h - 22 / 31) < 0.05;
         });
       } else {
-        finalFiltered = verticalList;
+        const squares = verticalList.filter((g: any) => g.width === g.height);
+        const nonSquares = verticalList.filter((g: any) => g.width < g.height);
+        finalFiltered = [...squares, ...nonSquares];
       }
     } else {
       const horizontalList = list.filter((g: any) => {

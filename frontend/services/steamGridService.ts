@@ -151,7 +151,7 @@ export async function fetchSteamGridAssets(
       grids: (json.grids || []).map(mapAsset),
       heroes: (json.heroes || []).map(mapAsset),
       logos: (json.logos || []).map(mapAsset),
-      icons: [],
+      icons: (json.icons || []).map(mapAsset),
     };
   } catch (err) {
     console.error('[SteamGrid] Direct Worker fetch failed:', err);
