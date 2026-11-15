@@ -5420,7 +5420,7 @@ app.whenReady().then(async () => {
           grids: json.grids || [],
           heroes: json.heroes || [],
           logos: json.logos || [],
-          icons: []
+          icons: json.icons || []
         }
       };
     } catch (error) {

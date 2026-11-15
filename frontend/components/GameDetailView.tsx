@@ -1,43 +1,41 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, TextInput, ScrollView, useWindowDimensions, Linking } from 'react-native';
-import { Image } from 'expo-image';
+import { isRetroPlatform, PLATFORM_IDS, PLATFORMS, RETRO_SYSTEMS } from '@/constants/platforms';
+import { PSIcons } from '@/constants/psIcons';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { toastService } from '@/services/toastService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
-import { Video, ResizeMode } from './AppVideo';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, FadeIn, Easing, Extrapolation } from 'react-native-reanimated';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { Image } from 'expo-image';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import Animated, { Easing, Extrapolation, FadeIn, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
-import YoutubePlayer from './YoutubePlayer';
-import ControlPrompt from './ControlPrompt';
-import GameInfoPanel from './GameInfoPanel';
-import DeleteConfirmView from './DeleteConfirmView';
 import { useUser } from '../contexts/UserContext';
-import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
-import { resolveGameScreenshots, SteamMediaItem } from '../services/steamMediaService';
-import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
-import { fetchRawgGameData, fetchRawgMediaByName, mapRawgScreenshotsToMedia } from '../services/rawgService';
-import { searchPsnGames, psnLocaleForLanguage, isPsnEligiblePlatform } from '../services/psnMetadataService';
 import { fetchGameVideosByName } from '../services/gameVideoService';
+import {
+    fetchIgdbFieldData,
+    fetchPsnFieldData,
+    fetchRawgFieldData,
+    fetchSteamFieldData,
+    type SourceFieldData,
+} from '../services/metadataFields';
+import { resolveFieldSyncPreferences } from '../services/metadataPreferences';
+import { isPsnEligiblePlatform, psnLocaleForLanguage, searchPsnGames } from '../services/psnMetadataService';
+import { fetchRawgGameData, fetchRawgMediaByName } from '../services/rawgService';
 import { soundService } from '../services/soundService';
 import { fetchSteamDescription, isPlaytimePlaceholder } from '../services/steamDescriptionService';
-import { resolveFieldSyncPreferences } from '../services/metadataPreferences';
-import {
-  fetchIgdbFieldData,
-  fetchPsnFieldData,
-  fetchRawgFieldData,
-  fetchSteamFieldData,
-  type SourceFieldData,
-} from '../services/metadataFields';
-import { getSteamLaunchPath, isSteamGame, getSteamAppId, resolveLaunchPath, resolveSteamLaunchPath } from '../services/steamLaunchService';
-import PSIcon from './PSIcon';
-import { PSIcons } from '@/constants/psIcons';
-import { PLATFORMS, PLATFORM_IDS, RETRO_SYSTEMS, isRetroPlatform } from '@/constants/platforms';
-import { useTranslation } from '@/contexts/LanguageContext';
-import BackgroundVideo from './BackgroundVideo';
-import { toastService } from '@/services/toastService';
-import VirtualKeyboard from './VirtualKeyboard';
-import KHInsiderMusicModal from './KHInsiderMusicModal';
+import { fetchSteamGridAssets as fetchSteamGridAssetsService, fetchSteamGridData as fetchSteamGridDataService } from '../services/steamGridService';
+import { getSteamAppId, getSteamLaunchPath, isSteamGame, resolveSteamLaunchPath } from '../services/steamLaunchService';
+import { resolveGameScreenshots, SteamMediaItem } from '../services/steamMediaService';
+import { fetchSteamNewsByName, SteamNewsItem } from '../services/steamNewsService';
 import { AnimatedSpinningBorderSettings as EditSpinningBorder } from './AnimatedSpinningBorders';
+import { ResizeMode, Video } from './AppVideo';
+import BackgroundVideo from './BackgroundVideo';
+import DeleteConfirmView from './DeleteConfirmView';
+import GameInfoPanel from './GameInfoPanel';
+import KHInsiderMusicModal from './KHInsiderMusicModal';
+import PSIcon from './PSIcon';
+import VirtualKeyboard from './VirtualKeyboard';
+import YoutubePlayer from './YoutubePlayer';
 
 
 interface GameDetailViewProps {
@@ -345,7 +343,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       const verticalList = list.filter((g: any) => {
         const w = Number(g.width) || 0;
         const h = Number(g.height) || 0;
-        return w < h;
+        return w <= h;
       });
 
       if (selectedDimensionFilter === '2:3') {
@@ -367,7 +365,7 @@ const GameDetailView: React.FC<GameDetailViewProps> = ({ isVisible, item, onClos
       const horizontalList = list.filter((g: any) => {
         const w = Number(g.width) || 0;
         const h = Number(g.height) || 0;
-        return w > h;
+        return w >= h;
       });
 
       if (selectedDimensionFilter === '92:43') {

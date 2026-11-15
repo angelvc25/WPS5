@@ -1978,7 +1978,7 @@ async function handleSteamGridRequest(url, env) {
     return jsonResponse({ success: false, error: "SteamGridDB API key is not configured" }, 500);
   }
 
-  const cacheKey = `steamgrid:v3:${title.toLowerCase()}`;
+  const cacheKey = `steamgrid:v4:${title.toLowerCase()}`;
   // 7 días de caché
   const { data, hit, source } = await withCache(env, cacheKey, 60 * 60 * 24 * 7, async () => {
     try {
@@ -2017,29 +2017,38 @@ async function handleSteamGridRequest(url, env) {
         Accept: "application/json",
       };
 
-      // Grids en todas las dimensiones que usan los filtros del frontend
-      // (cápsula vertical 2:3/22:31, cuadrada 1:1 y ancha 92:43). Pedir solo
-      // 600x900 dejaba vacíos los filtros de cuadradas y la pestaña ancha.
-      const gridDimensions = "600x900,342x482,660x930,512x512,1024x1024,920x430,460x215";
-      const [gridsResponse, heroesResponse, logosResponse] = await Promise.all([
-        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${game.id}?dimensions=${gridDimensions}`, { headers }),
+      const [gridsVertResponse, gridsSquareResponse, gridsWideResponse, heroesResponse, logosResponse, iconsResponse] = await Promise.all([
+        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${game.id}?dimensions=600x900,342x482,660x930&limit=50`, { headers }),
+        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${game.id}?dimensions=512x512,1024x1024&limit=50`, { headers }),
+        fetch(`https://www.steamgriddb.com/api/v2/grids/game/${game.id}?dimensions=920x430,460x215&limit=50`, { headers }),
         fetch(`https://www.steamgriddb.com/api/v2/heroes/game/${game.id}`, { headers }),
         fetch(`https://www.steamgriddb.com/api/v2/logos/game/${game.id}`, { headers }),
+        fetch(`https://www.steamgriddb.com/api/v2/icons/game/${game.id}`, { headers }),
       ]);
 
-      const [gridsData, heroesData, logosData] = await Promise.all([
-        safeJson(gridsResponse),
+      const [gridsVertData, gridsSquareData, gridsWideData, heroesData, logosData, iconsData] = await Promise.all([
+        safeJson(gridsVertResponse),
+        safeJson(gridsSquareResponse),
+        safeJson(gridsWideResponse),
         safeJson(heroesResponse),
         safeJson(logosResponse),
+        safeJson(iconsResponse),
       ]);
+
+      const allGrids = [
+        ...(Array.isArray(gridsVertData?.data) ? gridsVertData.data : []),
+        ...(Array.isArray(gridsSquareData?.data) ? gridsSquareData.data : []),
+        ...(Array.isArray(gridsWideData?.data) ? gridsWideData.data : []),
+      ];
 
       return {
         success: true,
         query: title,
         game,
-        grids: Array.isArray(gridsData?.data) ? gridsData.data : [],
+        grids: allGrids,
         heroes: Array.isArray(heroesData?.data) ? heroesData.data : [],
         logos: Array.isArray(logosData?.data) ? logosData.data : [],
+        icons: Array.isArray(iconsData?.data) ? iconsData.data : [],
       };
     } catch (error) {
       console.error("SteamGridDB error:", error);
