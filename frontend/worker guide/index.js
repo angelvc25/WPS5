@@ -1978,7 +1978,7 @@ async function handleSteamGridRequest(url, env) {
     return jsonResponse({ success: false, error: "SteamGridDB API key is not configured" }, 500);
   }
 
-  const cacheKey = `steamgrid:v2:${title.toLowerCase()}`;
+  const cacheKey = `steamgrid:v3:${title.toLowerCase()}`;
   // 7 días de caché
   const { data, hit, source } = await withCache(env, cacheKey, 60 * 60 * 24 * 7, async () => {
     try {
