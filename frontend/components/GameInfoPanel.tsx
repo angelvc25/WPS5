@@ -6,7 +6,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeInDown, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useAchievementWatcher } from '../hooks/useAchievementWatcher';
 import { getRpcs3AppId } from '../services/achievementWatcherService';
@@ -402,28 +402,25 @@ export const GameInfoPanel = ({
   const settled = useLauncherSettled();
   const animReady = useAnimClockReady();
 
-  // Fade manual: en vez de `entering={FadeIn}` (que depende del t0 de Reanimated
-  // y puede llegar tarde en el arranque), controlamos la opacidad con un
-  // useSharedValue que arranca en 0 y se anima a 1 después de un timeout explícito.
-  const panelOpacity = useSharedValue(0);
+  // paintReady: espera 2 frames desde que este componente se monta para que
+  // Reanimated tenga el hilo de UI listo antes de que FadeIn corra.
+  const [paintReady, setPaintReady] = React.useState(false);
   React.useEffect(() => {
-    if (!settled) { panelOpacity.value = 0; return; }
-    const t = setTimeout(() => {
-      panelOpacity.value = withTiming(1, { duration: 400 });
-    }, 50);
-    return () => clearTimeout(t);
+    if (!settled) { setPaintReady(false); return; }
+    let r1: number, r2: number;
+    r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => setPaintReady(true)); });
+    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
   }, [settled]);
 
-  const panelFadeStyle = useAnimatedStyle(() => ({ opacity: panelOpacity.value }));
-
-  if (!settled) {
+  if (!settled || !paintReady) {
     return null;
   }
 
   return (
     <Animated.View
       key={animReady ? 'panel-ready' : 'panel-pre'}
-      style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }, panelFadeStyle]}
+      style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }]}
+      entering={FadeIn.duration(400)}
     >
       <Animated.View style={spacerStyle}>
         <Animated.View style={topPanelStyle}>

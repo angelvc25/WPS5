@@ -2404,15 +2404,14 @@ export default function ConsoleHome() {
   const launcherSettled = useLauncherSettled();
   const animClockReady = useAnimClockReady();
   const introReady = useIntroReady();
-  // bgAnimReadyRef: se activa con introReady pero con un margen extra para que
-  // el hilo de UI de Reanimated ya haya procesado todos los mounts del arranque.
+  // bgAnimReadyRef: se activa con introReady pero retrasado 2 frames para que
+  // Reanimated tenga el hilo de UI estable antes de ejecutar el primer withTiming de fondo.
   const bgAnimReadyRef = useRef(false);
   useEffect(() => {
     if (!introReady) { bgAnimReadyRef.current = false; return; }
-    // 300ms de margen tras introReady: en este tiempo Reanimated procesa los mounts
-    // del arranque (cards, GameInfoPanel, etc.) y el primer crossfade llega completo.
-    const timer = setTimeout(() => { bgAnimReadyRef.current = true; }, 300);
-    return () => clearTimeout(timer);
+    let r1: number, r2: number;
+    r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => { bgAnimReadyRef.current = true; }); });
+    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
   }, [introReady]);
 
   // Reproduce openHome.mp3 cuando el carrusel se revela y el JS se estabiliza.
