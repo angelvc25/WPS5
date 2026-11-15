@@ -180,9 +180,6 @@ export function useLibrary({
     const [lastPlayedGame, setLastPlayedGame] = useState<ConsoleItem | null>(null);
     const [appsLoaded, setAppsLoaded] = useState(false);
     const readySentRef = useRef(false);
-    // Incrementar este contador fuerza que el efecto wps5-home-ready se re-ejecute
-    // aunque uiReady y appsLoaded no hayan cambiado (caso: re-apertura del launcher).
-    const [readyEpoch, setReadyEpoch] = useState(0);
 
     // ── Efecto: limpiar lastPlayedGame si apunta a una tarjeta de sistema ─────
     useEffect(() => {
@@ -289,36 +286,16 @@ export function useLibrary({
         img.onerror = () => { clearTimeout(safety); fire(); };
         img.src = bgValue;
         return () => { clearTimeout(safety); fired = true; };
-    }, [uiReady, appsLoaded, readyEpoch]);
+    }, [uiReady, appsLoaded]);
 
-    // ── Efecto: re-armar wps5-home-ready al recuperar el foco ────────────────
-    // Resetea readySentRef e incrementa readyEpoch para forzar que el efecto
-    // anterior se re-ejecute incluso si uiReady y appsLoaded no cambiaron.
-    // Escucha tanto 'focus' (Electron focus) como 'launcher-suspended' (vuelta de juego).
+    // ── Efecto: resetear readySentRef al recuperar el foco ────────────────────
+    // Permite que wps5-home-ready se re-emita en el siguiente ciclo donde
+    // uiReady && appsLoaded vuelvan a ser true (tras resetLauncherSettled).
     useEffect(() => {
         if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-        const rearm = () => {
-            readySentRef.current = false;
-            setReadyEpoch(e => e + 1);
-        };
-        // window 'focus': cubre reapertura desde systray y minimizado
-        window.addEventListener('focus', rearm);
-        // launcher-suspended false: cubre vuelta de un juego
-        const onSuspended = (_e: Event) => {
-            const suspended = ((_e as CustomEvent).detail ?? (_e as any).suspended);
-            if (suspended === false) rearm();
-        };
-        // electronAPI IPC path
-        let removeElectronListener: (() => void) | undefined;
-        if ((window as any).electronAPI?.onLauncherSuspended) {
-            removeElectronListener = (window as any).electronAPI.onLauncherSuspended((suspended: boolean) => {
-                if (!suspended) rearm();
-            });
-        }
-        return () => {
-            window.removeEventListener('focus', rearm);
-            removeElectronListener?.();
-        };
+        const handleFocus = () => { readySentRef.current = false; };
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
     }, []);
 
     // ── Memos derivados ───────────────────────────────────────────────────────

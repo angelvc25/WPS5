@@ -216,11 +216,6 @@ function RootLayoutInner() {
   // perfil elegido y su radar pulsando) hasta que Home avisa que está listo.
   // Los hooks van antes de cualquier return temprano.
   const [homeReady, setHomeReady] = useState(false);
-  // Ref que apunta a la función done() del ciclo activo.
-  // Se registra el listener wps5-home-ready una sola vez para evitar race
-  // conditions (el tab puede montar y despachar el evento antes de que el
-  // useEffect [activeUser?.id] tenga tiempo de registrar su propio listener).
-  const doneRef = useRef<(() => void) | null>(null);
 
   // ── Contador de fps (diagnóstico de fluidez) ──────────────────────────────
   // Se activa desde Ajustes -> GPU & Performance -> "Show FPS Counter".
@@ -242,25 +237,13 @@ function RootLayoutInner() {
     return () => { cancelled = true; };
   }, [showFpsCounter]);
 
-  // Listener permanente para wps5-home-ready: evita la race condition donde
-  // useLibrary despacha el evento antes de que useEffect([activeUser?.id])
-  // haya tenido tiempo de registrar su listener (la imagen de fondo puede
-  // cargar desde caché antes de que React corra los effects del layout).
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const handler = () => { doneRef.current?.(); };
-    window.addEventListener('wps5-home-ready', handler);
-    return () => window.removeEventListener('wps5-home-ready', handler);
-  }, []);
-
-  useEffect(() => {
-    if (!activeUser) { setHomeReady(false); resetLauncherSettled(); doneRef.current = null; return; }
+    if (!activeUser) { setHomeReady(false); resetLauncherSettled(); return; }
     let finished = false;
     let revealTimer: ReturnType<typeof setTimeout>;
     const done = () => {
       if (finished) return;
       finished = true;
-      doneRef.current = null;
       clearTimeout(safety);
       setTimeout(() => {
         setHomeReady(true);
@@ -269,10 +252,10 @@ function RootLayoutInner() {
         setTimeout(() => { /* toast de bienvenida, igual que antes */ }, 500);
       }, 100);
     };
-    doneRef.current = done;
+    window.addEventListener('wps5-home-ready', done, { once: true });
     const safety = setTimeout(done, 2500);
     return () => {
-      doneRef.current = null;
+      window.removeEventListener('wps5-home-ready', done);
       clearTimeout(safety);
       clearTimeout(revealTimer);
     };
@@ -282,8 +265,7 @@ function RootLayoutInner() {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     let innerCleanup: (() => void) | undefined;
-
-    const triggerRearm = () => {
+    const handleFocus = () => {
       if (innerCleanup) { innerCleanup(); innerCleanup = undefined; }
       if (!activeUser) return;
       setHomeReady(false);
@@ -294,36 +276,21 @@ function RootLayoutInner() {
       const done = () => {
         if (finished) return;
         finished = true;
-        doneRef.current = null;
         clearTimeout(safety);
         setHomeReady(true);
         revealTimer = setTimeout(markLauncherRevealed, 350);
       };
-      doneRef.current = done;
       window.addEventListener('wps5-home-ready', done, { once: true });
       safety = setTimeout(done, 2500);
       innerCleanup = () => {
-        doneRef.current = null;
         window.removeEventListener('wps5-home-ready', done);
         clearTimeout(safety);
         clearTimeout(revealTimer);
       };
     };
-
-    // Cubre reapertura desde systray / minimizado
-    window.addEventListener('focus', triggerRearm);
-
-    // Cubre vuelta de un juego vía IPC de Electron
-    let removeElectronListener: (() => void) | undefined;
-    if ((window as any).electronAPI?.onLauncherSuspended) {
-      removeElectronListener = (window as any).electronAPI.onLauncherSuspended(
-        (suspended: boolean) => { if (!suspended) triggerRearm(); }
-      );
-    }
-
+    window.addEventListener('focus', handleFocus);
     return () => {
-      window.removeEventListener('focus', triggerRearm);
-      removeElectronListener?.();
+      window.removeEventListener('focus', handleFocus);
       if (innerCleanup) innerCleanup();
     };
   }, [activeUser]);
