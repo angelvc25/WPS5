@@ -7,11 +7,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, LogBox, Platform, StyleSheet, View } from 'react-native';
 import Animated, {
-    FadeOut,
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming
+  FadeOut,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 
 LogBox.ignoreLogs([
@@ -178,6 +178,15 @@ function RootLayoutInner() {
   const [bootVideoUri, setBootVideoUri] = useState<string | null>(() => getLastBootVideoUri());
   const [bootVideoFailed, setBootVideoFailed] = useState(false);
   const [defaultBootFailed, setDefaultBootFailed] = useState(false);
+  // El build web se exporta con pre-render estático (expo export): el HTML ya
+  // trae escrito el splash con el video por defecto, porque en ese momento no
+  // existe `window` ni `electronAPI`. Al hidratar, React NO corrige atributos
+  // distintos (el `src` del <video>), así que el video personalizado nunca se
+  // pedía (solo se rehacía el árbol si el TEXTO difería, p. ej. en es/pt).
+  // Por eso el video y el texto de "skip" se renderizan solo en el cliente,
+  // después de montar: el primer render coincide con el HTML exportado.
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => { setIsClient(true); }, []);
   // Respaldo: si al montar el usuario activo ya tiene un video de boot asignado
   // pero getLastBootVideoUri no lo encontró (p. ej. porque la DB de Electron no
   // se sincronizó con localStorage en la compilación de producción), usamos el
@@ -576,84 +585,84 @@ function RootLayoutInner() {
   return (
     <UserContext.Provider value={userContextValue}>
       <CollectionsProvider>
-      <WPSThemeProvider>
-        <style dangerouslySetInnerHTML={{
-          __html: GLOBAL_CSS_FONTS
-        }} />
-        <View style={{ flex: 1, backgroundColor: activeUser ? 'transparent' : '#000' }}>
-          {activeUser && (
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <ErrorBoundary fallbackTitle="Ha ocurrido un error en la interfaz">
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: 'transparent' },
-                  }}
-                >
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen name="overlay" options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
-                  <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-                </Stack>
-              </ErrorBoundary>
-              <ToastHost />
-              <StatusBar style="auto" />
-            </ThemeProvider>
-          )}
+        <WPSThemeProvider>
+          <style dangerouslySetInnerHTML={{
+            __html: GLOBAL_CSS_FONTS
+          }} />
+          <View style={{ flex: 1, backgroundColor: activeUser ? 'transparent' : '#000' }}>
+            {activeUser && (
+              <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                <ErrorBoundary fallbackTitle="Ha ocurrido un error en la interfaz">
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      contentStyle: { backgroundColor: 'transparent' },
+                    }}
+                  >
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                    <Stack.Screen name="overlay" options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
+                    <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                  </Stack>
+                </ErrorBoundary>
+                <ToastHost />
+                <StatusBar style="auto" />
+              </ThemeProvider>
+            )}
 
-          {showSelectLayer && (
-            <Animated.View
-              exiting={FadeOut.duration(450)}
-              style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', zIndex: 9000 }]}
-            >
-              <UserSelectScreen onUserSelected={handleUserSelected} inputEnabled={!showSplash} />
-            </Animated.View>
-          )}
+            {showSelectLayer && (
+              <Animated.View
+                exiting={FadeOut.duration(450)}
+                style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', zIndex: 9000 }]}
+              >
+                <UserSelectScreen onUserSelected={handleUserSelected} inputEnabled={!showSplash} />
+              </Animated.View>
+            )}
 
-          {!activeUser && showSplash && (
-            <Animated.View style={[
-              StyleSheet.absoluteFillObject,
-              styles.splashContainer,
-              animatedSplashStyle
-            ]}>
-              {hasBootVideo ? (
-                <BackgroundVideo
-                  key={customBootActive ? 'boot-custom' : 'boot-default'}
-                  source={bootVideoSource}
-                  style={StyleSheet.absoluteFillObject}
-                  resizeMode="cover"
-                  muted={false}
-                  shouldPlay
-                  isLooping={false}
-                  onEnd={finishSplash}
-                  onError={() => (customBootActive ? setBootVideoFailed(true) : setDefaultBootFailed(true))}
-                />
-              ) : (
-                <Image
-                  source={require('../assets/images/IntroLogo.png')}
-                  style={{ width: 180, height: 180 }}
-                  contentFit="contain"
-                />
-              )}
+            {!activeUser && showSplash && (
+              <Animated.View style={[
+                StyleSheet.absoluteFillObject,
+                styles.splashContainer,
+                animatedSplashStyle
+              ]}>
+                {hasBootVideo ? (isClient ? (
+                  <BackgroundVideo
+                    key={customBootActive ? 'boot-custom' : 'boot-default'}
+                    source={bootVideoSource}
+                    style={StyleSheet.absoluteFillObject}
+                    resizeMode="cover"
+                    muted={false}
+                    shouldPlay
+                    isLooping={false}
+                    onEnd={finishSplash}
+                    onError={() => (customBootActive ? setBootVideoFailed(true) : setDefaultBootFailed(true))}
+                  />
+                ) : null) : (
+                  <Image
+                    source={require('../assets/images/IntroLogo.png')}
+                    style={{ width: 180, height: 180 }}
+                    contentFit="contain"
+                  />
+                )}
 
-              {/* Indicador de skip — abajo a la derecha */}
-              {hasBootVideo && (
-                <Animated.View style={[styles.skipIndicator, animatedSkipStyle]} pointerEvents="none">
-                  <View style={styles.skipPill}>
-                    <Ionicons name="game-controller-outline" size={14} color="rgba(255,255,255,0.85)" style={{ marginRight: 6 }} />
-                    <Animated.Text style={styles.skipText}>
-                      {t('splash.skipPrompt')}
-                    </Animated.Text>
-                  </View>
-                </Animated.View>
-              )}
-            </Animated.View>
-          )}
-          {!activeUser && <StatusBar style="light" />}
+                {/* Indicador de skip — abajo a la derecha */}
+                {isClient && hasBootVideo && (
+                  <Animated.View style={[styles.skipIndicator, animatedSkipStyle]} pointerEvents="none">
+                    <View style={styles.skipPill}>
+                      <Ionicons name="game-controller-outline" size={14} color="rgba(255,255,255,0.85)" style={{ marginRight: 6 }} />
+                      <Animated.Text style={styles.skipText}>
+                        {t('splash.skipPrompt')}
+                      </Animated.Text>
+                    </View>
+                  </Animated.View>
+                )}
+              </Animated.View>
+            )}
+            {!activeUser && <StatusBar style="light" />}
 
-          {!activeUser && <GpuWarmup />}
-          <FpsOverlay reading={fpsReading} displayRefreshRate={displayRefreshRate} />
-        </View>
-      </WPSThemeProvider>
+            {!activeUser && <GpuWarmup />}
+            <FpsOverlay reading={fpsReading} displayRefreshRate={displayRefreshRate} />
+          </View>
+        </WPSThemeProvider>
       </CollectionsProvider>
     </UserContext.Provider>
   );
