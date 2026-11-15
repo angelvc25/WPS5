@@ -291,19 +291,34 @@ export function useLibrary({
         return () => { clearTimeout(safety); fired = true; };
     }, [uiReady, appsLoaded, readyEpoch]);
 
-    // ── Efecto: re-armar wps5-home-ready cuando Electron devuelve la ventana ──
-    // Solo se activa vía launcher-suspended=false (vuelta de un juego / systray).
-    // NO escuchamos 'window focus' porque dispara en minimizar/restaurar normal.
+    // ── Efecto: re-armar wps5-home-ready al recuperar el foco ────────────────
+    // Resetea readySentRef e incrementa readyEpoch para forzar que el efecto
+    // anterior se re-ejecute incluso si uiReady y appsLoaded no cambiaron.
+    // Escucha tanto 'focus' (Electron focus) como 'launcher-suspended' (vuelta de juego).
     useEffect(() => {
         if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-        if (!(window as any).electronAPI?.onLauncherSuspended) return;
-        const removeElectronListener = (window as any).electronAPI.onLauncherSuspended((suspended: boolean) => {
-            if (!suspended) {
-                readySentRef.current = false;
-                setReadyEpoch(e => e + 1);
-            }
-        });
-        return () => { removeElectronListener?.(); };
+        const rearm = () => {
+            readySentRef.current = false;
+            setReadyEpoch(e => e + 1);
+        };
+        // window 'focus': cubre reapertura desde systray y minimizado
+        window.addEventListener('focus', rearm);
+        // launcher-suspended false: cubre vuelta de un juego
+        const onSuspended = (_e: Event) => {
+            const suspended = ((_e as CustomEvent).detail ?? (_e as any).suspended);
+            if (suspended === false) rearm();
+        };
+        // electronAPI IPC path
+        let removeElectronListener: (() => void) | undefined;
+        if ((window as any).electronAPI?.onLauncherSuspended) {
+            removeElectronListener = (window as any).electronAPI.onLauncherSuspended((suspended: boolean) => {
+                if (!suspended) rearm();
+            });
+        }
+        return () => {
+            window.removeEventListener('focus', rearm);
+            removeElectronListener?.();
+        };
     }, []);
 
     // ── Memos derivados ───────────────────────────────────────────────────────
