@@ -2175,7 +2175,7 @@ export default function ConsoleHome() {
   };
 
   const handleTogglePin = async () => {
-    const item = currentData[activeIndex];
+    const item = contextMenuSource === 'library' ? contextMenuTargetItem : currentData[activeIndex];
     if (!item) return;
     const newPinned = !item.isPinned;
 
@@ -2861,13 +2861,29 @@ export default function ConsoleHome() {
           <GameContextMenu
             focusedIndex={contextMenuFocusIndex}
             onPressItem={handleContextMenuAction}
-            isPinned={contextMenuSource === 'carousel' ? !!currentData[activeIndex]?.isPinned : false}
+            isPinned={(() => {
+              if (contextMenuSource === 'carousel') return !!currentData[activeIndex]?.isPinned;
+              const id = contextMenuTargetItem?.id;
+              if (!id) return false;
+              return !!(
+                steamGames.find(g => g.id === id) ??
+                epicGames.find(g => g.id === id) ??
+                xboxGames.find(g => g.id === id) ??
+                games.find(g => g.id === id)
+              )?.isPinned;
+            })()}
             onTogglePin={handleTogglePin}
-            isFavorite={
-              contextMenuSource === 'library'
-                ? !!contextMenuTargetItem?.isFavorite
-                : !!currentData[activeIndex]?.isFavorite
-            }
+            isFavorite={(() => {
+              if (contextMenuSource === 'carousel') return !!currentData[activeIndex]?.isFavorite;
+              const id = contextMenuTargetItem?.id;
+              if (!id) return false;
+              return !!(
+                steamGames.find(g => g.id === id) ??
+                epicGames.find(g => g.id === id) ??
+                xboxGames.find(g => g.id === id) ??
+                games.find(g => g.id === id)
+              )?.isFavorite;
+            })()}
             onToggleFavorite={handleToggleFavorite}
             mode={contextMenuSource === 'library' ? 'library' : 'carousel'}
             leftOffset={contextMenuSource === 'library' ? 0 : undefined}

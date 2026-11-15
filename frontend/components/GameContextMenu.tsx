@@ -1,15 +1,14 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { BlurView } from 'expo-blur';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { TranslationKey } from '@/i18n/translations';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  Animated,
-  useWindowDimensions,
+    Animated,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 
 // ─── Shimmer que barre todo el menú ──────────────────────────────────────────
@@ -136,7 +135,7 @@ export default function GameContextMenu({
   const LEFT_OFFSET = leftOffset !== undefined ? s(leftOffset) : s(BASE_LEFT_OFFSET);
 
   const favoriteIndex = isLibraryMode ? 2 : FAVORITE_INDEX;
-  const pinIndex = PIN_INDEX;
+  const pinIndex = isLibraryMode ? 3 : PIN_INDEX;
 
   const options = isLibraryMode
     ? [
@@ -287,38 +286,36 @@ export default function GameContextMenu({
         </TouchableOpacity>
 
         {/* ─── FIJAR JUEGO (switch) ─────────────────────────────────────── */}
-        {!isLibraryMode && (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={onTogglePin}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={onTogglePin}
+          style={[
+            styles.item,
+            styles.pinItem,
+            { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
+            focusedIndex === pinIndex && styles.itemFocused,
+          ]}
+        >
+          <Animated.View
+            style={[styles.focusGlow, { opacity: glowAnims[pinIndex], borderRadius: s(3) }]}
+            pointerEvents="none"
+          />
+          {focusedIndex === pinIndex && <ShimmerOverlay />}
+
+          <Text
             style={[
-              styles.item,
-              styles.pinItem,
-              { height: ITEM_HEIGHT, paddingVertical: s(10), paddingHorizontal: s(12), borderRadius: s(3), marginVertical: s(2) },
-              focusedIndex === pinIndex && styles.itemFocused,
+              styles.label,
+              { fontSize: s(13) },
+              focusedIndex === pinIndex && styles.labelFocused,
             ]}
           >
-            <Animated.View
-              style={[styles.focusGlow, { opacity: glowAnims[pinIndex], borderRadius: s(3) }]}
-              pointerEvents="none"
-            />
-            {focusedIndex === pinIndex && <ShimmerOverlay />}
+            {t('context.pinToHome')}
+          </Text>
 
-            <Text
-              style={[
-                styles.label,
-                { fontSize: s(13) },
-                focusedIndex === pinIndex && styles.labelFocused,
-              ]}
-            >
-              {t('context.pinToHome')}
-            </Text>
-
-            <View style={[styles.toggleTrack, { width: s(40), height: s(22), borderRadius: s(11), padding: s(2) }, isPinned && styles.toggleTrackActive]}>
-              <View style={[styles.toggleThumb, { width: s(18), height: s(18), borderRadius: s(9) }, isPinned && [styles.toggleThumbActive, { transform: [{ translateX: s(18) }] }]]} />
-            </View>
-          </TouchableOpacity>
-        )}
+          <View style={[styles.toggleTrack, { width: s(40), height: s(22), borderRadius: s(11), padding: s(2) }, isPinned && styles.toggleTrackActive]}>
+            <View style={[styles.toggleThumb, { width: s(18), height: s(18), borderRadius: s(9) }, isPinned && [styles.toggleThumbActive, { transform: [{ translateX: s(18) }] }]]} />
+          </View>
+        </TouchableOpacity>
       </View>
     </View>
   );

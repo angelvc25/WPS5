@@ -482,7 +482,7 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
           o.setIsContextMenuOpen(false);
           soundService.playBack();
         } else if (e.key === 'ArrowDown') {
-          const maxIdx = o.contextMenuMode === 'library' ? 2 : 4;
+          const maxIdx = o.contextMenuMode === 'library' ? 3 : 4;
           o.setContextMenuFocusIndex(prev => Math.min(prev + 1, maxIdx));
           soundService.playNavigation();
         } else if (e.key === 'ArrowUp') {
@@ -492,6 +492,8 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
           if (o.contextMenuMode === 'library') {
             if (o.contextMenuFocusIndex === 2) {
               o.handleToggleFavorite();
+            } else if (o.contextMenuFocusIndex === 3) {
+              o.handleTogglePin();
             } else {
               o.handleContextMenuAction(o.contextMenuFocusIndex);
             }
