@@ -194,9 +194,34 @@ export default function UserSelectScreen({ onUserSelected, inputEnabled = true }
         try {
           const dbUsers = await (window as any).electronAPI.getUsers();
           if (dbUsers && dbUsers.length > 0) {
-            setUsers(dbUsers);
-            localStorage.setItem('console_users', JSON.stringify(dbUsers));
-            setHoveredId(dbUsers[0].id);
+            // Al cargar desde la DB de Electron, fusionar con localStorage para
+            // no perder campos que solo viven ahí (bootVideoPath, suspendVideoPath,
+            // etc.) si la escritura en la DB falló en una sesión previa. Esto evita
+            // que el video de boot/suspend desaparezca al reiniciar la app
+            // compilada, especialmente cuando el idioma es el por defecto ('en')
+            // y nunca se disparó un changeLanguage previo que guardara la DB.
+            const saved = localStorage.getItem('console_users');
+            let finalUsers = dbUsers;
+            if (saved) {
+              try {
+                const localUsers: UserProfile[] = JSON.parse(saved);
+                finalUsers = dbUsers.map((dbUser: UserProfile) => {
+                  const localUser = localUsers.find(u => u.id === dbUser.id);
+                  if (localUser?.settings) {
+                    return {
+                      ...dbUser,
+                      settings: { ...dbUser.settings, ...localUser.settings },
+                    };
+                  }
+                  return dbUser;
+                });
+              } catch (e) {
+                console.error('Error merging local users with DB:', e);
+              }
+            }
+            setUsers(finalUsers);
+            localStorage.setItem('console_users', JSON.stringify(finalUsers));
+            setHoveredId(finalUsers[0].id);
             return;
           }
         } catch (err) {

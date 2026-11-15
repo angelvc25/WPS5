@@ -175,9 +175,18 @@ function RootLayoutInner() {
   const [showSplash, setShowSplash] = useState(true);
   // Se resuelve de forma síncrona en el primer render (una sola vez) para que
   // el splash no arranque con el video por defecto y cambie al personalizado.
-  const [bootVideoUri] = useState<string | null>(() => getLastBootVideoUri());
+  const [bootVideoUri, setBootVideoUri] = useState<string | null>(() => getLastBootVideoUri());
   const [bootVideoFailed, setBootVideoFailed] = useState(false);
   const [defaultBootFailed, setDefaultBootFailed] = useState(false);
+  // Respaldo: si al montar el usuario activo ya tiene un video de boot asignado
+  // pero getLastBootVideoUri no lo encontró (p. ej. porque la DB de Electron no
+  // se sincronizó con localStorage en la compilación de producción), usamos el
+  // path del usuario activo directamente.
+  useEffect(() => {
+    if (activeUser?.settings?.bootVideoPath) {
+      setBootVideoUri(toLocalFileUri(activeUser.settings.bootVideoPath));
+    }
+  }, [activeUser]);
   const pathname = usePathname();
   const isOverlayMode = checkIsOverlay() || pathname === '/overlay' || pathname?.includes('overlay');
 

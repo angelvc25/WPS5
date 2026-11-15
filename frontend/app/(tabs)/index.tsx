@@ -274,7 +274,12 @@ export default function ConsoleHome() {
   const introDone = useIntroDone();
   const changeLanguage = (lang: Language) => {
     setLanguage(lang);
-    updateUser({ settings: { ...activeUser?.settings, language: lang } });
+    // Solo se persiste el idioma. `updateUser` hace deep-merge de `settings`
+    // sobre el estado previo, así que bootVideoPath/suspendVideoPath y el
+    // resto de ajustes del usuario se conservan al cambiar de idioma, sin
+    // depender de una captura anticuada de `activeUser` (stale closure). De
+    // este modo no hay discriminación por idioma al elegir el video de boot.
+    updateUser({ settings: { language: lang } });
   };
   // -- Video de suspensi�n al cerrar la app ----------------------------------
   // Misma idea que el video de arranque en _layout.tsx: si el usuario activo

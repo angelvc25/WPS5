@@ -588,9 +588,13 @@ export default function SettingsView({
     try {
       const res = await (window as any).electronAPI.downloadSplashVideo(post.downloadUrl, target);
       if (res?.success && res.path) {
+        // `updateUser` hace deep-merge de `settings` sobre el estado previo,
+        // así que basta con escribir el campo de video correspondiente; no hay
+        // que esparcir `activeUser?.settings` (que puede estar obsoleto por
+        // stale closure) y se evita borrar bootVideoPath/suspendVideoPath al
+        // cambiar de idioma u otra configuración.
         updateUser({
           settings: {
-            ...activeUser?.settings,
             [target === 'boot' ? 'bootVideoPath' : 'suspendVideoPath']: res.path,
           },
         });
