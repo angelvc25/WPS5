@@ -1,17 +1,16 @@
-﻿import { ResizeMode, Video } from '@/components/AppVideo';
+﻿import { AnimatedSpinningBorderTabs } from '@/components/AnimatedSpinningBorders';
+import { ResizeMode, Video } from '@/components/AppVideo';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import ClockText from '@/components/ClockText';
 import FavoritesView from '@/components/FavoritesView';
 import PSIcon from '@/components/PSIcon';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import RandomSelectorView from '@/components/RandomSelectorView';
-import SpinningBorderTabs from '@/components/SpinningBorderTabs';
-import { AnimatedSpinningBorderTabs } from '@/components/AnimatedSpinningBorders';
-import AnimatedRadarFocusWrapper from '@/components/AnimatedRadarFocusWrapper';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import { PSIcons } from '@/constants/psIcons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
+import { fetchAwGameAchievements, fetchPcGameAchievements } from '@/services/achievementWatcherService';
 import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchGamingNews } from '@/services/newsService';
 import { syncProfileMediaToOnline } from '@/services/onlineAccountService';
@@ -21,7 +20,6 @@ import { getGameActionLabel, resolveSteamLaunchPath } from '@/services/steamLaun
 import { resolveGameScreenshots, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamGameAchievements } from '@/services/steamUserService';
-import { fetchAwGameAchievements, fetchPcGameAchievements } from '@/services/achievementWatcherService';
 import { toastService } from '@/services/toastService';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -56,28 +54,29 @@ import TrophiesView from '@/components/TrophiesView';
 import WelcomeSettingsView from '@/components/WelcomeSettingsView';
 import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
 import WidgetEditPanel, {
-  clampWidgetSize,
-  computeWidgetColumns,
-  loadWidgetOrder,
-  loadWidgetSizes,
-  loadWidgetVisibility,
-  PANEL_WIDGETS,
-  saveWidgetOrder,
-  saveWidgetSizes,
-  saveWidgetVisibility,
-  WidgetSizes,
-  WidgetVisibility
+    clampWidgetSize,
+    computeWidgetColumns,
+    loadWidgetOrder,
+    loadWidgetSizes,
+    loadWidgetVisibility,
+    PANEL_WIDGETS,
+    saveWidgetOrder,
+    saveWidgetSizes,
+    saveWidgetVisibility,
+    WidgetSizes,
+    WidgetVisibility
 } from '@/components/WidgetEditPanel';
 import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useFocusNavigation, type UseFocusNavigationOptions } from '@/hooks/useFocusNavigation';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
+import { afterPaint, useAnimClockReady, useIntroDone, useIntroReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 import { useLibrary } from '@/hooks/useLibrary';
 import { usePresentationMode } from '@/hooks/usePresentationMode';
 import { useSteamSync } from '@/hooks/useSteamSync';
 import { Language } from '@/i18n/translations';
 import {
-  initOnlineLibraryAutoSync,
+    initOnlineLibraryAutoSync,
 } from '@/services/onlineAutoSync';
 import { initOnlineFriendWatcher } from '@/services/onlineFriendWatcher';
 import { psnLocaleForLanguage } from '@/services/psnMetadataService';
@@ -85,7 +84,6 @@ import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId, fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
-import { afterPaint, useAnimClockReady, useIntroDone, useIntroReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -920,6 +918,12 @@ export default function ConsoleHome() {
   const welcomeWidgetsFocusAnim = useSharedValue(0);
   const infoCardsAnim = useSharedValue(1); // 1=visible, 0=hidden
   const deepSectionFocusAnim = useSharedValue(0); // 1=capturas/noticias, 0=trofeos o arriba
+  // Overlay negro que cubre la splash de lanzamiento antes de abrir el juego.
+  // 0 = transparente (splash visible), 1 = negro total (juego lanzándose).
+  const launchFadeToBlack = useSharedValue(0);
+  const launchFadeToBlackStyle = useAnimatedStyle(() => ({
+    opacity: launchFadeToBlack.value,
+  }));
 
 
   useEffect(() => {
@@ -959,6 +963,7 @@ export default function ConsoleHome() {
         setBackgroundedGame(item);
         setIsLaunching(false);
         setLaunchingItem(null);
+        launchFadeToBlack.value = 0;
         setFocusArea('main_carousel');
       } else {
         // Reanudando: el launcher vuelve a modo "juego en curso"
@@ -1768,33 +1773,51 @@ export default function ConsoleHome() {
       return;
     }
     soundService.playActivation();
+    // Resetear el fade-to-black antes de mostrar la splash
+    launchFadeToBlack.value = 0;
     setLaunchingItem(targetItem);
     setIsLaunching(true);
 
+    // Función auxiliar: anima la splash a negro y luego ejecuta la acción de lanzamiento real.
+    // splashDuration: tiempo que la splash permanece visible antes del fade (ms).
+    // fadeDuration: duración del fade a negro (ms).
+    const doFadeThenLaunch = (launchAction: () => void, splashDuration = 1400, fadeDuration = 700) => {
+      setTimeout(() => {
+        launchFadeToBlack.value = withTiming(1, {
+          duration: fadeDuration,
+          easing: Easing.in(Easing.cubic),
+        });
+        setTimeout(launchAction, fadeDuration);
+      }, splashDuration);
+    };
+
     if (launchPath.startsWith('http')) {
-      if (Platform.OS === 'web' && (window as any).electronAPI) {
-        (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs).then(() => {
-          loadApps();
+      doFadeThenLaunch(() => {
+        if (Platform.OS === 'web' && (window as any).electronAPI) {
+          (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs).then(() => {
+            loadApps();
+            setTimeout(() => {
+              setIsLaunching(false);
+              setLaunchingItem(null);
+            }, 1500);
+          });
+        } else {
+          Linking.openURL(launchPath);
           setTimeout(() => {
             setIsLaunching(false);
             setLaunchingItem(null);
           }, 1500);
-        });
-      } else {
-        Linking.openURL(launchPath);
-        setTimeout(() => {
-          setIsLaunching(false);
-          setLaunchingItem(null);
-        }, 1500);
-      }
+        }
+      });
       return;
     }
     if (Platform.OS === 'web' && (window as any).electronAPI) {
-      // Cerrar cualquier detalle abierto (carrusel o librerÃ­a) para que al
-      // volver del juego ningÃºn modal ni flag atrape el teclado.
+      // Cerrar cualquier detalle abierto (carrusel o librería) para que al
+      // volver del juego ningún modal ni flag atrape el teclado.
       setDetailVisible(false);
       libraryGridRef.current?.closeDetail();
       setIsLibraryDetailVisible(false);
+      doFadeThenLaunch(() => {
       (window as any).electronAPI.launchApp(targetItem.id, launchPath, targetItem.launchArgs).then((result: any) => {
         loadApps();
         console.log('Juego lanzado');
@@ -1818,14 +1841,17 @@ export default function ConsoleHome() {
           setTimeout(() => {
             setIsLaunching(false);
             setLaunchingItem(null);
+            launchFadeToBlack.value = 0;
           }, 5000);
         }
       }).catch((e: any) => {
         console.error('[Launch] Error lanzando el juego:', e);
         setIsLaunching(false);
         setLaunchingItem(null);
+        launchFadeToBlack.value = 0;
         toastService.show(t('toast.error'));
       });
+      }); // end doFadeThenLaunch
     }
   };
 
@@ -2019,6 +2045,7 @@ export default function ConsoleHome() {
         setIsLaunching(false);
         setBackgroundedGame(null);
         setLaunchingItem(null);
+        launchFadeToBlack.value = 0;
         // Higiene al volver: ningÃºn modal ni flag debe atrapar el teclado.
         setDetailVisible(false);
         libraryGridRef.current?.closeDetail();
@@ -3712,6 +3739,12 @@ export default function ConsoleHome() {
                 )}
               </Animated.View>
             </View>
+
+            {/* Capa de fade a negro: cubre la splash justo antes de lanzar el juego */}
+            <Animated.View
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, { backgroundColor: '#000', zIndex: 10 }, launchFadeToBlackStyle]}
+            />
           </Animated.View>
         ) : (
           <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill}>
