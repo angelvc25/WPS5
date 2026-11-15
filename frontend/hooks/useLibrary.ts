@@ -288,16 +288,6 @@ export function useLibrary({
         return () => { clearTimeout(safety); fired = true; };
     }, [uiReady, appsLoaded]);
 
-    // ── Efecto: resetear readySentRef al recuperar el foco ────────────────────
-    // Permite que wps5-home-ready se re-emita en el siguiente ciclo donde
-    // uiReady && appsLoaded vuelvan a ser true (tras resetLauncherSettled).
-    useEffect(() => {
-        if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-        const handleFocus = () => { readySentRef.current = false; };
-        window.addEventListener('focus', handleFocus);
-        return () => window.removeEventListener('focus', handleFocus);
-    }, []);
-
     // ── Memos derivados ───────────────────────────────────────────────────────
 
     const nonSteamGames = useMemo(

@@ -1,6 +1,6 @@
-import { useIntroReady } from '@/hooks/useLauncherSettled';
 import React from 'react';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useIntroReady } from '@/hooks/useLauncherSettled';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 
 function ensureCardCss() {
   if (typeof document === 'undefined' || document.getElementById('wps5-card-css')) return;
@@ -33,8 +33,6 @@ export const AnimatedCardWrapper = React.memo(({
   const marginH = useSharedValue(6);
 
   const introReady = useIntroReady();
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => { setMounted(true); }, []);
 
   React.useEffect(() => {
     if (!introReady) return;
@@ -56,8 +54,8 @@ export const AnimatedCardWrapper = React.memo(({
   const entryStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
-    opacity: (introReady && mounted) ? undefined : 0,
-    animation: (introReady && mounted) ? `wps5CardIn 600ms cubic-bezier(0.16,1,0.3,1) ${delay}ms both` : undefined,
+    opacity: introReady ? undefined : 0,
+    animation: introReady ? `wps5CardIn 600ms cubic-bezier(0.16,1,0.3,1) ${delay}ms both` : undefined,
   };
 
   return (

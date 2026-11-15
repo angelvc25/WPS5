@@ -35,6 +35,7 @@ export function resetLauncherSettled() {
 
 /** Llamar cuando la capa de selección de usuario terminó de desaparecer o Home es visible. */
 export function markLauncherRevealed() {
+  if (revealed) return;
   revealed = true;
   generation++;
   const gen = generation;
