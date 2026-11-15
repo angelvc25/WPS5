@@ -119,7 +119,7 @@ export interface UseFocusNavigationOptions {
   handleLaunchApp: (item: ConsoleItem) => void;
   openContextMenu: () => void;
   openLibraryContextMenu?: (item: ConsoleItem, index: number) => void;
-  handleContextMenuAction: (index: number) => void;
+  handleContextMenuAction: (index: number | string) => void;
   handleToggleFavorite: () => void;
   handleTogglePin: () => void;
   handleProfileMenuAction: (index: number) => void;
@@ -496,6 +496,9 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
               o.handleToggleFavorite();
             } else if (o.contextMenuFocusIndex === 4) {
               o.handleTogglePin();
+            } else if (o.contextMenuFocusIndex === 2) {
+              // "Añadir a la colección" — abre el submenu sin cerrar el menú
+              o.handleContextMenuAction('addToCollection');
             } else {
               o.handleContextMenuAction(o.contextMenuFocusIndex);
             }
