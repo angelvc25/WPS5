@@ -110,9 +110,9 @@ const renderPlatformBadge = (item: ConsoleItem, lastPlayedGame: ConsoleItem | nu
       : isPS3
         ? 'rgba(0, 0, 0, 1)'
         : isXbox
-          ? 'rgba(88, 151, 69, 1)'
+          ? 'rgba(88, 151, 69, 0)'
           : isSwitch
-            ? 'rgba(255, 40, 40, 1)'
+            ? 'rgba(255, 40, 40, 0)'
             : isRetro
               ? 'rgba(175, 202, 21, 1)'
               : 'white';
@@ -121,14 +121,16 @@ const renderPlatformBadge = (item: ConsoleItem, lastPlayedGame: ConsoleItem | nu
     <View style={[styles.platformBadge, { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 0 }]}>
       {steamGame ? (
         <Image
-          source={require('@/assets/images/SteamBadge.png')}
-          style={styles.platformBadgeImage}
+          // source={require('@/assets/images/SteamBadge.png')}
+          source={"https://cdn2.steamgriddb.com/icon/21ca6d0cf2f25c4dbb35d8dc0b679c3f.png"}
+          style={[styles.platformBadgeImage, { width: 40 }]}
           contentFit="contain"
         />
       ) : isEpicGame ? (
         <Image
-          source={require('@/assets/images/EpicBadge.png')}
-          style={styles.platformBadgeImage}
+          // source={require('@/assets/images/EpicBadge.png')}
+          source={"https://cdn2.steamgriddb.com/logo/ef469da55386b89993b2b644f5ba5140.png"}
+          style={[styles.platformBadgeImage, { width: 40 }]}
           contentFit="contain"
         />
       ) : isPS3 ? (
@@ -144,17 +146,17 @@ const renderPlatformBadge = (item: ConsoleItem, lastPlayedGame: ConsoleItem | nu
           </Text>
         </View>
       ) : isXbox ? (
-        <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
+        <View style={[styles.platformBadge, { backgroundColor: platformBgColor, padding: 0 }]}>
           <Image
-            source={require('@/assets/images/XboxBadgeWhite.png')}
+            source={"https://cdn2.steamgriddb.com/icon/986ad3ada4d93c1c474674751f941082.png"}
             style={styles.platformBadgeImage2}
             contentFit="contain"
           />
         </View>
       ) : isSwitch ? (
-        <View style={[styles.platformBadge, { backgroundColor: platformBgColor }]}>
+        <View style={[styles.platformBadge, { backgroundColor: platformBgColor, padding: 0 }]}>
           <Image
-            source={require('@/assets/images/SwitchBadge.png')}
+            source={"https://cdn2.steamgriddb.com/icon/3b05af2c48dbaf6656fdf2d2f905b3b6.png"}
             style={styles.platformBadgeImage2}
             contentFit="contain"
           />
@@ -820,13 +822,14 @@ const styles = StyleSheet.create({
     height: 30,
     marginTop: 6,
     marginBottom: 2,
-    backgroundColor: 'black',
+    // backgroundColor: 'black',
     borderRadius: 4,
   },
   platformBadgeImage2: {
-    width: 60,
+    width: 30,
     height: 24,
-    marginTop: 4,
+    // marginTop: 4,
+    padding: 0
   },
   platformBadgeImage3: {
     width: 30,
