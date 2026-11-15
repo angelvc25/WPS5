@@ -1,27 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
-import RadarFocusWrapper from './RadarFocusWrapper';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-  Dimensions,
-  Easing,
-  Platform,
-} from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
 import { ResizeMode } from '@/components/AppVideo';
-import ControlPrompt from './ControlPrompt';
-import { soundService } from '../services/soundService';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { toastService } from '@/services/toastService';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    Animated,
+    Dimensions,
+    Easing,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { soundService } from '../services/soundService';
 import BackgroundVideo from './BackgroundVideo';
 import ProfileContextMenu, { ProfileMenuMode } from './ProfileContextMenu';
-import { toastService } from '@/services/toastService';
+import RadarFocusWrapper from './RadarFocusWrapper';
 
-import type { FieldSyncPreferences } from '../services/metadataPreferences';
 import type { EmulatorConfig } from '../services/emulationService';
+import type { FieldSyncPreferences } from '../services/metadataPreferences';
 
 export interface LegacySyncPreferences {
   ratingAndSummary?: 'steam' | 'igdb' | 'rawg' | 'psn' | 'none';
@@ -71,6 +70,8 @@ export interface UserSettings {
   showFpsCounter?: boolean;
   /** Configuración de emuladores por consola (id de consola → config). */
   emulators?: Record<string, EmulatorConfig>;
+  bootVideoPath?: string;
+  suspendVideoPath?: string;
 }
 
 export interface UserProfile {

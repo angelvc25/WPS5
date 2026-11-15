@@ -93,7 +93,7 @@ function getLastBootVideoUri(): string | null {
 
     const usersList: UserProfile[] = JSON.parse(savedUsers);
     const lastUser = usersList.find((u) => u.id === lastUserId);
-    const bootVideoPath = (lastUser?.settings as any)?.bootVideoPath;
+    const bootVideoPath = lastUser?.settings?.bootVideoPath;
 
     return typeof bootVideoPath === 'string' && bootVideoPath ? toLocalFileUri(bootVideoPath) : null;
   } catch (err) {
@@ -493,7 +493,13 @@ function RootLayoutInner() {
   const updateUser = useCallback(async (updates: Partial<UserProfile>) => {
     setActiveUser(prevUser => {
       if (!prevUser) return prevUser;
-      const newUser = { ...prevUser, ...updates };
+      const newUser = {
+        ...prevUser,
+        ...updates,
+        settings: updates.settings
+          ? { ...prevUser?.settings, ...updates.settings }
+          : prevUser?.settings,
+      };
       const savedUsers = localStorage.getItem('console_users');
       if (savedUsers) {
         const usersList: UserProfile[] = JSON.parse(savedUsers);

@@ -592,7 +592,7 @@ export default function SettingsView({
           settings: {
             ...activeUser?.settings,
             [target === 'boot' ? 'bootVideoPath' : 'suspendVideoPath']: res.path,
-          } as any,
+          },
         });
         registerDownloadedSplash(post, target);
         toastService.show(
@@ -2594,8 +2594,8 @@ export default function SettingsView({
             })()}
 
             {accessibilityLeftIndex === 9 && (() => {
-              const currentBoot = (activeUser?.settings as any)?.bootVideoPath;
-              const currentSuspend = (activeUser?.settings as any)?.suspendVideoPath;
+              const currentBoot = activeUser?.settings?.bootVideoPath;
+              const currentSuspend = activeUser?.settings?.suspendVideoPath;
               const isRightFocused = accessibilityFocusArea === 'right';
               const isFiltersFocused = isRightFocused && splashFocusZone === 'filters';
               const isGridFocused = isRightFocused && splashFocusZone === 'grid';

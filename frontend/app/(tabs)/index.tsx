@@ -283,7 +283,7 @@ export default function ConsoleHome() {
   // la aplicaci�n, en vez de matarla de golpe con electronAPI.closeApp().
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const shutdownFinishedRef = useRef(false);
-  const suspendVideoPath = (activeUser?.settings as any)?.suspendVideoPath as string | undefined;
+  const suspendVideoPath = activeUser?.settings?.suspendVideoPath;
 
   // Debe coincidir con `toLocalFileUri` en electron/main.js y en _layout.tsx.
   const toLocalFileUri = (filePath: string) => `local-file:///${filePath.replace(/\\/g, '/')}`;
