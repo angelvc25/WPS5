@@ -1,16 +1,17 @@
-﻿import { AnimatedSpinningBorderTabs } from '@/components/AnimatedSpinningBorders';
-import { ResizeMode, Video } from '@/components/AppVideo';
+﻿import { ResizeMode, Video } from '@/components/AppVideo';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import ClockText from '@/components/ClockText';
 import FavoritesView from '@/components/FavoritesView';
 import PSIcon from '@/components/PSIcon';
 import RadarFocusWrapper from '@/components/RadarFocusWrapper';
 import RandomSelectorView from '@/components/RandomSelectorView';
+import SpinningBorderTabs from '@/components/SpinningBorderTabs';
+import { AnimatedSpinningBorderTabs } from '@/components/AnimatedSpinningBorders';
+import AnimatedRadarFocusWrapper from '@/components/AnimatedRadarFocusWrapper';
 import YoutubePlayer from '@/components/YoutubePlayer';
 import { PSIcons } from '@/constants/psIcons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
-import { fetchAwGameAchievements, fetchPcGameAchievements } from '@/services/achievementWatcherService';
 import { fetchGameVideosByName, GameVideoResult } from '@/services/gameVideoService';
 import { fetchGamingNews } from '@/services/newsService';
 import { syncProfileMediaToOnline } from '@/services/onlineAccountService';
@@ -20,6 +21,7 @@ import { getGameActionLabel, resolveSteamLaunchPath } from '@/services/steamLaun
 import { resolveGameScreenshots, SteamMediaItem } from '@/services/steamMediaService';
 import { fetchSteamNewsByName, SteamNewsItem } from '@/services/steamNewsService';
 import { fetchSteamGameAchievements } from '@/services/steamUserService';
+import { fetchAwGameAchievements, fetchPcGameAchievements } from '@/services/achievementWatcherService';
 import { toastService } from '@/services/toastService';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -54,29 +56,28 @@ import TrophiesView from '@/components/TrophiesView';
 import WelcomeSettingsView from '@/components/WelcomeSettingsView';
 import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
 import WidgetEditPanel, {
-    clampWidgetSize,
-    computeWidgetColumns,
-    loadWidgetOrder,
-    loadWidgetSizes,
-    loadWidgetVisibility,
-    PANEL_WIDGETS,
-    saveWidgetOrder,
-    saveWidgetSizes,
-    saveWidgetVisibility,
-    WidgetSizes,
-    WidgetVisibility
+  clampWidgetSize,
+  computeWidgetColumns,
+  loadWidgetOrder,
+  loadWidgetSizes,
+  loadWidgetVisibility,
+  PANEL_WIDGETS,
+  saveWidgetOrder,
+  saveWidgetSizes,
+  saveWidgetVisibility,
+  WidgetSizes,
+  WidgetVisibility
 } from '@/components/WidgetEditPanel';
 import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useFocusNavigation, type UseFocusNavigationOptions } from '@/hooks/useFocusNavigation';
 import { useGamepadInput } from '@/hooks/useGamepadInput';
-import { afterPaint, useAnimClockReady, useIntroDone, useIntroReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 import { useLibrary } from '@/hooks/useLibrary';
 import { usePresentationMode } from '@/hooks/usePresentationMode';
 import { useSteamSync } from '@/hooks/useSteamSync';
 import { Language } from '@/i18n/translations';
 import {
-    initOnlineLibraryAutoSync,
+  initOnlineLibraryAutoSync,
 } from '@/services/onlineAutoSync';
 import { initOnlineFriendWatcher } from '@/services/onlineFriendWatcher';
 import { psnLocaleForLanguage } from '@/services/psnMetadataService';
@@ -84,6 +85,7 @@ import { getSteamAppId } from '@/services/steamLaunchService';
 import { fetchSteamStoreOffers } from '@/services/steamSpecialsService';
 import { enrichOffersWithHeroes, enrichOffersWithPsnBackgrounds, extractSteamAppId, fetchStoreOffers, LOCAL_FALLBACK_OFFERS, StoreOffer } from '@/services/storeService';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { afterPaint, useAnimClockReady, useIntroDone, useIntroReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 
 const TABS: { id: string; labelKey: 'tabs.games' | 'tabs.media' }[] = [
   { id: 'Games', labelKey: 'tabs.games' },
@@ -2404,15 +2406,8 @@ export default function ConsoleHome() {
   const launcherSettled = useLauncherSettled();
   const animClockReady = useAnimClockReady();
   const introReady = useIntroReady();
-  // bgAnimReadyRef: se activa con introReady pero retrasado 2 frames para que
-  // Reanimated tenga el hilo de UI estable antes de ejecutar el primer withTiming de fondo.
-  const bgAnimReadyRef = useRef(false);
-  useEffect(() => {
-    if (!introReady) { bgAnimReadyRef.current = false; return; }
-    let r1: number, r2: number;
-    r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => { bgAnimReadyRef.current = true; }); });
-    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
-  }, [introReady]);
+  const bgAnimReadyRef = useRef(introReady);
+  bgAnimReadyRef.current = introReady;
 
   // Reproduce openHome.mp3 cuando el carrusel se revela y el JS se estabiliza.
   // Cubre tanto el arranque inicial como los cambios de perfil (el componente

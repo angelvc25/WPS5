@@ -34,27 +34,13 @@ export const AnimatedCardWrapper = React.memo(({
 
   const introReady = useIntroReady();
 
-  // paintReady: se activa tras dos frames de pintura desde el mount de este componente.
-  // Garantiza que Reanimated ha registrado sus worklets antes de disparar withTiming,
-  // independientemente de cuándo introReady se active.
-  const [paintReady, setPaintReady] = React.useState(false);
   React.useEffect(() => {
-    let raf1: number, raf2: number;
-    raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setPaintReady(true));
-    });
-    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
-  }, []);
-
-  const canAnimate = introReady && paintReady;
-
-  React.useEffect(() => {
-    if (!canAnimate) return;
+    if (!introReady) return;
     const cfg = { duration: 280, easing: Easing.out(Easing.quad) };
     scale.value = withTiming(isActive ? 1.5 : 1, cfg);
     translateY.value = withTiming(isActive ? 17 : 0, cfg);
     marginH.value = withTiming(isActive ? 20 : 6, cfg);
-  }, [isActive, canAnimate]);
+  }, [isActive, introReady]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { translateY: translateY.value }],
@@ -66,11 +52,12 @@ export const AnimatedCardWrapper = React.memo(({
 
   const delay = Math.min(entryIndex, 10) * 50;
 
-  // Cuando canAnimate cambia de false → true necesitamos que el <div> se remonte
+  // Cuando introReady cambia de false → true necesitamos que el <div> se remonte
   // para que el browser ejecute la animación CSS desde el principio.
-  const entryKey = canAnimate ? `ready-${entryIndex}` : `pre-${entryIndex}`;
+  // Cambiar solo el estilo de un elemento ya pintado no reinicia la animación.
+  const entryKey = introReady ? `ready-${entryIndex}` : `pre-${entryIndex}`;
 
-  const entryStyle: React.CSSProperties = canAnimate ? {
+  const entryStyle: React.CSSProperties = introReady ? {
     display: 'flex',
     flexDirection: 'column',
     animation: `wps5CardIn 600ms cubic-bezier(0.16,1,0.3,1) ${delay}ms both`,
