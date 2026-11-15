@@ -55,17 +55,17 @@ import VirtualKeyboard from '@/components/VirtualKeyboard';
 import WelcomeSettingsView from '@/components/WelcomeSettingsView';
 import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
 import WidgetEditPanel, {
-  clampWidgetSize,
-  computeWidgetColumns,
-  loadWidgetOrder,
-  loadWidgetSizes,
-  loadWidgetVisibility,
-  PANEL_WIDGETS,
-  saveWidgetOrder,
-  saveWidgetSizes,
-  saveWidgetVisibility,
-  WidgetSizes,
-  WidgetVisibility
+    clampWidgetSize,
+    computeWidgetColumns,
+    loadWidgetOrder,
+    loadWidgetSizes,
+    loadWidgetVisibility,
+    PANEL_WIDGETS,
+    saveWidgetOrder,
+    saveWidgetSizes,
+    saveWidgetVisibility,
+    WidgetSizes,
+    WidgetVisibility
 } from '@/components/WidgetEditPanel';
 import { PLATFORMS } from '@/constants/platforms';
 import { useCollections } from '@/contexts/CollectionsContext';
@@ -78,7 +78,7 @@ import { usePresentationMode } from '@/hooks/usePresentationMode';
 import { useSteamSync } from '@/hooks/useSteamSync';
 import { Language } from '@/i18n/translations';
 import {
-  initOnlineLibraryAutoSync,
+    initOnlineLibraryAutoSync,
 } from '@/services/onlineAutoSync';
 import { initOnlineFriendWatcher } from '@/services/onlineFriendWatcher';
 import { psnLocaleForLanguage } from '@/services/psnMetadataService';
@@ -3321,6 +3321,7 @@ export default function ConsoleHome() {
                         editingWidgetId={editingWidgetId}
                         storeSource={(activeUser?.settings?.storeSource as StoreSource) || 'ps5'}
                         externalStoreOffers={storeOffers}
+                        onOpenTrophies={() => setTrophiesVisible(true)}
                       />
                     </Animated.View>
                   </Animated.View>

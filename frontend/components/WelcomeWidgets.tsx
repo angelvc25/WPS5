@@ -1,22 +1,21 @@
-import { DEFAULT_WIDGET_IDS, getWidgetMaxSize, computeWidgetColumns } from './WidgetEditPanel';
-import React, { useMemo, useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking, ScrollView } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
-import { fetchStoreOffers, StoreOffer } from '../services/storeService';
-import { fetchSteamStoreOffers } from '../services/steamSpecialsService';
-import { fetchSteamFriends, SteamFriend } from '../services/steamFriendsService';
-import { openWebLink } from '../services/linkService';
-import { buildSteamRunUrl } from '../services/steamLaunchService';
-import { toastService } from '../services/toastService';
 import { useTranslation } from '@/contexts/LanguageContext';
-import { formatPlaytime } from '../services/playtimeService';
-import { fetchUserTrophies, type TrophyGameSummary } from '../services/onlineTrophiesService';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { openWebLink } from '../services/linkService';
 import { getOnlineSession, subscribeOnlineSession } from '../services/onlineAccountService';
-import SpinningBorderSearch from './SpinningBorderSearch';
-import SpinningBorderWidgets from './SpinningBorderWidgets';
+import { fetchUserTrophies, type TrophyGameSummary } from '../services/onlineTrophiesService';
+import { formatPlaytime } from '../services/playtimeService';
+import { fetchSteamFriends, SteamFriend } from '../services/steamFriendsService';
+import { buildSteamRunUrl } from '../services/steamLaunchService';
+import { fetchSteamNewsByName, formatSteamDate, SteamNewsItem } from '../services/steamNewsService';
+import { fetchSteamStoreOffers } from '../services/steamSpecialsService';
+import { fetchStoreOffers, StoreOffer } from '../services/storeService';
+import { toastService } from '../services/toastService';
 import { ScaleFadeBorder } from './AnimatedSpinningBorders';
+import SpinningBorderWidgets from './SpinningBorderWidgets';
+import { computeWidgetColumns, DEFAULT_WIDGET_IDS, getWidgetMaxSize } from './WidgetEditPanel';
 
 /** Borde giratorio animado para widgets del home. Usa ScaleFadeBorder (enter/exit) + SpinningBorderSearch. */
 const WidgetFocusBorder: React.FC<{ cardH: number }> = ({ cardH }) => {
@@ -82,6 +81,8 @@ interface WelcomeWidgetsProps {
   externalStoreOffers?: StoreOffer[];
   /** Fuente de la tienda configurada en ajustes ('ps5' | 'steam'). */
   storeSource?: 'ps5' | 'steam';
+  /** Abre la vista de trofeos completa al pulsar el widget de trofeos. */
+  onOpenTrophies?: () => void;
 }
 
 /** Si es true, los widgets ampliados crecen HACIA ARRIBA (la base del grid no se mueve, como en PS5).
@@ -209,6 +210,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
   editingWidgetId = null,
   externalStoreOffers,
   storeSource = 'ps5',
+  onOpenTrophies,
 }: WelcomeWidgetsProps, ref) => {
   const isWidgetVisible = (id: string) => widgetVisibility?.[id] !== false;
   const activeOrder = widgetOrder && widgetOrder.length === 10 ? widgetOrder : DEFAULT_WIDGET_IDS;
@@ -1394,6 +1396,7 @@ export const WelcomeWidgets = forwardRef<WelcomeWidgetsHandle, WelcomeWidgetsPro
             onPress={() => {
               setFocusArea('welcome_widgets');
               setFocusIndex(slotIndex);
+              onOpenTrophies?.();
             }}
           >
             <View style={[styles.welcomeWidgetCard, cardSizeStyle(id), isBeingMoved && styles.welcomeWidgetCardBeingMoved, (focusArea === 'welcome_widgets' && (focusIndex === slotIndex || isBeingMoved)) && styles.welcomeWidgetCardFocused]}>
