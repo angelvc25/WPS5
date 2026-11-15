@@ -9,7 +9,7 @@ export interface Collection {
 
 interface CollectionsContextValue {
   collections: Collection[];
-  createCollection: (name: string) => Collection;
+  createCollection: (name: string, initialGameId?: string) => Collection;
   addGameToCollection: (collectionId: string, gameId: string) => void;
   removeGameFromCollection: (collectionId: string, gameId: string) => void;
 }
@@ -19,8 +19,8 @@ const STORAGE_KEY = 'wps5_collections';
 export const CollectionsContext = createContext<CollectionsContextValue>({
   collections: [],
   createCollection: () => ({ id: '', name: '', gameIds: [] }),
-  addGameToCollection: () => {},
-  removeGameFromCollection: () => {},
+  addGameToCollection: () => { },
+  removeGameFromCollection: () => { },
 });
 
 export function CollectionsProvider({ children }: { children: React.ReactNode }) {
@@ -47,11 +47,11 @@ export function CollectionsProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const createCollection = useCallback(
-    (name: string): Collection => {
+    (name: string, initialGameId?: string): Collection => {
       const newCollection: Collection = {
         id: `col_${Date.now()}`,
         name: name.trim() || 'Nueva colección',
-        gameIds: [],
+        gameIds: initialGameId ? [initialGameId] : [],
       };
       setCollections((prev) => {
         const next = [...prev, newCollection];

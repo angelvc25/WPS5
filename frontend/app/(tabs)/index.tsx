@@ -3442,8 +3442,7 @@ export default function ConsoleHome() {
         }}
         onConfirm={(name) => {
           if (name.trim()) {
-            const c = createCollection(name.trim());
-            addGameToCollection(c.id, contextMenuTargetItem?.id ?? '');
+            createCollection(name.trim(), contextMenuTargetItem?.id);
             setIsContextMenuOpen(false);
             setContextMenuSubmenuMode(null);
             setNewCollectionName('');
