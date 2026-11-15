@@ -1,7 +1,7 @@
 import { PLATFORM_ICONS, PLATFORM_IDS, RETRO_SYSTEMS, isRetroPlatform } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
-import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
 import { isEpicGame } from '@/services/epicLaunchService';
+import { isSteamGame, isSteamGameInstalled } from '@/services/steamLaunchService';
 import { isXboxGame } from '@/services/xboxLaunchService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -380,7 +380,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   const platformScrollRef = useRef<ScrollView>(null);
 
   // 1. Estado para controlar la dirección del ordenamiento: 'none' (Más reciente) | 'asc' (A-Z) | 'desc' (Z-A)
-  const [sortDirection, setSortDirection] = useState<'none' | 'asc' | 'desc'>('none');
+  const [sortDirection, setSortDirection] = useState<'newest' | 'oldest' | 'asc' | 'desc'>('newest');
 
   // 2. Estado del panel de filtros/ordenamiento (dropdown estilo PS5)
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
@@ -397,7 +397,7 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
   // nuevo render -> efecto.
   const lastNotifiedVisibleGamesRef = useRef<ConsoleItem[] | null>(null);
 
-  const sortLabel = sortDirection === 'none' ? t('edit.more') : sortDirection === 'asc' ? 'A-Z' : 'Z-A';
+  const sortLabel = sortDirection === 'newest' ? t('settings.filterNewest') : sortDirection === 'oldest' ? t('settings.filterOldest') : sortDirection === 'asc' ? 'A-Z' : 'Z-A';
 
   // 2b. Índice de la fila resaltada dentro del panel (navegación por
   // teclado/mando). Se recalcula la lista de filas cada vez que cambian
@@ -416,12 +416,13 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     | { type: 'favoriteToggle' }
     | { type: 'reset' };
 
-  // Ciclo del ordenamiento: Más reciente -> A-Z -> Z-A -> Más reciente
+  // Ciclo del ordenamiento: Más reciente -> A-Z -> Z-A -> Más antiguo -> Más reciente
   const cycleSort = () => {
     setSortDirection((prev) => {
-      if (prev === 'none') return 'asc';
+      if (prev === 'newest') return 'asc';
       if (prev === 'asc') return 'desc';
-      return 'none';
+      if (prev === 'desc') return 'oldest';
+      return 'newest';
     });
   };
 
@@ -606,10 +607,10 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
     selectedRetroPlatforms.size > 0 ||
     selectedSources.size > 0 ||
     filterFavorites ||
-    sortDirection !== 'none';
+    sortDirection !== 'newest';
 
   const resetFilters = () => {
-    setSortDirection('none');
+    setSortDirection('newest');
     setSelectedPlatforms(new Set());
     setSelectedRetroPlatforms(new Set());
     setSelectedSources(new Set());
@@ -672,17 +673,14 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
 
   // 3. Ordenar los juegos basados en el estado actual
   const sortedGames = useMemo(() => {
-    return [...games].sort((a, b) => {
-      if (sortDirection === 'none') return 0; // Mantiene el orden original que viene del backend/prop
+    if (sortDirection === 'newest') return [...games].reverse();
+    if (sortDirection === 'oldest') return [...games];
 
+    return [...games].sort((a, b) => {
       const titleA = (a.title || '').toLowerCase();
       const titleB = (b.title || '').toLowerCase();
-
-      if (sortDirection === 'asc') {
-        return titleA.localeCompare(titleB); // A-Z
-      } else {
-        return titleB.localeCompare(titleA); // Z-A
-      }
+      if (sortDirection === 'asc') return titleA.localeCompare(titleB);
+      return titleB.localeCompare(titleA);
     });
   }, [games, sortDirection]);
 
@@ -865,6 +863,8 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
               style={StyleSheet.absoluteFillObject}
               activeOpacity={1}
               onPress={() => closeFilterPanel()}
+              accessible={false}
+              focusable={false}
             />
 
             <View
@@ -1118,12 +1118,12 @@ const LibraryGrid = forwardRef<LibraryGridHandle, LibraryGridProps>(function Lib
           <View style={styles.tabsRow}>
             {isFocused && (
               <View style={styles.tabsContainer}>
-                <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('installed'); }}>
+                <TouchableOpacity onPress={() => { setSortDirection('newest'); onTabChange?.('installed'); }}>
                   <View style={[styles.tabPill, tabsFocused && activeTab === 'installed' && styles.tabPillFocused]}>
                     <Text style={[styles.tabText, activeTab === 'installed' && styles.tabTextActive]}>{t('library.installed')}</Text>
                   </View>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => { setSortDirection('none'); onTabChange?.('collection'); }}>
+                <TouchableOpacity onPress={() => { setSortDirection('newest'); onTabChange?.('collection'); }}>
                   <View style={[styles.tabPill, tabsFocused && activeTab === 'collection' && styles.tabPillFocused]}>
                     <Text style={[styles.tabText, activeTab === 'collection' && styles.tabTextActive]}>{t('library.collection')}</Text>
                   </View>

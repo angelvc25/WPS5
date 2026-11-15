@@ -347,7 +347,7 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
       const ltf = libraryTabsFocusedRef.current;
       const lff = libraryFilterFocusedRef.current;
       const lfft = libraryFilterFromTabsRef.current;
-      const ilfpo = isLibraryFilterPanelOpenRef.current;
+      const ilfpo = isLibraryFilterPanelOpenRef.current || !!optionsRef.current.libraryGridRef.current?.isFilterPanelOpen();
       const iweo = isWidgetEditOpenRef.current;
       const wefi = widgetEditFocusIndexRef.current;
       const iwmm = isWidgetMoveModeRef.current;
@@ -1121,7 +1121,13 @@ export function useFocusNavigation(options: UseFocusNavigationOptions): UseFocus
         }
         if (fa === 'library_grid') {
           if (lff) {
-            o.libraryGridRef.current?.activateFilterButton();
+            // Si el panel ya está abierto, el Enter activa la fila seleccionada
+            // (ilfpo puede tardar un tick en actualizarse tras la apertura).
+            if (ilfpo || o.libraryGridRef.current?.isFilterPanelOpen()) {
+              o.libraryGridRef.current?.activatePanelSelection();
+            } else {
+              o.libraryGridRef.current?.activateFilterButton();
+            }
             return;
           }
           if (ltf) return; // usa ←/→ para cambiar de pestaña
