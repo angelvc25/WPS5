@@ -718,11 +718,18 @@ function persistMetadataCache() {
   }, 1000);
 }
 
+const METADATA_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
+
 function getFromMetadataCache(key) {
   if (!key) return null;
   const normalizedKey = key.trim().toLowerCase();
   const entry = metadataCache[normalizedKey];
-  return entry?.data ?? null;
+  if (!entry) return null;
+  if (Date.now() - (entry.timestamp || 0) > METADATA_CACHE_TTL_MS) {
+    delete metadataCache[normalizedKey];
+    return null;
+  }
+  return entry.data ?? null;
 }
 
 function saveToMetadataCache(key, data) {

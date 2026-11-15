@@ -849,7 +849,7 @@ export default function ConsoleHome() {
     handleLaunchApp: (item: ConsoleItem) => _handleLaunchAppRef.current(item),
     openContextMenu: () => _openContextMenuRef.current(),
     openLibraryContextMenu: (item, idx) => _openLibraryContextMenuRef.current(item, idx),
-    handleContextMenuAction: (idx: number) => _handleContextMenuActionRef.current(idx),
+    handleContextMenuAction: (idx: string | number) => _handleContextMenuActionRef.current(idx as number),
     handleToggleFavorite: () => _handleToggleFavoriteRef.current(),
     handleTogglePin: () => _handleTogglePinRef.current(),
     handleProfileMenuAction: (idx: number) => _handleProfileMenuActionRef.current(idx),
