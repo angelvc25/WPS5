@@ -1,5 +1,5 @@
 import React from 'react';
-import { useIntroReady } from '@/hooks/useLauncherSettled';
+import { useIntroReady, useLauncherSettled, useSplashDone } from '@/hooks/useLauncherSettled';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 
 function ensureCardCss() {
@@ -7,7 +7,7 @@ function ensureCardCss() {
   const s = document.createElement('style');
   s.id = 'wps5-card-css';
   s.textContent = `@keyframes wps5CardIn {
-    from { opacity: 0; transform: translateX(120px) scale(0.8); }
+    from { opacity: 0; transform: translateX(150px) scale(0.7); }
     to   { opacity: 1; transform: translateX(0) scale(1); }
   }`;
   document.head.appendChild(s);
@@ -27,20 +27,24 @@ export const AnimatedCardWrapper = React.memo(({
   style,
   entryIndex = 0,
 }: AnimatedCardWrapperProps) => {
-  // Inicializamos a escala 1 para que al entrar se anime la escala destacada de la tarjeta activa
-  const scale = useSharedValue(1);
-  const translateY = useSharedValue(0);
-  const marginH = useSharedValue(6);
+  const scale = useSharedValue(isActive ? 1.5 : 1);
+  const translateY = useSharedValue(isActive ? 17 : 0);
+  const marginH = useSharedValue(isActive ? 20 : 6);
 
+  const splashDone = useSplashDone();
+  const settled = useLauncherSettled();
   const introReady = useIntroReady();
+  const settledRef = React.useRef(settled);
+  settledRef.current = settled;
+  const wasWaitingForSplashRef = React.useRef(!splashDone);
 
   React.useEffect(() => {
-    if (!introReady) return;
     const cfg = { duration: 280, easing: Easing.out(Easing.quad) };
-    scale.value = withTiming(isActive ? 1.5 : 1, cfg);
-    translateY.value = withTiming(isActive ? 17 : 0, cfg);
-    marginH.value = withTiming(isActive ? 20 : 6, cfg);
-  }, [isActive, introReady]);
+    const to = (v: number) => (settledRef.current ? withTiming(v, cfg) : v);
+    scale.value = to(isActive ? 1.5 : 1);
+    translateY.value = to(isActive ? 17 : 0);
+    marginH.value = to(isActive ? 20 : 6);
+  }, [isActive]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { translateY: translateY.value }],
@@ -50,12 +54,12 @@ export const AnimatedCardWrapper = React.memo(({
     borderRadius: 20,
   }));
 
-  const delay = Math.min(entryIndex, 10) * 50;
+  const delay = (wasWaitingForSplashRef.current ? 250 : 80) + Math.min(entryIndex, 10) * 60;
   const entryStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     opacity: introReady ? undefined : 0,
-    animation: introReady ? `wps5CardIn 600ms cubic-bezier(0.16,1,0.3,1) ${delay}ms both` : undefined,
+    animation: introReady ? `wps5CardIn 700ms cubic-bezier(0.16,1,0.3,1) ${delay}ms both` : undefined,
   };
 
   return (

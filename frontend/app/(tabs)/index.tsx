@@ -2283,8 +2283,9 @@ export default function ConsoleHome() {
   const wipeDirection = useSharedValue<1 | -1>(1);
   // 0 = capa A activa/entrante, 1 = capa B activa/entrante
   const activeLayerShared = useSharedValue<0 | 1>(0);
-  // El wipe con mask-image realiza la transición circular estilo PS5
-  const bgWipeEnabled = useSharedValue(1);
+  // El wipe con mask-image se repinta en el hilo principal cada frame. En frÃ­o
+  // el primer cambio de fondo va solo con opacity; el wipe se activa despuÃ©s.
+  const bgWipeEnabled = useSharedValue(0);
   const bgAnimatedOnceRef = useRef(false);
 
   // Ref que se actualiza en CADA render: nunca queda obsoleto en closures
@@ -2447,8 +2448,12 @@ export default function ConsoleHome() {
       }
       const willAnimate = layer === 'A' ? currentBg !== a : currentBg !== b;
       if (willAnimate) {
-        bgWipeEnabled.value = 1;
-        bgAnimatedOnceRef.current = true;
+        if (bgAnimatedOnceRef.current) {
+          bgWipeEnabled.value = 1;
+        } else {
+          bgWipeEnabled.value = 0;
+          bgAnimatedOnceRef.current = true;
+        }
       }
       if (layer === 'A') {
         fade.value = 0;

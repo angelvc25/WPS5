@@ -94,13 +94,14 @@ export const StoreFrontPanel = ({
   }, [gamePanelFocusIndex, focusArea, CARD_W, scale]);
 
   if (!settled) {
-    return null;
+    return <Animated.View style={[styles.container, { paddingLeft: s(150), paddingTop: s(280), opacity: 0 }]} />;
   }
 
   return (
     <Animated.View
-      style={[styles.container, { paddingLeft: s(150), paddingTop: s(280) }]}
-      entering={FadeInDown.duration(400)}
+      key={animReady ? 'intro' : 'pre'}
+      style={[styles.container, { paddingLeft: s(150), paddingTop: s(280) }, !animReady && { opacity: 0 }]}
+      entering={animReady ? FadeInDown.duration(400) : undefined}
     >
       <Animated.View style={gameInfoPanelStyle}>
       {/* Header con altura fija para Logo o nombre del juego enfocado (elimina saltos de layout) */}
