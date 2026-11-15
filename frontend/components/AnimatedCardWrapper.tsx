@@ -33,6 +33,8 @@ export const AnimatedCardWrapper = React.memo(({
   const marginH = useSharedValue(6);
 
   const introReady = useIntroReady();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => { setMounted(true); }, []);
 
   React.useEffect(() => {
     if (!introReady) return;
@@ -51,25 +53,16 @@ export const AnimatedCardWrapper = React.memo(({
   }));
 
   const delay = Math.min(entryIndex, 10) * 50;
-
-  // Cuando introReady cambia de false → true necesitamos que el <div> se remonte
-  // para que el browser ejecute la animación CSS desde el principio.
-  // Cambiar solo el estilo de un elemento ya pintado no reinicia la animación.
-  const entryKey = introReady ? `ready-${entryIndex}` : `pre-${entryIndex}`;
-
-  const entryStyle: React.CSSProperties = introReady ? {
+  const entryStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
-    animation: `wps5CardIn 600ms cubic-bezier(0.16,1,0.3,1) ${delay}ms both`,
-  } : {
-    display: 'flex',
-    flexDirection: 'column',
-    opacity: 0,
+    opacity: (introReady && mounted) ? undefined : 0,
+    animation: (introReady && mounted) ? `wps5CardIn 600ms cubic-bezier(0.16,1,0.3,1) ${delay}ms both` : undefined,
   };
 
   return (
     <Animated.View style={style}>
-      <div key={entryKey} style={entryStyle}>
+      <div style={entryStyle}>
         <Animated.View style={animStyle}>{children}</Animated.View>
       </div>
     </Animated.View>

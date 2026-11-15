@@ -1,29 +1,30 @@
 import { useTranslation } from '@/contexts/LanguageContext';
-import { useAnimClockReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 import type { SteamDownloadItem } from '@/hooks/useSteamDownloads';
-import { toastService } from '@/services/toastService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
+import { useAnimClockReady, useLauncherSettled } from '@/hooks/useLauncherSettled';
 import { ConsoleItem } from '../app/(tabs)/index';
 import { useAchievementWatcher } from '../hooks/useAchievementWatcher';
 import { getRpcs3AppId } from '../services/achievementWatcherService';
 import {
-    fetchGameTrophies,
-    getCachedGameTrophies,
-    getTrophyContextFromUser,
+  fetchGameTrophies,
+  getCachedGameTrophies,
+  getTrophyContextFromUser,
 } from '../services/gameTrophiesService';
-import { resolveFieldSyncPreferences } from '../services/metadataPreferences';
 import { formatPlaytime } from '../services/playtimeService';
-import { fetchSteamDescription, isPlaytimePlaceholder } from '../services/steamDescriptionService';
 import { STEAM_API_LANG } from '../services/steamLanguage';
+import { fetchSteamDescription, isPlaytimePlaceholder } from '../services/steamDescriptionService';
 import { getGameActionLabel, getSteamAppId, isSteamGame } from '../services/steamLaunchService';
 import { SteamGameAchievementsSummary } from '../services/steamUserService';
-import { ScaleFadeBorder, AnimatedSpinningBorderLogros as SpinningBorderLogros } from './AnimatedSpinningBorders';
-import { GameMetadataSection } from './GameMetadataSection';
 import MusicPlayerCard from './MusicPlayerCard';
+import { GameMetadataSection } from './GameMetadataSection';
+import { resolveFieldSyncPreferences } from '../services/metadataPreferences';
+import SpinningBorderNoticias from './SpinningborderNoticias';
+import { ScaleFadeBorder, AnimatedSpinningBorderLogros as SpinningBorderLogros } from './AnimatedSpinningBorders';
+import { toastService } from '@/services/toastService';
 
 
 // ─── Shimmer skeleton placeholder (usado mientras cargan capturas/noticias) ──
@@ -400,9 +401,6 @@ export const GameInfoPanel = ({
   // Al marcar animReady se remonta para que las entering actuales corran
   // ya con el hilo estable, sin cambiar duraciones ni delays.
   const settled = useLauncherSettled();
-  const animReady = useAnimClockReady();
-
-  console.log('[GameInfoPanel] render settled=', settled, 'animReady=', animReady);
 
   if (!settled) {
     return null;
@@ -410,7 +408,6 @@ export const GameInfoPanel = ({
 
   return (
     <Animated.View
-      key={animReady ? 'panel-ready' : 'panel-pre'}
       style={[styles.gameInfoPanel, gameInfoPanelStyle, { paddingLeft: s(150) }]}
       entering={FadeIn.duration(400)}
     >
