@@ -425,6 +425,18 @@ export function useLibrary({
             result.unshift(MEDIA_GALLERY_ITEM);
             return result;
         }
+        // Colección personalizada del usuario: necesita todos los juegos
+        // (Steam, Epic, Xbox y locales) para que el filtro por collectionGameIds
+        // en LibraryGrid pueda encontrar cualquier juego independientemente de su origen.
+        if (libraryTab !== 'collection') {
+            const byId = new Map<string, ConsoleItem>();
+            epicGames.forEach(game => { byId.set(game.id, applyDbOverride(game)); });
+            xboxGames.forEach(game => { byId.set(game.id, applyDbOverride(game)); });
+            steamGames.forEach(sg => { byId.set(sg.id, applyDbOverride(sg)); });
+            savedGames.forEach(game => { byId.set(game.id, { ...game, path: resolveLaunchPath(game) }); });
+            return Array.from(byId.values());
+        }
+        // "Tu Colección" (Steam)
         return steamGames.map(sg => applyDbOverride(sg));
     }, [libraryTab, savedGames, epicGames, xboxGames, steamGames, games]);
 
