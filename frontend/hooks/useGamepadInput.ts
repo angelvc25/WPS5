@@ -48,6 +48,12 @@ export function useGamepadInput({
   const focusRecoveryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const staleNotifiedRef = useRef(false);
   const lastStaleNotifyAtRef = useRef(0);
+  // Teclas ya despachadas en el ciclo de poll actual. Evita que dos mandos
+  // conectados (especialmente del mismo modelo, que comparten `gamepad.id`)
+  // dispachen el mismo evento de teclado dos veces al pulsar el mismo botón.
+  // Eso causaba lanzamientos dobles, navegación doble en widgets y otros
+  // errores cuando se conectan dos mandos a la vez.
+  const keysDispatchedThisPollRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof navigator === 'undefined') return;
@@ -127,6 +133,13 @@ export function useGamepadInput({
     const REPEAT_INTERVAL = 110;
 
     const dispatchKey = (key: string, gamepad: Gamepad) => {
+      // Deduplicar: si esta tecla ya fue despachada en este ciclo de poll
+      // (por ejemplo por otro mando conectado), no volver a dispararla.
+      // Así, dos mandos pulsando el mismo botón a la vez solo genera un
+      // evento de teclado, evitando lanzamientos dobles y navegación doble.
+      if (keysDispatchedThisPollRef.current.has(key)) return;
+      keysDispatchedThisPollRef.current.add(key);
+
       // Este mando acaba de dar una orden: pasa a ser el "activo" para la UI.
       if (lastGamepadIdRef.current !== gamepad.id) {
         lastGamepadIdRef.current = gamepad.id;
@@ -254,6 +267,10 @@ export function useGamepadInput({
         cancelLoop();
         return;
       }
+      // Resetear teclas despachadas en este ciclo de poll para permitir
+      // que la misma tecla vuelva a dispararse en el siguiente ciclo
+      // (necesario para auto-repetición y para mandos distintos).
+      keysDispatchedThisPollRef.current.clear();
       const pads = getAlivePads();
 
       // Se notifica el estado global de mando: los avisos de controles
