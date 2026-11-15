@@ -1,5 +1,6 @@
 import type { ConsoleItem } from '@/app/(tabs)/index';
 import { UserProfile } from '@/components/UserSelectScreen';
+import { useIntroDone } from '@/hooks/useLauncherSettled';
 import { TranslationKey } from '@/i18n/translations';
 import { fetchEpicInstalledGames } from '@/services/epicInstallService';
 import { buildEpicRunUrl } from '@/services/epicLaunchService';
@@ -14,7 +15,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import type { SteamDownloadItem } from './useSteamDownloads';
 import { useSteamDownloads } from './useSteamDownloads';
-import { useIntroDone } from '@/hooks/useLauncherSettled';
 
 type Vars = Record<string, string | number>;
 type TFunction = (key: TranslationKey, vars?: Vars) => string;
@@ -216,6 +216,7 @@ export function useSteamSync({ activeUser, games, t, language: _language, librar
 
   // ── Effect: carga inicial de installedSteamAppIds ─────────────────────────
   useEffect(() => {
+    if (!settled) return;
     if (Platform.OS !== 'web' || !(window as any).electronAPI?.getSteamInstalledApps) return;
     fetchSteamInstalledAppIds().then(setInstalledSteamAppIds);
   }, [settled]);

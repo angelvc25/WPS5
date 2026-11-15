@@ -54,17 +54,17 @@ import TrophiesView from '@/components/TrophiesView';
 import WelcomeSettingsView from '@/components/WelcomeSettingsView';
 import WelcomeWidgets, { WelcomeWidgetsHandle } from '@/components/WelcomeWidgets';
 import WidgetEditPanel, {
-    clampWidgetSize,
-    computeWidgetColumns,
-    loadWidgetOrder,
-    loadWidgetSizes,
-    loadWidgetVisibility,
-    PANEL_WIDGETS,
-    saveWidgetOrder,
-    saveWidgetSizes,
-    saveWidgetVisibility,
-    WidgetSizes,
-    WidgetVisibility
+  clampWidgetSize,
+  computeWidgetColumns,
+  loadWidgetOrder,
+  loadWidgetSizes,
+  loadWidgetVisibility,
+  PANEL_WIDGETS,
+  saveWidgetOrder,
+  saveWidgetSizes,
+  saveWidgetVisibility,
+  WidgetSizes,
+  WidgetVisibility
 } from '@/components/WidgetEditPanel';
 import { PLATFORMS } from '@/constants/platforms';
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -76,7 +76,7 @@ import { usePresentationMode } from '@/hooks/usePresentationMode';
 import { useSteamSync } from '@/hooks/useSteamSync';
 import { Language } from '@/i18n/translations';
 import {
-    initOnlineLibraryAutoSync,
+  initOnlineLibraryAutoSync,
 } from '@/services/onlineAutoSync';
 import { initOnlineFriendWatcher } from '@/services/onlineFriendWatcher';
 import { psnLocaleForLanguage } from '@/services/psnMetadataService';
@@ -1310,11 +1310,17 @@ export default function ConsoleHome() {
 
   useEffect(() => {
     if (!introDone) return;
-    fetchGamingNews().then(() => { });
+    // Escalonar las tareas de inicio para que sus respuestas no lleguen
+    // todas juntas y provoquen un corte de scroll por re-renders en ráfaga.
+    // initOnlineLibraryAutoSync solo registra suscriptores, no hace red.
     initOnlineLibraryAutoSync();
-    initOnlineFriendWatcher((key, params) => tRef.current(key as any, params));
-    const t = setTimeout(CheckUpdates, 3000);
-    return () => clearTimeout(t);
+    // fetchGamingNews: IPC + red — 1 s de margen tras introDone
+    const t1 = setTimeout(() => fetchGamingNews().then(() => { }), 1000);
+    // initOnlineFriendWatcher: posible IPC — 2 s de margen
+    const t2 = setTimeout(() => initOnlineFriendWatcher((key, params) => tRef.current(key as any, params)), 2000);
+    // CheckUpdates: fetch de versión — 5 s de margen (antes: 3 s, coincidía con noticias/amigos)
+    const t3 = setTimeout(CheckUpdates, 5000);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [introDone]);
 
   // La mÃºsica temÃ¡tica solo se activa en Inicio y despuÃ©s de mantener el foco
