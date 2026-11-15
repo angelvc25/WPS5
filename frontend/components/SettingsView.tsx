@@ -18,31 +18,31 @@ import {
   View,
   useWindowDimensions
 } from 'react-native';
-import Animated, { Easing, Extrapolation, FadeIn, FadeOut, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { toastService } from '../services/toastService';
-import { syncProfileMediaToOnline } from '../services/onlineAccountService';
-import {
-  searchSteamDeckRepo,
-  SteamDeckRepoPost,
-  SteamDeckRepoSort,
-  SteamDeckRepoVideoType,
-} from '../services/steamDeckRepoService';
+import Animated, { Easing, Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import {
   FIELD_SOURCE_OPTIONS,
   SOURCE_LABELS,
   resolveFieldSyncPreferences,
   type SyncFieldKey,
 } from '../services/metadataPreferences';
+import { syncProfileMediaToOnline } from '../services/onlineAccountService';
+import {
+  SteamDeckRepoPost,
+  SteamDeckRepoSort,
+  SteamDeckRepoVideoType,
+  searchSteamDeckRepo,
+} from '../services/steamDeckRepoService';
+import { toastService } from '../services/toastService';
 import BackgroundVideo from './BackgroundVideo';
 import { EmulationView } from './EmulationView';
 
+import { AnimatedSpinningBorderSearch as SpinningBorderSearch, AnimatedSpinningBorderSettings as SpinningBorderSettings } from './AnimatedSpinningBorders';
 import OnlineAuthView from './OnlineAuthView';
 import PSIcon from './PSIcon';
-import VirtualKeyboard from './VirtualKeyboard';
-import { UserProfile } from './UserSelectScreen';
-import { AnimatedSpinningBorderSearch as SpinningBorderSearch, AnimatedSpinningBorderSettings as SpinningBorderSettings } from './AnimatedSpinningBorders';
-import UserProfileView, { resolveImageSource } from './UserProfileView';
 import ThemeSettingsView from './ThemeSettingsView';
+import UserProfileView, { resolveImageSource } from './UserProfileView';
+import { UserProfile } from './UserSelectScreen';
+import VirtualKeyboard from './VirtualKeyboard';
 
 function compareVersions(a: string, b: string): number {
   const aParts = a.split('.').map(Number);
@@ -1676,7 +1676,7 @@ export default function SettingsView({
       { id: 'sync', title: t('settings.smartSync') },
       { id: 'gamepanel', title: t('settings.gamePanel') },
       { id: 'overlay', title: t('settings.overlay') },
-      { id: 'trophies', title: 'Trofeos y Notificaciones' },
+      { id: 'trophies', title: t('settings.trophyNotifTitle') },
       { id: 'splash', title: t('settings.steamDeckRepo') },
     ];
 
@@ -2402,12 +2402,12 @@ export default function SettingsView({
               const isRightFocused = accessibilityFocusArea === 'right';
 
               const TROPHY_POSITIONS = [
-                { id: 'topright', label: 'Superior Der (PS5)' },
-                { id: 'topcenter', label: 'Superior Centro' },
-                { id: 'topleft', label: 'Superior Izq' },
-                { id: 'bottomright', label: 'Inferior Der' },
-                { id: 'bottomcenter', label: 'Inferior Centro' },
-                { id: 'bottomleft', label: 'Inferior Izq' },
+                { id: 'topright', label: t('settings.trophyPos.topright') },
+                { id: 'topcenter', label: t('settings.trophyPos.topcenter') },
+                { id: 'topleft', label: t('settings.trophyPos.topleft') },
+                { id: 'bottomright', label: t('settings.trophyPos.bottomright') },
+                { id: 'bottomcenter', label: t('settings.trophyPos.bottomcenter') },
+                { id: 'bottomleft', label: t('settings.trophyPos.bottomleft') },
               ];
 
               const TROPHY_DURATIONS = [
@@ -2426,9 +2426,9 @@ export default function SettingsView({
 
               return (
                 <ScrollView showsVerticalScrollIndicator={false} style={styles.borderBleedScroll} contentContainerStyle={styles.borderBleedContent}>
-                  <Text style={styles.rightSectionTitle}>Trofeos y Notificaciones (Estilo PS5)</Text>
+                  <Text style={styles.rightSectionTitle}>{t('settings.trophyNotifTitle')} (Estilo PS5)</Text>
                   <Text style={[styles.pathDesc, { marginBottom: 16 }]}>
-                    Personaliza la apariencia, posición y efectos sonoros de las notificaciones de trofeos para Steam, RetroAchievements y juegos externos.
+                    {t('settings.trophyNotifDesc')}
                   </Text>
 
                   {/* Fila 0: Sonidos de Trofeo */}
@@ -2440,8 +2440,8 @@ export default function SettingsView({
                   >
                     {isRightFocused && subFocusIndex === 0 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
                     <View style={{ flex: 1, paddingRight: 20 }}>
-                      <Text style={styles.toggleRowTitle}>Efectos de Sonido de Trofeo</Text>
-                      <Text style={styles.toggleRowDesc}>Reproduce el tono auténtico de trofeo de PS5 al desbloquear logros.</Text>
+                      <Text style={styles.toggleRowTitle}>{t('settings.trophySound')}</Text>
+                      <Text style={styles.toggleRowDesc}>{t('settings.trophySoundDesc')}</Text>
                     </View>
                     <TouchableOpacity
                       style={[styles.psSwitch, trophyConfig.soundEnabled && styles.psSwitchActive]}
@@ -2466,8 +2466,8 @@ export default function SettingsView({
                   >
                     {isRightFocused && subFocusIndex === 1 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
                     <View style={{ flex: 1, paddingRight: 20 }}>
-                      <Text style={styles.toggleRowTitle}>Posición en Pantalla</Text>
-                      <Text style={styles.toggleRowDesc}>Ubicación donde aparecerá la tarjeta flotante sobre el juego.</Text>
+                      <Text style={styles.toggleRowTitle}>{t('settings.trophyPosition')}</Text>
+                      <Text style={styles.toggleRowDesc}>{t('settings.trophyPositionDesc')}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: 440, justifyContent: 'flex-end' }}>
                       {TROPHY_POSITIONS.map((opt) => {
@@ -2497,8 +2497,8 @@ export default function SettingsView({
                   >
                     {isRightFocused && subFocusIndex === 2 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
                     <View style={{ flex: 1, paddingRight: 20 }}>
-                      <Text style={styles.toggleRowTitle}>Tiempo en Pantalla</Text>
-                      <Text style={styles.toggleRowDesc}>Duración antes de descartarse automáticamente.</Text>
+                      <Text style={styles.toggleRowTitle}>{t('settings.trophyDuration')}</Text>
+                      <Text style={styles.toggleRowDesc}>{t('settings.trophyDurationDesc')}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: 380, justifyContent: 'flex-end' }}>
                       {TROPHY_DURATIONS.map((opt) => {
@@ -2528,8 +2528,8 @@ export default function SettingsView({
                   >
                     {isRightFocused && subFocusIndex === 3 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
                     <View style={{ flex: 1, paddingRight: 20 }}>
-                      <Text style={styles.toggleRowTitle}>Tamaño de la Notificación</Text>
-                      <Text style={styles.toggleRowDesc}>Escala general de la tarjeta flotante.</Text>
+                      <Text style={styles.toggleRowTitle}>{t('settings.trophyScale')}</Text>
+                      <Text style={styles.toggleRowDesc}>{t('settings.trophyScaleDesc')}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: 380, justifyContent: 'flex-end' }}>
                       {TROPHY_SCALES.map((opt) => {
@@ -2559,33 +2559,33 @@ export default function SettingsView({
                   >
                     {isRightFocused && subFocusIndex === 4 && <SpinningBorderSettings size={s(180)} spread={0.5} borderRadius={0} />}
                     <View style={{ flex: 1, paddingRight: 20 }}>
-                      <Text style={styles.toggleRowTitle}>Probar Notificación</Text>
-                      <Text style={styles.toggleRowDesc}>Lanza una notificación de demostración con sonido y animación reales.</Text>
+                      <Text style={styles.toggleRowTitle}>{t('settings.trophyTest')}</Text>
+                      <Text style={styles.toggleRowDesc}>{t('settings.trophyTestDesc')}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       <TouchableOpacity
                         style={[styles.platformBtn, { borderColor: '#cd7f32' }]}
                         onPress={() => testTrophy('bronze')}
                       >
-                        <Text style={[styles.platformBtnText, { color: '#cd7f32' }]}>Bronce</Text>
+                        <Text style={[styles.platformBtnText, { color: '#cd7f32' }]}>{t('settings.trophyRarity.bronze')}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.platformBtn, { borderColor: '#c0c5cc' }]}
                         onPress={() => testTrophy('silver')}
                       >
-                        <Text style={[styles.platformBtnText, { color: '#c0c5cc' }]}>Plata</Text>
+                        <Text style={[styles.platformBtnText, { color: '#c0c5cc' }]}>{t('settings.trophyRarity.silver')}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.platformBtn, { borderColor: '#e5b842', backgroundColor: 'rgba(229,184,66,0.15)' }]}
                         onPress={() => testTrophy('gold')}
                       >
-                        <Text style={[styles.platformBtnText, { color: '#e5b842' }]}>Oro</Text>
+                        <Text style={[styles.platformBtnText, { color: '#e5b842' }]}>{t('settings.trophyRarity.gold')}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.platformBtn, { borderColor: '#00c8ff', backgroundColor: 'rgba(0,200,255,0.15)' }]}
                         onPress={() => testTrophy('platinum')}
                       >
-                        <Text style={[styles.platformBtnText, { color: '#00c8ff' }]}>Platino</Text>
+                        <Text style={[styles.platformBtnText, { color: '#00c8ff' }]}>{t('settings.trophyRarity.platinum')}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
